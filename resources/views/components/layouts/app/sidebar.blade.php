@@ -18,6 +18,7 @@
 
                 <flux:navlist.group :heading="__('Super Admin')" class="grid">
                     <flux:navlist.item icon="" :href="route('super-admin.roles.index')" :current="request()->routeIs('super-admin.roles.*')" wire:navigate>{{ __('Roles & Permissions') }}</flux:navlist.item>
+                    <flux:navlist.item icon="building-office-2" :href="route('super-admin.branches.index')" :current="request()->routeIs('super-admin.branches.*')" wire:navigate>{{ __('Branch Management') }}</flux:navlist.item>
                 </flux:navlist.group>
             </flux:navlist>
 
@@ -128,7 +129,7 @@
                 </flux:menu>
             </flux:dropdown>
         </flux:header>
-
+         <x-toast />
         {{ $slot }}
 
         @fluxScripts
