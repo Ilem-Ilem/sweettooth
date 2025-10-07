@@ -17,22 +17,12 @@
                 </flux:navlist.group>
 
                 <flux:navlist.group :heading="__('Super Admin')" class="grid">
-                    <flux:navlist.item icon="" :href="route('super-admin.roles.index')" :current="request()->routeIs('super-admin.roles.*')" wire:navigate>{{ __('Roles & Permissions') }}</flux:navlist.item>
+                    <flux:navlist.item icon="shield-check" :href="route('super-admin.roles.index')" :current="request()->routeIs('super-admin.roles.*')" wire:navigate>{{ __('Roles & Permissions') }}</flux:navlist.item>
                     <flux:navlist.item icon="building-office-2" :href="route('super-admin.branches.index')" :current="request()->routeIs('super-admin.branches.*')" wire:navigate>{{ __('Branch Management') }}</flux:navlist.item>
                 </flux:navlist.group>
             </flux:navlist>
 
             <flux:spacer />
-
-            <flux:navlist variant="outline">
-                <flux:navlist.item icon="folder-git-2" href="https://github.com/laravel/livewire-starter-kit" target="_blank">
-                {{ __('Repository') }}
-                </flux:navlist.item>
-
-                <flux:navlist.item icon="book-open-text" href="https://laravel.com/docs/starter-kits#livewire" target="_blank">
-                {{ __('Documentation') }}
-                </flux:navlist.item>
-            </flux:navlist>
 
             <!-- Desktop User Menu -->
             <flux:dropdown class="hidden lg:block" position="bottom" align="start">
