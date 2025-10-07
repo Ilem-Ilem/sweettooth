@@ -22,10 +22,17 @@
         display: none !important;
     }
 </style>
-
+<x-breadcrumb
+    title="Role  Management"
+    :items="[
+        ['label' => 'Dashboard', 'url' => route('dashboard')],
+        ['label' => 'Manage Role and permissions']
+    ]"
+    :compact="false"
+    :with-icons="true"
+/>
     <!-- Header with Add Button -->
     <div class="flex justify-between items-center">
-        <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Roles Management</h1>
         <button wire:click="openRoleModal" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center shadow-sm">
             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -164,7 +171,7 @@
         paginate
         persist
         :filter="['quantity' => 'quantity', 'search' => 'search']"
-        :quantity="[10, 25, 50, 100]"
+        :quantity="[2, 10, 25, 50, 100]"
     >
         @interact('column_action', $row)
             <div class="flex items-center space-x-2">

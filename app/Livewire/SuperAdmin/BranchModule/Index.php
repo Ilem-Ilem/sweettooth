@@ -59,7 +59,7 @@ class Index extends BaseComponent
 
     protected function getFilteredQuery()
     {
-        return Branch::query()
+        return Branch::query()->latest()
             ->when($this->search, function ($query) {
                 $query->where('name', 'like', '%' . $this->search . '%')
                       ->orWhere('code', 'like', '%' . $this->search . '%');

@@ -58,9 +58,11 @@
                             Daily reporting
                         </li>
                     </ul>
-                    <button class="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-lg font-medium transition-all duration-300 hover:from-emerald-600 hover:to-teal-700 shadow-md hover:shadow-lg">
+                    <a wire:navigate href="{{ route('staff-login') }}"
+                    class="block flex justify-center w-full py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg font-medium transition-all duration-300 hover:from-blue-600 hover:to-indigo-700 shadow-md hover:shadow-lg"
+                    >
                         Login as Staff
-                    </button>
+                    </a>
                 </div>
             </div>
         </div>
