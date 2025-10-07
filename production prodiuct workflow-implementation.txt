@@ -1,0 +1,178 @@
+### Detailed To-Do List for Implementing the Product Module in Laravel
+
+This to-do list provides a step-by-step guide to implement the product module based on the `product_types` and `products` tables from the provided Laravel migration. The module manages product types (e.g., gelato_base, pastry) and products (e.g., banana bread with price tags and shelf life), integrating with recipes and production tracking. The steps are in ascending order, covering project setup, database configuration, backend logic, and frontend views, with detailed instructions for each task. No code is included, as per the request.
+
+## Phase 1: Project Setup and Environment Configuration
+
+1. **Initialize Laravel Project**
+   - Use Composer to create a new Laravel project named `production-system`.
+   - Navigate to the project directory.
+   - Edit the `.env` file to configure the database connection (e.g., MySQL) with the database name, username, and password. Ensure the database exists in your database management tool.
+   - Generate an application key to secure the app.
+   - Install the Laravel UI package for Bootstrap and authentication scaffolding, then generate the auth scaffolding.
+   - Start the development server and verify the welcome page loads in a browser.
+
+2. **Configure Authentication and Authorization**
+   - Use the authentication scaffolding to set up login and registration functionality.
+   - Install a role/permission package (e.g., Spatie Laravel Permission) to manage user roles like admin and employee.
+   - Configure the package in the auth configuration file to define guards and providers.
+   - Create a seeder to initialize roles (e.g., admin, employee) in the database.
+   - Modify the User model to include role-based functionality.
+   - Protect admin routes with middleware to restrict access to users with the admin role.
+   - Customize the login and registration views to match the business’s branding (e.g., bakery or gelato production).
+
+## Phase 2: Database Setup for Product Module
+
+3. **Set Up Migrations for Product Types and Products**
+   - Create a single migration file named `2025_10_05_create_product_module_tables` in the `database/migrations` directory.
+   - Define two migration classes in the file:
+     - **Product Types Table**: Include columns for ID (auto-incrementing), unique name (string), nullable description (text), and timestamps.
+     - **Products Table**: Include columns for ID (auto-incrementing), name (string), unique SKU (string), product type ID (foreign key to product_types), nullable category ID (unsigned big integer), price (decimal, 10,2), shelf life days (integer, default 0), unit of measure (enum: grams, kg, liters, ml, pcs, units, default pcs), and timestamps.
+   - Ensure the products table has a foreign key constraint on product_type_id referencing product_types with a restrict on delete.
+   - Run the migration command to create the tables in the database.
+   - Verify the tables exist in the database using a tool like phpMyAdmin, checking column types and constraints.
+
+4. **Seed Initial Data**
+   - Create a seeder for product types to populate initial data (e.g., gelato_base, gelato_flavor, pastry, hot_kitchen, beverage with descriptions).
+   - Create a seeder for products to add sample products (e.g., Banana Bread with SKU BB001, pastry type, price $5.99, shelf life 7 days, unit pcs).
+   - Update the database seeder to call both the product types and products seeders.
+   - Run the seeding command to populate the tables.
+   - Verify the seeded data in the database, ensuring product types and at least one product (e.g., Banana Bread) are present.
+
+## Phase 3: Backend Implementation for Product Module
+
+5. **Create Eloquent Models**
+   - Generate a model for ProductType with fillable fields: name, description. Define a one-to-many relationship to the Products model.
+   - Generate a model for Product with fillable fields: name, sku, product_type_id, category_id, price, shelf_life_days, uom. Define a many-to-one relationship to ProductType and a one-to-many relationship to Recipes (for future integration).
+   - Ensure models are in the `app/Models` directory and use proper namespaces.
+   - Verify model relationships by testing in a Laravel tinker session (e.g., fetch a product and its related product type).
+
+6. **Create Resource Controllers**
+   - Generate a resource controller for ProductType with methods for index (list all types), create (show form), store (save new type), edit (show edit form), update (save changes), and destroy (delete type).
+   - Add validation rules in the store and update methods: name (required, unique), description (nullable string).
+   - Generate a resource controller for Product with methods for index, create, store, edit, update, and destroy.
+   - Add validation rules for Product: name (required, string, max 255), sku (required, unique), product_type_id (required, exists in product_types), category_id (nullable, integer), price (required, numeric, min 0), shelf_life_days (required, integer, min 0), uom (required, valid enum value).
+   - Ensure controllers return views for forms and redirect to the index with success messages after actions.
+   - Protect controller methods with middleware to restrict access to admin users.
+
+7. **Define Routes**
+   - In the web routes file, define resource routes for product-types and products, mapping to their respective controllers.
+   - Wrap routes in a middleware group to require authentication and admin role.
+   - Add a route for the homepage (e.g., welcome view) if not already present.
+   - Test routes by accessing them in a browser (e.g., /product-types, /products) to ensure they load without errors (after login as admin).
+
+## Phase 4: Frontend Implementation (Blade Views)
+
+8. **Create Application Layout**
+   - Create a main layout file in `resources/views/layouts/app.blade.php` to serve as the base template for all views.
+   - Include Bootstrap CSS and JS from the Laravel UI package.
+   - Add a navigation bar with links to product types and products (visible only to admin users), plus login/logout links based on authentication status.
+   - Include a container for page content, a section for flash messages (e.g., success alerts), and a yield section for page-specific content.
+   - Add CSRF protection for forms in the layout.
+
+9. **Create Product Types Views**
+   - Create `resources/views/product_types/index.blade.php`:
+     - Extend the app layout.
+     - Display a heading ("Product Types") and a button to create a new product type.
+     - Show a table listing all product types with columns: ID, Name, Description, Actions (Edit, Delete buttons).
+     - Use a loop to iterate over product types passed from the controller.
+     - Add a delete confirmation prompt using JavaScript.
+   - Create `resources/views/product_types/create.blade.php`:
+     - Extend the app layout.
+     - Include a form with fields for name (text, required) and description (textarea, optional).
+     - Add a submit button and a cancel link to return to the index.
+   - Create `resources/views/product_types/edit.blade.php`:
+     - Similar to create view, but prefill form fields with the product type’s data.
+     - Use the update route with the PUT method.
+   - Test views by navigating to /product-types, creating a new type, editing, and deleting.
+
+10. **Create Products Views**
+    - Create `resources/views/products/index.blade.php`:
+      - Extend the app layout.
+      - Display a heading ("Products") and a button to create a new product.
+      - Show a table with columns: ID, Name, SKU, Product Type, Price, Shelf Life (Days), UOM, Actions (Edit, Delete).
+      - Use a loop to display products, fetching the product type name via the relationship.
+      - Add a delete confirmation prompt.
+    - Create `resources/views/products/create.blade.php`:
+      - Extend the app layout.
+      - Include a form with fields: name (text, required), SKU (text, required), product type (dropdown populated with product types), category ID (optional number input), price (number, required), shelf life days (number, required), UOM (dropdown with enum options).
+      - Add submit and cancel buttons.
+    - Create `resources/views/products/edit.blade.php`:
+      - Similar to create view, but prefill fields with the product’s data.
+      - Use the update route with the PUT method.
+    - Test views by navigating to /products, creating a new product (e.g., Banana Bread), editing, and deleting.
+
+## Phase 5: Integration and Testing for Product Module
+
+11. **Integrate with Recipe Module (Placeholder)**
+    - Ensure the `products` table is linked to the `recipes` table via `product_id` (foreign key in recipes).
+    - Verify that the Product model’s recipes relationship allows fetching related recipes (for future implementation).
+    - Plan for a view to display associated recipes for each product in the products index or a separate product details page (to be implemented later).
+
+12. **Implement Quantity Estimation Logic**
+    - In the ProductController, add a method (e.g., `estimate`) to calculate required ingredients for a demanded quantity of a product.
+    - Logic: For a product, fetch its recipe(s), use the recipe’s yield_quantity to scale ingredient quantities (from `recipe_ingredients`), and handle nested sub-recipes recursively.
+    - Return the estimated quantities as a JSON response or display in a view (to be created later, e.g., `products/estimate.blade.php`).
+    - Integrate with inventory (assumed `items` table) to calculate `max_possible_quantity` based on available stock.
+
+13. **Test the Product Module**
+    - Test authentication: Log in as an admin and verify access to /product-types and /products; test as a non-admin to ensure access is denied.
+    - Test CRUD for Product Types: Create a new type (e.g., beverage), edit it, delete it, and verify database changes.
+    - Test CRUD for Products: Create a product (e.g., Banana Bread, SKU BB001, price $5.99, shelf life 7 days), edit it, delete it, and verify database updates.
+    - Test relationships: Ensure product types are correctly linked to products in the index view.
+    - Test validation: Try submitting invalid data (e.g., duplicate SKU, negative price) and verify error messages.
+    - Test UI: Ensure all views render correctly, forms submit, and success messages display.
+
+14. **Add Product Details Page**
+    - Create `resources/views/products/show.blade.php`:
+      - Extend the app layout.
+      - Display product details: name, SKU, product type, price, shelf life, UOM.
+      - Include a section for related recipes (placeholder for future implementation).
+      - Add a back button to return to the products index.
+    - Update ProductController’s `show` method to pass the product to the view.
+    - Add a route for the show action in the products resource route.
+    - Test the details page by clicking a product from the index view.
+
+## Phase 6: Finalization and Documentation
+
+15. **Add Basic Styling**
+    - Customize `resources/css/app.css` to style tables, forms, and buttons for a clean, professional look (e.g., consistent padding, colors matching the business theme).
+    - Ensure Bootstrap classes are used effectively for responsive design.
+    - Test the UI on different screen sizes (desktop, mobile) to verify responsiveness.
+
+16. **Document the Module**
+    - Create a README section for the product module in the project’s README.md, detailing:
+      - Purpose: Manages product types and products with attributes like price and shelf life.
+      - Tables: product_types (ID, name, description) and products (ID, name, SKU, product_type_id, category_id, price, shelf_life_days, uom).
+      - Routes: List /product-types and /products endpoints with available actions.
+      - Views: Describe index, create, edit, and show pages for both product types and products.
+      - Future integration: Note linkage with recipes for production estimation.
+    - Include setup instructions (e.g., run migrations, seed data, assign admin role).
+
+17. **Prepare for Production Integration**
+    - Verify foreign key constraints (e.g., product_type_id, category_id) to ensure data integrity when integrating with recipes.
+    - Plan for adding a product expiration check using shelf_life_days and production date (from `daily_produces` table in future implementation).
+    - Back up the database and test migrations/seeding in a staging environment.
+
+### Pages to Be Created
+- **Layouts**:
+  - `resources/views/layouts/app.blade.php`: Main layout with navigation and Bootstrap.
+- **Product Types**:
+  - `resources/views/product_types/index.blade.php`: List all product types.
+  - `resources/views/product_types/create.blade.php`: Form to create a product type.
+  - `resources/views/product_types/edit.blade.php`: Form to edit a product type.
+- **Products**:
+  - `resources/views/products/index.blade.php`: List all products.
+  - `resources/views/products/create.blade.php`: Form to create a product.
+  - `resources/views/products/edit.blade.php`: Form to edit a product.
+  - `resources/views/products/show.blade.php`: Display product details.
+
+### Notes
+- The module assumes related tables (e.g., categories, recipes) will be implemented separately but includes placeholders for integration (e.g., recipes relationship, category_id).
+- Quantity estimation relies on future recipe module implementation but is planned via the `estimate` method.
+- All actions are restricted to admin users for security, with employee roles reserved for production tasks in other modules.
+- Testing should cover edge cases like duplicate SKUs, invalid UOMs, and restricted deletes due to foreign key constraints.
+
+This to-do list ensures a fully functional product module, ready for integration with recipes and production tracking, with a clear path for managing product types and products in the system.
+
+</xaiArtifact>
