@@ -14,8 +14,8 @@ class Department extends Model
      */
     protected $fillable = [
         'branch_id',
+        'category_id',
         'name',
-        'type',
         'description',
     ];
 
@@ -33,5 +33,29 @@ class Department extends Model
     public function branch()
     {
         return $this->belongsTo(Branch::class, 'branch_id');
+    }
+
+    /**
+     * Get the category that owns the department.
+     */
+    public function category()
+    {
+        return $this->belongsTo(DepartmentCategory::class, 'category_id');
+    }
+
+    /**
+     * Get the positions for the department.
+     */
+    public function positions()
+    {
+        return $this->hasMany(Position::class);
+    }
+
+    /**
+     * Get the employees for the department.
+     */
+    public function employees()
+    {
+        return $this->hasMany(Employee::class);
     }
 }

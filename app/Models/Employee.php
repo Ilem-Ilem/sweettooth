@@ -15,7 +15,7 @@ class Employee extends Authenticatable
     protected $guard = 'employees';
     
     protected $fillable = [
-        'id', 'branch_id', 'department_id', 'employee_number', 'name', 'email', 'phone', 'address',
+        'id', 'branch_id', 'department_id', 'position_id', 'manager_id', 'employee_number', 'name', 'email', 'phone', 'address',
         'date_of_birth', 'gender', 'nationality', 'emergency_contact_name', 'emergency_contact_phone',
         'position', 'hire_date', 'termination_date', 'status', 'probation_end_date', 'shift_preference',
         'salary', 'hourly_rate', 'tax_id', 'bank_account', 'allergies', 'profile_photo',
@@ -54,6 +54,71 @@ class Employee extends Authenticatable
     public function department()
     {
         return $this->belongsTo(Department::class);
+    }
+
+    public function position()
+    {
+        return $this->belongsTo(Position::class);
+    }
+
+    public function manager()
+    {
+        return $this->belongsTo(Employee::class, 'manager_id');
+    }
+
+    public function subordinates()
+    {
+        return $this->hasMany(Employee::class, 'manager_id');
+    }
+
+    /**
+     * Get position assignments for this employee.
+     */
+    public function positionAssignments()
+    {
+        return $this->hasMany(PositionAssignment::class);
+    }
+
+    /**
+     * Get active position assignments.
+     */
+    public function activeAssignments()
+    {
+        return $this->positionAssignments()->active();
+    }
+
+    /**
+     * Get the employee's current position assignment.
+     */
+    public function getCurrentAssignment()
+    {
+        return $this->activeAssignments()->first();
+    }
+
+    /**
+     * Get all permissions from active assignments.
+     */
+    public function getAllPermissionsFromAssignments()
+    {
+        $permissions = collect();
+
+        foreach ($this->activeAssignments as $assignment) {
+            if ($assignment->position && $assignment->position->role) {
+                $permissions = $permissions->merge($assignment->position->role->permissions);
+            }
+        }
+
+        return $permissions->unique('id');
+    }
+
+    /**
+     * Check if employee has permission through their assignments.
+     */
+    public function hasPermissionViaAssignment($permission)
+    {
+        return $this->getAllPermissionsFromAssignments()
+                    ->pluck('name')
+                    ->contains($permission);
     }
 
 }

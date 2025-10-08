@@ -24,10 +24,10 @@
     </style>
 
     <x-breadcrumb
-        title="Department Management"
+        title="Department Category Management"
         :items="[
             ['label' => 'Dashboard', 'url' => route('dashboard')],
-            ['label' => 'Department Management']
+            ['label' => 'Department Category Management']
         ]"
         :compact="false"
         :with-icons="true"
@@ -35,12 +35,12 @@
 
     <!-- Header with Add Button -->
     <div class="flex justify-between items-center">
-        <button wire:click="openDepartmentModal"
+        <button wire:click="openCategoryModal"
             class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center shadow-sm">
             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
             </svg>
-            Add New Department
+            Add New Category
         </button>
     </div>
 
@@ -78,7 +78,7 @@
                 </button>
             </div>
             <div class="flex flex-col sm:flex-row gap-2">
-                <button wire:click="bulkDeleteDepartments"
+                <button wire:click="bulkDeleteCategories"
                     class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center justify-center">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -170,33 +170,6 @@
                 </div>
             </div>
 
-            <!-- Filters Grid -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <!-- Category Filter -->
-                <div>
-                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Category</label>
-                    <x-select.styled
-                        wire:model.live="filterCategory"
-                        :options="$categories->map(fn($cat) => ['label' => $cat->name, 'value' => $cat->id])->toArray()"
-                        select="label:label|value:value"
-                        placeholder="All Categories"
-                        searchable
-                    />
-                </div>
-
-                <!-- Branch Filter -->
-                <div>
-                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Branch</label>
-                    <x-select.styled
-                        wire:model.live="filterBranch"
-                        :options="$branches->map(fn($branch) => ['label' => $branch->name, 'value' => $branch->id])->toArray()"
-                        select="label:label|value:value"
-                        placeholder="All Branches"
-                        searchable
-                    />
-                </div>
-            </div>
-
             <!-- Filter Buttons -->
             <div class="flex flex-wrap gap-3 justify-end pt-4 border-t border-zinc-200 dark:border-zinc-700">
                 <button wire:click="applyFilters"
@@ -221,37 +194,31 @@
     <!-- Table -->
     <x-table :$headers :$rows selectable wire:model="selectedIds" striped paginate persist :filter="['quantity' => 'quantity', 'search' => 'search']"
         :quantity="[10, 25, 50, 100]">
-        @interact('column_branch', $row)
-            <span class="text-zinc-900 dark:text-zinc-100">
-                {{ $row->branch ? $row->branch->name : 'N/A' }}
-            </span>
-        @endinteract
-
-        @interact('column_category', $row)
-            <span class="text-zinc-900 dark:text-zinc-100">
-                {{ $row->category ? $row->category->name : 'N/A' }}
-            </span>
-        @endinteract
-
         @interact('column_description', $row)
             <span class="text-zinc-600 dark:text-zinc-400 text-sm">
                 {{ $row->description ? Str::limit($row->description, 50) : 'N/A' }}
             </span>
         @endinteract
 
+        @interact('column_created_at', $row)
+            <span class="text-zinc-600 dark:text-zinc-400 text-sm">
+                {{ $row->created_at->format('M d, Y') }}
+            </span>
+        @endinteract
+
         @interact('column_action', $row)
             <div class="flex items-center space-x-2">
-                <button wire:click="editDepartment({{ $row->id }})"
+                <button wire:click="editCategory({{ $row->id }})"
                     class="p-2 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors"
-                    title="Edit Department">
+                    title="Edit Category">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                     </svg>
                 </button>
-                <button wire:click="deleteDepartment({{ $row->id }})"
+                <button wire:click="deleteCategory({{ $row->id }})"
                     class="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                    title="Delete Department">
+                    title="Delete Category">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -261,15 +228,15 @@
         @endinteract
     </x-table>
 
-    <!-- Add/Edit Department Modal (Slide-in) -->
-    <div x-data="{ show: @entangle('showDepartmentModal') }" x-show="show" x-cloak class="fixed inset-0 z-50 overflow-hidden"
+    <!-- Add/Edit Category Modal (Slide-in) -->
+    <div x-data="{ show: @entangle('showCategoryModal') }" x-show="show" x-cloak class="fixed inset-0 z-50 overflow-hidden"
         @keydown.escape.window="show = false">
         <!-- Backdrop -->
         <div x-show="show" x-transition:enter="transition-opacity ease-linear duration-300"
             x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
             x-transition:leave="transition-opacity ease-linear duration-300" x-transition:leave-start="opacity-100"
             x-transition:leave-end="opacity-0" class="fixed inset-0 bg-black bg-opacity-50"
-            @click="$wire.closeDepartmentModal()">
+            @click="$wire.closeCategoryModal()">
         </div>
 
         <!-- Slide-in Panel -->
@@ -282,8 +249,8 @@
             <!-- Header -->
             <div class="px-6 py-4 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
                 <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-                    {{ $isEditing ? 'Edit Department' : 'Add New Department' }}</h2>
-                <button wire:click="closeDepartmentModal"
+                    {{ $isEditing ? 'Edit Category' : 'Add New Category' }}</h2>
+                <button wire:click="closeCategoryModal"
                     class="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -295,45 +262,14 @@
             <!-- Scrollable Form Content -->
             <div
                 class="flex-1 overflow-y-auto px-6 py-4 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent">
-                <form wire:submit.prevent="saveDepartment" class="space-y-6">
-                    <!-- Department Name -->
+                <form wire:submit.prevent="saveCategory" class="space-y-6">
+                    <!-- Category Name -->
                     <div>
-                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Department Name *</label>
+                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Category Name *</label>
                         <input type="text" wire:model="name"
                             class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500"
-                            placeholder="Enter department name" required>
+                            placeholder="Enter category name" required>
                         @error('name')
-                            <span class="text-red-500 text-sm">{{ $message }}</span>
-                        @enderror
-                    </div>
-
-                    <!-- Category Selection -->
-                    <div>
-                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Category *</label>
-                        <x-select.styled
-                            wire:model="category_id"
-                            :options="$categories->map(fn($cat) => ['label' => $cat->name, 'value' => $cat->id])->toArray()"
-                            select="label:label|value:value"
-                            placeholder="Select Category"
-                            searchable
-                            required
-                        />
-                        @error('category_id')
-                            <span class="text-red-500 text-sm">{{ $message }}</span>
-                        @enderror
-                    </div>
-
-                    <!-- Branch Selection -->
-                    <div>
-                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Branch</label>
-                        <x-select.styled
-                            wire:model="branch_id"
-                            :options="$branches->map(fn($branch) => ['label' => $branch->name, 'value' => $branch->id])->toArray()"
-                            select="label:label|value:value"
-                            placeholder="Select Branch (Optional)"
-                            searchable
-                        />
-                        @error('branch_id')
                             <span class="text-red-500 text-sm">{{ $message }}</span>
                         @enderror
                     </div>
@@ -343,7 +279,7 @@
                         <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Description</label>
                         <textarea wire:model="description" rows="4"
                             class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500"
-                            placeholder="Department description (optional)"></textarea>
+                            placeholder="Category description (optional)"></textarea>
                         @error('description')
                             <span class="text-red-500 text-sm">{{ $message }}</span>
                         @enderror
@@ -354,13 +290,13 @@
             <!-- Footer -->
             <div
                 class="px-6 py-4 border-t border-zinc-200 dark:border-zinc-700 flex items-center justify-end space-x-3">
-                <button wire:click="closeDepartmentModal"
+                <button wire:click="closeCategoryModal"
                     class="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors">
                     Cancel
                 </button>
-                <button wire:click="saveDepartment"
+                <button wire:click="saveCategory"
                     class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors">
-                    {{ $isEditing ? 'Update Department' : 'Create Department' }}
+                    {{ $isEditing ? 'Update Category' : 'Create Category' }}
                 </button>
             </div>
         </div>

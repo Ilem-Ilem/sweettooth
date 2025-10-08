@@ -11,16 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('departments', function (Blueprint $table) {
+        Schema::create('positions', function (Blueprint $table) {
             $table->id();
-            $table->uuid('branch_id')->nullable();
-            $table->foreign('branch_id')->references('id')->on('branches')->onDelete('cascade');
-            $table->uuid('category_id');
-            $table->foreign('category_id')->references('id')->on('department_categories')->onDelete('cascade');
             $table->string('name');
+            $table->foreignId('department_id')->nullable()->constrained('departments')->onDelete('cascade');
+            $table->foreignId('reports_to')->nullable()->constrained('positions')->onDelete('set null');
+            $table->integer('level')->default(3); // 1=executive, 2=management, 3=staff
             $table->text('description')->nullable();
             $table->timestamps();
-            $table->unique(['name']);
         });
     }
 
@@ -29,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('departments');
+        Schema::dropIfExists('positions');
     }
 };

@@ -177,12 +177,15 @@
                 <!-- Status Filter -->
                 <div>
                     <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Status</label>
-                    <select wire:model.live="filterStatus"
-                        class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
-                        <option value="">All</option>
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                    </select>
+                    <x-select.styled
+                        wire:model.live="filterStatus"
+                        :options="[
+                            ['label' => 'Active', 'value' => 'active'],
+                            ['label' => 'Inactive', 'value' => 'inactive']
+                        ]"
+                        select="label:label|value:value"
+                        placeholder="All"
+                    />
                 </div>
 
                 <!-- Country Filter -->
@@ -405,13 +408,13 @@
                     <div>
                         <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Branch
                             Manager</label>
-                        <select wire:model="manager_user_id"
-                            class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500">
-                            <option value="">Select Manager</option>
-                            @foreach ($users as $user)
-                                <option value="{{ $user->id }}">{{ $user->name }}</option>
-                            @endforeach
-                        </select>
+                        <x-select.styled
+                            wire:model="manager_user_id"
+                            :options="$users->map(fn($user) => ['label' => $user->name, 'value' => $user->id])->toArray()"
+                            select="label:label|value:value"
+                            placeholder="Select Manager"
+                            searchable
+                        />
                         @error('manager_user_id')
                             <span class="text-red-500 text-sm">{{ $message }}</span>
                         @enderror

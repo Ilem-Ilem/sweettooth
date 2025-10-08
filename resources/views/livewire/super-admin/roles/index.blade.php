@@ -316,10 +316,15 @@
                     <!-- Guard Name -->
                     <div>
                         <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Guard Name *</label>
-                        <select wire:model="roleGuard" class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500">
-                            <option value="web">Web</option>
-                            <option value="employee">Employee</option>
-                        </select>
+                        <x-select.styled
+                            wire:model="roleGuard"
+                            :options="[
+                                ['label' => 'Web', 'value' => 'web'],
+                                ['label' => 'Employee', 'value' => 'employee']
+                            ]"
+                            select="label:label|value:value"
+                            placeholder="Select Guard"
+                        />
                         @error('roleGuard') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                     </div>
 
@@ -415,10 +420,15 @@
                     <!-- Guard Name -->
                     <div>
                         <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Guard Name *</label>
-                        <select wire:model="permissionGuard" class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-green-500">
-                            <option value="web">Web</option>
-                            <option value="api">API</option>
-                        </select>
+                        <x-select.styled
+                            wire:model="permissionGuard"
+                            :options="[
+                                ['label' => 'Web', 'value' => 'web'],
+                                ['label' => 'API', 'value' => 'api']
+                            ]"
+                            select="label:label|value:value"
+                            placeholder="Select Guard"
+                        />
                         @error('permissionGuard') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                     </div>
 
@@ -501,10 +511,15 @@
                     <!-- Guard Name -->
                     <div>
                         <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Guard Name *</label>
-                        <select wire:model="standalonePermissionGuard" class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-green-500">
-                            <option value="web">Web</option>
-                            <option value="employee">Employee</option>
-                        </select>
+                        <x-select.styled
+                            wire:model="standalonePermissionGuard"
+                            :options="[
+                                ['label' => 'Web', 'value' => 'web'],
+                                ['label' => 'API', 'value' => 'api']
+                            ]"
+                            select="label:label|value:value"
+                            placeholder="Select Guard"
+                        />
                         @error('standalonePermissionGuard') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                     </div>
 

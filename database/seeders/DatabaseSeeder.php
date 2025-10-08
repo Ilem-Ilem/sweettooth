@@ -21,9 +21,12 @@ class DatabaseSeeder extends Seeder
         // ]);
         $this->call([
             PermissionSeeder::class,
+            RoleSeeder::class,
             MDSeeder::class,
             BranchSeeder::class,
+            DepartmentCategorySeeder::class,
             DepartmentSeeder::class,
+            PositionSeeder::class,
         ]);
     }
 }

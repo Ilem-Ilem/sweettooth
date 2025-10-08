@@ -5,6 +5,7 @@ namespace App\Livewire\SuperAdmin\Departments;
 use App\Livewire\BaseComponent;
 use App\Models\Department;
 use App\Models\Branch;
+use App\Models\DepartmentCategory;
 
 class Index extends BaseComponent
 {
@@ -15,7 +16,7 @@ class Index extends BaseComponent
     public ?string $dateTo = null;
 
     // Filter fields
-    public ?string $filterType = null;
+    public ?string $filterCategory = null;
     public ?string $filterBranch = null;
 
     // Modal states
@@ -26,7 +27,7 @@ class Index extends BaseComponent
     // Department form fields
     public string $name = '';
     public ?string $branch_id = null;
-    public string $type = 'production';
+    public ?string $category_id = null;
     public string $description = '';
 
     protected array $bulkActions = [
@@ -60,8 +61,8 @@ class Index extends BaseComponent
                       });
                 });
             })
-            ->when($this->filterType, function ($query) {
-                $query->where('type', $this->filterType);
+            ->when($this->filterCategory, function ($query) {
+                $query->where('category_id', $this->filterCategory);
             })
             ->when($this->filterBranch, function ($query) {
                 $query->where('branch_id', $this->filterBranch);
@@ -85,7 +86,7 @@ class Index extends BaseComponent
         $this->advancedSearch = null;
         $this->dateFrom = null;
         $this->dateTo = null;
-        $this->filterType = null;
+        $this->filterCategory = null;
         $this->filterBranch = null;
         $this->resetPage();
     }
@@ -128,7 +129,7 @@ class Index extends BaseComponent
         $this->selectedDepartmentId = $departmentId;
         $this->name = $department->name;
         $this->branch_id = $department->branch_id;
-        $this->type = $department->type;
+        $this->category_id = $department->category_id;
         $this->description = $department->description ?? '';
         $this->showDepartmentModal = true;
     }
@@ -143,7 +144,7 @@ class Index extends BaseComponent
     {
         $this->name = '';
         $this->branch_id = null;
-        $this->type = 'production';
+        $this->category_id = null;
         $this->description = '';
         $this->selectedDepartmentId = null;
         $this->isEditing = false;
@@ -154,14 +155,14 @@ class Index extends BaseComponent
         $this->validate([
             'name' => 'required|string|max:255|unique:departments,name,' . $this->selectedDepartmentId,
             'branch_id' => 'nullable|exists:branches,id',
-            'type' => 'required|in:production,sales',
+            'category_id' => 'required|exists:department_categories,id',
             'description' => 'nullable|string',
         ]);
 
         $data = [
             'name' => $this->name,
             'branch_id' => $this->branch_id,
-            'type' => $this->type,
+            'category_id' => $this->category_id,
             'description' => $this->description,
         ];
 
@@ -230,19 +231,21 @@ class Index extends BaseComponent
     {
         $rows = $this->getFilteredQuery()->paginate($this->quantity ?? 10);
         $branches = Branch::where('is_active', true)->get();
+        $categories = DepartmentCategory::all();
 
         return view('livewire.super-admin.departments.index', [
             'headers' => [
                 ['index' => 'id', 'label' => '#'],
                 ['index' => 'name', 'label' => 'Department Name'],
+                ['index' => 'category', 'label' => 'Category'],
                 ['index' => 'branch', 'label' => 'Branch'],
-                ['index' => 'type', 'label' => 'Type'],
                 ['index' => 'description', 'label' => 'Description'],
                 ['index' => 'created_at', 'label' => 'Created At'],
                 ['index' => 'action', 'label' => 'Actions', 'display' => true],
             ],
             'rows' => $rows,
             'branches' => $branches,
+            'categories' => $categories,
         ]);
     }
 }

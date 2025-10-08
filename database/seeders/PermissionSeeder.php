@@ -27,6 +27,41 @@ class PermissionSeeder extends Seeder
             'view-profile',
             'edit-profile',
 
+            // Production permissions
+            'view-production-queue',
+            'start-production',
+            'complete-production',
+            'approve-production',
+            'manage-recipes',
+
+            // Sales permissions
+            'process-sale',
+            'issue-refund',
+            'view-daily-sales',
+            'close-register',
+
+            // Inventory permissions
+            'receive-stock',
+            'transfer-stock',
+            'adjust-inventory',
+            'view-stock-levels',
+
+            // Employee permissions
+            'view-employees',
+            'create-employees',
+            'edit-employees',
+            'delete-employees',
+            'assign-roles',
+
+            // Department & Branch permissions
+            'view-departments',
+            'view-branches',
+            'view-roles',
+
+            // Reports & Scheduling
+            'view-department-reports',
+            'manage-staff-schedule',
+
             // Order permissions
             'view-orders',
             'create-orders',
@@ -102,47 +137,7 @@ class PermissionSeeder extends Seeder
             ]);
         }
 
-        // Create default roles and assign permissions
-
-        // Employee guard roles
-        $cashier = Role::create([
-            'name' => 'Cashier',
-            'guard_name' => 'employees'
-        ]);
-        $cashier->givePermissionTo([
-            'view-employee-dashboard',
-            'view-profile',
-            'edit-profile',
-            'view-orders',
-            'create-orders',
-            'process-orders',
-            'view-products',
-            'view-customers',
-        ]);
-
-        $inventoryManager = Role::create([
-            'name' => 'Inventory Manager',
-            'guard_name' => 'employees'
-        ]);
-        $inventoryManager->givePermissionTo([
-            'view-employee-dashboard',
-            'view-profile',
-            'edit-profile',
-            'view-products',
-            'create-products',
-            'edit-products',
-            'manage-inventory',
-            'view-reports',
-            'generate-reports',
-        ]);
-
-        $branchManager = Role::create([
-            'name' => 'Branch Manager',
-            'guard_name' => 'employees'
-        ]);
-        $branchManager->givePermissionTo(Permission::where('guard_name', 'employees')->pluck('name'));
-
-        // Web guard roles
+        // Create default web guard roles
         $admin = Role::create([
             'name' => 'Admin',
             'guard_name' => 'web'
@@ -163,5 +158,8 @@ class PermissionSeeder extends Seeder
             'guard_name' => 'web'
         ]);
         $superAdmin->givePermissionTo(Permission::where('guard_name', 'web')->pluck('name'));
+
+        $this->command->info("✅ " . Permission::count() . " permissions created successfully.");
+        $this->command->info("✅ " . Role::where('guard_name', 'web')->count() . " web roles created successfully.");
     }
 }
