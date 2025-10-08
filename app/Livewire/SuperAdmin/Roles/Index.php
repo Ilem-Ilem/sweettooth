@@ -21,6 +21,7 @@ class Index extends BaseComponent
     public bool $showPermissionsModal = false;
     public bool $showRoleModal = false;
     public bool $showCreatePermissionModal = false;
+    public bool $showStandalonePermissionModal = false;
     public ?int $selectedRoleId = null;
     public array $rolePermissions = [];
 
@@ -33,6 +34,10 @@ class Index extends BaseComponent
     // Permission form
     public string $permissionName = '';
     public string $permissionGuard = 'web';
+
+    // Standalone permission form
+    public string $standalonePermissionName = '';
+    public string $standalonePermissionGuard = 'employee';
 
     protected array $bulkActions = [
         'delete' => ['label' => 'Delete Selected', 'method' => 'bulkDelete'],
@@ -177,8 +182,10 @@ class Index extends BaseComponent
             $message = 'Role created successfully!';
         }
 
-        // Sync permissions - get Permission models by IDs
-        $permissions = Permission::whereIn('id', $this->selectedPermissions)->get();
+        // Sync permissions - only permissions with matching guard
+        $permissions = Permission::whereIn('id', $this->selectedPermissions)
+            ->where('guard_name', $this->roleGuard)
+            ->get();
         $role->syncPermissions($permissions);
 
         $this->toast()->success($message)->send();
@@ -234,9 +241,15 @@ class Index extends BaseComponent
         $this->dialog()->error('Cancelled', $message)->send();
     }
 
+    public function updatedRoleGuard()
+    {
+        // Clear selected permissions when guard changes
+        $this->selectedPermissions = [];
+    }
+
     public function toggleAllPermissions()
     {
-        $allPermissionIds = Permission::pluck('id')->toArray();
+        $allPermissionIds = Permission::where('guard_name', $this->roleGuard)->pluck('id')->toArray();
 
         if (count($this->selectedPermissions) === count($allPermissionIds)) {
             // Deselect all
@@ -251,7 +264,7 @@ class Index extends BaseComponent
     public function openCreatePermissionModal()
     {
         $this->permissionName = '';
-        $this->permissionGuard = 'web';
+        $this->permissionGuard = $this->roleGuard; // Match the role's guard
         $this->showCreatePermissionModal = true;
     }
 
@@ -281,10 +294,43 @@ class Index extends BaseComponent
         $this->closeCreatePermissionModal();
     }
 
+    // Standalone permission methods
+    public function openStandalonePermissionModal()
+    {
+        $this->standalonePermissionName = '';
+        $this->standalonePermissionGuard = 'employee';
+        $this->showStandalonePermissionModal = true;
+    }
+
+    public function closeStandalonePermissionModal()
+    {
+        $this->showStandalonePermissionModal = false;
+        $this->standalonePermissionName = '';
+        $this->standalonePermissionGuard = 'employee';
+    }
+
+    public function createStandalonePermission()
+    {
+        $this->validate([
+            'standalonePermissionName' => 'required|string|max:255|unique:permissions,name',
+            'standalonePermissionGuard' => 'required|string',
+        ]);
+
+        Permission::create([
+            'name' => $this->standalonePermissionName,
+            'guard_name' => $this->standalonePermissionGuard,
+        ]);
+
+        $this->toast()->success('Permission created successfully!')->send();
+        $this->closeStandalonePermissionModal();
+    }
+
     public function render()
     {
         $rows = $this->getFilteredQuery()->paginate($this->quantity ?? 10);
-        $allPermissions = Permission::all();
+
+        // Filter permissions by the selected guard
+        $allPermissions = Permission::where('guard_name', $this->roleGuard)->get();
 
         return view('livewire.super-admin.roles.index', [
             'headers' => [

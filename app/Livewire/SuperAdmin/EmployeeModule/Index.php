@@ -237,7 +237,7 @@ class Index extends BaseComponent
         $statuses = ['active', 'inactive', 'terminated', 'on_probation', 'on_leave'];
         $genders = ['male', 'female', 'other', 'prefer_not_to_say'];
         $shifts = ['morning', 'afternoon', 'night', 'rotating', 'flexible'];
-        $roles = Role::where('guard_name', 'employees')->get();
+        $roles = Role::where('guard_name', 'employees')->where('name', '!=', 'MD')->get();
 
         return view('livewire.super-admin.employee-module.index', [
             'headers' => [

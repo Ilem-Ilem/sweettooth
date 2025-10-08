@@ -23,8 +23,19 @@
         }
     </style>
 
+    <x-breadcrumb
+        title="Create Employee"
+        :items="[
+            ['label' => 'Dashboard', 'url' => route('dashboard')],
+            ['label' => 'Employees', 'url' => route('super-admin.employee.index')],
+            ['label' => 'Create Employee']
+        ]"
+        :compact="false"
+        :with-icons="true"
+    />
+
     <!-- Breadcrumb Navigation -->
-    <nav class="flex mb-4" aria-label="Breadcrumb">
+    <nav class="flex mb-4" aria-label="Breadcrumb" style="display: none;">
         <ol class="inline-flex items-center space-x-1 md:space-x-3">
             <li class="inline-flex items-center">
                 <a href="{{ route('dashboard') }}"

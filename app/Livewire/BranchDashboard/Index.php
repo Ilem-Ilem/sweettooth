@@ -3,11 +3,13 @@
 namespace App\Livewire\BranchDashboard;
 
 use Livewire\Component;
+use Livewire\Attributes\Layout;
 
+#[Layout('components.layouts.app.branch-dashboard')]
 class Index extends Component
 {
     public function render()
     {
-        return view('livewire.branch-dashboard.index');
+        return view('livewire.branch-dashbord.index');
     }
 }

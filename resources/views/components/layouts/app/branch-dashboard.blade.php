@@ -13,41 +13,6 @@
             <x-app-logo />
         </a>
 
-        <flux:navlist variant="outline">
-            <flux:navlist.group :heading="__('Platform')" class="grid">
-                <flux:navlist.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')"
-                    wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
-            </flux:navlist.group>
-            <flux:navlist.item icon="shield-check" :href="route('super-admin.roles.index')"
-                :current="request()->routeIs('super-admin.roles.*')" wire:navigate>{{ __('Roles & Permissions') }}
-            </flux:navlist.item>
-
-            <flux:navlist.group :heading="__('branch Management')" expandable
-                :expanded="request()->routeIs('super-admin.branches.*')? true : false" class="grid">
-                <flux:navlist.item icon="building-office-2" :href="route('super-admin.branches.index')"
-                    :current="request()->routeIs('super-admin.branches.index')" wire:navigate>{{ __('All Branches') }}
-                </flux:navlist.item>
-                <flux:navlist.item icon="building-office-2" :href="route('super-admin.branches.deleted')"
-                    :current="request()->routeIs('super-admin.branches.deleted')" wire:navigate>
-                    {{ __('Deleted Branches') }}
-                </flux:navlist.item>
-            </flux:navlist.group>
-
-            <flux:navlist.item icon="building-storefront" :href="route('super-admin.departments.index')"
-                :current="request()->routeIs('super-admin.departments.*')" wire:navigate>
-                {{ __('Department Management') }}</flux:navlist.item>
-
-            <flux:navlist.group :heading="__('Employee Management')" expandable
-                :expanded="request()->routeIs('super-admin.employee.*')? true : false" class="grid" icon='users'>
-                <flux:navlist.item icon="user" :href="route('super-admin.employee.index')"
-                    :current="request()->routeIs('super-admin.employee.index')" wire:navigate>{{ __('All Employees') }}
-                </flux:navlist.item>
-                <flux:navlist.item icon="user-plus" :href="route('super-admin.employee.create')"
-                    :current="request()->routeIs('super-admin.employee.create')" wire:navigate>
-                    {{ __('Create Employee') }}
-                </flux:navlist.item>
-            </flux:navlist.group>
-        </flux:navlist>
 
         <flux:spacer />
 
@@ -141,9 +106,11 @@
             </flux:menu>
         </flux:dropdown>
     </flux:header>
+    <flux:main>
     <x-toast />
     <x-dialog />
-    {{ $slot }}
+        {{ $slot }}
+    </flux:main>
 
     @fluxScripts
 </body>

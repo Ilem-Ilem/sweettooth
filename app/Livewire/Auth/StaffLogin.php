@@ -57,7 +57,7 @@ public function login(): void
     Session::regenerate();
 
   $this->redirectIntended(
-        default: route('branch_dashboard', ['b_id' => $this->branch_id], absolute: false),
+        default: route('branch-dashboard.branch_dashboard', ['b_id' => $this->branch_id], absolute: false),
         navigate: true
     );
 }

@@ -23,6 +23,16 @@
         }
     </style>
 
+    <x-breadcrumb
+        title="Branch Management"
+        :items="[
+            ['label' => 'Dashboard', 'url' => route('dashboard')],
+            ['label' => 'Branch Management']
+        ]"
+        :compact="false"
+        :with-icons="true"
+    />
+
     <!-- Header with Add Button -->
     <div class="flex justify-between items-center">
         <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Branch Management</h1>
