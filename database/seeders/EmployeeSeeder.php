@@ -46,10 +46,14 @@ class EmployeeSeeder extends Seeder
         $shifts = ['morning', 'afternoon', 'night', 'rotating', 'flexible'];
         $nigerianStates = ['Lagos', 'Kano', 'Oyo', 'Rivers', 'FCT', 'Kaduna', 'Ogun', 'Edo', 'Delta', 'Imo'];
 
+        $now = now();
+        $hashedPassword = Hash::make('password');
+        $employeesData = [];
+
         foreach ($branches as $branch) {
-            // Get departments for this branch (both branch-specific and general)
+            // Get departments for this branch (only branch-specific departments)
             $branchDepartments = $departments->filter(function ($dept) use ($branch) {
-                return $dept->branch_id === $branch->id || $dept->branch_id === null;
+                return $dept->branch_id === $branch->id;
             });
 
             if ($branchDepartments->isEmpty()) {
@@ -62,25 +66,26 @@ class EmployeeSeeder extends Seeder
                 $firstName = $gender === 'male' ? $faker->firstNameMale() : $faker->firstNameFemale();
                 $lastName = $faker->lastName();
                 $name = $firstName . ' ' . $lastName;
-                $employeeNumber = 'EMP-' . strtoupper($branch->code) . '-' . str_pad($i, 4, '0', STR_PAD_LEFT);
+                $employeeNumber = 'EMP-' . str_replace('-', '', strtoupper($branch->code)) . '-' . str_pad($i, 4, '0', STR_PAD_LEFT);
 
-                // Randomly assign a department
+                // Randomly assign a department from this branch only
                 $department = $branchDepartments->random();
 
-                $hireDate = $faker->dateTimeBetween('-5 years', 'now');
+                $hireDate = $faker->dateTimeBetween('-5 years', 'now')->format('Y-m-d');
                 $status = $faker->randomElement($statuses);
                 $terminationDate = null;
 
                 if ($status === 'terminated') {
-                    $terminationDate = $faker->dateTimeBetween($hireDate, 'now');
+                    $terminationDate = $faker->dateTimeBetween($hireDate, 'now')->format('Y-m-d');
                 }
 
                 $probationEndDate = null;
                 if ($status === 'on_probation') {
-                    $probationEndDate = $faker->dateTimeBetween('now', '+6 months');
+                    $probationEndDate = $faker->dateTimeBetween('now', '+6 months')->format('Y-m-d');
                 }
 
-                Employee::create([
+                $employeesData[] = [
+                    'id' => $faker->uuid(),
                     'branch_id' => $branch->id,
                     'department_id' => $department->id,
                     'employee_number' => $employeeNumber,
@@ -88,7 +93,7 @@ class EmployeeSeeder extends Seeder
                     'email' => strtolower(str_replace(' ', '.', $name)) . '@foodcompany.com',
                     'phone' => '+234-' . $faker->numberBetween(800, 909) . '-' . $faker->numberBetween(100, 999) . '-' . $faker->numberBetween(1000, 9999),
                     'address' => $faker->streetAddress() . ', ' . $faker->randomElement($nigerianStates) . ' State, Nigeria',
-                    'date_of_birth' => $faker->dateTimeBetween('-50 years', '-22 years'),
+                    'date_of_birth' => $faker->dateTimeBetween('-50 years', '-22 years')->format('Y-m-d'),
                     'gender' => $gender,
                     'nationality' => 'Nigerian',
                     'emergency_contact_name' => $faker->name(),
@@ -99,20 +104,27 @@ class EmployeeSeeder extends Seeder
                     'status' => $status,
                     'probation_end_date' => $probationEndDate,
                     'shift_preference' => $faker->randomElement($shifts),
-                    'salary' => $faker->randomFloat(2, 50000, 500000), // NGN 50k - 500k
+                    'salary' => $faker->randomFloat(2, 50000, 500000),
                     'hourly_rate' => null,
                     'tax_id' => 'TIN-' . $faker->numberBetween(10000000, 99999999),
                     'bank_account' => $faker->numerify('##########'),
                     'allergies' => $faker->boolean(20) ? $faker->randomElement(['Peanuts', 'Shellfish', 'None', 'Lactose', 'Gluten']) : null,
                     'profile_photo' => null,
-                    'last_performance_review_date' => $faker->dateTimeBetween('-1 year', 'now'),
+                    'last_performance_review_date' => $faker->dateTimeBetween('-1 year', 'now')->format('Y-m-d'),
                     'performance_rating' => $faker->randomFloat(1, 3.0, 5.0),
-                    'password' => Hash::make('password'),
-                    'email_verified_at' => now(),
-                ]);
+                    'password' => $hashedPassword,
+                    'email_verified_at' => $now,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
 
                 $employeeCount++;
             }
+        }
+
+        // Bulk insert in chunks of 100
+        foreach (array_chunk($employeesData, 100) as $chunk) {
+            Employee::insert($chunk);
         }
 
         $this->command->info("✅ {$employeeCount} employees created successfully (20 per branch).");

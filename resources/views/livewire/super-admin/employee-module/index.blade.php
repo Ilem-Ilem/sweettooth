@@ -1,645 +1,337 @@
-<div>
-     <div class="container mx-auto p-6">
-        <!-- Breadcrumb -->
-        <div class="mb-6">
-            <nav class="flex" aria-label="Breadcrumb">
-                <ol class="inline-flex items-center space-x-1 md:space-x-3">
-                    <li class="inline-flex items-center">
-                        <a href="#" class="inline-flex items-center text-sm font-medium text-zinc-400 hover:text-white">
-                            <i class="fas fa-tachometer-alt mr-2"></i>
-                            Dashboard
-                        </a>
-                    </li>
-                    <li>
-                        <div class="flex items-center">
-                            <i class="fas fa-chevron-right text-zinc-600 mx-2"></i>
-                            <span class="ml-1 text-sm font-medium text-white md:ml-2">Manage Employees</span>
-                        </div>
-                    </li>
-                </ol>
-            </nav>
-        </div>
+<div class="p-6 space-y-6">
 
-        <!-- Header with buttons -->
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-            <h1 class="text-2xl font-bold">Employee Management</h1>
-            <div class="flex flex-wrap gap-3">
-                <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors">
-                    <i class="fas fa-plus mr-2"></i> Add New Employee
+    <style>
+        /* Custom scrollbar styles */
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            @apply bg-zinc-300 dark:bg-zinc-700 rounded-full;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            @apply bg-zinc-400 dark:bg-zinc-600;
+        }
+
+        [x-cloak] {
+            display: none !important;
+        }
+    </style>
+
+    <!-- Header with Add Button -->
+    <div class="flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Employee Management</h1>
+        <a href=""
+            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center shadow-sm">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            Add New Employee
+        </a>
+    </div>
+
+    <!-- Export Buttons -->
+    <div class="flex justify-end items-center space-x-2">
+        <button wire:click="exportExcel"
+            class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Export Excel
+        </button>
+        <button wire:click="exportPdf"
+            class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+            Export PDF
+        </button>
+    </div>
+
+    <!-- Bulk Actions Bar -->
+    <div x-data="{ selectedIds: @entangle('selectedIds') }" x-show="selectedIds.length > 0" x-cloak
+        class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                <span class="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    <span x-text="selectedIds.length"></span> item(s) selected
+                </span>
+                <button wire:click="toggleBulkMode"
+                    class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline text-left">
+                    Clear Selection
                 </button>
-                <button class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors">
-                    <i class="fas fa-file-excel mr-2"></i> Export Excel
-                </button>
-                <button class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors">
-                    <i class="fas fa-file-pdf mr-2"></i> Export PDF
+            </div>
+            <div class="flex flex-col sm:flex-row gap-2">
+                <button wire:click="bulkDeleteEmployees"
+                    class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center justify-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Delete Selected
                 </button>
             </div>
         </div>
+    </div>
 
-        <!-- Bulk Actions Bar -->
-        <div class="bg-blue-900/30 border border-blue-800 rounded-lg p-4 mb-6 flex items-center justify-between fade-in" x-show="selectedItems.length > 0" x-transition>
-            <div class="flex items-center">
-                <span class="font-medium" x-text="`${selectedItems.length} items selected`"></span>
-                <a href="#" class="text-blue-400 hover:text-blue-300 ml-4">Clear Selection</a>
-            </div>
-            <button class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors">
-                <i class="fas fa-trash mr-2"></i> Delete Selected
+    <!-- Filters Section -->
+    <div x-data="{ open: false, advanced: false }"
+        class="bg-white dark:bg-zinc-800 rounded-2xl shadow-md border border-zinc-200 dark:border-zinc-700 transition-all duration-300">
+        <!-- Header / Toggle Button -->
+        <div class="flex justify-between items-center p-4 border-b border-zinc-200 dark:border-zinc-700">
+            <h2 class="text-lg font-semibold text-zinc-800 dark:text-zinc-100 flex items-center">
+                <svg class="w-5 h-5 mr-2 text-zinc-600 dark:text-zinc-400" fill="none" stroke="currentColor"
+                    viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707L14.293 13H10v5l-4-4v-3.586L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                Filters
+            </h2>
+
+            <button @click="open = !open"
+                class="flex items-center px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white transition-all duration-200">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path x-show="!open" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 8h16M4 16h16" />
+                    <path x-show="open" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                <span x-text="open ? 'Close' : 'Show Filters'"></span>
             </button>
         </div>
 
-        <!-- Filters Section -->
-        <div class="bg-zinc-800 rounded-lg shadow-md mb-6 overflow-hidden">
-            <div class="border-b border-zinc-700 p-4 flex justify-between items-center cursor-pointer" @click="filtersOpen = !filtersOpen">
-                <h2 class="text-lg font-semibold">Filters</h2>
-                <i class="fas fa-chevron-down transition-transform" :class="{'rotate-180': filtersOpen}"></i>
+        <!-- Filter Body -->
+        <div x-show="open" x-collapse class="p-4 space-y-6">
+            <!-- Basic Filters -->
+            <div class="">
+                <!-- Advanced Search Toggle -->
+                <div>
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Advanced
+                        Search</label>
+                    <button @click="advanced = !advanced"
+                        class="flex items-center w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-zinc-50 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors duration-200">
+                        <svg class="w-5 h-5 mr-2 text-zinc-500" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path x-show="!advanced" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M5 12h14M12 5l7 7-7 7" />
+                            <path x-show="advanced" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M19 12H5m7 7l-7-7 7-7" />
+                        </svg>
+                        <span x-text="advanced ? 'Hide Advanced' : 'Show Advanced'"></span>
+                    </button>
+                </div>
             </div>
 
-            <div class="p-4" x-show="filtersOpen" x-transition>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Search</label>
+            <!-- Advanced Search Dropdown -->
+            <div x-show="advanced" x-collapse
+                class="p-4 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-zinc-50 dark:bg-zinc-900/50 mt-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Search -->
+                    <div class="md:col-span-1">
+                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Search</label>
                         <div class="relative">
-                            <input type="text" class="w-full bg-zinc-700 border border-zinc-600 rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Search employees...">
-                            <i class="fas fa-search absolute left-3 top-3 text-zinc-400"></i>
+                            <input type="text" wire:model.live="advancedSearch" placeholder="Search keyword..."
+                                class="w-full pl-10 pr-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                            <svg class="absolute left-3 top-2.5 w-5 h-5 text-zinc-400" fill="none"
+                                stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
                         </div>
                     </div>
 
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Hire Date Range</label>
+                    <!-- Date Range -->
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Date
+                            Range</label>
                         <div class="flex space-x-2">
-                            <input type="date" class="w-full bg-zinc-700 border border-zinc-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                            <input type="date" class="w-full bg-zinc-700 border border-zinc-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <input type="date" wire:model.live="dateFrom"
+                                class="w-1/2 px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                            <input type="date" wire:model.live="dateTo"
+                                class="w-1/2 px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
                         </div>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Status</label>
-                        <select class="w-full bg-zinc-700 border border-zinc-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                            <option value="">All Statuses</option>
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                            <option value="terminated">Terminated</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Department</label>
-                        <select class="w-full bg-zinc-700 border border-zinc-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                            <option value="">All Departments</option>
-                            <option value="hr">Human Resources</option>
-                            <option value="it">Information Technology</option>
-                            <option value="finance">Finance</option>
-                            <option value="marketing">Marketing</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Advanced Filters (initially hidden) -->
-                <div class="border-t border-zinc-700 pt-4" x-show="advancedFilters" x-transition>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Gender</label>
-                            <select class="w-full bg-zinc-700 border border-zinc-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                <option value="">All Genders</option>
-                                <option value="male">Male</option>
-                                <option value="female">Female</option>
-                                <option value="other">Other</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Branch</label>
-                            <select class="w-full bg-zinc-700 border border-zinc-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                <option value="">All Branches</option>
-                                <option value="ny">New York</option>
-                                <option value="la">Los Angeles</option>
-                                <option value="chi">Chicago</option>
-                                <option value="mia">Miami</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Shift Preference</label>
-                            <select class="w-full bg-zinc-700 border border-zinc-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                <option value="">All Shifts</option>
-                                <option value="morning">Morning</option>
-                                <option value="afternoon">Afternoon</option>
-                                <option value="night">Night</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Termination Date</label>
-                            <div class="flex space-x-2">
-                                <input type="date" class="w-full bg-zinc-700 border border-zinc-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                <input type="date" class="w-full bg-zinc-700 border border-zinc-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="flex justify-between items-center mt-4">
-                    <button class="text-blue-400 hover:text-blue-300 flex items-center" @click="advancedFilters = !advancedFilters">
-                        <i class="fas fa-cog mr-2"></i>
-                        <span x-text="advancedFilters ? 'Hide Advanced' : 'Show Advanced'"></span>
-                    </button>
-
-                    <div class="flex space-x-3">
-                        <button class="bg-zinc-700 hover:bg-zinc-600 text-white px-4 py-2 rounded-lg flex items-center transition-colors">
-                            <i class="fas fa-redo mr-2"></i> Reset
-                        </button>
-                        <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors">
-                            <i class="fas fa-check mr-2"></i> Apply Filters
-                        </button>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Table Section -->
-        <div class="bg-zinc-800 rounded-lg shadow-md overflow-hidden">
-            <div class="p-4 border-b border-zinc-700 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div class="flex items-center">
-                    <span class="mr-2">Show</span>
-                    <select class="bg-zinc-700 border border-zinc-600 rounded-lg px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <option>10</option>
-                        <option>25</option>
-                        <option>50</option>
-                        <option>100</option>
+            <!-- Filters Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Status Filter -->
+                <div>
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Status</label>
+                    <select wire:model.live="filterStatus"
+                        class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Statuses</option>
+                        @foreach ($statuses as $status)
+                            <option value="{{ $status }}">{{ ucfirst(str_replace('_', ' ', $status)) }}</option>
+                        @endforeach
                     </select>
-                    <span class="ml-2">entries</span>
                 </div>
 
-                <div class="relative w-full md:w-auto">
-                    <input type="text" class="w-full bg-zinc-700 border border-zinc-600 rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Search...">
-                    <i class="fas fa-search absolute left-3 top-3 text-zinc-400"></i>
-                </div>
-            </div>
-
-            <div class="overflow-x-auto">
-                <table class="w-full">
-                    <thead class="bg-zinc-700/50 text-zinc-300">
-                        <tr>
-                            <th class="py-3 px-4 text-left w-12">
-                                <input type="checkbox" class="rounded">
-                            </th>
-                            <th class="py-3 px-4 text-left">Employee #</th>
-                            <th class="py-3 px-4 text-left">Name</th>
-                            <th class="py-3 px-4 text-left">Email</th>
-                            <th class="py-3 px-4 text-left">Position</th>
-                            <th class="py-3 px-4 text-left">Department</th>
-                            <th class="py-3 px-4 text-left">Branch</th>
-                            <th class="py-3 px-4 text-left">Status</th>
-                            <th class="py-3 px-4 text-left">Hire Date</th>
-                            <th class="py-3 px-4 text-left">Salary</th>
-                            <th class="py-3 px-4 text-left">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-zinc-700">
-                        <tr class="hover:bg-zinc-700/30 transition-colors">
-                            <td class="py-3 px-4">
-                                <input type="checkbox" class="rounded">
-                            </td>
-                            <td class="py-3 px-4">EMP-001</td>
-                            <td class="py-3 px-4">
-                                <div class="flex items-center">
-                                    <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium mr-2">
-                                        JD
-                                    </div>
-                                    John Doe
-                                </div>
-                            </td>
-                            <td class="py-3 px-4">john.doe@company.com</td>
-                            <td class="py-3 px-4">Software Engineer</td>
-                            <td class="py-3 px-4">IT</td>
-                            <td class="py-3 px-4">New York</td>
-                            <td class="py-3 px-4">
-                                <span class="bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-full text-xs font-medium">
-                                    Active
-                                </span>
-                            </td>
-                            <td class="py-3 px-4">2022-03-15</td>
-                            <td class="py-3 px-4">$85,000</td>
-                            <td class="py-3 px-4">
-                                <div class="flex space-x-2">
-                                    <button class="text-blue-400 hover:text-blue-300 transition-colors">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                    <button class="text-amber-400 hover:text-amber-300 transition-colors">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="text-rose-400 hover:text-rose-300 transition-colors">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-
-                        <tr class="hover:bg-zinc-700/30 transition-colors">
-                            <td class="py-3 px-4">
-                                <input type="checkbox" class="rounded">
-                            </td>
-                            <td class="py-3 px-4">EMP-002</td>
-                            <td class="py-3 px-4">
-                                <div class="flex items-center">
-                                    <div class="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-white font-medium mr-2">
-                                        SJ
-                                    </div>
-                                    Sarah Johnson
-                                </div>
-                            </td>
-                            <td class="py-3 px-4">sarah.j@company.com</td>
-                            <td class="py-3 px-4">HR Manager</td>
-                            <td class="py-3 px-4">Human Resources</td>
-                            <td class="py-3 px-4">Chicago</td>
-                            <td class="py-3 px-4">
-                                <span class="bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-full text-xs font-medium">
-                                    Active
-                                </span>
-                            </td>
-                            <td class="py-3 px-4">2021-11-08</td>
-                            <td class="py-3 px-4">$72,500</td>
-                            <td class="py-3 px-4">
-                                <div class="flex space-x-2">
-                                    <button class="text-blue-400 hover:text-blue-300 transition-colors">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                    <button class="text-amber-400 hover:text-amber-300 transition-colors">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="text-rose-400 hover:text-rose-300 transition-colors">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-
-                        <tr class="hover:bg-zinc-700/30 transition-colors">
-                            <td class="py-3 px-4">
-                                <input type="checkbox" class="rounded">
-                            </td>
-                            <td class="py-3 px-4">EMP-003</td>
-                            <td class="py-3 px-4">
-                                <div class="flex items-center">
-                                    <div class="w-8 h-8 rounded-full bg-rose-500 flex items-center justify-center text-white font-medium mr-2">
-                                        MB
-                                    </div>
-                                    Michael Brown
-                                </div>
-                            </td>
-                            <td class="py-3 px-4">m.brown@company.com</td>
-                            <td class="py-3 px-4">Finance Analyst</td>
-                            <td class="py-3 px-4">Finance</td>
-                            <td class="py-3 px-4">Los Angeles</td>
-                            <td class="py-3 px-4">
-                                <span class="bg-rose-500/20 text-rose-400 px-2 py-1 rounded-full text-xs font-medium">
-                                    Terminated
-                                </span>
-                            </td>
-                            <td class="py-3 px-4">2020-07-22</td>
-                            <td class="py-3 px-4">$68,000</td>
-                            <td class="py-3 px-4">
-                                <div class="flex space-x-2">
-                                    <button class="text-blue-400 hover:text-blue-300 transition-colors">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                    <button class="text-amber-400 hover:text-amber-300 transition-colors">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="text-rose-400 hover:text-rose-300 transition-colors">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="p-4 border-t border-zinc-700 flex flex-col md:flex-row justify-between items-center gap-4">
-                <div class="text-zinc-400">
-                    Showing 1 to 3 of 3 entries
-                </div>
-
-                <div class="flex space-x-2">
-                    <button class="bg-zinc-700 hover:bg-zinc-600 text-white px-3 py-1 rounded transition-colors">
-                        Previous
-                    </button>
-                    <button class="bg-blue-600 text-white px-3 py-1 rounded">
-                        1
-                    </button>
-                    <button class="bg-zinc-700 hover:bg-zinc-600 text-white px-3 py-1 rounded transition-colors">
-                        Next
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- View Employee Modal -->
-    <div class="fixed inset-0 bg-black/70 z-50 flex justify-end items-center" x-show="viewModalOpen" x-transition>
-        <div class="bg-zinc-800 w-full max-w-2xl h-full overflow-y-auto slide-in" @click.outside="viewModalOpen = false">
-            <div class="p-6 border-b border-zinc-700 flex justify-between items-center">
-                <h2 class="text-xl font-bold">Employee Details</h2>
-                <button class="text-zinc-400 hover:text-white transition-colors" @click="viewModalOpen = false">
-                    <i class="fas fa-times text-xl"></i>
-                </button>
-            </div>
-
-            <div class="p-6 space-y-6">
-                <div class="flex items-center space-x-4">
-                    <div class="w-20 h-20 rounded-full bg-blue-500 flex items-center justify-center text-white text-2xl font-bold">
-                        JD
-                    </div>
-                    <div>
-                        <h3 class="text-2xl font-bold">John Doe</h3>
-                        <p class="text-zinc-400">Software Engineer</p>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="bg-zinc-700/30 rounded-lg p-4">
-                        <h4 class="font-medium mb-2 text-blue-400">Personal Information</h4>
-                        <div class="space-y-2">
-                            <div class="flex justify-between">
-                                <span class="text-zinc-400">Date of Birth:</span>
-                                <span>1990-05-15</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-zinc-400">Gender:</span>
-                                <span>Male</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-zinc-400">Nationality:</span>
-                                <span>American</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="bg-zinc-700/30 rounded-lg p-4">
-                        <h4 class="font-medium mb-2 text-blue-400">Contact Information</h4>
-                        <div class="space-y-2">
-                            <div class="flex justify-between">
-                                <span class="text-zinc-400">Email:</span>
-                                <span>john.doe@company.com</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-zinc-400">Phone:</span>
-                                <span>+1 (555) 123-4567</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-zinc-400">Address:</span>
-                                <span class="text-right">123 Main St, New York, NY</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-zinc-700/30 rounded-lg p-4">
-                    <h4 class="font-medium mb-2 text-blue-400">Employment Details</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="space-y-2">
-                            <div class="flex justify-between">
-                                <span class="text-zinc-400">Employee ID:</span>
-                                <span>EMP-001</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-zinc-400">Department:</span>
-                                <span>IT</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-zinc-400">Branch:</span>
-                                <span>New York</span>
-                            </div>
-                        </div>
-                        <div class="space-y-2">
-                            <div class="flex justify-between">
-                                <span class="text-zinc-400">Hire Date:</span>
-                                <span>2022-03-15</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-zinc-400">Status:</span>
-                                <span class="bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-full text-xs">Active</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-zinc-400">Salary:</span>
-                                <span>$85,000</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-zinc-700/30 rounded-lg p-4">
-                    <h4 class="font-medium mb-2 text-blue-400">Emergency Contacts</h4>
-                    <div class="space-y-3">
-                        <div class="flex justify-between items-center">
-                            <div>
-                                <div class="font-medium">Jane Doe</div>
-                                <div class="text-sm text-zinc-400">Spouse</div>
-                            </div>
-                            <div class="text-right">
-                                <div>+1 (555) 987-6543</div>
-                                <div class="text-sm text-zinc-400">jane.doe@email.com</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="bg-zinc-700/30 rounded-lg p-4">
-                        <h4 class="font-medium mb-2 text-blue-400">Performance Rating</h4>
-                        <div class="flex items-center">
-                            <div class="text-2xl font-bold text-amber-400 mr-2">4.8</div>
-                            <div class="text-amber-400">
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star-half-alt"></i>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="bg-zinc-700/30 rounded-lg p-4">
-                        <h4 class="font-medium mb-2 text-blue-400">Allergies & Medical</h4>
-                        <div class="text-zinc-400">No known allergies</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Add/Edit Employee Modal -->
-    <div class="fixed inset-0 bg-black/70 z-50 flex justify-end items-center" x-show="editModalOpen" x-transition>
-        <div class="bg-zinc-800 w-full max-w-2xl h-full overflow-y-auto slide-in" @click.outside="editModalOpen = false">
-            <div class="p-6 border-b border-zinc-700 flex justify-between items-center">
-                <h2 class="text-xl font-bold">Add New Employee</h2>
-                <button class="text-zinc-400 hover:text-white transition-colors" @click="editModalOpen = false">
-                    <i class="fas fa-times text-xl"></i>
-                </button>
-            </div>
-
-            <div class="p-6 space-y-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium mb-1">First Name</label>
-                        <input type="text" class="w-full bg-zinc-700 border border-zinc-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="First Name">
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Last Name</label>
-                        <input type="text" class="w-full bg-zinc-700 border border-zinc-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Last Name">
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Email</label>
-                        <input type="email" class="w-full bg-zinc-700 border border-zinc-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Email Address">
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Phone</label>
-                        <input type="text" class="w-full bg-zinc-700 border border-zinc-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Phone Number">
-                    </div>
-                </div>
-
+                <!-- Department Filter -->
                 <div>
-                    <label class="block text-sm font-medium mb-1">Address</label>
-                    <input type="text" class="w-full bg-zinc-700 border border-zinc-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Full Address">
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Department</label>
+                    <select wire:model.live="filterDepartment"
+                        class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Departments</option>
+                        @foreach ($departments as $department)
+                            <option value="{{ $department->id }}">{{ $department->name }}</option>
+                        @endforeach
+                    </select>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Date of Birth</label>
-                        <input type="date" class="w-full bg-zinc-700 border border-zinc-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Gender</label>
-                        <select class="w-full bg-zinc-700 border border-zinc-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                            <option value="">Select Gender</option>
-                            <option value="male">Male</option>
-                            <option value="female">Female</option>
-                            <option value="other">Other</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Position</label>
-                        <input type="text" class="w-full bg-zinc-700 border border-zinc-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Job Position">
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Department</label>
-                        <div class="flex space-x-2">
-                            <select class="w-full bg-zinc-700 border border-zinc-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                <option value="">Select Department</option>
-                                <option value="it">IT</option>
-                                <option value="hr">Human Resources</option>
-                                <option value="finance">Finance</option>
-                                <option value="marketing">Marketing</option>
-                            </select>
-                            <button class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 rounded-lg transition-colors border border-emerald-500">
-                                <i class="fas fa-plus"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Hire Date</label>
-                        <input type="date" class="w-full bg-zinc-700 border border-zinc-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Status</label>
-                        <select class="w-full bg-zinc-700 border border-zinc-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                            <option value="terminated">Terminated</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Salary</label>
-                        <input type="text" class="w-full bg-zinc-700 border border-zinc-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Annual Salary">
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Shift Preference</label>
-                        <select class="w-full bg-zinc-700 border border-zinc-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                            <option value="morning">Morning</option>
-                            <option value="afternoon">Afternoon</option>
-                            <option value="night">Night</option>
-                        </select>
-                    </div>
-                </div>
-
+                <!-- Branch Filter -->
                 <div>
-                    <label class="block text-sm font-medium mb-1">Profile Photo</label>
-                    <div class="flex items-center space-x-4">
-                        <div class="w-16 h-16 rounded-full bg-zinc-700 flex items-center justify-center">
-                            <i class="fas fa-user text-zinc-400"></i>
-                        </div>
-                        <button class="bg-zinc-700 hover:bg-zinc-600 text-white px-4 py-2 rounded-lg transition-colors">
-                            Upload Photo
-                        </button>
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Branch</label>
+                    <select wire:model.live="filterBranch"
+                        class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Branches</option>
+                        @foreach ($branches as $branch)
+                            <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <!-- Gender Filter -->
+                <div>
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Gender</label>
+                    <select wire:model.live="filterGender"
+                        class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Genders</option>
+                        @foreach ($genders as $gender)
+                            <option value="{{ $gender }}">{{ ucfirst(str_replace('_', ' ', $gender)) }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <!-- Shift Preference Filter -->
+                <div>
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Shift</label>
+                    <select wire:model.live="filterShift"
+                        class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Shifts</option>
+                        @foreach ($shifts as $shift)
+                            <option value="{{ $shift }}">{{ ucfirst($shift) }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <!-- Hire Date Range -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Hire Date Range</label>
+                    <div class="flex space-x-2">
+                        <input type="date" wire:model.live="hireDateFrom"
+                            class="w-1/2 px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                        <input type="date" wire:model.live="hireDateTo"
+                            class="w-1/2 px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
                     </div>
                 </div>
 
-                <div class="bg-zinc-700/30 rounded-lg p-4">
-                    <h4 class="font-medium mb-3 text-blue-400">Assign Permissions</h4>
-                    <div class="space-y-3">
-                        <div class="flex items-center">
-                            <input type="checkbox" class="rounded mr-3">
-                            <span>Human Resources Department</span>
-                        </div>
-                        <div class="flex items-center">
-                            <input type="checkbox" class="rounded mr-3">
-                            <span>Information Technology Department</span>
-                        </div>
-                        <div class="flex items-center">
-                            <input type="checkbox" class="rounded mr-3">
-                            <span>Finance Department</span>
-                        </div>
-                        <div class="flex items-center">
-                            <input type="checkbox" class="rounded mr-3">
-                            <span>Marketing Department</span>
-                        </div>
+                <!-- Termination Date Range -->
+                <div class="md:col-span-1">
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Termination Date</label>
+                    <div class="flex space-x-2">
+                        <input type="date" wire:model.live="terminationDateFrom"
+                            class="w-1/2 px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                        <input type="date" wire:model.live="terminationDateTo"
+                            class="w-1/2 px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
                     </div>
                 </div>
             </div>
 
-            <div class="p-6 border-t border-zinc-700 flex justify-end space-x-3">
-                <button class="bg-zinc-700 hover:bg-zinc-600 text-white px-6 py-2 rounded-lg transition-colors" @click="editModalOpen = false">
-                    Cancel
+            <!-- Filter Buttons -->
+            <div class="flex flex-wrap gap-3 justify-end pt-4 border-t border-zinc-200 dark:border-zinc-700">
+                <button wire:click="applyFilters"
+                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center shadow-sm">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
+                    </svg>
+                    Apply
                 </button>
-                <button class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors">
-                    Add Employee
+                <button wire:click="resetFilters"
+                    class="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors duration-200 flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                    Reset
                 </button>
             </div>
         </div>
     </div>
 
-    <script>
-        function dashboard() {
-            return {
-                selectedItems: [],
-                filtersOpen: true,
-                advancedFilters: false,
-                viewModalOpen: false,
-                editModalOpen: false,
+    <!-- Table -->
+    <x-table :$headers :$rows selectable wire:model="selectedIds" striped paginate persist
+        :filter="['quantity' => 'quantity', 'search' => 'search']" :quantity="[10, 25, 50, 100]">
+        @interact('column_name', $row)
+            <div class="flex items-center">
+                <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium text-sm mr-2">
+                    {{ strtoupper(substr($row->name, 0, 2)) }}
+                </div>
+                <span class="text-zinc-900 dark:text-zinc-100">{{ $row->name }}</span>
+            </div>
+        @endinteract
 
-                init() {
-                    // Initialize any data or event listeners
-                }
-            }
-        }
-    </script>
+        @interact('column_department', $row)
+            <span class="text-zinc-900 dark:text-zinc-100">
+                {{ $row->department ? $row->department->name : 'N/A' }}
+            </span>
+        @endinteract
+
+        @interact('column_branch', $row)
+            <span class="text-zinc-900 dark:text-zinc-100">
+                {{ $row->branch ? $row->branch->name : 'N/A' }}
+            </span>
+        @endinteract
+
+        @interact('column_status', $row)
+            @php
+                $statusColors = [
+                    'active' => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+                    'inactive' => 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
+                    'terminated' => 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+                    'on_probation' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+                    'on_leave' => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+                ];
+            @endphp
+            <span class="px-2 py-1 text-xs font-semibold rounded-full {{ $statusColors[$row->status] ?? 'bg-gray-100 text-gray-800' }}">
+                {{ ucfirst(str_replace('_', ' ', $row->status)) }}
+            </span>
+        @endinteract
+
+        @interact('column_salary', $row)
+            <span class="text-zinc-900 dark:text-zinc-100">
+                ₦{{ number_format($row->salary, 2) }}
+            </span>
+        @endinteract
+
+        @interact('column_action', $row)
+            <div class="flex items-center space-x-2">
+                <a href=""
+                    class="p-2 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors"
+                    title="Edit Employee">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                </a>
+                <button wire:click="deleteEmployee('{{ $row->id }}')"
+                    class="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                    title="Delete Employee">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                </button>
+            </div>
+        @endinteract
+    </x-table>
+
 </div>
