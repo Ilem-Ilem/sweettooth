@@ -75,6 +75,11 @@ class CreateEmployee extends BaseComponent
         $this->department_id = null;
     }
 
+    protected function getAllSelectableIds(): array
+    {
+        return $this->getFilteredQuery()->pluck('id')->toArray();
+    }
+
     // Branch creation methods
     public function openCreateBranchModal()
     {

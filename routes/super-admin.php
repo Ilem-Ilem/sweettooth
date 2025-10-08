@@ -11,4 +11,6 @@ Route::middleware(['auth'])->prefix('super-admin')->name('super-admin.')->group(
     Route::get('departments', \App\Livewire\SuperAdmin\Departments\Index::class)->name('departments.index');
 
     Route::get('employees', App\Livewire\SuperAdmin\EmployeeModule\Index::class)->name('employee.index');
+    Route::get('create-employee', App\Livewire\SuperAdmin\EmployeeModule\CreateEmployee::class)->name('employee.create');
+    Route::get('employees/{id}/edit', App\Livewire\SuperAdmin\EmployeeModule\EditEmployee::class)->name('employee.edit');
 });

@@ -42,8 +42,8 @@
                 <flux:navlist.item icon="user" :href="route('super-admin.employee.index')"
                     :current="request()->routeIs('super-admin.employee.index')" wire:navigate>{{ __('All Employees') }}
                 </flux:navlist.item>
-                <flux:navlist.item icon="building-office-2" :href="route('super-admin.branches.deleted')"
-                    :current="request()->routeIs('super-admin.branches.deleted')" wire:navigate>
+                <flux:navlist.item icon="building-office-2" :href="route('super-admin.employee.create')"
+                    :current="request()->routeIs('super-admin.employee.create')" wire:navigate>
                     {{ __('Create Employee') }}
                 </flux:navlist.item>
             </flux:navlist.group>

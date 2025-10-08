@@ -26,7 +26,7 @@
     <!-- Header with Add Button -->
     <div class="flex justify-between items-center">
         <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Employee Management</h1>
-        <a href=""
+        <a href="{{ route('super-admin.employee.create') }}"
             class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center shadow-sm">
             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -314,7 +314,7 @@
 
         @interact('column_action', $row)
             <div class="flex items-center space-x-2">
-                <a href=""
+                <a href="{{ route('super-admin.employee.edit', $row->id) }}"
                     class="p-2 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors"
                     title="Edit Employee">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
