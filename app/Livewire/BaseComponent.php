@@ -159,19 +159,7 @@ abstract class BaseComponent extends Component
     // DEFAULT HANDLERS (can be overridden in child components)
     // ------------------------------------------------------------
 
-    /**
-     * Deletes the selected records.
-     *
-     * @return void
-     */
-    protected function bulkDelete(): void
-    {
-        $model = $this->getModelClass();
-        $model::whereIn('id', $this->selectedIds)->delete();
-
-        $this->resetBulkSelection();
-        session()->flash('success', 'Selected records deleted successfully.');
-    }
+ 
 
     /**
      * Exports selected records (to CSV, Excel, etc.).

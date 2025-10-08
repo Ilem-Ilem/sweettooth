@@ -28,10 +28,6 @@ class DeleteBranch extends BaseComponent
     public bool $isEditing = false;
 
 
-    protected array $bulkActions = [
-        'delete' => ['label' => 'Delete Selected', 'method' => 'bulkDelete'],
-        'export' => ['label' => 'Export Selected', 'method' => 'exportSelected'],
-    ];
 
     protected function getModelClass(): string
     {
@@ -121,26 +117,102 @@ class DeleteBranch extends BaseComponent
 
 
 
-    public function confirmDelete($branchId)
+    // Restore methods
+    public function confirmRestore($branchId): void
     {
         $this->selectedBranchId = $branchId;
-        $this->showDeleteModal = true;
+
+        $this->dialog()
+            ->question('Restore Branch', 'Are you sure you want to restore this branch?')
+            ->confirm('Restore', 'restoreBranch', 'Branch restored successfully!')
+            ->cancel('Cancel', 'cancelledRestore', 'Restore cancelled')
+            ->send();
     }
 
-    public function deleteBranch()
+    public function restoreBranch(string $message): void
     {
         if ($this->selectedBranchId) {
-            Branch::findOrFail($this->selectedBranchId)->destroy();
-            $this->toast()->success('Branch deleted successfully!')->send();
-            $this->showDeleteModal = false;
+            Branch::onlyTrashed()->findOrFail($this->selectedBranchId)->restore();
+            $this->dialog()->success('Success', $message)->send();
             $this->selectedBranchId = null;
         }
     }
 
-    public function closeDeleteModal()
+    public function cancelledRestore(string $message): void
     {
-        $this->showDeleteModal = false;
         $this->selectedBranchId = null;
+        $this->dialog()->info('Cancelled', $message)->send();
+    }
+
+    // Permanent Delete methods
+    public function confirmDelete($branchId): void
+    {
+        $this->selectedBranchId = $branchId;
+
+        $this->dialog()
+            ->question('Warning!', 'Are you sure you want to permanently delete this branch? This action cannot be undone.')
+            ->confirm('Confirm Delete', 'deleteBranch', 'Branch permanently deleted!')
+            ->cancel('Cancel', 'cancelledDelete', 'Delete cancelled')
+            ->send();
+    }
+
+    public function deleteBranch(string $message): void
+    {
+        if ($this->selectedBranchId) {
+            Branch::onlyTrashed()->findOrFail($this->selectedBranchId)->forceDelete();
+            $this->dialog()->success('Success', $message)->send();
+            $this->selectedBranchId = null;
+        }
+    }
+
+    public function cancelledDelete(string $message): void
+    {
+        $this->selectedBranchId = null;
+        $this->dialog()->info('Cancelled', $message)->send();
+    }
+
+    // Bulk Restore
+    public function confirmBulkRestore(): void
+    {
+        $this->dialog()
+            ->question('Restore Multiple Branches', 'Are you sure you want to restore ' . count($this->selectedIds) . ' branch(es)?')
+            ->confirm('Restore All', 'bulkRestore', count($this->selectedIds) . ' branch(es) restored successfully!')
+            ->cancel('Cancel', 'cancelledBulkRestore', 'Bulk restore cancelled')
+            ->send();
+    }
+
+    public function bulkRestore(string $message): void
+    {
+        Branch::onlyTrashed()->whereIn('id', $this->selectedIds)->restore();
+        $this->dialog()->success('Success', $message)->send();
+        $this->selectedIds = [];
+    }
+
+    public function cancelledBulkRestore(string $message): void
+    {
+        $this->dialog()->info('Cancelled', $message)->send();
+    }
+
+    // Bulk Permanent Delete
+    public function confirmBulkDelete(): void
+    {
+        $this->dialog()
+            ->question('Warning!', 'Are you sure you want to permanently delete ' . count($this->selectedIds) . ' branch(es)? This action cannot be undone.')
+            ->confirm('Confirm Delete', 'bulkDelete', count($this->selectedIds) . ' branch(es) permanently deleted!')
+            ->cancel('Cancel', 'cancelledBulkDelete', 'Bulk delete cancelled')
+            ->send();
+    }
+
+    public function bulkDelete(string $message): void
+    {
+        Branch::onlyTrashed()->whereIn('id', $this->selectedIds)->forceDelete();
+        $this->dialog()->success('Success', $message)->send();
+        $this->selectedIds = [];
+    }
+
+    public function cancelledBulkDelete(string $message): void
+    {
+        $this->dialog()->info('Cancelled', $message)->send();
     }
 
     public function render()

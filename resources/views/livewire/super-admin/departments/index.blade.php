@@ -69,8 +69,7 @@
                 </button>
             </div>
             <div class="flex flex-col sm:flex-row gap-2">
-                <button wire:click="$call('bulkDelete')"
-                    wire:confirm="Are you sure you want to delete the selected departments?"
+                <button wire:click="bulkDeleteDepartments"
                     class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center justify-center">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -241,7 +240,7 @@
                             d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                     </svg>
                 </button>
-                <button wire:click="confirmDelete({{ $row->id }})"
+                <button wire:click="deleteDepartment({{ $row->id }})"
                     class="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                     title="Delete Department">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -357,33 +356,4 @@
         </div>
     </div>
 
-    <!-- Delete Confirmation Modal (TallStackUI Dialog) -->
-    <x-dialog wire="showDeleteModal" id="delete-department-dialog">
-        <div class="p-6">
-            <div
-                class="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 dark:bg-red-900/20 rounded-full mb-4">
-                <svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor"
-                    viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-            </div>
-
-            <h3 class="text-lg font-bold text-center text-zinc-900 dark:text-zinc-100 mb-2">Delete Department</h3>
-            <p class="text-sm text-center text-zinc-600 dark:text-zinc-400 mb-6">
-                Are you sure you want to delete this department? This action cannot be undone.
-            </p>
-
-            <div class="flex items-center justify-center space-x-3">
-                <button wire:click="closeDeleteModal"
-                    class="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors">
-                    Cancel
-                </button>
-                <button wire:click="deleteDepartment"
-                    class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors">
-                    Delete Department
-                </button>
-            </div>
-        </div>
-    </x-dialog>
 </div>

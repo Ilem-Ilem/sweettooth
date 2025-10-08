@@ -232,26 +232,53 @@ class Index extends BaseComponent
         $this->closeBranchModal();
     }
 
-    public function confirmDelete($branchId)
+    // Delete methods with TallStackUI Dialog
+    public function confirmDelete($branchId): void
     {
         $this->selectedBranchId = $branchId;
-        $this->showDeleteModal = true;
+
+        $this->dialog()
+            ->question('Warning!', 'Are you sure you want to delete this branch?')
+            ->confirm('Confirm Delete', 'deleteBranch', 'Branch deleted successfully!')
+            ->cancel('Cancel', 'cancelledDelete', 'Delete cancelled')
+            ->send();
     }
 
-    public function deleteBranch()
+    public function deleteBranch(string $message): void
     {
         if ($this->selectedBranchId) {
             Branch::findOrFail($this->selectedBranchId)->delete();
-            $this->toast()->success('Branch deleted successfully!')->send();
-            $this->showDeleteModal = false;
+            $this->dialog()->success('Success', $message)->send();
             $this->selectedBranchId = null;
         }
     }
 
-    public function closeDeleteModal()
+    public function cancelledDelete(string $message): void
     {
-        $this->showDeleteModal = false;
         $this->selectedBranchId = null;
+        $this->dialog()->info('Cancelled', $message)->send();
+    }
+
+    // Bulk Delete with TallStackUI Dialog
+    public function confirmBulkDelete(): void
+    {
+        $this->dialog()
+            ->question('Warning!', 'Are you sure you want to delete ' . count($this->selectedIds) . ' branch(es)?')
+            ->confirm('Confirm Delete', 'bulkDelete', count($this->selectedIds) . ' branch(es) deleted successfully!')
+            ->cancel('Cancel', 'cancelledBulkDelete', 'Bulk delete cancelled')
+            ->send();
+    }
+
+    public function bulkDelete(string $message): void
+    {
+        Branch::whereIn('id', $this->selectedIds)->delete();
+        $this->dialog()->success('Success', $message)->send();
+        $this->selectedIds = [];
+    }
+
+    public function cancelledBulkDelete(string $message): void
+    {
+        $this->dialog()->info('Cancelled', $message)->send();
     }
 
     public function render()

@@ -20,7 +20,6 @@ class Index extends BaseComponent
 
     // Modal states
     public bool $showDepartmentModal = false;
-    public bool $showDeleteModal = false;
     public ?int $selectedDepartmentId = null;
     public bool $isEditing = false;
 
@@ -154,7 +153,7 @@ class Index extends BaseComponent
     {
         $this->validate([
             'name' => 'required|string|max:255|unique:departments,name,' . $this->selectedDepartmentId,
-            'branch_id' => 'required|exists:branches,id',
+            'branch_id' => 'nullable|exists:branches,id',
             'type' => 'required|in:production,sales',
             'description' => 'nullable|string',
         ]);
@@ -178,26 +177,53 @@ class Index extends BaseComponent
         $this->closeDepartmentModal();
     }
 
-    public function confirmDelete($departmentId)
+    // Delete methods
+    public function deleteDepartment($departmentId): void
     {
         $this->selectedDepartmentId = $departmentId;
-        $this->showDeleteModal = true;
+
+        $this->dialog()
+            ->question('Warning!', 'Are you sure you want to delete this department?')
+            ->confirm('Confirm', 'confirmedDeleteDepartment', 'Confirmed Successfully')
+            ->cancel('Cancel', 'cancelledDeleteDepartment', 'Cancelled Successfully')
+            ->send();
     }
 
-    public function deleteDepartment()
+    public function confirmedDeleteDepartment(string $message): void
     {
         if ($this->selectedDepartmentId) {
             Department::findOrFail($this->selectedDepartmentId)->delete();
-            $this->toast()->success('Department deleted successfully!')->send();
-            $this->showDeleteModal = false;
+            $this->dialog()->success('Success', 'Department deleted successfully!')->send();
             $this->selectedDepartmentId = null;
         }
     }
 
-    public function closeDeleteModal()
+    public function cancelledDeleteDepartment(string $message): void
     {
-        $this->showDeleteModal = false;
         $this->selectedDepartmentId = null;
+        $this->dialog()->error('Cancelled', $message)->send();
+    }
+
+    // Bulk Delete
+    public function bulkDeleteDepartments(): void
+    {
+        $this->dialog()
+            ->question('Warning!', 'Are you sure you want to delete ' . count($this->selectedIds) . ' department(s)?')
+            ->confirm('Confirm', 'confirmedBulkDelete', 'Confirmed Successfully')
+            ->cancel('Cancel', 'cancelledBulkDelete', 'Cancelled Successfully')
+            ->send();
+    }
+
+    public function confirmedBulkDelete(string $message): void
+    {
+        Department::whereIn('id', $this->selectedIds)->delete();
+        $this->dialog()->success('Success', count($this->selectedIds) . ' department(s) deleted successfully!')->send();
+        $this->selectedIds = [];
+    }
+
+    public function cancelledBulkDelete(string $message): void
+    {
+        $this->dialog()->error('Cancelled', $message)->send();
     }
 
     public function render()

@@ -21,6 +21,8 @@ class DatabaseSeeder extends Seeder
         // ]);
         $this->call([
             MDSeeder::class,
+            BranchSeeder::class,
+            DepartmentSeeder::class,
         ]);
     }
 }

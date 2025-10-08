@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('departments', function (Blueprint $table) {
             $table->id();
-            $table->uuid('branch_id');
+            $table->uuid('branch_id')->nullable();
             $table->foreign('branch_id')->references('id')->on('branches')->onDelete('cascade');
             $table->enum('name', ['hot_kitchen', 'pastry', 'corner_store', 'gelato', 'till']);
             $table->enum('type', ['production', 'sales']);

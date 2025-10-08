@@ -3,12 +3,14 @@
 namespace App\Livewire\SuperAdmin\Roles;
 
 use App\Livewire\BaseComponent;
-use Livewire\Component;
+use Livewire\WithPagination;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
+use TallStackUi\Traits\Interactions;
 
 class Index extends BaseComponent
 {
+    use Interactions, WithPagination;
     public ?int $quantity = 10;
     public ?string $search = null;
     public ?string $advancedSearch = null;
@@ -183,10 +185,53 @@ class Index extends BaseComponent
         $this->closeRoleModal();
     }
 
+    // Delete methods
     public function deleteRole($roleId)
     {
-        Role::findOrFail($roleId)->delete();
-        $this->toast()->success('Role deleted successfully!')->send();
+        $this->selectedRoleId = $roleId;
+
+        $this->dialog()
+            ->question('Warning!', 'Are you sure you want to delete this role?')
+            ->confirm('Confirm', 'confirmedDeleteRole', 'Confirmed Successfully')
+            ->cancel('Cancel', 'cancelledDeleteRole', 'Cancelled Successfully')
+            ->send();
+    }
+
+    public function confirmedDeleteRole(string $message): void
+    {
+        if ($this->selectedRoleId) {
+            Role::findOrFail($this->selectedRoleId)->delete();
+            $this->dialog()->success('Success', 'Role deleted successfully!')->send();
+            $this->selectedRoleId = null;
+        }
+    }
+
+    public function cancelledDeleteRole(string $message): void
+    {
+        $this->selectedRoleId = null;
+        $this->dialog()->error('Cancelled', $message)->send();
+    }
+
+    // Bulk Delete
+    public function bulkDeleteRoles(): void
+    {
+        $this->dialog()
+            ->question('Warning!', 'Are you sure you want to delete ' . count($this->selectedIds) . ' role(s)?')
+            ->confirm('Confirm', 'confirmedBulkDelete', 'Confirmed Successfully')
+            ->cancel('Cancel', 'cancelledBulkDelete', 'Cancelled Successfully')
+            ->send();
+    }
+
+    public function confirmedBulkDelete(string $message): void
+    {
+        Role::whereIn('id', $this->selectedIds)->delete();
+        $this->dialog()->success('Success', count($this->selectedIds) . ' role(s) deleted successfully!')->send();
+        $this->selectedIds = [];
+    }
+
+    public function cancelledBulkDelete(string $message): void
+    {
+        $this->dialog()->error('Cancelled', $message)->send();
     }
 
     public function toggleAllPermissions()
