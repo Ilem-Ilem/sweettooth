@@ -8,6 +8,7 @@ use App\Models\Branch;
 use App\Models\Department;
 use Illuminate\Support\Facades\Hash;
 use Livewire\WithFileUploads;
+use Spatie\Permission\Models\Role;
 
 class CreateEmployee extends BaseComponent
 {
@@ -40,6 +41,7 @@ class CreateEmployee extends BaseComponent
     public $profile_photo = null;
     public ?string $last_performance_review_date = null;
     public ?float $performance_rating = null;
+    public array $selectedRoles = [];
 
     // Modal states for creating branch/department
     public bool $showCreateBranchModal = false;
@@ -65,7 +67,6 @@ class CreateEmployee extends BaseComponent
 
     public function mount()
     {
-        $this->employee_number = $this->generateEmployeeNumber();
         $this->hire_date = date('Y-m-d');
     }
 
@@ -73,6 +74,11 @@ class CreateEmployee extends BaseComponent
     {
         // Reset department when branch changes
         $this->department_id = null;
+
+        // Generate employee number based on selected branch
+        if ($value) {
+            $this->employee_number = $this->generateEmployeeNumber($value);
+        }
     }
 
     protected function getAllSelectableIds(): array
@@ -233,20 +239,40 @@ class CreateEmployee extends BaseComponent
             $data['profile_photo'] = $this->profile_photo->store('employee-photos', 'public');
         }
 
-        Employee::create($data);
+        $employee = Employee::create($data);
+
+        // Assign roles to employee
+        if (!empty($this->selectedRoles)) {
+            $employee->syncRoles($this->selectedRoles);
+        }
 
         $this->toast()->success('Employee created successfully!')->send();
-        return redirect()->route('super-admin.employees.index');
+        return redirect()->route('super-admin.employee.index');
     }
 
-    private function generateEmployeeNumber()
+    private function generateEmployeeNumber($branchId)
     {
-        $lastEmployee = Employee::orderBy('employee_number', 'desc')->first();
-        if ($lastEmployee) {
-            $lastNumber = intval(substr($lastEmployee->employee_number, -4));
-            return 'EMP-' . str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
+        $branch = Branch::find($branchId);
+        if (!$branch) {
+            return '';
         }
-        return 'EMP-0001';
+
+        // Get branch code without hyphens (e.g., LHO-001 becomes LHO001)
+        $branchCode = str_replace('-', '', strtoupper($branch->code));
+
+        // Get the last employee for this branch
+        $lastEmployee = Employee::where('branch_id', $branchId)
+            ->where('employee_number', 'like', 'EMP-' . $branchCode . '-%')
+            ->orderBy('employee_number', 'desc')
+            ->first();
+
+        if ($lastEmployee) {
+            // Extract the last 4 digits from the employee number
+            $lastNumber = intval(substr($lastEmployee->employee_number, -4));
+            return 'EMP-' . $branchCode . '-' . str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
+        }
+
+        return 'EMP-' . $branchCode . '-0001';
     }
 
     public function render()
@@ -255,10 +281,12 @@ class CreateEmployee extends BaseComponent
         $departments = $this->branch_id
             ? Department::where('branch_id', $this->branch_id)->orWhereNull('branch_id')->get()
             : Department::all();
+        $roles = Role::where('guard_name', 'employees')->get();
 
         return view('livewire.super-admin.employee-module.create-employee', [
             'branches' => $branches,
             'departments' => $departments,
+            'roles' => $roles,
         ]);
     }
 }

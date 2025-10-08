@@ -8,6 +8,7 @@ use App\Models\Branch;
 use App\Models\Department;
 use Illuminate\Support\Facades\Hash;
 use Livewire\WithFileUploads;
+use Spatie\Permission\Models\Role;
 
 class EditEmployee extends BaseComponent
 {
@@ -43,6 +44,7 @@ class EditEmployee extends BaseComponent
     public ?string $existing_photo = null;
     public ?string $last_performance_review_date = null;
     public ?float $performance_rating = null;
+    public array $selectedRoles = [];
 
     // Modal states for creating branch/department
     public bool $showCreateBranchModal = false;
@@ -97,6 +99,7 @@ class EditEmployee extends BaseComponent
         $this->existing_photo = $employee->profile_photo;
         $this->last_performance_review_date = $employee->last_performance_review_date;
         $this->performance_rating = $employee->performance_rating;
+        $this->selectedRoles = $employee->roles->pluck('name')->toArray();
     }
 
     public function updatedBranchId($value)
@@ -265,8 +268,15 @@ class EditEmployee extends BaseComponent
 
         $employee->update($data);
 
+        // Sync roles
+        if (!empty($this->selectedRoles)) {
+            $employee->syncRoles($this->selectedRoles);
+        } else {
+            $employee->syncRoles([]);
+        }
+
         $this->toast()->success('Employee updated successfully!')->send();
-        return redirect()->route('super-admin.employees.index');
+        return redirect()->route('super-admin.employee.index');
     }
 
     public function render()
@@ -275,10 +285,12 @@ class EditEmployee extends BaseComponent
         $departments = $this->branch_id
             ? Department::where('branch_id', $this->branch_id)->orWhereNull('branch_id')->get()
             : Department::all();
+        $roles = Role::where('guard_name', 'employees')->get();
 
         return view('livewire.super-admin.employee-module.edit-employee', [
             'branches' => $branches,
             'departments' => $departments,
+            'roles' => $roles,
         ]);
     }
 }

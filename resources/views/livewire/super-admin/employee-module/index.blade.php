@@ -312,8 +312,28 @@
             </span>
         @endinteract
 
+        @interact('column_roles', $row)
+            <div class="flex flex-wrap gap-1">
+                @forelse($row->roles as $role)
+                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+                        {{ ucfirst($role->name) }}
+                    </span>
+                @empty
+                    <span class="text-zinc-400 dark:text-zinc-500 text-sm">No roles</span>
+                @endforelse
+            </div>
+        @endinteract
+
         @interact('column_action', $row)
             <div class="flex items-center space-x-2">
+                <button wire:click="openRoleModal('{{ $row->id }}')"
+                    class="p-2 text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
+                    title="Assign Roles">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                </button>
                 <a href="{{ route('super-admin.employee.edit', $row->id) }}"
                     class="p-2 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors"
                     title="Edit Employee">
@@ -333,5 +353,64 @@
             </div>
         @endinteract
     </x-table>
+
+    <!-- Assign Roles Modal -->
+    <div x-data="{ show: @entangle('showRoleModal') }" x-show="show" x-cloak class="fixed inset-0 z-50 overflow-hidden"
+        @keydown.escape.window="show = false">
+        <!-- Backdrop -->
+        <div x-show="show" x-transition:enter="transition-opacity ease-linear duration-300"
+            x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+            x-transition:leave="transition-opacity ease-linear duration-300" x-transition:leave-start="opacity-100"
+            x-transition:leave-end="opacity-0" class="fixed inset-0 bg-black bg-opacity-50"
+            @click="$wire.closeRoleModal()">
+        </div>
+
+        <!-- Slide-in Panel -->
+        <div x-show="show" x-transition:enter="transform transition ease-in-out duration-300"
+            x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+            x-transition:leave="transform transition ease-in-out duration-300"
+            x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full"
+            class="fixed inset-y-0 right-0 w-full md:w-1/2 lg:w-1/3 bg-white dark:bg-zinc-900 shadow-xl flex flex-col">
+
+            <!-- Header -->
+            <div class="px-6 py-4 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
+                <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-100">Assign Roles</h2>
+                <button wire:click="closeRoleModal"
+                    class="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Scrollable Content -->
+            <div class="flex-1 overflow-y-auto px-6 py-4 scrollbar-thin">
+                <div class="space-y-4">
+                    <p class="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
+                        Select multiple roles to assign to this employee
+                    </p>
+                    @foreach ($roles as $role)
+                        <label class="flex items-center p-3 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer transition-colors">
+                            <input type="checkbox" wire:model="selectedRoles" value="{{ $role->name }}"
+                                class="w-5 h-5 text-purple-600 bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-600 rounded focus:ring-purple-500 dark:focus:ring-purple-600 focus:ring-2">
+                            <span class="ml-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">{{ ucfirst($role->name) }}</span>
+                        </label>
+                    @endforeach
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="px-6 py-4 border-t border-zinc-200 dark:border-zinc-700 flex items-center justify-end space-x-3">
+                <button wire:click="closeRoleModal"
+                    class="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors">
+                    Cancel
+                </button>
+                <button wire:click="saveRoles"
+                    class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors">
+                    Save Roles
+                </button>
+            </div>
+        </div>
+    </div>
 
 </div>

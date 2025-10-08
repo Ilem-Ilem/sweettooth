@@ -6,6 +6,7 @@ use App\Livewire\BaseComponent;
 use App\Models\Employee;
 use App\Models\Department;
 use App\Models\Branch;
+use Spatie\Permission\Models\Role;
 
 class Index extends BaseComponent
 {
@@ -29,6 +30,11 @@ class Index extends BaseComponent
     // Delete state
     public ?string $selectedEmployeeId = null;
 
+    // Role assignment state
+    public bool $showRoleModal = false;
+    public ?string $employeeIdForRole = null;
+    public array $selectedRoles = [];
+
     protected function getModelClass(): string
     {
         return Employee::class;
@@ -42,7 +48,7 @@ class Index extends BaseComponent
     protected function getFilteredQuery()
     {
         return Employee::query()
-            ->with(['branch', 'department'])
+            ->with(['branch', 'department', 'roles'])
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
                     $q->where('name', 'like', '%' . $this->search . '%')
@@ -197,6 +203,32 @@ class Index extends BaseComponent
         $this->dialog()->error('Cancelled', $message)->send();
     }
 
+    // Role assignment methods
+    public function openRoleModal($employeeId): void
+    {
+        $this->employeeIdForRole = $employeeId;
+        $employee = Employee::find($employeeId);
+        $this->selectedRoles = $employee ? $employee->roles->pluck('name')->toArray() : [];
+        $this->showRoleModal = true;
+    }
+
+    public function closeRoleModal(): void
+    {
+        $this->showRoleModal = false;
+        $this->employeeIdForRole = null;
+        $this->selectedRoles = [];
+    }
+
+    public function saveRoles(): void
+    {
+        if ($this->employeeIdForRole) {
+            $employee = Employee::findOrFail($this->employeeIdForRole);
+            $employee->syncRoles($this->selectedRoles);
+            $this->toast()->success('Roles updated successfully!')->send();
+            $this->closeRoleModal();
+        }
+    }
+
     public function render()
     {
         $rows = $this->getFilteredQuery()->paginate($this->quantity ?? 10);
@@ -205,6 +237,7 @@ class Index extends BaseComponent
         $statuses = ['active', 'inactive', 'terminated', 'on_probation', 'on_leave'];
         $genders = ['male', 'female', 'other', 'prefer_not_to_say'];
         $shifts = ['morning', 'afternoon', 'night', 'rotating', 'flexible'];
+        $roles = Role::where('guard_name', 'employees')->get();
 
         return view('livewire.super-admin.employee-module.index', [
             'headers' => [
@@ -217,6 +250,7 @@ class Index extends BaseComponent
                 ['index' => 'status', 'label' => 'Status'],
                 ['index' => 'hire_date', 'label' => 'Hire Date'],
                 ['index' => 'salary', 'label' => 'Salary'],
+                ['index' => 'roles', 'label' => 'Roles'],
                 ['index' => 'action', 'label' => 'Actions', 'display' => true],
             ],
             'rows' => $rows,
@@ -225,6 +259,7 @@ class Index extends BaseComponent
             'statuses' => $statuses,
             'genders' => $genders,
             'shifts' => $shifts,
+            'roles' => $roles,
         ]);
     }
 }
