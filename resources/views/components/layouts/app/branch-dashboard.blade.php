@@ -9,10 +9,14 @@
     <flux:sidebar sticky stashable class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
         <flux:sidebar.toggle class="lg:hidden" icon="x-mark" />
 
-        <a href="{{ route('dashboard') }}" class="me-5 flex items-center space-x-2 rtl:space-x-reverse" wire:navigate>
+        <a href="{{ route('branch-dashboard.branch_dashboard') }}" class="me-5 flex items-center space-x-2 rtl:space-x-reverse" wire:navigate>
             <x-app-logo />
         </a>
 
+        <flux:navlist variant="outline">
+            <flux:navlist.item icon="home" :href="route('branch-dashboard.branch_dashboard', request()->query())" wire:navigate>Dashboard</flux:navlist.item>
+            <flux:navlist.item icon="users" :href="route('branch-dashboard.employees', request()->query())" wire:navigate>Employees</flux:navlist.item>
+        </flux:navlist>
 
         <flux:spacer />
 

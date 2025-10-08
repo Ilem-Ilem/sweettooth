@@ -24,10 +24,10 @@
     </style>
 
     <x-breadcrumb
-        title="Department Management"
+        title="Employee Management"
         :items="[
             ['label' => 'Dashboard', 'url' => route('dashboard')],
-            ['label' => 'Department Management']
+            ['label' => 'Employee Management']
         ]"
         :compact="false"
         :with-icons="true"
@@ -35,13 +35,13 @@
 
     <!-- Header with Add Button -->
     <div class="flex justify-between items-center">
-        <button wire:click="openDepartmentModal"
+        <a href="{{ route('super-admin.employee.create') }}"
             class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center shadow-sm">
             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
             </svg>
-            Add New Department
-        </button>
+            Add New Employee
+        </a>
     </div>
 
     <!-- Export Buttons -->
@@ -78,7 +78,7 @@
                 </button>
             </div>
             <div class="flex flex-col sm:flex-row gap-2">
-                <button wire:click="bulkDeleteDepartments"
+                <button wire:click="bulkDeleteEmployees"
                     class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center justify-center">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -171,15 +171,28 @@
             </div>
 
             <!-- Filters Grid -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <!-- Type Filter -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Status Filter -->
                 <div>
-                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Department Type</label>
-                    <select wire:model.live="filterType"
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Status</label>
+                    <select wire:model.live="filterStatus"
                         class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
-                        <option value="">All Types</option>
-                        <option value="production">Production</option>
-                        <option value="sales">Sales</option>
+                        <option value="">All Statuses</option>
+                        @foreach ($statuses as $status)
+                            <option value="{{ $status }}">{{ ucfirst(str_replace('_', ' ', $status)) }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <!-- Department Filter -->
+                <div>
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Department</label>
+                    <select wire:model.live="filterDepartment"
+                        class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Departments</option>
+                        @foreach ($departments as $department)
+                            <option value="{{ $department->id }}">{{ $department->name }}</option>
+                        @endforeach
                     </select>
                 </div>
 
@@ -193,6 +206,52 @@
                             <option value="{{ $branch->id }}">{{ $branch->name }}</option>
                         @endforeach
                     </select>
+                </div>
+
+                <!-- Gender Filter -->
+                <div>
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Gender</label>
+                    <select wire:model.live="filterGender"
+                        class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Genders</option>
+                        @foreach ($genders as $gender)
+                            <option value="{{ $gender }}">{{ ucfirst(str_replace('_', ' ', $gender)) }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <!-- Shift Preference Filter -->
+                <div>
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Shift</label>
+                    <select wire:model.live="filterShift"
+                        class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Shifts</option>
+                        @foreach ($shifts as $shift)
+                            <option value="{{ $shift }}">{{ ucfirst($shift) }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <!-- Hire Date Range -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Hire Date Range</label>
+                    <div class="flex space-x-2">
+                        <input type="date" wire:model.live="hireDateFrom"
+                            class="w-1/2 px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                        <input type="date" wire:model.live="hireDateTo"
+                            class="w-1/2 px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+
+                <!-- Termination Date Range -->
+                <div class="md:col-span-1">
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Termination Date</label>
+                    <div class="flex space-x-2">
+                        <input type="date" wire:model.live="terminationDateFrom"
+                            class="w-1/2 px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                        <input type="date" wire:model.live="terminationDateTo"
+                            class="w-1/2 px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                    </div>
                 </div>
             </div>
 
@@ -218,58 +277,106 @@
     </div>
 
     <!-- Table -->
-    <x-table :$headers :$rows selectable wire:model="selectedIds" striped paginate persist :filter="['quantity' => 'quantity', 'search' => 'search']"
-        :quantity="[10, 25, 50, 100]">
+    <x-table :$headers :$rows selectable wire:model="selectedIds" striped paginate persist
+        :filter="['quantity' => 'quantity', 'search' => 'search']" :quantity="[10, 25, 50, 100]">
+        @interact('column_name', $row)
+            <div class="flex items-center">
+                <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium text-sm mr-2">
+                    {{ strtoupper(substr($row->name, 0, 2)) }}
+                </div>
+                <span class="text-zinc-900 dark:text-zinc-100">{{ $row->name }}</span>
+            </div>
+        @endinteract
+
+        @interact('column_department', $row)
+            <span class="text-zinc-900 dark:text-zinc-100">
+                {{ $row->department ? $row->department->name : 'N/A' }}
+            </span>
+        @endinteract
+
         @interact('column_branch', $row)
             <span class="text-zinc-900 dark:text-zinc-100">
                 {{ $row->branch ? $row->branch->name : 'N/A' }}
             </span>
         @endinteract
 
-        @interact('column_type', $row)
-            <span
-                class="px-2 py-1 text-xs font-semibold rounded-full {{ $row->type === 'production' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' }}">
-                {{ ucfirst($row->type) }}
+        @interact('column_status', $row)
+            @php
+                $statusColors = [
+                    'active' => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+                    'inactive' => 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
+                    'terminated' => 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+                    'on_probation' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+                    'on_leave' => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+                ];
+            @endphp
+            <span class="px-2 py-1 text-xs font-semibold rounded-full {{ $statusColors[$row->status] ?? 'bg-gray-100 text-gray-800' }}">
+                {{ ucfirst(str_replace('_', ' ', $row->status)) }}
             </span>
         @endinteract
 
-        @interact('column_description', $row)
-            <span class="text-zinc-600 dark:text-zinc-400 text-sm">
-                {{ $row->description ? Str::limit($row->description, 50) : 'N/A' }}
+        @interact('column_salary', $row)
+            <span class="text-zinc-900 dark:text-zinc-100">
+                ₦{{ number_format($row->salary, 2) }}
             </span>
+        @endinteract
+
+        @interact('column_roles', $row)
+            <div class="flex flex-wrap gap-1">
+                @forelse($row->roles as $role)
+                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+                        {{ ucfirst($role->name) }}
+                    </span>
+                @empty
+                    <span class="text-zinc-400 dark:text-zinc-500 text-sm">No roles</span>
+                @endforelse
+            </div>
         @endinteract
 
         @interact('column_action', $row)
             <div class="flex items-center space-x-2">
-                <button wire:click="editDepartment({{ $row->id }})"
+                <button wire:click="openRoleModal('{{ $row->id }}')"
+                    class="p-2 text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
+                    title="Assign Roles">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                </button>
+                @if (auth('employees')->id() == $row->id)
+                <i>(You)</i>
+                @else
+                  <a href="{{ route('super-admin.employee.edit', $row->id) }}"
                     class="p-2 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors"
-                    title="Edit Department">
+                    title="Edit Employee">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                     </svg>
-                </button>
-                <button wire:click="deleteDepartment({{ $row->id }})"
+                </a>
+                <button wire:click="deleteEmployee('{{ $row->id }}')"
                     class="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                    title="Delete Department">
+                    title="Delete Employee">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
                 </button>
+                @endif
+
             </div>
         @endinteract
     </x-table>
 
-    <!-- Add/Edit Department Modal (Slide-in) -->
-    <div x-data="{ show: @entangle('showDepartmentModal') }" x-show="show" x-cloak class="fixed inset-0 z-50 overflow-hidden"
+    <!-- Assign Roles Modal -->
+    <div x-data="{ show: @entangle('showRoleModal') }" x-show="show" x-cloak class="fixed inset-0 z-50 overflow-hidden"
         @keydown.escape.window="show = false">
         <!-- Backdrop -->
         <div x-show="show" x-transition:enter="transition-opacity ease-linear duration-300"
             x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
             x-transition:leave="transition-opacity ease-linear duration-300" x-transition:leave-start="opacity-100"
             x-transition:leave-end="opacity-0" class="fixed inset-0 bg-black bg-opacity-50"
-            @click="$wire.closeDepartmentModal()">
+            @click="$wire.closeRoleModal()">
         </div>
 
         <!-- Slide-in Panel -->
@@ -281,88 +388,44 @@
 
             <!-- Header -->
             <div class="px-6 py-4 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
-                <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-                    {{ $isEditing ? 'Edit Department' : 'Add New Department' }}</h2>
-                <button wire:click="closeDepartmentModal"
+                <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-100">Assign Roles</h2>
+                <button wire:click="closeRoleModal"
                     class="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M6 18L18 6M6 6l12 12" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
             </div>
 
-            <!-- Scrollable Form Content -->
-            <div
-                class="flex-1 overflow-y-auto px-6 py-4 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent">
-                <form wire:submit.prevent="saveDepartment" class="space-y-6">
-                    <!-- Department Name -->
-                    <div>
-                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Department Name *</label>
-                        <input type="text" wire:model="name"
-                            class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500"
-                            placeholder="Enter department name" required>
-                        @error('name')
-                            <span class="text-red-500 text-sm">{{ $message }}</span>
-                        @enderror
-                    </div>
-
-                    <!-- Branch Selection -->
-                    <div>
-                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Branch *</label>
-                        <select wire:model="branch_id"
-                            class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500"
-                            required>
-                            <option value="">Select Branch</option>
-                            @foreach ($branches as $branch)
-                                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                            @endforeach
-                        </select>
-                        @error('branch_id')
-                            <span class="text-red-500 text-sm">{{ $message }}</span>
-                        @enderror
-                    </div>
-
-                    <!-- Department Type -->
-                    <div>
-                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Department Type *</label>
-                        <select wire:model="type"
-                            class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500"
-                            required>
-                            <option value="production">Production</option>
-                            <option value="sales">Sales</option>
-                        </select>
-                        @error('type')
-                            <span class="text-red-500 text-sm">{{ $message }}</span>
-                        @enderror
-                    </div>
-
-                    <!-- Description -->
-                    <div>
-                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Description</label>
-                        <textarea wire:model="description" rows="4"
-                            class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500"
-                            placeholder="Department description (optional)"></textarea>
-                        @error('description')
-                            <span class="text-red-500 text-sm">{{ $message }}</span>
-                        @enderror
-                    </div>
-                </form>
+            <!-- Scrollable Content -->
+            <div class="flex-1 overflow-y-auto px-6 py-4 scrollbar-thin">
+                <div class="space-y-4">
+                    <p class="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
+                        Select multiple roles to assign to this employee
+                    </p>
+                    @foreach ($roles as $role)
+                        <label class="flex items-center p-3 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer transition-colors">
+                            <input type="checkbox" wire:model="selectedRoles" value="{{ $role->name }}"
+                                class="w-5 h-5 text-purple-600 bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-600 rounded focus:ring-purple-500 dark:focus:ring-purple-600 focus:ring-2">
+                            <span class="ml-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">{{ ucfirst($role->name) }}</span>
+                        </label>
+                    @endforeach
+                </div>
             </div>
 
             <!-- Footer -->
-            <div
-                class="px-6 py-4 border-t border-zinc-200 dark:border-zinc-700 flex items-center justify-end space-x-3">
-                <button wire:click="closeDepartmentModal"
+            <div class="px-6 py-4 border-t border-zinc-200 dark:border-zinc-700 flex items-center justify-end space-x-3">
+                <button wire:click="closeRoleModal"
                     class="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors">
                     Cancel
                 </button>
-                <button wire:click="saveDepartment"
-                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors">
-                    {{ $isEditing ? 'Update Department' : 'Create Department' }}
+                <button wire:click="saveRoles"
+                    class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors">
+                    Save Roles
                 </button>
             </div>
         </div>
     </div>
 
 </div>
+
