@@ -1,4 +1,4 @@
-<div class="p-6 space-y-6">
+<div class="p-3 space-y-3">
 
     <style>
         /* Custom scrollbar styles */
@@ -92,11 +92,11 @@
 
     <!-- Filters Section -->
     <div x-data="{ open: false, advanced: false }"
-        class="bg-white dark:bg-zinc-800 rounded-2xl shadow-md border border-zinc-200 dark:border-zinc-700 transition-all duration-300">
+        class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 transition-all duration-300">
         <!-- Header / Toggle Button -->
-        <div class="flex justify-between items-center p-4 border-b border-zinc-200 dark:border-zinc-700">
-            <h2 class="text-lg font-semibold text-zinc-800 dark:text-zinc-100 flex items-center">
-                <svg class="w-5 h-5 mr-2 text-zinc-600 dark:text-zinc-400" fill="none" stroke="currentColor"
+        <div class="flex justify-between items-center px-3 py-2 border-b border-zinc-200 dark:border-zinc-700">
+            <h2 class="text-sm font-semibold text-zinc-800 dark:text-zinc-100 flex items-center">
+                <svg class="w-4 h-4 mr-1.5 text-zinc-600 dark:text-zinc-400" fill="none" stroke="currentColor"
                     viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707L14.293 13H10v5l-4-4v-3.586L3.293 7.293A1 1 0 013 6.586V4z" />
@@ -105,8 +105,8 @@
             </h2>
 
             <button @click="open = !open"
-                class="flex items-center px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white transition-all duration-200">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                class="flex items-center px-2.5 py-1 rounded text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white transition-all duration-200">
+                <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path x-show="!open" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M4 8h16M4 16h16" />
                     <path x-show="open" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -117,7 +117,7 @@
         </div>
 
         <!-- Filter Body -->
-        <div x-show="open" x-collapse class="p-4 space-y-6">
+        <div x-show="open" x-collapse class="p-3 space-y-3">
             <!-- Basic Filters -->
             <div class="">
                 <!-- Advanced Search Toggle -->
@@ -140,8 +140,8 @@
 
             <!-- Advanced Search Dropdown -->
             <div x-show="advanced" x-collapse
-                class="p-4 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-zinc-50 dark:bg-zinc-900/50 mt-4">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                class="p-2.5 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-zinc-50 dark:bg-zinc-900/50 mt-2">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <!-- Search -->
                     <div class="md:col-span-1">
                         <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Search</label>
@@ -172,7 +172,7 @@
                 </div>
             </div>
             <!-- Filters Grid -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
 
                 <!-- Status Filter -->
                 <div>
@@ -205,7 +205,7 @@
             </div>
 
             <!-- Filter Buttons -->
-            <div class="flex flex-wrap gap-3 justify-end pt-4 border-t border-zinc-200 dark:border-zinc-700">
+            <div class="flex flex-wrap gap-2 justify-end pt-2.5 border-t border-zinc-200 dark:border-zinc-700">
                 <button wire:click="applyFilters"
                     class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center shadow-sm">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

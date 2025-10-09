@@ -1,340 +1,430 @@
-● NEXT FEATURE TO IMPLEMENT: Department & Position Structure
-
-  ---
-  WHY THIS FEATURE FIRST?
-
-  Your current department seeder creates generic departments (HR, Finance,
-  Production Line A, etc.). But your SweetTooth business needs specific
-  departments like Kitchen, Gelato, Till, Corner Store. Without the correct
-  department structure, you can't:
-  - Assign employees to the right departments
-  - Build department-specific dashboards
-  - Track production vs sales workflows
-  - Implement proper role-based access control
-
-  ---
-  IMPLEMENTATION OUTLINE
-
-  STEP 1: Fix Department Structure
-
-  What you need:
-  - Update DepartmentSeeder.php to create SweetTooth-specific departments
-  instead of generic ones
-
-  The 8 Core Departments:
-
-  PRODUCTION (makes products):
-  1. Kitchen - Prepares food for Till, Confectionaries, Corner Store
-  2. Gelato Production - Makes gelato/ice cream
-  3. Confectionaries Production - Makes confectionery items
-
-  SALES (sells products):
-  4. Till - Sells ready-made snacks
-  5. Corner Store - On-demand food sales
-  6. Confectionaries Sales - Sells confectionery items
-
-  SUPPORT:
-  7. Inventory/Store - Manages all stock
-  8. HR - Human resources (corporate level)
-
-  How it works:
-  - Corporate departments (HR, Finance) have branch_id = null (company-wide)
-  - Each branch gets its own set of: Kitchen, Gelato, Till, Corner Store,
-  Confectionaries Production, Confectionaries Sales, Inventory
-  - So if you have 5 branches, you'll have: 2 corporate + (7 departments × 5
-   branches) = 37 departments total
-
-  ---
-  STEP 2: Add Department Category Field
-
-  Current state:
-  - Departments table only has type (production/sales)
-
-  What you need:
-  - Add category field to distinguish: production, sales, support
-  - Why? So you can group departments logically (Inventory is support, not
-  sales)
-
-  How to do it:
-  - Create new migration: add_category_to_departments_table.php
-  - Add column: $table->enum('category', ['production', 'sales', 
-  'support'])->default('sales')
-  - Update Department model to include category in fillable array
-
-  ---
-  STEP 3: Create Position/Job Titles System
-
-  Why you need this:
-  - Right now, employees have a position field (just text: "Manager",
-  "Chef", etc.)
-  - You need structured positions with hierarchy (who reports to whom)
-
-  Create positions table:
-  - id
-  - name (e.g., "Managing Director", "Head of Production", "Chef")
-  - department_id (which department this position belongs to)
-  - reports_to (which position this role reports to)
-  - level (1=executive, 2=management, 3=staff)
-  - description
-
-  Position Hierarchy Example:
-  Managing Director (level 1)
-  ├── Head of Production (level 2, reports to MD)
-  │   ├── Chef (level 3, reports to Head of Production)
-  │   ├── Head of Gelato (level 3, reports to Head of Production)
-  │   └── Confectionaries Manager (level 3, reports to Head of Production)
-  ├── Sales Manager (level 2, reports to MD)
-  │   ├── Till Supervisor (level 3, reports to Sales Manager)
-  │   └── Corner Store Manager (level 3, reports to Sales Manager)
-  ├── HR Manager (level 2, reports to MD)
-  └── Inventory Manager (level 2, reports to MD)
-
-  How to implement:
-  1. Create migration: create_positions_table.php
-  2. Create Position model with self-referencing relationship
-  3. Create PositionSeeder with all SweetTooth positions
-
-  ---
-  STEP 4: Update Employee Model
-
-  Current state:
-  - Employee has position (text field)
-  - Employee has department_id
-
-  What to add:
-  - position_id (foreign key to positions table)
-  - manager_id (foreign key to employees table - who is their manager)
-
-  Why?
-  - Structured positions instead of free text
-  - Clear reporting lines (Chef reports to Head of Production)
-  - Can query: "Show me all employees who report to John"
-
-  How to do it:
-  1. Create migration: add_position_and_manager_to_employees_table.php
-  2. Add columns: position_id, manager_id
-  3. Update Employee model with relationships:
-    - position() - belongsTo Position
-    - manager() - belongsTo Employee
-    - subordinates() - hasMany Employee (people who report to this employee)
-
-  ---
-  STEP 5: Update Permissions & Roles
-
-  Current permissions are generic:
-  - view-orders, create-orders, etc.
-
-  What you need - Department-specific permissions:
-
-  Production permissions:
-  - view-production-queue
-  - start-production
-  - complete-production
-  - manage-recipes
-
-  Sales permissions:
-  - process-sale
-  - issue-refund
-  - view-daily-sales
-  - close-register
-
-  Inventory permissions:
-  - receive-stock
-  - transfer-stock
-  - adjust-inventory
-  - view-stock-levels
-
-  Management permissions:
-  - view-department-reports
-  - approve-production
-  - manage-staff-schedule
-  - view-analytics
-
-  How to implement:
-  1. Update PermissionSeeder with department-specific permissions
-  2. Group permissions by department/role
-  3. Create roles that match your positions:
-    - Managing Director → all permissions
-    - Head of Production → production permissions + reports
-    - Chef → kitchen production permissions
-    - Cashier (Till) → sales permissions only
-    - Inventory Manager → inventory permissions + reports
-
-  ---
-  STEP 6: Create Role Seeder
-
-  Why separate from PermissionSeeder?
-  - Roles should match your actual organizational structure
-  - Each position should have a corresponding role
-
-  Roles to create:
-  1. Managing Director - all permissions
-  2. Head of Production - oversee Kitchen, Gelato, Confectionaries
-  production
-  3. Chef - manage kitchen operations
-  4. Head of Gelato - manage gelato production
-  5. Sales Manager - oversee Till & Confectionaries sales
-  6. Corner Store Manager - manage corner store
-  7. HR Manager - manage HR functions
-  8. Inventory Manager - manage inventory
-  9. Till Cashier - process sales at till
-  10. Kitchen Staff - production work
-  11. Gelato Staff - gelato production
-  12. Corner Store Staff - corner store sales
-
-  How to do it:
-  1. Create RoleSeeder.php
-  2. Create each role with appropriate permissions
-  3. Use guard employees for all branch/department staff
-  4. Keep web guard for super admin only
-
-  ---
-  STEP 7: Update DatabaseSeeder
+# SweetTooth Restaurant Management System - Implementation Roadmap
 
-  Current order:
-  PermissionSeeder::class,
-  MDSeeder::class,
-  BranchSeeder::class,
-  DepartmentSeeder::class,
+## Current Status
 
-  New order needed:
-  PermissionSeeder::class,      // 1. Create permissions first
-  RoleSeeder::class,             // 2. Create roles with permissions
-  MDSeeder::class,               // 3. Create MD user
-  BranchSeeder::class,           // 4. Create branches
-  DepartmentSeeder::class,       // 5. Create departments per branch
-  PositionSeeder::class,         // 6. Create positions
-  EmployeeSeeder::class,         // 7. Create sample employees (optional)
+### ✅ Phase 1 COMPLETE: Department & Position Structure
+- ✅ 8 SweetTooth-specific departments created
+- ✅ 21 positions with reporting hierarchy
+- ✅ 20 branches ready
+- ✅ 19 roles with permissions configured
+- ✅ Database migrations run successfully
+- ✅ All seeders executed
 
-  Why this order matters:
-  - Can't create roles without permissions
-  - Can't create departments without branches
-  - Can't create positions without departments
-  - Can't assign roles to employees without roles existing
+---
 
-  ---
-  TESTING STEPS
+## 🎯 PHASE 2: Inventory Management Module (IN PROGRESS)
 
-  After implementing all above:
+**Priority: HIGH - Foundation for Production and Sales**
 
-  1. Fresh migration:
-  php artisan migrate:fresh --seed
-  2. Verify departments created:
-  php artisan tinker
-  >>> Department::count()
-  >>> Department::where('type', 'production')->get()
-  3. Verify positions created:
-  >>> Position::with('reportsTo')->get()
-  4. Verify roles assigned correctly:
-  >>> Role::with('permissions')->where('name', 'Chef')->first()
+### Why Inventory First?
+- Production departments need raw materials from inventory
+- Sales departments need finished products from production
+- Everything flows through inventory tracking
 
-  ---
-  AFTER THIS FEATURE IS COMPLETE:
+### 2.1 Database Structure
 
-  You'll have:
-  ✅ Proper SweetTooth department structure
-  ✅ Position hierarchy with reporting lines
-  ✅ Department-specific permissions
-  ✅ Roles matching your organizational structure
-  ✅ Foundation to build department-specific dashboards
+#### Tables to Create (11 total):
 
-  NEXT FEATURE AFTER THIS:
-  Create the business models (Products, Inventory, Orders, Sales) and then
-  build department-specific dashboards.
+1. **items** - Raw materials, packaging, consumables, equipment
+   - Fields: id, branch_id, name, sku, category, uom, description, reorder_level, max_stock_level, status
 
-  ---
-  Summary: Fix your foundation (departments, positions, roles) before
-  building features on top. Right now your seeders create generic
-  departments - you need SweetTooth-specific ones. This is the critical
-  first step.
+2. **purchases** - Record purchases with FOB costs, landing costs, exchange rates
+   - Fields: id, branch_id, recorded_by, purchase_number, purchase_date, supplier_name, supplier_contact, total_fob_fc, total_fob_ngn, other_costs, landing_cost, total_cost, currency, exchange_rate, payment_status, notes
 
+3. **purchase_items** - Line items for purchases
+   - Fields: id, purchase_id, item_id, quantity, uom, fob_fc, fob_ngn, other_costs, landing_cost, total_cost, cost_per_unit
 
-🧩 DAY 1 — Department Structure Setup
+4. **stocks** - Real-time stock levels per branch
+   - Fields: id, branch_id, item_id, quantity_available, quantity_reserved, quantity_damaged, average_cost, last_stock_take_date, health_status, expiry_date
 
-TODO: Remove default/generic departments.
+5. **stock_movements** - Track every in/out movement
+   - Fields: id, stock_id, type, quantity, quantity_before, quantity_after, reference_type, reference_id, moved_by, notes, movement_date
 
-TODO: Add SweetTooth-specific departments:
+6. **item_requests** - Production/Sales departments request items
+   - Fields: id, branch_id, department_id, requested_by, request_number, request_date, shift, status, approved_by, approved_at, notes
 
-Kitchen
-
-Gelato Production
-
-Confectionaries Production
-
-Till
-
-Corner Store
-
-Confectionaries Sales
-
-Inventory/Store
-
-HR
-
-TODO: Ensure HR and Finance are global (no branch_id).
-
-TODO: Create per-branch departments dynamically.
-
-TODO: Seed and verify department structure.
-
-🧱 DAY 2 — Add Department Category
-
-TODO: Add category field to departments table (production, sales, support).
-
-TODO: Update seeder to assign correct categories:
-
-Production: Kitchen, Gelato, Confectionaries
-
-Sales: Till, Corner Store, Confectionaries Sales
-
-Support: Inventory, HR, Finance
-
-TODO: Update model $fillable.
-
-TODO: Verify seeding and relationships.
-
-🏗️ DAY 3 — Position System
-
-TODO: Create positions table with fields: name, department_id, reports_to, level, description.
-
-TODO: Define Position model relationships:
-
-belongsTo Department
-
-belongsTo reports_to (self)
-
-hasMany subordinates (self)
-
-TODO: Seed SweetTooth positions (MD, Managers, Supervisors).
-
-TODO: Define hierarchy and reporting structure.
-
-TODO: Verify relationships in Tinker.
-
-👥 DAY 4 — Employee Model Update
-
-TODO: Add position_id and manager_id to employees table.
-
-TODO: Define relationships in Employee model:
-
-belongsTo Position
-
-belongsTo Manager (self)
-
-hasMany Subordinates (self)
-
-TODO: Connect employees to positions and managers.
-
-TODO: Verify seeded links.
-
-⚙️ DAY 5 — Final Integration & Test
-
-TODO: Rerun full migration + seeding.
-
-TODO: Confirm HR and Finance departments are global.
-
-TODO: Confirm each branch has correct departments.
-
-TODO: Confirm positions and hierarchies render correctly.
-
-TODO: Prepare for next phase — roles & permissions (Spatie integration).
+7. **item_request_details** - Line items for requests
+   - Fields: id, request_id, item_id, quantity_requested, quantity_approved, quantity_dispatched, uom, notes
+
+8. **item_dispatches** - Fulfill requests and track delivery
+   - Fields: id, request_id, item_id, dispatched_by, received_by, quantity, uom, dispatch_time, received_time, shift, notes
+
+9. **stock_takes** - Physical inventory counts (daily/weekly/monthly)
+   - Fields: id, branch_id, stock_take_number, stock_take_date, type, conducted_by, status, verified_by, verified_at, notes
+
+10. **stock_take_details** - Line items for stock takes
+    - Fields: id, stock_take_id, item_id, system_quantity, physical_quantity, variance, variance_type, notes
+
+11. **health_checks** - Expiry tracking and quality control
+    - Fields: id, stock_id, checked_by, check_date, condition, quantity_affected, observations, action_taken
+
+### 2.2 Models to Create
+
+- Item.php
+- Purchase.php
+- PurchaseItem.php
+- Stock.php
+- StockMovement.php
+- ItemRequest.php
+- ItemRequestDetail.php
+- ItemDispatch.php
+- StockTake.php
+- StockTakeDetail.php
+- HealthCheck.php
+
+**Model Relationships:**
+- Item → hasMany(Stocks, PurchaseItems, ItemRequestDetails)
+- Purchase → hasMany(PurchaseItems), belongsTo(Employee as recorder)
+- Stock → belongsTo(Branch, Item), hasMany(StockMovements, HealthChecks)
+- ItemRequest → belongsTo(Department, Employee), hasMany(ItemRequestDetails, ItemDispatches)
+
+### 2.3 Seeders to Create
+
+- ItemSeeder.php (Sample raw materials: flour, sugar, milk, etc.)
+- PurchaseSeeder.php (Sample purchase records)
+- StockSeeder.php (Initial stock levels per branch)
+
+### 2.4 Livewire Components to Build
+
+**Purchase Management:**
+- `app/Livewire/Inventory/Purchases/Index.php` - List all purchases
+- `app/Livewire/Inventory/Purchases/Create.php` - Record new purchase
+- `app/Livewire/Inventory/Purchases/View.php` - View purchase details
+
+**Stock Management:**
+- `app/Livewire/Inventory/Stock/Index.php` - Stock levels dashboard
+- `app/Livewire/Inventory/Stock/StockTake.php` - Conduct stock take
+- `app/Livewire/Inventory/Stock/HealthCheck.php` - Health/expiry checks
+
+**Request & Dispatch:**
+- `app/Livewire/Inventory/Requests/Pending.php` - View pending requests
+- `app/Livewire/Inventory/Requests/Process.php` - Approve/reject requests
+- `app/Livewire/Inventory/Dispatches/Index.php` - Dispatch items
+
+**Reports:**
+- `app/Livewire/Inventory/Reports/StockMovement.php` - Movement history
+- `app/Livewire/Inventory/Reports/LowStock.php` - Low stock alerts
+- `app/Livewire/Inventory/Reports/ExpiryWarnings.php` - Expiring items
+
+### 2.5 Workflow: Request & Dispatch System
+
+**Daily Flow:**
+1. **Morning Shift (Production):**
+   - Chef/production staff logs in
+   - Creates item request for raw materials needed
+   - Request goes to Inventory Manager
+
+2. **Inventory Manager:**
+   - Reviews pending requests
+   - Approves quantities based on stock levels
+   - Assigns to Store Keeper for dispatch
+
+3. **Store Keeper:**
+   - Picks approved items from stock
+   - Dispatches to requesting department
+   - Records dispatch with quantities
+
+4. **Department Receives:**
+   - Production department confirms receipt
+   - Stock movement recorded automatically
+   - Production can begin
+
+### 2.6 Pages to Create (Blade Views)
+
+```
+resources/views/livewire/inventory/
+├── purchases/
+│   ├── index.blade.php
+│   ├── create.blade.php
+│   └── view.blade.php
+├── stock/
+│   ├── index.blade.php
+│   ├── stock-take.blade.php
+│   └── health-check.blade.php
+├── requests/
+│   ├── pending.blade.php
+│   ├── process.blade.php
+│   └── history.blade.php
+├── dispatches/
+│   └── index.blade.php
+└── reports/
+    ├── stock-movement.blade.php
+    ├── low-stock.blade.php
+    └── expiry-warnings.blade.php
+```
+
+---
+
+## 🎯 PHASE 3: Production Module (PENDING)
+
+Kitchen, Gelato, Pastry departments
+
+### 3.1 Database Structure (8 tables)
+
+1. **recipes** - Product recipes with ingredients
+2. **recipe_ingredients** - Ingredients per recipe
+3. **shifts** - Production shifts tracking
+4. **daily_produces** - Daily production tracking
+5. **production_records** - Detailed production logs
+6. **production_requests** - Link requests to recipes
+7. **call_backs** - Rejected/bad items tracking
+8. **raw_material_utilizations** - Track ingredient usage vs. expected
+
+### 3.2 Daily Production Workflow
+
+1. **Clock In** - Staff starts shift
+2. **Request Items** - Request raw materials from inventory
+3. **Record Production** - Log produced quantities
+4. **Send Out** - Dispatch to sales departments
+5. **Callbacks** - Record rejected items
+6. **Closing** - Calculate variance
+
+**Formula per product:**
+```
+Opening + Produced - Sent Out - Callbacks = Closing
+```
+
+### 3.3 Components to Build
+
+- Production dashboard per department
+- Shift login/logout
+- Recipe management (create, edit, cost calculation)
+- Daily produce tracking form
+- Callback recording
+- Production reports
+
+---
+
+## 🎯 PHASE 4: Sales Module (PENDING)
+
+Till, Corner Store, Confectionery departments
+
+### 4.1 Database Structure (12 tables)
+
+1. **product_categories** - Food, beverage, dessert, gelato, pastry
+2. **products** - Finished products linked to recipes
+3. **tables** - Restaurant tables for Corner Store
+4. **sales_shifts** - Sales shift tracking with cash management
+5. **sales** - Individual sales transactions
+6. **sale_items** - Line items per sale
+7. **payments** - Payment tracking (cash, POS, transfer)
+8. **table_orders** - Orders per table (Corner Store)
+9. **table_order_items** - Items per table order
+10. **product_stocks** - Product stock per shift
+11. **transfers** - Product transfers between departments
+12. **kitchen_orders** - Orders from sales to production
+
+### 4.2 Daily Sales Workflow
+
+1. **Clock In** - Cashier starts shift with opening cash
+2. **Receive Stock** - Get products from production
+3. **Process Sales** - Customer transactions
+4. **Transfers** - Send/receive from other departments
+5. **Glovo Orders** - Delivery platform sales
+6. **Closing** - Count cash, calculate variance
+
+**Formula per product:**
+```
+Opening + Addition - Transfer - Glovo - Sold = Closing
+Total Available = Opening + Addition + Callbacks + Redress
+```
+
+### 4.3 Corner Store Features
+
+- Table management (status tracking)
+- Order taking per table
+- Guest count tracking
+- Split bills
+- Payment processing
+
+---
+
+## 🎯 PHASE 5: Role-Based Dashboards (PENDING)
+
+### 5.1 Super Admin Dashboard
+- Overview of all branches
+- User & branch management
+- Department & position management
+- System-wide reports
+- Access: Super admin only
+
+### 5.2 Managing Director (MD) Dashboard
+- All branch analytics
+- Financial summary reports
+- Employee overview across branches
+- Performance metrics
+- Department comparisons
+- Access: MD role
+
+### 5.3 Branch Manager Dashboard
+- Single branch operations
+- Department performance within branch
+- Staff management for branch
+- Branch-specific reports
+- Inventory levels
+- Access: Branch Manager role
+
+### 5.4 Department Dashboards
+
+**Production Departments (Kitchen/Gelato/Pastry):**
+- Shift login/logout
+- Daily produce tracking interface
+- Request items from inventory
+- Record production quantities
+- Callback management
+- Shift closing summary
+- Access: Production staff roles
+
+**Sales Departments (Till/Corner Store/Confectionery):**
+- Shift management with cash tracking
+- POS/sales processing
+- Product stock levels
+- Transfer management
+- Glovo order tracking
+- Shift closing reports
+- Access: Sales staff roles
+
+**Inventory Department:**
+- Stock levels overview
+- Purchase management
+- Request approval interface
+- Dispatch processing
+- Health checks & expiry alerts
+- Stock take management
+- Access: Inventory Manager, Store Keeper roles
+
+---
+
+## 🎯 PHASE 6: Reports & Analytics (PENDING)
+
+### 6.1 Inventory Reports
+- Stock movement history
+- Purchase history with cost analysis
+- Low stock alerts
+- Expiry warnings
+- Variance reports from stock takes
+
+### 6.2 Production Reports
+- Production vs. demand analysis
+- Raw material utilization efficiency
+- Cost analysis per recipe
+- Quality metrics (callback rates)
+- Shift performance comparison
+
+### 6.3 Sales Reports
+- Daily/shift sales summary
+- Product performance (best sellers)
+- Cash variance tracking
+- Transfer history
+- Payment method breakdown
+
+### 6.4 Financial Reports
+- Revenue by department
+- Revenue by branch
+- Cost of goods sold (COGS)
+- Profit margins per product
+- Branch comparison analytics
+
+---
+
+## Implementation Timeline
+
+**WEEK 1-2:** ✅ Phase 1 - Department & Position Structure (COMPLETE)
+**WEEK 3-4:** 🔄 Phase 2 - Inventory Module (IN PROGRESS)
+**WEEK 5-7:** Phase 3 - Production Module
+**WEEK 8-10:** Phase 4 - Sales Module
+**WEEK 11-12:** Phase 5 - Dashboards
+**WEEK 13-14:** Phase 6 - Reports & Testing
+
+---
+
+## Current Tasks (Priority Order)
+
+### Immediate Next Steps:
+
+1. ✅ Fix Department Structure - DONE
+2. ✅ Create Position System - DONE
+3. ✅ Update Role & Permission Seeders - DONE
+4. 🔄 Create Inventory Migrations (11 tables)
+5. 🔄 Create Inventory Models (11 models)
+6. ⏳ Create Inventory Seeders
+7. ⏳ Build Inventory UI Components
+8. ⏳ Test Inventory Workflow
+
+---
+
+## Technical Notes
+
+### Technology Stack
+- Laravel 11
+- Livewire 3
+- Tailwind CSS
+- Alpine.js
+- Spatie Laravel Permission
+- MySQL Database
+
+### Key Design Decisions
+- UUIDs for primary keys: users, branches, employees
+- BigInt for: departments, positions, items, products
+- Shift-based tracking for production and sales
+- Double-entry stock movement tracking
+- Hierarchical position/reporting structure
+- Branch-isolated operations with central oversight
+
+### Security & Access Control
+- Employee guard for branch/department staff
+- Web guard for super admin only
+- Role-based permissions via Spatie
+- Department-level access restrictions
+- Branch-level data isolation
+
+---
+
+## Questions to Resolve
+
+1. Should departments be duplicated per branch or remain global with branch assignment?
+   - Current: Global departments, employees assigned to branch + department
+
+2. Currency handling for multi-currency purchases?
+   - Current: Support NGN and FC (Foreign Currency) with exchange rates
+
+3. Shift overlap handling (morning/afternoon)?
+   - Current: Strict shift boundaries, no overlap
+
+4. Glovo integration - API or manual entry?
+   - Current: Manual entry planned, API integration future enhancement
+
+---
+
+## Success Metrics
+
+**Phase 2 Success Criteria:**
+- ✅ All 11 inventory tables created
+- ✅ Models with proper relationships
+- ✅ Request/dispatch workflow functional
+- ✅ Stock movements tracked accurately
+- ✅ Purchase cost calculation working
+- ✅ Stock take variance detection
+
+**Phase 3 Success Criteria:**
+- Production recipes with cost calculation
+- Shift tracking with opening/closing
+- Raw material usage tracking
+- Callback/wastage recording
+- Production-to-sales dispatch
+
+**Phase 4 Success Criteria:**
+- Sales transactions processing
+- Cash variance calculation
+- Table management (Corner Store)
+- Product stock tracking per shift
+- Transfer between departments
+
+---
+
+## Notes
+
+- Following the workflows from: `inventory.md`, `products.md`, `sales.md`
+- File structure based on: `flow.md`
+- Using existing structure from `main.md` for migrations
+- All spacing and margins reduced for Material UI feel

@@ -34,7 +34,8 @@
             </flux:navlist.group>
 
             <flux:navlist.group :heading="__('Organization Structure')" expandable
-                :expanded="request()->routeIs('super-admin.department*') || request()->routeIs('super-admin.positions.*') ? true : false" class="grid" icon='building-office'>
+                :expanded="request()->routeIs('super-admin.department*') || request()->routeIs('super-admin.positions.*') ? true : false"
+                class="grid" icon='building-office'>
                 <flux:navlist.item icon="tag" :href="route('super-admin.department-categories.index')"
                     :current="request()->routeIs('super-admin.department-categories.*')" wire:navigate>
                     {{ __('Department Categories') }}
@@ -50,7 +51,8 @@
             </flux:navlist.group>
 
             <flux:navlist.group :heading="__('Employee Management')" expandable
-                :expanded="request()->routeIs('super-admin.employee.*') || request()->routeIs('super-admin.assignments.*') ? true : false" class="grid" icon='users'>
+                :expanded="request()->routeIs('super-admin.employee.*') || request()->routeIs('super-admin.assignments.*') ? true : false"
+                class="grid" icon='users'>
                 <flux:navlist.item icon="user" :href="route('super-admin.employee.index')"
                     :current="request()->routeIs('super-admin.employee.index')" wire:navigate>{{ __('All Employees') }}
                 </flux:navlist.item>
@@ -62,6 +64,14 @@
                     :current="request()->routeIs('super-admin.assignments.*')" wire:navigate>
                     {{ __('Position Assignments') }}
                 </flux:navlist.item>
+            </flux:navlist.group>
+
+            <flux:navlist.group :heading="__('Inventory')" class="grid">
+                <flux:navlist.group :heading="__('Inventory')" class="grid" expandable :expanded="request()->routeIs('super-admin.inventory.*')">
+                    <flux:navlist.item icon="cube" :href="route('super-admin.inventory.items')"
+                        :current="request()->routeIs('super-admin.inventory.items')" wire:navigate>{{ __('Items') }}
+                    </flux:navlist.item>
+                </flux:navlist.group>
             </flux:navlist.group>
         </flux:navlist>
 

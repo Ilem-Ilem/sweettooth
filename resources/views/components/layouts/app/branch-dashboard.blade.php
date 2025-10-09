@@ -16,6 +16,52 @@
         <flux:navlist variant="outline">
             <flux:navlist.item icon="home" :href="route('branch-dashboard.branch_dashboard', request()->query())" wire:navigate>Dashboard</flux:navlist.item>
             <flux:navlist.item icon="users" :href="route('branch-dashboard.employees', request()->query())" wire:navigate>Employees</flux:navlist.item>
+
+            @canany(['view-items', 'view-purchases', 'view-stocks', 'view-item-requests'])
+            <flux:navlist.group :heading="__('Inventory')" expandable
+                :expanded="request()->routeIs('branch-dashboard.inventory.*') ? true : false" class="grid" icon='cube'>
+                @can('view-items')
+                <flux:navlist.item icon="squares-2x2" :href="route('branch-dashboard.inventory.items')"
+                    :current="request()->routeIs('branch-dashboard.inventory.items')" wire:navigate>{{ __('Items') }}
+                </flux:navlist.item>
+                @endcan
+                @can('view-purchases')
+                <flux:navlist.item icon="shopping-cart" :href="route('branch-dashboard.inventory.purchases')"
+                    :current="request()->routeIs('branch-dashboard.inventory.purchases')" wire:navigate>{{ __('Purchases') }}
+                </flux:navlist.item>
+                @endcan
+                @can('view-stocks')
+                <flux:navlist.item icon="cube-transparent" :href="route('branch-dashboard.inventory.stocks')"
+                    :current="request()->routeIs('branch-dashboard.inventory.stocks')" wire:navigate>{{ __('Stock Levels') }}
+                </flux:navlist.item>
+                @endcan
+                @can('view-stock-movements')
+                <flux:navlist.item icon="arrow-path" :href="route('branch-dashboard.inventory.stock-movements')"
+                    :current="request()->routeIs('branch-dashboard.inventory.stock-movements')" wire:navigate>{{ __('Stock Movements') }}
+                </flux:navlist.item>
+                @endcan
+                @can('view-item-requests')
+                <flux:navlist.item icon="clipboard-document-list" :href="route('branch-dashboard.inventory.item-requests')"
+                    :current="request()->routeIs('branch-dashboard.inventory.item-requests')" wire:navigate>{{ __('Item Requests') }}
+                </flux:navlist.item>
+                @endcan
+                @can('view-item-dispatches')
+                <flux:navlist.item icon="truck" :href="route('branch-dashboard.inventory.item-dispatches')"
+                    :current="request()->routeIs('branch-dashboard.inventory.item-dispatches')" wire:navigate>{{ __('Dispatches') }}
+                </flux:navlist.item>
+                @endcan
+                @can('view-stock-takes')
+                <flux:navlist.item icon="clipboard-document-check" :href="route('branch-dashboard.inventory.stock-takes')"
+                    :current="request()->routeIs('branch-dashboard.inventory.stock-takes')" wire:navigate>{{ __('Stock Takes') }}
+                </flux:navlist.item>
+                @endcan
+                @can('view-health-checks')
+                <flux:navlist.item icon="heart" :href="route('branch-dashboard.inventory.health-checks')"
+                    :current="request()->routeIs('branch-dashboard.inventory.health-checks')" wire:navigate>{{ __('Health Checks') }}
+                </flux:navlist.item>
+                @endcan
+            </flux:navlist.group>
+            @endcanany
         </flux:navlist>
 
         <flux:spacer />

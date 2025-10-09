@@ -1,0 +1,148 @@
+<?php
+
+namespace App\Livewire\BranchDashboard\Inventory;
+
+use App\Models\HealthCheck;
+use App\Models\Stock;
+use Livewire\Component;
+use Livewire\WithPagination;
+use Illuminate\Support\Facades\Auth;
+
+class HealthChecks extends Component
+{
+    use WithPagination;
+
+    public $search = '';
+    public $filterCondition = '';
+    public $filterDateFrom = '';
+    public $filterDateTo = '';
+    public $filterActionTaken = '';
+
+    public $showModal = false;
+    public $healthCheckId;
+    public $stock_id = '';
+    public $check_date;
+    public $condition = '';
+    public $quantity_affected;
+    public $observations;
+    public $action_taken;
+
+    protected $rules = [
+        'stock_id' => 'required|exists:stocks,id',
+        'check_date' => 'required|date',
+        'condition' => 'required|in:good,fair,poor,damaged,expired',
+        'quantity_affected' => 'nullable|numeric|min:0',
+        'observations' => 'nullable|string',
+        'action_taken' => 'nullable|string',
+    ];
+
+    public function getBranchId()
+    {
+        return Auth::guard('employees')->user()->employee->branch_id;
+    }
+
+    public function mount()
+    {
+        $this->check_date = now()->format('Y-m-d');
+    }
+
+    public function render()
+    {
+        $branchId = $this->getBranchId();
+
+        $query = HealthCheck::with(['stock.item', 'stock.branch', 'checker'])
+            ->whereHas('stock', function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            })
+            ->when($this->search, function ($q) {
+                $q->whereHas('stock.item', function ($query) {
+                    $query->where('name', 'like', '%' . $this->search . '%')
+                        ->orWhere('sku', 'like', '%' . $this->search . '%');
+                });
+            })
+            ->when($this->filterCondition, fn($q) => $q->where('condition', $this->filterCondition))
+            ->when($this->filterDateFrom, fn($q) => $q->whereDate('check_date', '>=', $this->filterDateFrom))
+            ->when($this->filterDateTo, fn($q) => $q->whereDate('check_date', '<=', $this->filterDateTo))
+            ->when($this->filterActionTaken !== '', function ($q) {
+                if ($this->filterActionTaken === '1') {
+                    $q->whereNotNull('action_taken')->where('action_taken', '!=', '');
+                } else {
+                    $q->where(function ($query) {
+                        $query->whereNull('action_taken')->orWhere('action_taken', '');
+                    });
+                }
+            })
+            ->orderBy('check_date', 'desc');
+
+        $healthChecks = $query->paginate(15);
+        $stocks = Stock::with('item')
+            ->where('branch_id', $branchId)
+            ->get();
+
+        return view('livewire.branch-dashboard.inventory.health-checks', [
+            'healthChecks' => $healthChecks,
+            'stocks' => $stocks,
+        ]);
+    }
+
+    public function openCreateModal()
+    {
+        $this->authorize('create-health-checks');
+        $this->resetFields();
+        $this->showModal = true;
+    }
+
+    public function save()
+    {
+        $this->authorize('create-health-checks');
+        $this->validate();
+
+        // Verify stock belongs to branch
+        $stock = Stock::findOrFail($this->stock_id);
+        if ($stock->branch_id !== $this->getBranchId()) {
+            session()->flash('error', 'Invalid stock selection.');
+            return;
+        }
+
+        HealthCheck::create([
+            'stock_id' => $this->stock_id,
+            'checked_by' => Auth::guard('employees')->id(),
+            'check_date' => $this->check_date,
+            'condition' => $this->condition,
+            'quantity_affected' => $this->quantity_affected,
+            'observations' => $this->observations,
+            'action_taken' => $this->action_taken,
+        ]);
+
+        session()->flash('success', 'Health check recorded successfully.');
+        $this->closeModal();
+        $this->resetFields();
+    }
+
+    public function closeModal()
+    {
+        $this->showModal = false;
+        $this->resetFields();
+        $this->resetValidation();
+    }
+
+    public function resetFields()
+    {
+        $this->healthCheckId = null;
+        $this->stock_id = '';
+        $this->check_date = now()->format('Y-m-d');
+        $this->condition = '';
+        $this->quantity_affected = null;
+        $this->observations = '';
+        $this->action_taken = '';
+    }
+
+    public function resetFilters()
+    {
+        $this->search = '';
+        $this->filterCondition = '';
+        $this->filterDateFrom = '';
+        $this->filterDateTo = '';
+        $this->filterActionTaken = '';
+    }
+}

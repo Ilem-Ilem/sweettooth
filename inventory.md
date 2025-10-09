@@ -1,3 +1,4 @@
+```php
 <?php
 
 // 1. Items Table Migration
