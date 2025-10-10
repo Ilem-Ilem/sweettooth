@@ -428,3 +428,171 @@ Total Available = Opening + Addition + Callbacks + Redress
 - File structure based on: `flow.md`
 - Using existing structure from `main.md` for migrations
 - All spacing and margins reduced for Material UI feel
+
+● Perfect! Now let me create a comprehensive documentation explaining the
+  Item Monitoring System:
+
+  📊 COMPREHENSIVE STOCK LEVELS PAGE & ITEM MONITORING SYSTEM
+
+  ✅ What I've Built:
+
+  1. Modernized Stock Levels Page (stocks.blade.php)
+
+  Features:
+  - Modern UI with dark mode support
+  - Export functionality (Excel & PDF)
+  - Advanced filtering system:
+    - Branch filter
+    - Category filter (Raw Material, Packaging, Consumable, Equipment)
+    - Stock Level filters:
+        - Critical (< 25% of reorder level)
+      - Low (below reorder level)
+      - High (above reorder level)
+      - Out of Stock
+      - Overstock (above max level)
+    - Health Status filter (Good, Warning, Critical, Expired)
+    - Date range filter (Last Stock Take)
+    - Advanced search
+
+  Table Columns:
+  - Item Name
+  - SKU
+  - Branch
+  - Category
+  - Available Stock (color-coded: red if low, green if good)
+  - Reserved Stock
+  - Damaged Stock
+  - Total Stock
+  - Reorder Level
+  - Health Status (color-coded badges)
+  - Last Stock Take Date
+  - Actions (View History button)
+
+  ---
+  🔍 2. Item History & Monitoring System
+
+  How It Works:
+
+  1. Click "View History" button (clock icon) on any stock item
+  2. Slide-in panel opens showing:
+
+  A. Item Overview Section:
+
+  - Item name, SKU, branch, category
+  - Current stock summary cards (Available, Reserved, Damaged, Total)
+
+  B. History Filtering:
+
+  - From Date - Filter movements from specific date
+  - To Date - Filter movements to specific date
+  - Movement Type - Filter by:
+    - In (Stock received)
+    - Out (Stock dispatched)
+    - Adjustment (Manual corrections)
+    - Transfer (Between branches)
+    - Damaged (Marked as damaged)
+    - Return (Returns from customers/branches)
+
+  C. Movement History Timeline:
+
+  Each movement record shows:
+  - Type badge (color-coded by movement type)
+  - Quantity changed with UOM
+  - Date and time of movement
+  - Before/After quantities
+  - Who performed it (Employee name)
+  - Notes (reason for adjustment)
+
+  ---
+  📈 How to Use Item Monitoring:
+
+  Scenario 1: Check When Item Was Last Restocked
+
+  1. Go to Stock Levels page
+  2. Find the item in the table
+  3. Click "View History" button
+  4. Look at the timeline - "In" movements show restocking
+  5. See date, quantity, and who restocked it
+
+  Scenario 2: Track Item from First Purchase
+
+  1. Open item history
+  2. Scroll to the bottom of timeline (oldest first)
+  3. First "In" movement = Initial purchase
+  4. See all subsequent purchases, adjustments, dispatches
+
+  Scenario 3: Filter Movements by Time Period
+
+  1. Open item history
+  2. Set "From Date" = Start of period
+  3. Set "To Date" = End of period
+  4. View only movements in that timeframe
+
+  Scenario 4: Find Who Made Stock Adjustments
+
+  1. Open item history
+  2. Filter by "Movement Type" = Adjustment
+  3. Each record shows employee who made the adjustment
+  4. See their notes explaining why
+
+  Scenario 5: Track Damaged Stock
+
+  1. Open item history
+  2. Filter by "Movement Type" = Damaged
+  3. See when stock was marked damaged
+  4. Check who marked it and notes
+
+  ---
+  🎯 Advanced Monitoring Capabilities:
+
+  What You Can Monitor:
+
+  1. Purchase History - All stock received
+  2. Dispatch History - All stock sent out
+  3. Adjustment History - Manual stock corrections
+  4. Transfer History - Stock movements between branches
+  5. Damage Records - Stock marked as damaged
+  6. Return Records - Items returned
+
+  For Each Movement You See:
+
+  - Exact quantity changed
+  - Stock level before the movement
+  - Stock level after the movement
+  - Date and time (down to the minute)
+  - Employee who performed it
+  - Notes/reasons for the movement
+  - Movement type (color-coded for easy identification)
+
+  ---
+  📊 Reporting & Analysis:
+
+  You can answer questions like:
+  - When was this item first purchased?
+  - Who last restocked this item?
+  - How much stock was damaged this month?
+  - What adjustments were made and by whom?
+  - When did we last transfer this item?
+  - What's the complete audit trail for this item?
+
+  ---
+  🚀 Future Enhancements You Could Add:
+
+  1. Charts/Graphs - Visualize stock levels over time
+  2. Export History - Download movement history as PDF/Excel
+  3. Alerts - Notify when item hits reorder level
+  4. Predictions - Forecast when to reorder based on usage patterns
+  5. Supplier Info - Track which supplier each purchase came from
+  6. Cost Tracking - See cost changes over time
+
+  ---
+  💡 Key Benefits:
+
+  ✅ Full Audit Trail - Every stock change is recorded
+  ✅ Accountability - Know who made each change
+  ✅ Transparency - See complete item history
+  ✅ Compliance - Meet regulatory requirements
+  ✅ Analysis - Understand stock patterns
+  ✅ Problem Solving - Identify discrepancies quickly
+
+  The system is now fully functional and ready to use!

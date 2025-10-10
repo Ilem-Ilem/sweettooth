@@ -5,8 +5,13 @@ use App\Livewire\SuperAdmin\Roles\Permissions;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth:employees', 'branch'])->prefix('branch-dashboard')->name('branch-dashboard.')->group(function () {
-    Route::get('/', App\Livewire\BranchDashboard\Index::class)->name('branch_dashboard');
+    Route::get('/', App\Livewire\BranchDashboard\Index::class)->name('index');
     Route::get('/employees', App\Livewire\BranchDashboard\EmployeeModule\Index::class)->name('employees');
+
+
+    Route::get('/branch-dashboard/departments',  App\Livewire\BranchDashboard\DepartmentModule\Index::class)
+        ->name('branch.departments.index');
+
 
     // Inventory routes
     Route::prefix('inventory')->name('inventory.')->group(function () {

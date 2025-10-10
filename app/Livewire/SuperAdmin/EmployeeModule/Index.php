@@ -229,6 +229,19 @@ class Index extends BaseComponent
         }
     }
 
+    public function removeRoleFromEmployee($employeeId, $roleName): void
+    {
+        $employee = Employee::findOrFail($employeeId);
+        $employee->removeRole($roleName);
+
+        // Update the selected roles to reflect the change
+        $this->selectedRoles = array_values(array_filter($this->selectedRoles, function($role) use ($roleName) {
+            return $role !== $roleName;
+        }));
+
+        $this->toast()->success('Role removed successfully!')->send();
+    }
+
     public function render()
     {
         $rows = $this->getFilteredQuery()->paginate($this->quantity ?? 10);
@@ -244,7 +257,6 @@ class Index extends BaseComponent
                 ['index' => 'employee_number', 'label' => 'Employee #'],
                 ['index' => 'name', 'label' => 'Name'],
                 ['index' => 'email', 'label' => 'Email'],
-                ['index' => 'position', 'label' => 'Position'],
                 ['index' => 'department', 'label' => 'Department'],
                 ['index' => 'branch', 'label' => 'Branch'],
                 ['index' => 'status', 'label' => 'Status'],

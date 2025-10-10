@@ -21,7 +21,7 @@ return new class extends Migration
             $table->decimal('quantity_after', 12, 2);
             $table->string('reference_type')->nullable(); // 'purchase', 'dispatch', 'adjustment'
             $table->unsignedBigInteger('reference_id')->nullable();
-            $table->uuid('moved_by');
+            $table->uuid('moved_by')->nullable();
             $table->foreign('moved_by')->references('id')->on('employees')->onDelete('restrict');
             $table->text('notes')->nullable();
             $table->timestamp('movement_date');

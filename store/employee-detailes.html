@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Profile</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+</head>
+<body class="h-full bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- Header with Theme Toggle -->
+        <header class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800 dark:text-white">Employee Profile</h1>
+            <button id="themeToggle" class="p-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white">
+                <i class="fas fa-moon" id="themeIcon"></i>
+            </button>
+        </header>
+
+        <!-- Main Content -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden transition-colors duration-300">
+            <!-- Employee Details Section -->
+            <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+                <div class="flex flex-col md:flex-row items-center md:items-start gap-6">
+                    <!-- Profile Photo -->
+                    <div class="relative">
+                        <div class="w-32 h-32 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center overflow-hidden">
+                            <img id="profileImage" src="" alt="Profile Photo" class="w-full h-full object-cover hidden">
+                            <i class="fas fa-user text-5xl text-gray-500 dark:text-gray-400"></i>
+                        </div>
+                        <div class="absolute bottom-0 right-0 bg-green-500 w-6 h-6 rounded-full border-2 border-white dark:border-gray-800"></div>
+                    </div>
+
+                    <!-- Basic Info -->
+                    <div class="flex-1 text-center md:text-left">
+                        <h2 class="text-2xl font-bold text-gray-800 dark:text-white" id="employeeName">John Doe</h2>
+                        <p class="text-gray-600 dark:text-gray-300" id="employeePosition">Software Engineer</p>
+                        <p class="text-gray-500 dark:text-gray-400 text-sm mt-2" id="employeeNumber">EMP-00123</p>
+
+                        <div class="flex flex-wrap gap-2 mt-4 justify-center md:justify-start">
+                            <span id="statusBadge" class="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Active</span>
+                            <span id="departmentBadge" class="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">Engineering</span>
+                            <span id="shiftBadge" class="px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">Morning</span>
+                        </div>
+                    </div>
+
+                    <!-- Employment Details -->
+                    <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg w-full md:w-64">
+                        <h3 class="font-medium text-gray-700 dark:text-gray-300 mb-2">Employment Details</h3>
+                        <div class="space-y-2">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600 dark:text-gray-400 text-sm">Hire Date:</span>
+                                <span class="text-gray-800 dark:text-white text-sm font-medium" id="hireDate">2022-05-15</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600 dark:text-gray-400 text-sm">Probation End:</span>
+                                <span class="text-gray-800 dark:text-white text-sm font-medium" id="probationDate">2022-08-15</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600 dark:text-gray-400 text-sm">Last Review:</span>
+                                <span class="text-gray-800 dark:text-white text-sm font-medium" id="lastReviewDate">2023-04-20</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabs Section -->
+            <div class="border-b border-gray-200 dark:border-gray-700">
+                <nav class="flex overflow-x-auto">
+                    <button class="tab-button py-4 px-6 border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 font-medium whitespace-nowrap" data-tab="personal">
+                        Personal Info
+                    </button>
+                    <button class="tab-button py-4 px-6 border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 font-medium whitespace-nowrap" data-tab="employment">
+                        Employment
+                    </button>
+                    <button class="tab-button py-4 px-6 border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 font-medium whitespace-nowrap" data-tab="financial">
+                        Financial
+                    </button>
+                    <button class="tab-button py-4 px-6 border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 font-medium whitespace-nowrap" data-tab="emergency">
+                        Emergency Contact
+                    </button>
+                    <button class="tab-button py-4 px-6 border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 font-medium whitespace-nowrap" data-tab="performance">
+                        Performance
+                    </button>
+                </nav>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="p-6">
+                <!-- Personal Info Tab -->
+                <div id="personal-tab" class="tab-content">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+                                <p class="text-gray-900 dark:text-white" id="email">john.doe@company.com</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone</label>
+                                <p class="text-gray-900 dark:text-white" id="phone">+1 (555) 123-4567</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date of Birth</label>
+                                <p class="text-gray-900 dark:text-white" id="dob">1990-03-15</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Gender</label>
+                                <p class="text-gray-900 dark:text-white" id="gender">Male</p>
+                            </div>
+                        </div>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address</label>
+                                <p class="text-gray-900 dark:text-white" id="address">123 Main Street, Apt 4B, New York, NY 10001</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nationality</label>
+                                <p class="text-gray-900 dark:text-white" id="nationality">American</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Allergies</label>
+                                <p class="text-gray-900 dark:text-white" id="allergies">None</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Employment Tab -->
+                <div id="employment-tab" class="tab-content hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Branch</label>
+                                <p class="text-gray-900 dark:text-white" id="branch">New York Office</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Department</label>
+                                <p class="text-gray-900 dark:text-white" id="department">Engineering</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Position</label>
+                                <p class="text-gray-900 dark:text-white" id="position">Senior Software Engineer</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hire Date</label>
+                                <p class="text-gray-900 dark:text-white" id="employmentHireDate">2022-05-15</p>
+                            </div>
+                        </div>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+                                <p class="text-gray-900 dark:text-white" id="employmentStatus">Active</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Shift Preference</label>
+                                <p class="text-gray-900 dark:text-white" id="shiftPreference">Morning</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Probation End Date</label>
+                                <p class="text-gray-900 dark:text-white" id="probationEndDate">2022-08-15</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Termination Date</label>
+                                <p class="text-gray-900 dark:text-white" id="terminationDate">-</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Financial Tab -->
+                <div id="financial-tab" class="tab-content hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Salary</label>
+                                <p class="text-gray-900 dark:text-white" id="salary">$85,000.00</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hourly Rate</label>
+                                <p class="text-gray-900 dark:text-white" id="hourlyRate">$40.87</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tax ID</label>
+                                <p class="text-gray-900 dark:text-white" id="taxId">123-45-6789</p>
+                            </div>
+                        </div>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bank Account</label>
+                                <p class="text-gray-900 dark:text-white" id="bankAccount">**** 4567</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Emergency Contact Tab -->
+                <div id="emergency-tab" class="tab-content hidden">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Emergency Contact Name</label>
+                            <p class="text-gray-900 dark:text-white" id="emergencyName">Jane Doe</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Emergency Contact Phone</label>
+                            <p class="text-gray-900 dark:text-white" id="emergencyPhone">+1 (555) 987-6543</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Performance Tab -->
+                <div id="performance-tab" class="tab-content hidden">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Last Performance Review Date</label>
+                            <p class="text-gray-900 dark:text-white" id="lastReview">2023-04-20</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Performance Rating</label>
+                            <div class="flex items-center">
+                                <div class="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mr-2">
+                                    <div class="bg-yellow-500 h-2.5 rounded-full" style="width: 85%"></div>
+                                </div>
+                                <span class="text-gray-900 dark:text-white font-medium" id="performanceRating">4.3 / 5.0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Theme Toggle
+        const themeToggle = document.getElementById('themeToggle');
+        const themeIcon = document.getElementById('themeIcon');
+
+        themeToggle.addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+            if (document.documentElement.classList.contains('dark')) {
+                themeIcon.classList.remove('fa-moon');
+                themeIcon.classList.add('fa-sun');
+            } else {
+                themeIcon.classList.remove('fa-sun');
+                themeIcon.classList.add('fa-moon');
+            }
+        });
+
+        // Tab Functionality
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                // Remove active class from all buttons
+                tabButtons.forEach(btn => {
+                    btn.classList.remove('border-blue-500', 'text-blue-600', 'dark:text-blue-400');
+                    btn.classList.add('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+                });
+
+                // Add active class to clicked button
+                button.classList.remove('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+                button.classList.add('border-blue-500', 'text-blue-600', 'dark:text-blue-400');
+
+                // Hide all tab contents
+                tabContents.forEach(content => {
+                    content.classList.add('hidden');
+                });
+
+                // Show selected tab content
+                const tabId = button.getAttribute('data-tab');
+                document.getElementById(`${tabId}-tab`).classList.remove('hidden');
+            });
+        });
+
+        // Initialize first tab as active
+        tabButtons[0].click();
+
+        // Sample employee data (in a real app, this would come from your backend)
+        const employeeData = {
+            name: "John Doe",
+            position: "Senior Software Engineer",
+            employeeNumber: "EMP-00123",
+            status: "active",
+            department: "Engineering",
+            shiftPreference: "morning",
+            hireDate: "2022-05-15",
+            probationEndDate: "2022-08-15",
+            lastReviewDate: "2023-04-20",
+            email: "john.doe@company.com",
+            phone: "+1 (555) 123-4567",
+            dateOfBirth: "1990-03-15",
+            gender: "male",
+            address: "123 Main Street, Apt 4B, New York, NY 10001",
+            nationality: "American",
+            allergies: "None",
+            branch: "New York Office",
+            terminationDate: null,
+            salary: 85000.00,
+            hourlyRate: 40.87,
+            taxId: "123-45-6789",
+            bankAccount: "**** 4567",
+            emergencyContactName: "Jane Doe",
+            emergencyContactPhone: "+1 (555) 987-6543",
+            performanceRating: 4.3
+        };
+
+        // Populate employee data
+        document.getElementById('employeeName').textContent = employeeData.name;
+        document.getElementById('employeePosition').textContent = employeeData.position;
+        document.getElementById('employeeNumber').textContent = employeeData.employeeNumber;
+        document.getElementById('hireDate').textContent = employeeData.hireDate;
+        document.getElementById('probationDate').textContent = employeeData.probationEndDate;
+        document.getElementById('lastReviewDate').textContent = employeeData.lastReviewDate;
+        document.getElementById('email').textContent = employeeData.email;
+        document.getElementById('phone').textContent = employeeData.phone;
+        document.getElementById('dob').textContent = employeeData.dateOfBirth;
+        document.getElementById('gender').textContent = employeeData.gender.charAt(0).toUpperCase() + employeeData.gender.slice(1);
+        document.getElementById('address').textContent = employeeData.address;
+        document.getElementById('nationality').textContent = employeeData.nationality;
+        document.getElementById('allergies').textContent = employeeData.allergies;
+        document.getElementById('branch').textContent = employeeData.branch;
+        document.getElementById('department').textContent = employeeData.department;
+        document.getElementById('position').textContent = employeeData.position;
+        document.getElementById('employmentHireDate').textContent = employeeData.hireDate;
+        document.getElementById('employmentStatus').textContent = employeeData.status.charAt(0).toUpperCase() + employeeData.status.slice(1);
+        document.getElementById('shiftPreference').textContent = employeeData.shiftPreference.charAt(0).toUpperCase() + employeeData.shiftPreference.slice(1);
+        document.getElementById('probationEndDate').textContent = employeeData.probationEndDate;
+        document.getElementById('terminationDate').textContent = employeeData.terminationDate || '-';
+        document.getElementById('salary').textContent = `$${employeeData.salary.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+        document.getElementById('hourlyRate').textContent = `$${employeeData.hourlyRate.toFixed(2)}`;
+        document.getElementById('taxId').textContent = employeeData.taxId;
+        document.getElementById('bankAccount').textContent = employeeData.bankAccount;
+        document.getElementById('emergencyName').textContent = employeeData.emergencyContactName;
+        document.getElementById('emergencyPhone').textContent = employeeData.emergencyContactPhone;
+        document.getElementById('lastReview').textContent = employeeData.lastReviewDate;
+        document.getElementById('performanceRating').textContent = `${employeeData.performanceRating} / 5.0`;
+
+        // Set status badge color
+        const statusBadge = document.getElementById('statusBadge');
+        if (employeeData.status === 'active') {
+            statusBadge.className = 'px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+        } else if (employeeData.status === 'on_leave') {
+            statusBadge.className = 'px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+        } else if (employeeData.status === 'terminated') {
+            statusBadge.className = 'px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+        }
+    </script>
+</body>
+</html>

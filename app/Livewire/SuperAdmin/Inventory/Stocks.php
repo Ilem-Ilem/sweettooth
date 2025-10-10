@@ -29,6 +29,16 @@ class Stocks extends BaseComponent
     public ?string $historyDateTo = null;
     public ?string $historyMovementType = null;
 
+    // Stock Edit Modal
+    public bool $showEditStockModal = false;
+    public ?int $editStockId = null;
+    public ?float $editQuantityAvailable = null;
+    public ?float $editQuantityReserved = null;
+    public ?float $editQuantityDamaged = null;
+    public ?string $editHealthStatus = null;
+    public ?string $editExpiryDate = null;
+    public ?string $editNotes = null;
+
     protected array $bulkActions = [
         'export' => ['label' => 'Export Selected', 'method' => 'exportSelected'],
     ];
@@ -172,6 +182,132 @@ class Stocks extends BaseComponent
         $this->historyDateFrom = null;
         $this->historyDateTo = null;
         $this->historyMovementType = null;
+    }
+
+    // Stock Edit Modal Methods
+    public function openEditStockModal($stockId)
+    {
+        $stock = Stock::find($stockId);
+        if (!$stock) {
+            $this->toast()->error('Stock record not found')->send();
+            return;
+        }
+
+        $this->editStockId = $stockId;
+        $this->editQuantityAvailable = $stock->quantity_available;
+        $this->editQuantityReserved = $stock->quantity_reserved;
+        $this->editQuantityDamaged = $stock->quantity_damaged;
+        $this->editHealthStatus = $stock->health_status;
+        $this->editExpiryDate = $stock->expiry_date ? $stock->expiry_date->format('Y-m-d') : null;
+        $this->editNotes = null;
+        $this->showEditStockModal = true;
+    }
+
+    public function saveStockEdit()
+    {
+        $this->validate([
+            'editQuantityAvailable' => 'required|numeric|min:0',
+            'editQuantityReserved' => 'required|numeric|min:0',
+            'editQuantityDamaged' => 'required|numeric|min:0',
+            'editHealthStatus' => 'required|in:good,warning,critical,expired',
+            'editExpiryDate' => 'nullable|date',
+        ]);
+
+        $stock = Stock::find($this->editStockId);
+        if (!$stock) {
+            $this->toast()->error('Stock record not found')->send();
+            return;
+        }
+
+        $oldAvailable = $stock->quantity_available;
+        $oldReserved = $stock->quantity_reserved;
+        $oldDamaged = $stock->quantity_damaged;
+
+        // Update stock
+        $stock->update([
+            'quantity_available' => $this->editQuantityAvailable,
+            'quantity_reserved' => $this->editQuantityReserved,
+            'quantity_damaged' => $this->editQuantityDamaged,
+            'health_status' => $this->editHealthStatus,
+            'expiry_date' => $this->editExpiryDate,
+            'last_stock_take_date' => now(),
+        ]);
+
+        // Get employee ID if exists
+        $movedBy = null;
+        if (auth()->user() && auth()->user()->employee) {
+            $movedBy = auth()->user()->employee->id;
+        }
+
+        // Create stock movement records for any changes
+        if ($oldAvailable != $this->editQuantityAvailable) {
+            $movementData = [
+                'stock_id' => $stock->id,
+                'type' => 'adjustment',
+                'quantity' => abs($this->editQuantityAvailable - $oldAvailable),
+                'quantity_before' => $oldAvailable,
+                'quantity_after' => $this->editQuantityAvailable,
+                'movement_date' => now(),
+                'notes' => $this->editNotes ?? 'Manual stock adjustment',
+            ];
+
+            if ($movedBy) {
+                $movementData['moved_by'] = $movedBy;
+            }
+
+            StockMovement::create($movementData);
+        }
+
+        if ($oldReserved != $this->editQuantityReserved) {
+            $movementData = [
+                'stock_id' => $stock->id,
+                'type' => 'adjustment',
+                'quantity' => abs($this->editQuantityReserved - $oldReserved),
+                'quantity_before' => $oldReserved,
+                'quantity_after' => $this->editQuantityReserved,
+                'movement_date' => now(),
+                'notes' => $this->editNotes ?? 'Manual reserved quantity adjustment',
+            ];
+
+            if ($movedBy) {
+                $movementData['moved_by'] = $movedBy;
+            }
+
+            StockMovement::create($movementData);
+        }
+
+        if ($oldDamaged != $this->editQuantityDamaged) {
+            $movementData = [
+                'stock_id' => $stock->id,
+                'type' => 'damaged',
+                'quantity' => abs($this->editQuantityDamaged - $oldDamaged),
+                'quantity_before' => $oldDamaged,
+                'quantity_after' => $this->editQuantityDamaged,
+                'movement_date' => now(),
+                'notes' => $this->editNotes ?? 'Manual damaged quantity adjustment',
+            ];
+
+            if ($movedBy) {
+                $movementData['moved_by'] = $movedBy;
+            }
+
+            StockMovement::create($movementData);
+        }
+
+        $this->toast()->success('Stock updated successfully')->send();
+        $this->closeEditStockModal();
+    }
+
+    public function closeEditStockModal()
+    {
+        $this->showEditStockModal = false;
+        $this->editStockId = null;
+        $this->editQuantityAvailable = null;
+        $this->editQuantityReserved = null;
+        $this->editQuantityDamaged = null;
+        $this->editHealthStatus = null;
+        $this->editExpiryDate = null;
+        $this->editNotes = null;
     }
 
     public function render()

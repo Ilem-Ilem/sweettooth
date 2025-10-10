@@ -27,7 +27,6 @@ return new class extends Migration
             $table->string('nationality', 100)->nullable();
             $table->string('emergency_contact_name')->nullable();
             $table->string('emergency_contact_phone', 50)->nullable();
-            $table->string('position');
             $table->date('hire_date');
             $table->date('termination_date')->nullable();
             $table->enum('status', ['active', 'inactive', 'terminated', 'on_probation', 'on_leave'])->default('active');

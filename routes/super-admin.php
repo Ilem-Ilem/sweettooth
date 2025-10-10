@@ -12,12 +12,13 @@ Route::middleware(['auth'])->prefix('super-admin')->name('super-admin.')->group(
     // Organization Structure routes
     Route::get('department-categories', \App\Livewire\SuperAdmin\DepartmentCategories\Index::class)->name('department-categories.index');
     Route::get('departments', \App\Livewire\SuperAdmin\Departments\Index::class)->name('departments.index');
-    Route::get('positions', \App\Livewire\SuperAdmin\Positions\Index::class)->name('positions.index');
 
+    //EMPLOYEE ROUTES
     Route::get('employees', App\Livewire\SuperAdmin\EmployeeModule\Index::class)->name('employee.index');
     Route::get('create-employee', App\Livewire\SuperAdmin\EmployeeModule\CreateEmployee::class)->name('employee.create');
     Route::get('employees/{id}/edit', App\Livewire\SuperAdmin\EmployeeModule\EditEmployee::class)->name('employee.edit');
-    Route::get('assignments', \App\Livewire\SuperAdmin\Assignments\Index::class)->name('assignments.index');
+    Route::get('role-assignments', \App\Livewire\SuperAdmin\EmployeeModule\RoleAssignment::class)->name('role-assignments.index');
+    Route::get('employee/{employee_number}/{id}/', \App\Livewire\SuperAdmin\EmployeeModule\EmployeeDetails::class)->name('employee.detail');
 
     // Inventory routes
     Route::prefix('inventory')->name('inventory.')->group(function () {

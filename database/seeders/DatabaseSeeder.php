@@ -26,7 +26,6 @@ class DatabaseSeeder extends Seeder
             BranchSeeder::class,
             DepartmentCategorySeeder::class,
             DepartmentSeeder::class,
-            PositionSeeder::class,
             EmployeeSeeder::class,
             InventoryPermissionSeeder::class,
         ]);

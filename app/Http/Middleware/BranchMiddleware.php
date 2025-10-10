@@ -22,7 +22,6 @@ class BranchMiddleware
 
         // Validate branch by UUID
         $branch = Branch::where('id', $branchId)->first();
-
         if (! $branch) {
             abort(404, 'Page not found');
         }

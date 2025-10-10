@@ -23,15 +23,7 @@
         }
     </style>
 
-    <x-breadcrumb
-        title="Employee Management"
-        :items="[
-            ['label' => 'Dashboard', 'url' => route('dashboard')],
-            ['label' => 'Employee Management']
-        ]"
-        :compact="false"
-        :with-icons="true"
-    />
+    <x-breadcrumb title="Employee Management" :items="[['label' => 'Dashboard', 'url' => route('dashboard')], ['label' => 'Employee Management']]" :compact="false" :with-icons="true" />
 
     <!-- Header with Add Button -->
     <div class="flex justify-between items-center">
@@ -234,7 +226,8 @@
 
                 <!-- Hire Date Range -->
                 <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Hire Date Range</label>
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Hire Date
+                        Range</label>
                     <div class="flex space-x-2">
                         <input type="date" wire:model.live="hireDateFrom"
                             class="w-1/2 px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
@@ -245,7 +238,8 @@
 
                 <!-- Termination Date Range -->
                 <div class="md:col-span-1">
-                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Termination Date</label>
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Termination
+                        Date</label>
                     <div class="flex space-x-2">
                         <input type="date" wire:model.live="terminationDateFrom"
                             class="w-1/2 px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
@@ -277,15 +271,21 @@
     </div>
 
     <!-- Table -->
-    <x-table :$headers :$rows selectable wire:model="selectedIds" striped paginate persist
-        :filter="['quantity' => 'quantity', 'search' => 'search']" :quantity="[10, 25, 50, 100]">
+    <x-table :$headers :$rows selectable wire:model="selectedIds" striped paginate persist :filter="['quantity' => 'quantity', 'search' => 'search']"
+        :quantity="[10, 25, 50, 100]">
         @interact('column_name', $row)
-            <div class="flex items-center">
-                <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium text-sm mr-2">
+            <a class="flex items-center"
+                href="{{ route('super-admin.employee.detail', ['employee_number' => $row->employee_number, 'id' => $row->id]) }}"
+                wire:navigate>
+                <div
+                    class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium text-sm mr-2">
                     {{ strtoupper(substr($row->name, 0, 2)) }}
                 </div>
-                <span class="text-zinc-900 dark:text-zinc-100">{{ $row->name }}</span>
-            </div>
+                <div>
+                    <span class="text-zinc-900 dark:text-zinc-100">{{ $row->name }}</span>
+                    <p class="text-gray-400">{{ $row->employee_number }}</p>
+                </div>
+            </a>
         @endinteract
 
         @interact('column_department', $row)
@@ -310,7 +310,8 @@
                     'on_leave' => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
                 ];
             @endphp
-            <span class="px-2 py-1 text-xs font-semibold rounded-full {{ $statusColors[$row->status] ?? 'bg-gray-100 text-gray-800' }}">
+            <span
+                class="px-2 py-1 text-xs font-semibold rounded-full {{ $statusColors[$row->status] ?? 'bg-gray-100 text-gray-800' }}">
                 {{ ucfirst(str_replace('_', ' ', $row->status)) }}
             </span>
         @endinteract
@@ -324,7 +325,8 @@
         @interact('column_roles', $row)
             <div class="flex flex-wrap gap-1">
                 @forelse($row->roles as $role)
-                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+                    <span
+                        class="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
                         {{ ucfirst($role->name) }}
                     </span>
                 @empty
@@ -363,7 +365,7 @@
         @endinteract
     </x-table>
 
-    <!-- Assign Roles Modal -->
+    <!-- Assign Roles Modal (Sidebar) -->
     <div x-data="{ show: @entangle('showRoleModal') }" x-show="show" x-cloak class="fixed inset-0 z-50 overflow-hidden"
         @keydown.escape.window="show = false">
         <!-- Backdrop -->
@@ -387,29 +389,87 @@
                 <button wire:click="closeRoleModal"
                     class="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
             </div>
 
             <!-- Scrollable Content -->
             <div class="flex-1 overflow-y-auto px-6 py-4 scrollbar-thin">
-                <div class="space-y-4">
-                    <p class="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
-                        Select multiple roles to assign to this employee
-                    </p>
-                    @foreach ($roles as $role)
-                        <label class="flex items-center p-3 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer transition-colors">
-                            <input type="checkbox" wire:model="selectedRoles" value="{{ $role->name }}"
-                                class="w-5 h-5 text-purple-600 bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-600 rounded focus:ring-purple-500 dark:focus:ring-purple-600 focus:ring-2">
-                            <span class="ml-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">{{ ucfirst($role->name) }}</span>
-                        </label>
-                    @endforeach
-                </div>
+                @if ($employeeIdForRole)
+                    @php
+                        $employee = \App\Models\Employee::with(['roles', 'branch', 'department'])->find(
+                            $employeeIdForRole,
+                        );
+                    @endphp
+                    <div class="space-y-4">
+                        <!-- Employee Info -->
+                        <div class="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-4 mb-4">
+                            <div class="flex items-center mb-2">
+                                <div
+                                    class="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium text-lg mr-3">
+                                    {{ strtoupper(substr($employee->name, 0, 2)) }}
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+                                        {{ $employee->name }}</h3>
+                                    <p class="text-sm text-zinc-500 dark:text-zinc-400">
+                                        {{ $employee->employee_number }}</p>
+                                </div>
+                            </div>
+                            <div class="text-sm text-zinc-600 dark:text-zinc-400">
+                                <p><span class="font-medium">Branch:</span> {{ $employee->branch?->name ?? 'N/A' }}
+                                </p>
+                                <p><span class="font-medium">Department:</span>
+                                    {{ $employee->department?->name ?? 'N/A' }}</p>
+                            </div>
+                        </div>
+
+                        <!-- Current Roles -->
+                        @if ($employee->roles->isNotEmpty())
+                            <div class="mb-4">
+                                <h4 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Current Roles
+                                </h4>
+                                <div class="flex flex-wrap gap-2">
+                                    @foreach ($employee->roles as $currentRole)
+                                        <span
+                                            class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+                                            {{ ucfirst($currentRole->name) }}
+                                            <button
+                                                wire:click="removeRoleFromEmployee('{{ $employee->id }}', '{{ $currentRole->name }}')"
+                                                class="ml-2 text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300">
+                                                &times;
+                                            </button>
+                                        </span>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+
+                        <!-- Assign New Roles -->
+                        <div>
+                            <h4 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Assign Roles</h4>
+                            <p class="text-sm text-zinc-600 dark:text-zinc-400 mb-3">
+                                Select roles to assign to this employee
+                            </p>
+                            @foreach ($roles as $role)
+                                <label
+                                    class="flex items-center p-3 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer transition-colors">
+                                    <input type="checkbox" wire:model="selectedRoles" value="{{ $role->name }}"
+                                        class="w-5 h-5 text-purple-600 bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-600 rounded focus:ring-purple-500 dark:focus:ring-purple-600 focus:ring-2">
+                                    <span
+                                        class="ml-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">{{ ucfirst($role->name) }}</span>
+                                </label>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
             </div>
 
             <!-- Footer -->
-            <div class="px-6 py-4 border-t border-zinc-200 dark:border-zinc-700 flex items-center justify-end space-x-3">
+            <div
+                class="px-6 py-4 border-t border-zinc-200 dark:border-zinc-700 flex items-center justify-end space-x-3">
                 <button wire:click="closeRoleModal"
                     class="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors">
                     Cancel

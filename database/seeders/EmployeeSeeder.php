@@ -7,7 +7,7 @@ use Illuminate\Database\Seeder;
 use App\Models\Employee;
 use App\Models\Branch;
 use App\Models\Department;
-use App\Models\Position;
+use Spatie\Permission\Models\Role;
 use Illuminate\Support\Facades\Hash;
 use Faker\Factory as Faker;
 
@@ -20,10 +20,10 @@ class EmployeeSeeder extends Seeder
     {
         $faker = Faker::create();
 
-        // Get all branches, departments, and positions
+        // Get all branches and departments
         $branches = Branch::all();
         $departments = Department::all();
-        $positions = Position::all();
+        $roles = Role::where('guard_name', 'employees')->get()->keyBy('name');
 
         if ($branches->isEmpty()) {
             $this->command->warn('No branches found. Please seed branches first.');
@@ -35,18 +35,14 @@ class EmployeeSeeder extends Seeder
             return;
         }
 
-        if ($positions->isEmpty()) {
-            $this->command->warn('No positions found. Please seed positions first.');
+        if ($roles->isEmpty()) {
+            $this->command->warn('No roles found. Please seed roles first.');
             return;
         }
 
         $employeeCount = 0;
         $now = now();
         $hashedPassword = Hash::make('password');
-        $employeesData = [];
-
-        $statuses = ['active', 'active', 'active', 'active', 'on_probation'];
-        $shifts = ['morning', 'afternoon', 'rotating', 'flexible'];
         $nigerianNames = [
             'male' => ['Chukwuemeka', 'Oluwaseun', 'Abubakar', 'Emeka', 'Tunde', 'Chigozie', 'Ibrahim', 'Kunle', 'Obinna', 'Yusuf'],
             'female' => ['Ngozi', 'Amina', 'Chioma', 'Folake', 'Kemi', 'Blessing', 'Hauwa', 'Ada', 'Fatima', 'Nneka']
@@ -56,133 +52,120 @@ class EmployeeSeeder extends Seeder
         foreach ($branches as $branch) {
             $this->command->info("Creating employees for {$branch->name}...");
 
-            // Create employees for each department at this branch
             // Kitchen department
             $kitchenDept = $departments->where('name', 'Kitchen')->first();
-            $chefPosition = $positions->where('name', 'Chef')->first();
-            $kitchenStaffPosition = $positions->where('name', 'Kitchen Staff')->first();
-
-            if ($kitchenDept && $chefPosition) {
+            if ($kitchenDept && $roles->has('Chef')) {
                 // 1 Chef per branch
-                $employeesData[] = $this->createEmployee($faker, $branch, $kitchenDept, $chefPosition, $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                $chef = $this->createEmployee($faker, $branch, $kitchenDept, $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                $chef->assignRole('Chef');
 
                 // 3 Kitchen Staff
-                if ($kitchenStaffPosition) {
+                if ($roles->has('Kitchen Staff')) {
                     for ($i = 0; $i < 3; $i++) {
-                        $employeesData[] = $this->createEmployee($faker, $branch, $kitchenDept, $kitchenStaffPosition, $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                        $staff = $this->createEmployee($faker, $branch, $kitchenDept, $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                        $staff->assignRole('Kitchen Staff');
                     }
                 }
             }
 
             // Gelato Production
             $gelatoDept = $departments->where('name', 'Gelato Production')->first();
-            $gelatoHeadPosition = $positions->where('name', 'Head of Gelato')->first();
-            $gelatoStaffPosition = $positions->where('name', 'Gelato Production Staff')->first();
-
-            if ($gelatoDept && $gelatoHeadPosition) {
+            if ($gelatoDept && $roles->has('Head of Gelato')) {
                 // 1 Head of Gelato
-                $employeesData[] = $this->createEmployee($faker, $branch, $gelatoDept, $gelatoHeadPosition, $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                $gelatoHead = $this->createEmployee($faker, $branch, $gelatoDept, $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                $gelatoHead->assignRole('Head of Gelato');
 
                 // 2 Gelato Staff
-                if ($gelatoStaffPosition) {
+                if ($roles->has('Gelato Production Staff')) {
                     for ($i = 0; $i < 2; $i++) {
-                        $employeesData[] = $this->createEmployee($faker, $branch, $gelatoDept, $gelatoStaffPosition, $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                        $staff = $this->createEmployee($faker, $branch, $gelatoDept, $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                        $staff->assignRole('Gelato Production Staff');
                     }
                 }
             }
 
             // Confectionaries Production
             $confectionProdDept = $departments->where('name', 'Confectionaries Production')->first();
-            $confectionManagerPosition = $positions->where('name', 'Confectionaries Manager')->first();
-            $confectionStaffPosition = $positions->where('name', 'Confectionaries Production Staff')->first();
-
-            if ($confectionProdDept && $confectionManagerPosition) {
+            if ($confectionProdDept && $roles->has('Confectionaries Manager')) {
                 // 1 Manager
-                $employeesData[] = $this->createEmployee($faker, $branch, $confectionProdDept, $confectionManagerPosition, $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                $manager = $this->createEmployee($faker, $branch, $confectionProdDept, $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                $manager->assignRole('Confectionaries Manager');
 
                 // 2 Staff
-                if ($confectionStaffPosition) {
+                if ($roles->has('Confectionaries Production Staff')) {
                     for ($i = 0; $i < 2; $i++) {
-                        $employeesData[] = $this->createEmployee($faker, $branch, $confectionProdDept, $confectionStaffPosition, $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                        $staff = $this->createEmployee($faker, $branch, $confectionProdDept, $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                        $staff->assignRole('Confectionaries Production Staff');
                     }
                 }
             }
 
             // Till (Sales)
             $tillDept = $departments->where('name', 'Till')->first();
-            $tillSupervisorPosition = $positions->where('name', 'Till Supervisor')->first();
-            $cashierPosition = $positions->where('name', 'Cashier')->first();
-
-            if ($tillDept && $tillSupervisorPosition) {
+            if ($tillDept && $roles->has('Till Supervisor')) {
                 // 1 Supervisor
-                $employeesData[] = $this->createEmployee($faker, $branch, $tillDept, $tillSupervisorPosition, $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                $supervisor = $this->createEmployee($faker, $branch, $tillDept, $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                $supervisor->assignRole('Till Supervisor');
 
                 // 3 Cashiers
-                if ($cashierPosition) {
+                if ($roles->has('Cashier')) {
                     for ($i = 0; $i < 3; $i++) {
-                        $employeesData[] = $this->createEmployee($faker, $branch, $tillDept, $cashierPosition, $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                        $cashier = $this->createEmployee($faker, $branch, $tillDept, $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                        $cashier->assignRole('Cashier');
                     }
                 }
             }
 
             // Corner Store
             $cornerStoreDept = $departments->where('name', 'Corner Store')->first();
-            $cornerManagerPosition = $positions->where('name', 'Corner Store Manager')->first();
-            $cornerStaffPosition = $positions->where('name', 'Corner Store Staff')->first();
-
-            if ($cornerStoreDept && $cornerManagerPosition) {
+            if ($cornerStoreDept && $roles->has('Corner Store Manager')) {
                 // 1 Manager
-                $employeesData[] = $this->createEmployee($faker, $branch, $cornerStoreDept, $cornerManagerPosition, $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                $manager = $this->createEmployee($faker, $branch, $cornerStoreDept, $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                $manager->assignRole('Corner Store Manager');
 
                 // 2 Staff
-                if ($cornerStaffPosition) {
+                if ($roles->has('Corner Store Staff')) {
                     for ($i = 0; $i < 2; $i++) {
-                        $employeesData[] = $this->createEmployee($faker, $branch, $cornerStoreDept, $cornerStaffPosition, $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                        $staff = $this->createEmployee($faker, $branch, $cornerStoreDept, $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                        $staff->assignRole('Corner Store Staff');
                     }
                 }
             }
 
             // Confectionaries Sales
             $confectionSalesDept = $departments->where('name', 'Confectionaries Sales')->first();
-            $confectionSalesStaffPosition = $positions->where('name', 'Confectionaries Sales Staff')->first();
-
-            if ($confectionSalesDept && $confectionSalesStaffPosition) {
+            if ($confectionSalesDept && $roles->has('Confectionaries Sales Staff')) {
                 // 2 Sales Staff
                 for ($i = 0; $i < 2; $i++) {
-                    $employeesData[] = $this->createEmployee($faker, $branch, $confectionSalesDept, $confectionSalesStaffPosition, $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                    $staff = $this->createEmployee($faker, $branch, $confectionSalesDept, $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                    $staff->assignRole('Confectionaries Sales Staff');
                 }
             }
 
             // Inventory/Store
             $inventoryDept = $departments->where('name', 'Inventory/Store')->first();
-            $storeKeeperPosition = $positions->where('name', 'Store Keeper')->first();
-            $stockControllerPosition = $positions->where('name', 'Stock Controller')->first();
-
             if ($inventoryDept) {
                 // 1 Store Keeper
-                if ($storeKeeperPosition) {
-                    $employeesData[] = $this->createEmployee($faker, $branch, $inventoryDept, $storeKeeperPosition, $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                if ($roles->has('Store Keeper')) {
+                    $keeper = $this->createEmployee($faker, $branch, $inventoryDept, $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                    $keeper->assignRole('Store Keeper');
                 }
 
                 // 1 Stock Controller
-                if ($stockControllerPosition) {
-                    $employeesData[] = $this->createEmployee($faker, $branch, $inventoryDept, $stockControllerPosition, $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                if ($roles->has('Stock Controller')) {
+                    $controller = $this->createEmployee($faker, $branch, $inventoryDept, $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                    $controller->assignRole('Stock Controller');
                 }
             }
         }
 
-        // Bulk insert in chunks of 50
-        foreach (array_chunk($employeesData, 50) as $chunk) {
-            Employee::insert($chunk);
-        }
-
-        $this->command->info("✅ {$employeeCount} employees created successfully across all branches.");
+        $this->command->info("✅ {$employeeCount} employees created successfully with roles assigned across all branches.");
     }
 
     /**
-     * Create a single employee data array
+     * Create a single employee
      */
-    private function createEmployee($faker, $branch, $department, $position, $hashedPassword, $now, $nigerianNames, $surnames, $count)
+    private function createEmployee($faker, $branch, $department, $hashedPassword, $now, $nigerianNames, $surnames, $count)
     {
         $gender = $faker->randomElement(['male', 'female']);
         $firstName = $faker->randomElement($nigerianNames[$gender]);
@@ -201,11 +184,10 @@ class EmployeeSeeder extends Seeder
             $probationEndDate = $faker->dateTimeBetween('now', '+3 months')->format('Y-m-d');
         }
 
-        return [
+        return Employee::create([
             'id' => $faker->uuid(),
             'branch_id' => $branch->id,
             'department_id' => $department->id,
-            'position_id' => $position->id,
             'manager_id' => null, // Will be set later if needed
             'employee_number' => $employeeNumber,
             'name' => $name,
@@ -217,7 +199,6 @@ class EmployeeSeeder extends Seeder
             'nationality' => 'Nigerian',
             'emergency_contact_name' => $faker->randomElement($nigerianNames[$gender === 'male' ? 'female' : 'male']) . ' ' . $faker->randomElement($surnames),
             'emergency_contact_phone' => '+234-' . $faker->numberBetween(800, 909) . '-' . $faker->numberBetween(100, 999) . '-' . $faker->numberBetween(1000, 9999),
-            'position' => $position->name, // Keep this for backward compatibility
             'hire_date' => $hireDate,
             'termination_date' => null,
             'status' => $status,
@@ -235,6 +216,6 @@ class EmployeeSeeder extends Seeder
             'email_verified_at' => $now,
             'created_at' => $now,
             'updated_at' => $now,
-        ];
+        ]);
     }
 }

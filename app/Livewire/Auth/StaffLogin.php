@@ -40,56 +40,57 @@ class StaffLogin extends Component
      * Handle an incoming authentication request.
      */
 
-// In login() method (building on the no-2FA version above):
-public function login(): void
-{
-    $this->validate();
+    // In login() method (building on the no-2FA version above):
+    public function login(): void
+    {
+        $this->validate();
 
-    $this->ensureIsNotRateLimited();
+        $this->ensureIsNotRateLimited();
 
-    $employee = $this->validateCredentials();
-    // Use the custom guard
-    Auth::guard('employees')->login($employee, $this->remember);
-    // Store branch context in session
-    Session::put('branch_id', $this->branch_id);
+        $employee = $this->validateCredentials();
+        // Use the custom guard
+        Auth::guard('employees')->login($employee, $this->remember);
+        // Store branch context in session
+        Session::put('branch_id', $this->branch_id);
 
-    RateLimiter::clear($this->throttleKey());
-    Session::regenerate();
+        RateLimiter::clear($this->throttleKey());
+        Session::regenerate();
 
-  $this->redirectIntended(
-        default: route('branch-dashboard.branch_dashboard', ['b_id' => $this->branch_id], absolute: false),
-        navigate: true
-    );
-}
+        $this->redirectIntended(
+            default: route('branch-dashboard.index', ['b_id' => $this->branch_id], absolute: false),
+            navigate: true
+        );
+    }
 
-// Update validateCredentials() to use the guard's provider:
-protected function validateCredentials(): Employee
-{
-    // Retrieve employee by email and check password
-    $employee = Employee::where('email', $this->email)->first();
+    // Update validateCredentials() to use the guard's provider:
+    protected function validateCredentials(): Employee
+    {
+        // Retrieve employee by email and check password
+        $employee = Employee::where('email', $this->email)->first();
 
         if (! $employee || ! Auth::guard('employees')->getProvider()->validateCredentials($employee, [
             'email' => $this->email,
             'password' => $this->password
         ])) {
-        RateLimiter::hit($this->throttleKey());
+            RateLimiter::hit($this->throttleKey());
 
-        throw ValidationException::withMessages([
-            'email' => __('auth.failed'),
-        ]);
+            throw ValidationException::withMessages([
+                'email' => __('auth.failed'),
+            ]);
+        }
+
+
+        // Validate branch_id matches employee's branch
+        if ($employee->branch_id !== $this->branch_id) {
+            RateLimiter::hit($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                'branch_id' => __('invalid_branch'),
+            ]);
+        }
+
+        return $employee;
     }
-
-    // Validate branch_id matches employee's branch
-    if ($employee->branch_id !== $this->branch_id) {
-        RateLimiter::hit($this->throttleKey());
-
-        throw ValidationException::withMessages([
-            'branch_id' => __('auth.invalid_branch'),
-        ]);
-    }
-
-    return $employee;
-}
 
     /**
      * Ensure the authentication request is not rate limited.

@@ -44,14 +44,6 @@ class Department extends Model
     }
 
     /**
-     * Get the positions for the department.
-     */
-    public function positions()
-    {
-        return $this->hasMany(Position::class);
-    }
-
-    /**
      * Get the employees for the department.
      */
     public function employees()
