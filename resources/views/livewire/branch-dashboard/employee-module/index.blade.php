@@ -26,7 +26,7 @@
     <x-breadcrumb
         title="Employee Management"
         :items="[
-            ['label' => 'Dashboard', 'url' => route('dashboard')],
+            ['label' => 'Dashboard', 'url' => branch_route('dashboard')],
             ['label' => 'Employee Management']
         ]"
         :compact="false"
@@ -196,17 +196,6 @@
                     </select>
                 </div>
 
-                <!-- Branch Filter -->
-                <div>
-                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Branch</label>
-                    <select wire:model.live="filterBranch"
-                        class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
-                        <option value="">All Branches</option>
-                        @foreach ($branches as $branch)
-                            <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
 
                 <!-- Gender Filter -->
                 <div>
@@ -280,12 +269,18 @@
     <x-table :$headers :$rows selectable wire:model="selectedIds" striped paginate persist
         :filter="['quantity' => 'quantity', 'search' => 'search']" :quantity="[10, 25, 50, 100]">
         @interact('column_name', $row)
-            <div class="flex items-center">
-                <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium text-sm mr-2">
+            <a class="flex items-center"
+                href="{{ branch_route('branch-dashboard.employee.details', ['employee_number' => $row->employee_number, 'id' => $row->id]) }}"
+                wire:navigate>
+                <div
+                    class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium text-sm mr-2">
                     {{ strtoupper(substr($row->name, 0, 2)) }}
                 </div>
-                <span class="text-zinc-900 dark:text-zinc-100">{{ $row->name }}</span>
-            </div>
+                <div>
+                    <span class="text-zinc-900 dark:text-zinc-100">{{ $row->name }}</span>
+                    <p class="text-gray-400">{{ $row->employee_number }}</p>
+                </div>
+            </a>
         @endinteract
 
         @interact('column_department', $row)
@@ -346,7 +341,7 @@
                 @if (auth('employees')->id() == $row->id)
                 <i>(You)</i>
                 @else
-                  <a href="{{ route('super-admin.employee.edit', $row->id) }}"
+                  <a href="{{ branch_route('branch-dashboard.employee.edit', ['id'=>$row->id]) }}"
                     class="p-2 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors"
                     title="Edit Employee">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

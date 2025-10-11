@@ -121,15 +121,18 @@
     <x-table :$headers :$rows striped paginate persist
         :filter="['quantity' => 'quantity', 'search' => 'search']" :quantity="[10, 25, 50, 100]">
         @interact('column_name', $row)
-            <div class="flex items-center">
-                <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium text-sm mr-2">
+            <a class="flex items-center"
+                href="{{ route('super-admin.employee.detail', ['employee_number' => $row->employee_number, 'id' => $row->id]) }}"
+                wire:navigate>
+                <div
+                    class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium text-sm mr-2">
                     {{ strtoupper(substr($row->name, 0, 2)) }}
                 </div>
                 <div>
-                    <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $row->name }}</div>
-                    <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $row->employee_number }}</div>
+                    <span class="text-zinc-900 dark:text-zinc-100">{{ $row->name }}</span>
+                    <p class="text-gray-400">{{ $row->employee_number }}</p>
                 </div>
-            </div>
+            </a>
         @endinteract
 
         @interact('column_branch', $row)

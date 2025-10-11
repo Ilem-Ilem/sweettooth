@@ -1,273 +1,288 @@
 <div class="p-3 space-y-3">
-    <x-breadcrumb title="Items Management" :links="[['label' => 'Dashboard', 'url' => route('branch.dashboard')], ['label' => 'Inventory'], ['label' => 'Items']]" />
 
-    @if (session()->has('success'))
-        <div class="bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded text-sm">
-            {{ session('success') }}
-        </div>
-    @endif
+    <style>
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 8px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            @apply bg-zinc-300 dark:bg-zinc-700 rounded-full;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            @apply bg-zinc-400 dark:bg-zinc-600;
+        }
+        [x-cloak] {
+            display: none !important;
+        }
+    </style>
 
-    <!-- Low Stock Alert -->
-    @if ($lowStockCount > 0)
-        <div class="bg-yellow-50 border border-yellow-200 text-yellow-800 px-3 py-2 rounded text-sm flex items-center">
-            <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+    <x-breadcrumb
+        title="Items Management"
+        :items="[
+            ['label' => 'Dashboard', 'url' => branch_route('branch-dashboard.index')],
+            ['label' => 'Inventory'],
+            ['label' => 'Items Management']
+        ]"
+        :compact="false"
+        :with-icons="true"
+    />
+
+    <!-- Header with Add Button -->
+    <div class="flex justify-between items-center">
+        <button wire:click="openCreateModal"
+            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center shadow-sm">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
             </svg>
-            <span>{{ $lowStockCount }} {{ $lowStockCount === 1 ? 'item is' : 'items are' }} below reorder level</span>
-        </div>
-    @endif
+            Add New Item
+        </button>
+    </div>
 
-    <!-- Filters -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div class="px-3 py-2 border-b border-gray-200 flex justify-between items-center">
-            <h3 class="text-sm font-medium text-gray-700">Filters</h3>
-            <button wire:click="resetFilters" class="text-xs text-blue-600 hover:text-blue-800">
-                Reset Filters
+    <!-- Export Buttons -->
+    <div class="flex justify-end items-center space-x-2">
+        <button wire:click="exportExcel"
+            class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Export Excel
+        </button>
+        <button wire:click="exportPdf"
+            class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+            Export PDF
+        </button>
+    </div>
+
+    <!-- Bulk Actions Bar -->
+    <div x-data="{ selectedIds: @entangle('selectedIds') }" x-show="selectedIds.length > 0" x-cloak
+        class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                <span class="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    <span x-text="selectedIds.length"></span> item(s) selected
+                </span>
+                <button wire:click="toggleBulkMode"
+                    class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline text-left">
+                    Clear Selection
+                </button>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-2">
+                <button wire:click="bulkDeleteItems"
+                    class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center justify-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Delete Selected
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div x-data="{ open: false }"
+        class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 transition-all duration-300">
+        <div class="flex justify-between items-center px-3 py-2 border-b border-zinc-200 dark:border-zinc-700">
+            <h2 class="text-sm font-semibold text-zinc-800 dark:text-zinc-100 flex items-center">
+                <svg class="w-4 h-4 mr-1.5 text-zinc-600 dark:text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707L14.293 13H10v5l-4-4v-3.586L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                Filters
+            </h2>
+            <button @click="open = !open"
+                class="flex items-center px-2.5 py-1 rounded text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white transition-all duration-200">
+                <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path x-show="!open" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16" />
+                    <path x-show="open" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                <span x-text="open ? 'Close' : 'Show Filters'"></span>
             </button>
         </div>
-        <div class="p-3">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+
+        <div x-show="open" x-collapse class="p-3 space-y-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Search</label>
-                    <input type="text" wire:model.live="search" placeholder="Name or SKU..."
-                        class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Category</label>
+                    <x-select.styled
+                        wire:model.live="filterCategory"
+                        :options="[
+                            ['label' => 'Raw Material', 'value' => 'raw_material'],
+                            ['label' => 'Packaging', 'value' => 'packaging'],
+                            ['label' => 'Consumable', 'value' => 'consumable'],
+                            ['label' => 'Equipment', 'value' => 'equipment']
+                        ]"
+                        select="label:label|value:value"
+                        placeholder="All Categories"
+                        searchable
+                    />
                 </div>
+
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Category</label>
-                    <select wire:model.live="filterCategory"
-                        class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                        <option value="">All Categories</option>
-                        <option value="raw_material">Raw Material</option>
-                        <option value="packaging">Packaging</option>
-                        <option value="consumable">Consumable</option>
-                        <option value="equipment">Equipment</option>
-                    </select>
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Stock Level</label>
+                    <x-select.styled
+                        wire:model.live="filterStockLevel"
+                        :options="[
+                            ['label' => 'Low Stock', 'value' => 'low'],
+                            ['label' => 'High Stock', 'value' => 'high'],
+                            ['label' => 'Out of Stock', 'value' => 'out_of_stock']
+                        ]"
+                        select="label:label|value:value"
+                        placeholder="All Stock Levels"
+                    />
                 </div>
+
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Status</label>
-                    <select wire:model.live="filterStatus"
-                        class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                        <option value="">All Status</option>
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                    </select>
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Status</label>
+                    <x-select.styled
+                        wire:model.live="filterStatus"
+                        :options="[
+                            ['label' => 'Active', 'value' => 'active'],
+                            ['label' => 'Inactive', 'value' => 'inactive']
+                        ]"
+                        select="label:label|value:value"
+                        placeholder="All Status"
+                    />
                 </div>
             </div>
-        </div>
-    </div>
 
-    <!-- Items Table -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div class="px-3 py-2 border-b border-gray-200 flex justify-between items-center">
-            <h3 class="text-sm font-medium text-gray-700">Items List</h3>
-            @can('create-items')
-                <button wire:click="openCreateModal"
-                    class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md text-xs font-medium">
-                    Add Item
+            <div class="flex flex-wrap gap-2 justify-end pt-2.5 border-t border-zinc-200 dark:border-zinc-700">
+                <button wire:click="applyFilters"
+                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center shadow-sm">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
+                    </svg>
+                    Apply
                 </button>
-            @endcan
-        </div>
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">UOM</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Current Stock</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Reorder Level</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                    @forelse ($items as $item)
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-3 py-2 text-xs text-gray-900">{{ $item->sku }}</td>
-                            <td class="px-3 py-2 text-xs text-gray-900">{{ $item->name }}</td>
-                            <td class="px-3 py-2 text-xs">
-                                <span class="px-2 py-0.5 rounded-full text-xs font-medium
-                                    {{ $item->category === 'raw_material' ? 'bg-blue-100 text-blue-800' : '' }}
-                                    {{ $item->category === 'packaging' ? 'bg-purple-100 text-purple-800' : '' }}
-                                    {{ $item->category === 'consumable' ? 'bg-green-100 text-green-800' : '' }}
-                                    {{ $item->category === 'equipment' ? 'bg-gray-100 text-gray-800' : '' }}">
-                                    {{ ucfirst(str_replace('_', ' ', $item->category)) }}
-                                </span>
-                            </td>
-                            <td class="px-3 py-2 text-xs text-gray-600">{{ strtoupper($item->uom) }}</td>
-                            <td class="px-3 py-2 text-xs">
-                                @php
-                                    $currentStock = $item->getCurrentStock();
-                                    $isBelowReorder = $item->isBelowReorderLevel();
-                                @endphp
-                                <span class="font-medium {{ $isBelowReorder ? 'text-red-600' : 'text-gray-900' }}">
-                                    {{ number_format($currentStock, 2) }}
-                                </span>
-                                @if ($isBelowReorder)
-                                    <span class="ml-1 text-red-600">⚠</span>
-                                @endif
-                            </td>
-                            <td class="px-3 py-2 text-xs text-gray-600">
-                                {{ $item->reorder_level ? number_format($item->reorder_level, 2) : 'N/A' }}
-                            </td>
-                            <td class="px-3 py-2 text-xs">
-                                <span class="px-2 py-0.5 rounded-full text-xs font-medium
-                                    {{ $item->status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
-                                    {{ ucfirst($item->status) }}
-                                </span>
-                            </td>
-                            <td class="px-3 py-2 text-xs">
-                                <div class="flex space-x-2">
-                                    @can('edit-items')
-                                        <button wire:click="openEditModal({{ $item->id }})"
-                                            class="text-blue-600 hover:text-blue-800">
-                                            Edit
-                                        </button>
-                                    @endcan
-                                    @can('delete-items')
-                                        <button wire:click="delete({{ $item->id }})"
-                                            onclick="return confirm('Are you sure you want to delete this item?')"
-                                            class="text-red-600 hover:text-red-800">
-                                            Delete
-                                        </button>
-                                    @endcan
-                                </div>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="8" class="px-3 py-4 text-center text-sm text-gray-500">
-                                No items found.
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-        <div class="px-3 py-2 border-t border-gray-200">
-            {{ $items->links() }}
+                <button wire:click="resetFilters"
+                    class="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors duration-200 flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                    Reset
+                </button>
+            </div>
         </div>
     </div>
 
-    <!-- Create/Edit Modal -->
-    @if ($showModal)
-        <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div class="relative top-10 mx-auto p-4 border w-full max-w-2xl shadow-lg rounded-lg bg-white">
-                <div class="px-3 py-2 border-b border-gray-200">
-                    <h3 class="text-base font-medium text-gray-900">
-                        {{ $isEditing ? 'Edit Item' : 'Create New Item' }}
-                    </h3>
+    <!-- Table -->
+    <x-table :$headers :$rows selectable wire:model="selectedIds" striped paginate persist
+        :filter="['quantity' => 'quantity', 'search' => 'search']"
+        :quantity="[10, 25, 50, 100]">
+
+        @interact('column_sku', $row)
+            <span class="font-mono text-zinc-900 dark:text-zinc-100">
+                {{ $row->sku }}
+            </span>
+        @endinteract
+
+        @interact('column_category', $row)
+            <span class="px-2 py-1 text-xs font-semibold rounded-full
+                {{ $row->category === 'raw_material' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' : '' }}
+                {{ $row->category === 'packaging' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' : '' }}
+                {{ $row->category === 'consumable' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : '' }}
+                {{ $row->category === 'equipment' ? 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200' : '' }}">
+                {{ ucfirst(str_replace('_', ' ', $row->category)) }}
+            </span>
+        @endinteract
+
+        @interact('column_uom', $row)
+            <span class="text-zinc-600 dark:text-zinc-400 uppercase">
+                {{ $row->uom }}
+            </span>
+        @endinteract
+
+        @interact('column_stock', $row)
+            @php
+                // Use the branch ID from the validated request (passed via b_id query parameter)
+                $branchId = request()->query('b_id');
+                $currentStock = $row->getCurrentStock($branchId);
+                $isBelowReorder = $row->isBelowReorderLevel($branchId);
+            @endphp
+            <div x-data="{ editing: false, quantity: {{ $currentStock }} }" class="flex items-center space-x-2">
+                <div x-show="!editing" @click="editing = true"
+                    class="cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700 px-2 py-1 rounded transition-colors">
+                    <span class="font-medium {{ $isBelowReorder ? 'text-red-600 dark:text-red-400' : 'text-zinc-900 dark:text-zinc-100' }}">
+                        {{ number_format($currentStock, 2) }}
+                    </span>
+                    <svg class="w-4 h-4 inline ml-1 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
                 </div>
-                <div class="p-3">
-                    <form wire:submit.prevent="save" class="space-y-3">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">
-                                    SKU <span class="text-red-500">*</span>
-                                </label>
-                                <input type="text" wire:model="sku"
-                                    class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                                @error('sku')
-                                    <span class="text-xs text-red-600">{{ $message }}</span>
-                                @enderror
-                            </div>
-
-                            <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">
-                                    Category <span class="text-red-500">*</span>
-                                </label>
-                                <select wire:model="category"
-                                    class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                                    <option value="">Select Category</option>
-                                    <option value="raw_material">Raw Material</option>
-                                    <option value="packaging">Packaging</option>
-                                    <option value="consumable">Consumable</option>
-                                    <option value="equipment">Equipment</option>
-                                </select>
-                                @error('category')
-                                    <span class="text-xs text-red-600">{{ $message }}</span>
-                                @enderror
-                            </div>
-
-                            <div class="md:col-span-2">
-                                <label class="block text-xs font-medium text-gray-700 mb-1">
-                                    Item Name <span class="text-red-500">*</span>
-                                </label>
-                                <input type="text" wire:model="name"
-                                    class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                                @error('name')
-                                    <span class="text-xs text-red-600">{{ $message }}</span>
-                                @enderror
-                            </div>
-
-                            <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">
-                                    Unit of Measure <span class="text-red-500">*</span>
-                                </label>
-                                <select wire:model="uom"
-                                    class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                                    <option value="">Select UOM</option>
-                                    <option value="grams">Grams</option>
-                                    <option value="kg">Kilograms (Kg)</option>
-                                    <option value="liters">Liters</option>
-                                    <option value="ml">Milliliters (ml)</option>
-                                    <option value="pcs">Pieces (Pcs)</option>
-                                    <option value="units">Units</option>
-                                    <option value="bags">Bags</option>
-                                    <option value="cartons">Cartons</option>
-                                </select>
-                                @error('uom')
-                                    <span class="text-xs text-red-600">{{ $message }}</span>
-                                @enderror
-                            </div>
-
-                            <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">
-                                    Status <span class="text-red-500">*</span>
-                                </label>
-                                <select wire:model="status"
-                                    class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                                    <option value="active">Active</option>
-                                    <option value="inactive">Inactive</option>
-                                </select>
-                                @error('status')
-                                    <span class="text-xs text-red-600">{{ $message }}</span>
-                                @enderror
-                            </div>
-
-                            <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">Reorder Level</label>
-                                <input type="number" step="0.01" wire:model="reorder_level"
-                                    class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                                @error('reorder_level')
-                                    <span class="text-xs text-red-600">{{ $message }}</span>
-                                @enderror
-                            </div>
-
-                            <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">Max Stock Level</label>
-                                <input type="number" step="0.01" wire:model="max_stock_level"
-                                    class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                                @error('max_stock_level')
-                                    <span class="text-xs text-red-600">{{ $message }}</span>
-                                @enderror
-                            </div>
-                        </div>
-
-                        <div class="flex justify-end space-x-2 pt-2">
-                            <button type="button" wire:click="closeModal"
-                                class="px-3 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 hover:bg-gray-50">
-                                Cancel
-                            </button>
-                            <button type="submit"
-                                class="px-3 py-1.5 bg-blue-600 text-white rounded-md text-xs font-medium hover:bg-blue-700">
-                                {{ $isEditing ? 'Update Item' : 'Create Item' }}
-                            </button>
-                        </div>
-                    </form>
+                <div x-show="editing" class="flex items-center space-x-1" x-cloak>
+                    <input type="number" step="0.01" x-model="quantity"
+                        @keydown.enter="$wire.updateStock({{ $row->id }}, quantity).then(() => editing = false)"
+                        @keydown.escape="editing = false; quantity = {{ $currentStock }}"
+                        class="w-24 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500">
+                    <button @click="$wire.updateStock({{ $row->id }}, quantity).then(() => editing = false)"
+                        class="p-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300" title="Save">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                    </button>
+                    <button @click="editing = false; quantity = {{ $currentStock }}"
+                        class="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300" title="Cancel">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
                 </div>
             </div>
-        </div>
-    @endif
+        @endinteract
+
+        @interact('column_reorder_level', $row)
+            <span class="text-zinc-600 dark:text-zinc-400">
+                {{ $row->reorder_level ? number_format($row->reorder_level, 2) : 'N/A' }}
+            </span>
+        @endinteract
+
+        @interact('column_status', $row)
+            <span class="px-2 py-1 text-xs font-semibold rounded-full
+                {{ $row->status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' }}">
+                {{ ucfirst($row->status) }}
+            </span>
+        @endinteract
+
+        @interact('column_action', $row)
+            <div class="flex items-center space-x-2">
+                <button wire:click="openStockModal({{ $row->id }})"
+                    class="p-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                    title="Manage Stock">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                </button>
+                <button wire:click="openEditModal({{ $row->id }})"
+                    class="p-2 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors"
+                    title="Edit Item">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                </button>
+                <button wire:click="delete({{ $row->id }})"
+                    class="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                    title="Delete Item">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                </button>
+            </div>
+        @endinteract
+    </x-table>
+
+    <!-- Modals -->
+    @include('livewire.branch-dashboard.inventory.partials.item-modal')
+    @include('livewire.branch-dashboard.inventory.partials.stock-modal')
+
 </div>

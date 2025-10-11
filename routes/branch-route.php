@@ -6,13 +6,14 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth:employees', 'branch'])->prefix('branch-dashboard')->name('branch-dashboard.')->group(function () {
     Route::get('/', App\Livewire\BranchDashboard\Index::class)->name('index');
-    Route::get('/employees', App\Livewire\BranchDashboard\EmployeeModule\Index::class)->name('employees');
 
+    Route::get('/employees', App\Livewire\BranchDashboard\EmployeeModule\Index::class)->name('employees.index');
+    Route::get('employee/create', App\Livewire\BranchDashboard\EmployeeModule\Create::class)->name('employee.create');
+    Route::get('/employee//{employee_number}/{id}/', \App\Livewire\BranchDashboard\EmployeeModule\Details::class)->name('employee.details');
+    Route::get('/employee/{id}/edit', \App\Livewire\BranchDashboard\EmployeeModule\Edit::class)->name('employee.edit');
 
-    Route::get('/branch-dashboard/departments',  App\Livewire\BranchDashboard\DepartmentModule\Index::class)
-        ->name('branch.departments.index');
-
-
+    Route::get('departments',  App\Livewire\BranchDashboard\DepartmentModule\Index::class)->name('branch.departments.index');
+    Route::get('departments/category', \App\Livewire\BranchDashboard\DepartmentModule\Category::class)->name('branch.departments.category');
     // Inventory routes
     Route::prefix('inventory')->name('inventory.')->group(function () {
         Route::get('items', \App\Livewire\BranchDashboard\Inventory\Items::class)->name('items');

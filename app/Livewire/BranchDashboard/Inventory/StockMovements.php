@@ -5,8 +5,10 @@ namespace App\Livewire\BranchDashboard\Inventory;
 use App\Models\StockMovement;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Livewire\Attributes\Layout;
 use Illuminate\Support\Facades\Auth;
 
+#[Layout('components.layouts.app.branch-dashboard')]
 class StockMovements extends Component
 {
     use WithPagination;
@@ -18,7 +20,8 @@ class StockMovements extends Component
 
     public function getBranchId()
     {
-        return Auth::guard('employees')->user()->employee->branch_id;
+
+        return request()->query('b_id');
     }
 
     public function render()

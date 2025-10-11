@@ -22,15 +22,25 @@ class Index extends BaseComponent
     public  $b_id;
 
     // Filter fields
+    #[Url()]
     public ?string $filterStatus = null;
+    #[Url()]
     public ?string $filterDepartment = null;
+    #[Url()]
     public ?string $filterBranch = null;
+    #[Url()]
     public ?string $filterGender = null;
+    #[Url()]
     public ?string $filterShift = null;
+    #[Url()]
     public ?string $hireDateFrom = null;
+    #[Url()]
+
     public ?string $hireDateTo = null;
     public ?string $terminationDateFrom = null;
+    #[Url()]
     public ?string $terminationDateTo = null;
+    #[Url()]
 
     // Delete state
     public ?string $selectedEmployeeId = null;
@@ -53,29 +63,30 @@ class Index extends BaseComponent
     protected function getFilteredQuery()
     {
         return Employee::query()
-        ->where('branch_id', $this->b_id)
+        ->latest()
+            ->where('branch_id', $this->b_id)
             ->with(['branch', 'department', 'roles'])
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
                     $q->where('name', 'like', '%' . $this->search . '%')
-                      ->orWhere('email', 'like', '%' . $this->search . '%')
-                      ->orWhere('employee_number', 'like', '%' . $this->search . '%')
-                      ->orWhere('position', 'like', '%' . $this->search . '%');
+                        ->orWhere('email', 'like', '%' . $this->search . '%')
+                        ->orWhere('employee_number', 'like', '%' . $this->search . '%')
+                        ->orWhere('position', 'like', '%' . $this->search . '%');
                 });
             })
             ->when($this->advancedSearch, function ($query) {
                 $query->where(function ($q) {
                     $q->where('name', 'like', '%' . $this->advancedSearch . '%')
-                      ->orWhere('email', 'like', '%' . $this->advancedSearch . '%')
-                      ->orWhere('employee_number', 'like', '%' . $this->advancedSearch . '%')
-                      ->orWhere('position', 'like', '%' . $this->advancedSearch . '%')
-                      ->orWhere('phone', 'like', '%' . $this->advancedSearch . '%')
-                      ->orWhereHas('branch', function ($branchQuery) {
-                          $branchQuery->where('name', 'like', '%' . $this->advancedSearch . '%');
-                      })
-                      ->orWhereHas('department', function ($deptQuery) {
-                          $deptQuery->where('name', 'like', '%' . $this->advancedSearch . '%');
-                      });
+                        ->orWhere('email', 'like', '%' . $this->advancedSearch . '%')
+                        ->orWhere('employee_number', 'like', '%' . $this->advancedSearch . '%')
+                        ->orWhere('position', 'like', '%' . $this->advancedSearch . '%')
+                        ->orWhere('phone', 'like', '%' . $this->advancedSearch . '%')
+                        ->orWhereHas('branch', function ($branchQuery) {
+                            $branchQuery->where('name', 'like', '%' . $this->advancedSearch . '%');
+                        })
+                        ->orWhereHas('department', function ($deptQuery) {
+                            $deptQuery->where('name', 'like', '%' . $this->advancedSearch . '%');
+                        });
                 });
             })
             ->when($this->filterStatus, function ($query) {
@@ -148,7 +159,7 @@ class Index extends BaseComponent
             $csv .= "\"{$employee->employee_number}\",\"{$employee->name}\",\"{$employee->email}\",\"{$employee->position}\",\"{$deptName}\",\"{$branchName}\",\"{$employee->status}\",\"{$employee->hire_date}\",\"{$employee->salary}\"\n";
         }
 
-        return response()->streamDownload(function() use ($csv) {
+        return response()->streamDownload(function () use ($csv) {
             echo $csv;
         }, 'employees-' . date('Y-m-d') . '.csv', [
             'Content-Type' => 'text/csv',
@@ -250,9 +261,7 @@ class Index extends BaseComponent
                 ['index' => 'employee_number', 'label' => 'Employee #'],
                 ['index' => 'name', 'label' => 'Name'],
                 ['index' => 'email', 'label' => 'Email'],
-                ['index' => 'position', 'label' => 'Position'],
                 ['index' => 'department', 'label' => 'Department'],
-                ['index' => 'branch', 'label' => 'Branch'],
                 ['index' => 'status', 'label' => 'Status'],
                 ['index' => 'hire_date', 'label' => 'Hire Date'],
                 ['index' => 'salary', 'label' => 'Salary'],
@@ -260,7 +269,6 @@ class Index extends BaseComponent
                 ['index' => 'action', 'label' => 'Actions', 'display' => true],
             ],
             'rows' => $rows,
-            'branches' => $branches,
             'departments' => $departments,
             'statuses' => $statuses,
             'genders' => $genders,

@@ -52,8 +52,8 @@ class Index extends BaseComponent
 
     protected function getFilteredQuery()
     {
-        return Department::query()
-            ->where('b_id', '=', $this->b_id)
+        return Department::where('branch_id', '=', $this->b_id)
+        ->orWhere('branch_id', '=', null)
             ->when($this->search, function ($query) {
                 $query->where('name', 'like', '%' . $this->search . '%');
             })
@@ -191,7 +191,11 @@ class Index extends BaseComponent
     public function confirmedDeleteDepartment(string $message): void
     {
         if ($this->selectedDepartmentId) {
-            Department::findOrFail($this->selectedDepartmentId)->delete();
+            $department = Department::findOrFail($this->selectedDepartmentId);
+            if($department->branch_id != $this->b_id){
+                $this->dialog()->error('Danger', 'You are not in the place to delete this department!')->send();
+                return;
+            }
             $this->dialog()->success('Success', 'Department deleted successfully!')->send();
             $this->selectedDepartmentId = null;
         }
@@ -228,7 +232,6 @@ class Index extends BaseComponent
     public function render()
     {
         $rows = $this->getFilteredQuery()->paginate($this->quantity ?? 10);
-        $branches = Branch::where('is_active', true)->get();
         $categories = DepartmentCategory::all();
 
         return view('livewire.branch-dashboard.department-module.index', [
@@ -242,8 +245,8 @@ class Index extends BaseComponent
                 ['index' => 'action', 'label' => 'Actions', 'display' => true],
             ],
             'rows' => $rows,
-            'branches' => $branches,
             'categories' => $categories,
+            'b_id'=>$this->b_id,
         ]);
     }
 }

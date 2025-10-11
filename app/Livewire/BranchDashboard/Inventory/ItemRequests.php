@@ -8,9 +8,11 @@ use App\Models\ItemRequest;
 use App\Models\ItemRequestDetail;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Livewire\Attributes\Layout;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
+#[Layout('components.layouts.app.branch-dashboard')]
 class ItemRequests extends Component
 {
     use WithPagination;
@@ -40,7 +42,8 @@ class ItemRequests extends Component
 
     public function getBranchId()
     {
-        return Auth::guard('employees')->user()->employee->branch_id;
+
+        return  request()->query('b_id');
     }
 
     public function mount()
@@ -77,7 +80,7 @@ class ItemRequests extends Component
 
     public function openCreateModal()
     {
-        $this->authorize('create-item-requests');
+        // $this->authorize('create-item-requests'); // TODO: Enable permissions after testing
         $this->resetFields();
         $this->addRequestItem();
         $this->isEditing = false;
@@ -101,7 +104,7 @@ class ItemRequests extends Component
 
     public function save()
     {
-        $this->authorize('create-item-requests');
+        // $this->authorize('create-item-requests'); // TODO: Enable permissions after testing
         $this->validate();
 
         DB::beginTransaction();

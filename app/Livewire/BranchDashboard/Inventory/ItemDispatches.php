@@ -9,9 +9,11 @@ use App\Models\Stock;
 use App\Models\StockMovement;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Livewire\Attributes\Layout;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
+#[Layout('components.layouts.app.branch-dashboard')]
 class ItemDispatches extends Component
 {
     use WithPagination;
@@ -34,7 +36,8 @@ class ItemDispatches extends Component
 
     public function getBranchId()
     {
-        return Auth::guard('employees')->user()->employee->branch_id;
+
+        return  request()->query('b_id');
     }
 
     public function render()
@@ -80,7 +83,7 @@ class ItemDispatches extends Component
 
     public function openDispatchModal($requestId)
     {
-        $this->authorize('dispatch-items');
+        // $this->authorize('dispatch-items'); // TODO: Enable permissions after testing
         $this->requestId = $requestId;
 
         $request = ItemRequest::with('requestDetails.item')->findOrFail($requestId);
