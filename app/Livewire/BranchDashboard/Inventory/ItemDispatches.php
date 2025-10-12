@@ -12,6 +12,7 @@ use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\Url;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class ItemDispatches extends Component
@@ -47,10 +48,8 @@ class ItemDispatches extends Component
     {
         $branchId = $this->getBranchId();
 
-        $query = ItemDispatch::with(['itemRequest.branch', 'itemRequest.department', 'item', 'dispatcher', 'receiver'])
-            ->whereHas('itemRequest', function ($q) use ($branchId) {
-                $q->where('branch_id', $branchId);
-            })
+        $query = ItemDispatch::with(['itemRequest', 'item', 'dispatcher', 'receiver'])
+            ->where('branch_id', $branchId)
             ->when($this->search, function ($q) {
                 $q->where(function($query) {
                     $query->whereHas('itemRequest', function ($subQuery) {
@@ -124,10 +123,11 @@ class ItemDispatches extends Component
 
     public function dispatchItems()
     {
-        $this->authorize('dispatch-items');
+        // $this->authorize('dispatch-items');
         $this->validate();
 
         DB::beginTransaction();
+
         try {
             $branchId = $this->getBranchId();
 
@@ -192,6 +192,7 @@ class ItemDispatches extends Component
             $this->closeModal();
         } catch (\Exception $e) {
             DB::rollBack();
+            dd($e->getMessage());
             session()->flash('error', 'Error dispatching items: ' . $e->getMessage());
         }
     }

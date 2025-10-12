@@ -115,7 +115,6 @@
             ['index' => 'department', 'label' => 'Department'],
             ['index' => 'requester', 'label' => 'Requested By'],
             ['index' => 'request_date', 'label' => 'Request Date'],
-            ['index' => 'required_date', 'label' => 'Required Date'],
             ['index' => 'status', 'label' => 'Status'],
             ['index' => 'items_count', 'label' => 'Items'],
         ]"
@@ -123,13 +122,13 @@
         striped
         paginate
         persist
-        :filter="['quantity' => 'quantity', 'search' => 'search']"
-        :quantity="[10, 25, 50, 100]">
+        :filter="['quantity' => 'table_quantity', 'search' => 'search']"
+        :quantity="[2, 10, 25, 50, 100]">
 
         @interact('column_request_number', $row)
-            <span class="font-mono text-zinc-900 dark:text-zinc-100">
+            <button wire:click="viewRequest({{ $row->id }})" class="font-mono text-blue-600 dark:text-blue-400 hover:underline">
                 {{ $row->request_number }}
-            </span>
+            </button>
         @endinteract
 
         @interact('column_department', $row)
@@ -147,12 +146,6 @@
         @interact('column_request_date', $row)
             <span class="text-zinc-900 dark:text-zinc-100">
                 {{ $row->request_date ? $row->request_date->format('Y-m-d') : 'N/A' }}
-            </span>
-        @endinteract
-
-        @interact('column_required_date', $row)
-            <span class="text-zinc-900 dark:text-zinc-100">
-                {{ $row->required_date ? $row->required_date->format('Y-m-d') : 'N/A' }}
             </span>
         @endinteract
 
@@ -222,10 +215,10 @@
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Required Date *</label>
-                            <input type="date" wire:model="required_date"
+                            <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Request Date *</label>
+                            <input type="date" wire:model="request_date"
                                 class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500">
-                            @error('required_date')
+                            @error('request_date')
                                 <span class="text-red-500 text-sm">{{ $message }}</span>
                             @enderror
                         </div>
@@ -269,10 +262,16 @@
                                                     <option value="{{ $availableItem->id }}">{{ $availableItem->name }}</option>
                                                 @endforeach
                                             </select>
+                                            @error("requestItems.{$index}.item_id")
+                                                <span class="text-red-500 text-xs">{{ $message }}</span>
+                                            @enderror
                                         </td>
                                         <td class="px-4 py-2">
                                             <input type="number" step="0.01" wire:model="requestItems.{{ $index }}.quantity_requested"
                                                 class="w-full px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100">
+                                            @error("requestItems.{$index}.quantity_requested")
+                                                <span class="text-red-500 text-xs">{{ $message }}</span>
+                                            @enderror
                                         </td>
                                         <td class="px-4 py-2">
                                             <button type="button" wire:click="removeRequestItem({{ $index }})"
@@ -303,6 +302,132 @@
                 <button wire:click="save"
                     class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors">
                     Create Request
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div x-data="{ show: @entangle('showDetailModal') }" x-show="show" x-cloak class="fixed inset-0 z-50 overflow-hidden"
+        @keydown.escape.window="show = false">
+        <div x-show="show" x-transition:enter="transition-opacity ease-linear duration-300"
+            x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+            x-transition:leave="transition-opacity ease-linear duration-300" x-transition:leave-start="opacity-100"
+            x-transition:leave-end="opacity-0" class="fixed inset-0 bg-black bg-opacity-50"
+            @click="$wire.closeDetailModal()">
+        </div>
+
+        <div x-show="show" x-transition:enter="transform transition ease-in-out duration-300"
+            x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+            x-transition:leave="transform transition ease-in-out duration-300"
+            x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full"
+            class="fixed inset-y-0 right-0 w-full md:w-2/3 lg:w-1/2 bg-white dark:bg-zinc-900 shadow-xl flex flex-col">
+
+            <div class="px-6 py-4 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
+                <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-100">Request Details</h2>
+                <button wire:click="closeDetailModal"
+                    class="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            @if($selectedRequest)
+            <div class="flex-1 overflow-y-auto px-6 py-4 scrollbar-thin space-y-6">
+                <!-- Request Information -->
+                <div class="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-4">
+                    <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-3">Request Information</h3>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <p class="text-zinc-500 dark:text-zinc-400">Request Number</p>
+                            <p class="font-mono font-semibold text-zinc-900 dark:text-zinc-100">{{ $selectedRequest->request_number }}</p>
+                        </div>
+                        <div>
+                            <p class="text-zinc-500 dark:text-zinc-400">Status</p>
+                            @php
+                                $statusColors = [
+                                    'pending' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+                                    'approved' => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+                                    'partially_dispatched' => 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+                                    'completed' => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+                                    'cancelled' => 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+                                ];
+                            @endphp
+                            <span class="inline-block px-2 py-1 text-xs font-semibold rounded-full {{ $statusColors[$selectedRequest->status] ?? '' }}">
+                                {{ ucfirst(str_replace('_', ' ', $selectedRequest->status)) }}
+                            </span>
+                        </div>
+                        <div>
+                            <p class="text-zinc-500 dark:text-zinc-400">Department</p>
+                            <p class="font-semibold text-zinc-900 dark:text-zinc-100">{{ $selectedRequest->department->name ?? 'N/A' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-zinc-500 dark:text-zinc-400">Branch</p>
+                            <p class="font-semibold text-zinc-900 dark:text-zinc-100">{{ $selectedRequest->branch->name ?? 'N/A' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-zinc-500 dark:text-zinc-400">Requested By</p>
+                            <p class="font-semibold text-zinc-900 dark:text-zinc-100">{{ $selectedRequest->requester->name ?? 'N/A' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-zinc-500 dark:text-zinc-400">Request Date</p>
+                            <p class="font-semibold text-zinc-900 dark:text-zinc-100">{{ $selectedRequest->request_date ? $selectedRequest->request_date->format('Y-m-d') : 'N/A' }}</p>
+                        </div>
+                        @if($selectedRequest->approved_by)
+                        <div>
+                            <p class="text-zinc-500 dark:text-zinc-400">Approved By</p>
+                            <p class="font-semibold text-zinc-900 dark:text-zinc-100">{{ $selectedRequest->approver->name ?? 'N/A' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-zinc-500 dark:text-zinc-400">Approved At</p>
+                            <p class="font-semibold text-zinc-900 dark:text-zinc-100">{{ $selectedRequest->approved_at ? $selectedRequest->approved_at->format('Y-m-d H:i') : 'N/A' }}</p>
+                        </div>
+                        @endif
+                    </div>
+                    @if($selectedRequest->notes)
+                    <div class="mt-4">
+                        <p class="text-zinc-500 dark:text-zinc-400">Notes</p>
+                        <p class="text-zinc-900 dark:text-zinc-100 mt-1">{{ $selectedRequest->notes }}</p>
+                    </div>
+                    @endif
+                </div>
+
+                <!-- Request Items -->
+                <div>
+                    <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-3">Requested Items</h3>
+                    <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden">
+                        <table class="w-full">
+                            <thead class="bg-zinc-50 dark:bg-zinc-800">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-zinc-700 dark:text-zinc-300">Item</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-zinc-700 dark:text-zinc-300">UOM</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-zinc-700 dark:text-zinc-300">Requested</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-zinc-700 dark:text-zinc-300">Approved</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-zinc-700 dark:text-zinc-300">Dispatched</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($selectedRequest->requestDetails as $detail)
+                                <tr class="border-t border-zinc-200 dark:border-zinc-700">
+                                    <td class="px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100">{{ $detail->item->name ?? 'N/A' }}</td>
+                                    <td class="px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100">{{ $detail->uom }}</td>
+                                    <td class="px-4 py-3 text-sm text-right text-zinc-900 dark:text-zinc-100">{{ number_format($detail->quantity_requested, 2) }}</td>
+                                    <td class="px-4 py-3 text-sm text-right text-zinc-900 dark:text-zinc-100">{{ number_format($detail->quantity_approved, 2) }}</td>
+                                    <td class="px-4 py-3 text-sm text-right text-zinc-900 dark:text-zinc-100">{{ number_format($detail->quantity_dispatched, 2) }}</td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            @endif
+
+            <div class="px-6 py-4 border-t border-zinc-200 dark:border-zinc-700 flex items-center justify-end">
+                <button wire:click="closeDetailModal"
+                    class="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors">
+                    Close
                 </button>
             </div>
         </div>

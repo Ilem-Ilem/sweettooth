@@ -6,9 +6,10 @@ use App\Models\Department;
 use App\Models\Item;
 use App\Models\ItemRequest;
 use App\Models\ItemRequestDetail;
+use App\Models\Stock;
 use Livewire\Component;
 use Livewire\WithPagination;
-use Livewire\Attributes\Layout;
+use Livewire\Attributes\{Layout, Url};
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -16,7 +17,7 @@ use Illuminate\Support\Facades\DB;
 class ItemRequests extends Component
 {
     use WithPagination;
-#[Url(keep:true)]
+    #[Url(keep: true)]
     public $b_id;
     public $search = '';
     public $filterDepartment = '';
@@ -26,24 +27,36 @@ class ItemRequests extends Component
 
     public $requestId;
     public $department_id = '';
-    public $required_date;
+    public $request_date;
     public $notes;
+
+    public $table_quantity = 15;
+
+    public $quantity;
 
     public $requestItems = [];
     public $itemIndex = 0;
 
     public $showModal = false;
     public $isEditing = false;
+    public $showDetailModal = false;
+    public $selectedRequest = null;
 
     protected $rules = [
         'department_id' => 'required|exists:departments,id',
-        'required_date' => 'required|date|after_or_equal:today',
+        'request_date' => 'required|date|after_or_equal:today',
         'notes' => 'nullable|string',
         'requestItems.*.item_id' => 'required|exists:items,id',
         'requestItems.*.quantity_requested' => 'required|numeric|min:0.01',
     ];
 
-       public function getBranchId()
+    protected $messages = [
+        'requestItems.*.quantity_requested.required' => 'Quantity is required for each item.',
+        'requestItems.*.quantity_requested.numeric' => 'Quantity must be a number.',
+        'requestItems.*.quantity_requested.min' => 'Quantity must be at least 0.01.',
+    ];
+
+    public function getBranchId()
     {
         return $this->b_id ? $this->b_id : request()->query('b_id');
     }
@@ -51,7 +64,7 @@ class ItemRequests extends Component
 
     public function mount()
     {
-        $this->required_date = now()->addDays(1)->format('Y-m-d');
+        $this->request_date = now()->addDays(1)->format('Y-m-d');
     }
 
     public function render()
@@ -61,7 +74,7 @@ class ItemRequests extends Component
         $query = ItemRequest::with(['branch', 'department', 'requester', 'approver', 'requestDetails'])
             ->where('branch_id', $branchId)
             ->when($this->search, function ($q) {
-                $q->where(function($query) {
+                $q->where(function ($query) {
                     $query->where('request_number', 'like', '%' . $this->search . '%')
                         ->orWhereHas('requester', function ($subQuery) {
                             $subQuery->where('name', 'like', '%' . $this->search . '%');
@@ -75,8 +88,8 @@ class ItemRequests extends Component
             ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus))
             ->orderBy('created_at', 'desc');
 
-        $requests = $query->paginate(15);
-        $departments = Department::where('branch_id', $branchId)->orderBy('name')->get();
+        $requests = $query->paginate($this->table_quantity);
+        $departments = Department::where('branch_id', $branchId)->orWhere('branch_id', null)->orderBy('name')->get();
         $items = Item::where('branch_id', $branchId)->where('status', 'active')->orderBy('name')->get();
 
         return view('livewire.branch-dashboard.inventory.item-requests', [
@@ -115,15 +128,36 @@ class ItemRequests extends Component
         // $this->authorize('create-item-requests'); // TODO: Enable permissions after testing
         $this->validate();
 
+        // Validate stock availability
+        $branchId = $this->getBranchId();
+        foreach ($this->requestItems as $index => $item) {
+            $stock = Stock::where('branch_id', $branchId)
+                ->where('item_id', $item['item_id'])
+                ->first();
+
+            $availableQuantity = $stock ? $stock->quantity_available : 0;
+
+            if ($item['quantity_requested'] > $availableQuantity) {
+                $selectedItem = Item::find($item['item_id']);
+                $this->addError("requestItems.{$index}.quantity_requested",
+                    "Requested quantity for {$selectedItem->name} ({$item['quantity_requested']}) exceeds available stock ({$availableQuantity}).");
+                session()->flash('error', 'Some items have insufficient stock. Please adjust quantities.');
+                return;
+            }
+        }
+
         DB::beginTransaction();
         try {
-            $branchId = $this->getBranchId();
-            $branch = Auth::guard('employees')->user()->employee->branch;
+            $branch = Auth::guard('employees')->employee()->branch;
 
-            // Verify department belongs to this branch
+            // Verify department belongs to this branch or is a global department
             $department = Department::where('id', $this->department_id)
-                ->where('branch_id', $branchId)
+                ->where(function($q) use ($branchId) {
+                    $q->where('branch_id', $branchId)
+                      ->orWhereNull('branch_id');
+                })
                 ->firstOrFail();
+
 
             $requestNumber = ItemRequest::generateRequestNumber($branch->code, $department->name);
 
@@ -132,19 +166,20 @@ class ItemRequests extends Component
                 'department_id' => $this->department_id,
                 'request_number' => $requestNumber,
                 'requested_by' => Auth::guard('employees')->id(),
-                'request_date' => now(),
-                'required_date' => $this->required_date,
+                'request_date' => $this->request_date,
                 'status' => 'pending',
                 'notes' => $this->notes,
             ]);
 
             foreach ($this->requestItems as $item) {
+                $selectedItem = Item::find($item['item_id']);
                 ItemRequestDetail::create([
                     'request_id' => $request->id,
                     'item_id' => $item['item_id'],
                     'quantity_requested' => $item['quantity_requested'],
                     'quantity_approved' => 0,
                     'quantity_dispatched' => 0,
+                    'uom' => $selectedItem->uom,
                 ]);
             }
 
@@ -169,7 +204,7 @@ class ItemRequests extends Component
     {
         $this->requestId = null;
         $this->department_id = '';
-        $this->required_date = now()->addDays(1)->format('Y-m-d');
+        $this->request_date = now()->addDays(1)->format('Y-m-d');
         $this->notes = '';
         $this->requestItems = [];
         $this->itemIndex = 0;
@@ -196,5 +231,18 @@ class ItemRequests extends Component
     public function updatedFilterStatus()
     {
         $this->resetPage();
+    }
+
+    public function viewRequest($requestId)
+    {
+        $this->selectedRequest = ItemRequest::with(['branch', 'department', 'requester', 'approver', 'requestDetails.item'])
+            ->findOrFail($requestId);
+        $this->showDetailModal = true;
+    }
+
+    public function closeDetailModal()
+    {
+        $this->showDetailModal = false;
+        $this->selectedRequest = null;
     }
 }

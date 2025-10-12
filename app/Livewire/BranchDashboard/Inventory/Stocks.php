@@ -6,7 +6,7 @@ use App\Models\Stock;
 use App\Models\StockMovement;
 use Livewire\Component;
 use Livewire\WithPagination;
-use Livewire\Attributes\Layout;
+use Livewire\Attributes\{Layout, Url};
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -17,10 +17,11 @@ class Stocks extends Component
 
     // Pagination
     public $quantity = 15;
-#[Url(keep:true)]
+    #[Url(keep: true)]
     public $b_id;
     // Filters
     public $search = '';
+
     public $filterCategory = '';
     public $filterStatus = '';
     public $filterHealthStatus = '';
@@ -48,7 +49,7 @@ class Stocks extends Component
         'notes' => 'nullable|string|max:500',
     ];
 
-       public function getBranchId()
+    public function getBranchId()
     {
         return $this->b_id ? $this->b_id : request()->query('b_id');
     }
@@ -75,12 +76,12 @@ class Stocks extends Component
                 if ($this->filterStatus === 'low_stock') {
                     $q->whereHas('item', function ($query) {
                         $query->whereColumn('stocks.quantity_available', '<', 'items.reorder_level')
-                              ->where('items.reorder_level', '>', 0);
+                            ->where('items.reorder_level', '>', 0);
                     });
                 } elseif ($this->filterStatus === 'overstock') {
                     $q->whereHas('item', function ($query) {
                         $query->whereRaw('(stocks.quantity_available + stocks.quantity_reserved + stocks.quantity_damaged) > items.max_stock_level')
-                              ->where('items.max_stock_level', '>', 0);
+                            ->where('items.max_stock_level', '>', 0);
                     });
                 }
             })
