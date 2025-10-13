@@ -17,7 +17,8 @@ use Illuminate\Support\Facades\Auth;
 class Purchases extends Component
 {
     use WithPagination;
-
+#[Url(keep:true)]
+    public $b_id;
     public $purchaseId;
     public $purchase_date;
     public $supplier_name;
@@ -57,9 +58,9 @@ class Purchases extends Component
         $this->purchase_date = now()->format('Y-m-d');
     }
 
-    public function getBranchId()
+        public function getBranchId()
     {
-        return request()->query('b_id');
+        return $this->b_id ? $this->b_id : request()->query('b_id');
     }
 
     public function render()

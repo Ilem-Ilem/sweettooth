@@ -16,10 +16,13 @@ use Illuminate\Support\Facades\DB;
 class ItemRequests extends Component
 {
     use WithPagination;
-
+#[Url(keep:true)]
+    public $b_id;
     public $search = '';
     public $filterDepartment = '';
     public $filterStatus = '';
+
+    protected $updatesQueryString = ['search', 'filterDepartment', 'filterStatus'];
 
     public $requestId;
     public $department_id = '';
@@ -40,11 +43,11 @@ class ItemRequests extends Component
         'requestItems.*.quantity_requested' => 'required|numeric|min:0.01',
     ];
 
-    public function getBranchId()
+       public function getBranchId()
     {
-
-        return  request()->query('b_id');
+        return $this->b_id ? $this->b_id : request()->query('b_id');
     }
+
 
     public function mount()
     {
@@ -58,10 +61,15 @@ class ItemRequests extends Component
         $query = ItemRequest::with(['branch', 'department', 'requester', 'approver', 'requestDetails'])
             ->where('branch_id', $branchId)
             ->when($this->search, function ($q) {
-                $q->where('request_number', 'like', '%' . $this->search . '%')
-                    ->orWhereHas('requester', function ($query) {
-                        $query->where('name', 'like', '%' . $this->search . '%');
-                    });
+                $q->where(function($query) {
+                    $query->where('request_number', 'like', '%' . $this->search . '%')
+                        ->orWhereHas('requester', function ($subQuery) {
+                            $subQuery->where('name', 'like', '%' . $this->search . '%');
+                        })
+                        ->orWhereHas('department', function ($subQuery) {
+                            $subQuery->where('name', 'like', '%' . $this->search . '%');
+                        });
+                });
             })
             ->when($this->filterDepartment, fn($q) => $q->where('department_id', $this->filterDepartment))
             ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus))
@@ -111,7 +119,11 @@ class ItemRequests extends Component
         try {
             $branchId = $this->getBranchId();
             $branch = Auth::guard('employees')->user()->employee->branch;
-            $department = Department::findOrFail($this->department_id);
+
+            // Verify department belongs to this branch
+            $department = Department::where('id', $this->department_id)
+                ->where('branch_id', $branchId)
+                ->firstOrFail();
 
             $requestNumber = ItemRequest::generateRequestNumber($branch->code, $department->name);
 
@@ -168,5 +180,21 @@ class ItemRequests extends Component
         $this->search = '';
         $this->filterDepartment = '';
         $this->filterStatus = '';
+        $this->resetPage();
+    }
+
+    public function updatedSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterDepartment()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterStatus()
+    {
+        $this->resetPage();
     }
 }

@@ -27,7 +27,7 @@ class DatabaseSeeder extends Seeder
             DepartmentCategorySeeder::class,
             DepartmentSeeder::class,
             EmployeeSeeder::class,
-            InventoryPermissionSeeder::class,
+            InventorySeeder::class,
         ]);
     }
 }

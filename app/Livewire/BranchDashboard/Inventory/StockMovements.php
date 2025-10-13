@@ -12,16 +12,16 @@ use Illuminate\Support\Facades\Auth;
 class StockMovements extends Component
 {
     use WithPagination;
-
+#[Url(keep:true)]
+    public $b_id;
     public $search = '';
     public $filterType = '';
     public $filterDateFrom = '';
     public $filterDateTo = '';
 
-    public function getBranchId()
+        public function getBranchId()
     {
-
-        return request()->query('b_id');
+        return $this->b_id ? $this->b_id : request()->query('b_id');
     }
 
     public function render()

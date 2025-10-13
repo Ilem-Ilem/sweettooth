@@ -29,6 +29,59 @@
         :with-icons="true"
     />
 
+    <!-- Low Stock Alert -->
+    @php
+        $branchId = request()->query('b_id');
+        $lowStockItems = App\Models\Item::query()
+            ->with(['stocks'])
+            ->where('branch_id', $branchId)
+            ->where('status', 'active')
+            ->where('reorder_level', '>', 0)
+            ->whereHas('stocks', function($q) use ($branchId) {
+                $q->where('branch_id', $branchId)
+                  ->whereColumn('quantity_available', '<=', 'items.reorder_level');
+            })
+            ->get();
+    @endphp
+
+    @if($lowStockItems->count() > 0)
+    <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+        <div class="flex items-start">
+            <div class="flex-shrink-0">
+                <svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            </div>
+            <div class="ml-3 flex-1">
+                <h3 class="text-sm font-semibold text-red-900 dark:text-red-100 mb-2">
+                    Low Stock Alert - {{ $lowStockItems->count() }} Item(s) Below Reorder Level
+                </h3>
+                <div class="space-y-1">
+                    @foreach($lowStockItems as $item)
+                        @php
+                            $currentStock = $item->getCurrentStock($branchId);
+                        @endphp
+                        <div class="flex justify-between items-center bg-white dark:bg-zinc-800 p-2 rounded">
+                            <div>
+                                <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $item->name }}</span>
+                                <span class="text-sm text-zinc-600 dark:text-zinc-400 ml-2">({{ $item->sku }})</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-sm font-semibold text-red-600 dark:text-red-400">
+                                    {{ number_format($currentStock, 2) }} {{ $item->uom }}
+                                </span>
+                                <span class="text-xs text-zinc-500 dark:text-zinc-400 ml-1">
+                                    / {{ number_format($item->reorder_level, 2) }} {{ $item->uom }}
+                                </span>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
     <!-- Header with Add Button -->
     <div class="flex justify-between items-center">
         <button wire:click="openCreateModal"
@@ -108,48 +161,46 @@
         </div>
 
         <div x-show="open" x-collapse class="p-3 space-y-3">
+            <!-- Advanced Search -->
+            <div>
+                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Advanced Search</label>
+                <input type="text" wire:model.live.debounce.300ms="search"
+                    placeholder="Search by item name, SKU, or category..."
+                    class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+            </div>
+
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <div>
                     <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Category</label>
-                    <x-select.styled
-                        wire:model.live="filterCategory"
-                        :options="[
-                            ['label' => 'Raw Material', 'value' => 'raw_material'],
-                            ['label' => 'Packaging', 'value' => 'packaging'],
-                            ['label' => 'Consumable', 'value' => 'consumable'],
-                            ['label' => 'Equipment', 'value' => 'equipment']
-                        ]"
-                        select="label:label|value:value"
-                        placeholder="All Categories"
-                        searchable
-                    />
+                    <select wire:model.live="filterCategory"
+                        class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Categories</option>
+                        <option value="raw_material">Raw Material</option>
+                        <option value="packaging">Packaging</option>
+                        <option value="consumable">Consumable</option>
+                        <option value="equipment">Equipment</option>
+                    </select>
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Stock Level</label>
-                    <x-select.styled
-                        wire:model.live="filterStockLevel"
-                        :options="[
-                            ['label' => 'Low Stock', 'value' => 'low'],
-                            ['label' => 'High Stock', 'value' => 'high'],
-                            ['label' => 'Out of Stock', 'value' => 'out_of_stock']
-                        ]"
-                        select="label:label|value:value"
-                        placeholder="All Stock Levels"
-                    />
+                    <select wire:model.live="filterStockLevel"
+                        class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Stock Levels</option>
+                        <option value="low">Low Stock</option>
+                        <option value="high">High Stock</option>
+                        <option value="out_of_stock">Out of Stock</option>
+                    </select>
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Status</label>
-                    <x-select.styled
-                        wire:model.live="filterStatus"
-                        :options="[
-                            ['label' => 'Active', 'value' => 'active'],
-                            ['label' => 'Inactive', 'value' => 'inactive']
-                        ]"
-                        select="label:label|value:value"
-                        placeholder="All Status"
-                    />
+                    <select wire:model.live="filterStatus"
+                        class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
                 </div>
             </div>
 
@@ -253,7 +304,7 @@
 
         @interact('column_action', $row)
             <div class="flex items-center space-x-2">
-                <button wire:click="openStockModal({{ $row->id }})"
+                <button wire:click="openStockModal('{{ $row->id }}')"
                     class="p-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                     title="Manage Stock">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

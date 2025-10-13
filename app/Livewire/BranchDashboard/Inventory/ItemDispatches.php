@@ -18,6 +18,10 @@ class ItemDispatches extends Component
 {
     use WithPagination;
 
+    // Pagination
+    public $quantity = 15;
+#[Url(keep:true)]
+    public $b_id;
     public $search = '';
     public $filterShift = '';
     public $filterDateFrom = '';
@@ -34,10 +38,9 @@ class ItemDispatches extends Component
         'dispatchItems.*.quantity' => 'required|numeric|min:0.01',
     ];
 
-    public function getBranchId()
+       public function getBranchId()
     {
-
-        return  request()->query('b_id');
+        return $this->b_id ? $this->b_id : request()->query('b_id');
     }
 
     public function render()
@@ -49,11 +52,17 @@ class ItemDispatches extends Component
                 $q->where('branch_id', $branchId);
             })
             ->when($this->search, function ($q) {
-                $q->whereHas('itemRequest', function ($query) {
-                    $query->where('request_number', 'like', '%' . $this->search . '%');
-                })->orWhereHas('item', function ($query) {
-                    $query->where('name', 'like', '%' . $this->search . '%')
-                        ->orWhere('sku', 'like', '%' . $this->search . '%');
+                $q->where(function($query) {
+                    $query->whereHas('itemRequest', function ($subQuery) {
+                        $subQuery->where('request_number', 'like', '%' . $this->search . '%');
+                    })
+                    ->orWhereHas('item', function ($subQuery) {
+                        $subQuery->where('name', 'like', '%' . $this->search . '%')
+                            ->orWhere('sku', 'like', '%' . $this->search . '%');
+                    })
+                    ->orWhereHas('dispatcher', function ($subQuery) {
+                        $subQuery->where('name', 'like', '%' . $this->search . '%');
+                    });
                 });
             })
             ->when($this->filterShift, fn($q) => $q->where('shift', $this->filterShift))
@@ -68,7 +77,7 @@ class ItemDispatches extends Component
             })
             ->orderBy('dispatch_time', 'desc');
 
-        $dispatches = $query->paginate(15);
+        $dispatches = $query->paginate($this->quantity ?? 15);
 
         $pendingRequests = ItemRequest::with(['department', 'requestDetails.item'])
             ->where('branch_id', $branchId)
@@ -84,9 +93,13 @@ class ItemDispatches extends Component
     public function openDispatchModal($requestId)
     {
         // $this->authorize('dispatch-items'); // TODO: Enable permissions after testing
-        $this->requestId = $requestId;
+        $branchId = $this->getBranchId();
 
-        $request = ItemRequest::with('requestDetails.item')->findOrFail($requestId);
+        $request = ItemRequest::with('requestDetails.item')
+            ->where('id', $requestId)
+            ->firstOrFail();
+
+        $this->requestId = $requestId;
         $this->dispatchItems = [];
 
         foreach ($request->requestDetails as $detail) {
@@ -109,76 +122,79 @@ class ItemDispatches extends Component
         $this->showDispatchModal = true;
     }
 
-    // public function dispatch($)
-    // {
-    //     $this->authorize('dispatch-items');
-    //     $this->validate();
+    public function dispatchItems()
+    {
+        $this->authorize('dispatch-items');
+        $this->validate();
 
-    //     DB::beginTransaction();
-    //     try {
-    //         $branchId = $this->getBranchId();
-    //         $request = ItemRequest::findOrFail($this->requestId);
+        DB::beginTransaction();
+        try {
+            $branchId = $this->getBranchId();
 
-    //         foreach ($this->dispatchItems as $item) {
-    //             if ($item['quantity'] > 0) {
-    //                 // Create dispatch record
-    //                 ItemDispatch::create([
-    //                     'request_id' => $this->requestId,
-    //                     'item_id' => $item['item_id'],
-    //                     'dispatched_by' => Auth::guard('employees')->id(),
-    //                     'quantity' => $item['quantity'],
-    //                     'uom' => $item['uom'],
-    //                     'dispatch_time' => now(),
-    //                     'shift' => $this->shift,
-    //                 ]);
+            // Verify request belongs to this branch
+            $request = ItemRequest::where('id', $this->requestId)
+                ->where('branch_id', $branchId)
+                ->firstOrFail();
 
-    //                 // Update request detail
-    //                 $detail = ItemRequestDetail::find($item['detail_id']);
-    //                 $detail->quantity_dispatched += $item['quantity'];
-    //                 $detail->save();
+            foreach ($this->dispatchItems as $item) {
+                if ($item['quantity'] > 0) {
+                    // Create dispatch record
+                    ItemDispatch::create([
+                        'request_id' => $this->requestId,
+                        'item_id' => $item['item_id'],
+                        'dispatched_by' => Auth::guard('employees')->id(),
+                        'quantity' => $item['quantity'],
+                        'uom' => $item['uom'],
+                        'dispatch_time' => now(),
+                        'shift' => $this->shift,
+                    ]);
 
-    //                 // Update stock
-    //                 $stock = Stock::where('branch_id', $branchId)
-    //                     ->where('item_id', $item['item_id'])
-    //                     ->first();
+                    // Update request detail
+                    $detail = ItemRequestDetail::find($item['detail_id']);
+                    $detail->quantity_dispatched += $item['quantity'];
+                    $detail->save();
 
-    //                 if ($stock) {
-    //                     $stock->available_quantity -= $item['quantity'];
-    //                     $stock->total_quantity -= $item['quantity'];
-    //                     $stock->save();
+                    // Update stock - use correct field name
+                    $stock = Stock::where('branch_id', $branchId)
+                        ->where('item_id', $item['item_id'])
+                        ->first();
 
-    //                     // Record stock movement
-    //                     StockMovement::create([
-    //                         'stock_id' => $stock->id,
-    //                         'item_id' => $item['item_id'],
-    //                         'branch_id' => $branchId,
-    //                         'movement_type' => 'out',
-    //                         'quantity' => $item['quantity'],
-    //                         'reference_type' => 'App\Models\ItemRequest',
-    //                         'reference_id' => $this->requestId,
-    //                         'recorded_by' => Auth::guard('employees')->id(),
-    //                         'movement_date' => now(),
-    //                         'notes' => 'Dispatch for request: ' . $request->request_number,
-    //                     ]);
-    //                 }
-    //             }
-    //         }
+                    if ($stock) {
+                        $stock->quantity_available -= $item['quantity'];
+                        $stock->save();
 
-    //         // Check if fully dispatched
-    //         if ($request->isFullyDispatched()) {
-    //             $request->update(['status' => 'completed']);
-    //         } else {
-    //             $request->update(['status' => 'partially_dispatched']);
-    //         }
+                        // Record stock movement
+                        StockMovement::create([
+                            'stock_id' => $stock->id,
+                            'item_id' => $item['item_id'],
+                            'branch_id' => $branchId,
+                            'movement_type' => 'out',
+                            'quantity' => $item['quantity'],
+                            'reference_type' => 'App\Models\ItemRequest',
+                            'reference_id' => $this->requestId,
+                            'recorded_by' => Auth::guard('employees')->id(),
+                            'movement_date' => now(),
+                            'notes' => 'Dispatch for request: ' . $request->request_number,
+                        ]);
+                    }
+                }
+            }
 
-    //         DB::commit();
-    //         session()->flash('success', 'Items dispatched successfully.');
-    //         $this->closeModal();
-    //     } catch (\Exception $e) {
-    //         DB::rollBack();
-    //         session()->flash('error', 'Error dispatching items: ' . $e->getMessage());
-    //     }
-    // }
+            // Check if fully dispatched
+            if ($request->isFullyDispatched()) {
+                $request->update(['status' => 'completed']);
+            } else {
+                $request->update(['status' => 'partially_dispatched']);
+            }
+
+            DB::commit();
+            session()->flash('success', 'Items dispatched successfully.');
+            $this->closeModal();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            session()->flash('error', 'Error dispatching items: ' . $e->getMessage());
+        }
+    }
 
     public function closeModal()
     {
@@ -196,5 +212,31 @@ class ItemDispatches extends Component
         $this->filterDateFrom = '';
         $this->filterDateTo = '';
         $this->filterReceived = '';
+        $this->resetPage();
+    }
+
+    public function updatedSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterShift()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterDateFrom()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterDateTo()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterReceived()
+    {
+        $this->resetPage();
     }
 }

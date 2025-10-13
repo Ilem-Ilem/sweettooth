@@ -65,7 +65,7 @@ class Items extends BaseComponent
 
     public function getBranchId()
     {
-        return request()->query('b_id');
+        return $this->b_id ? $this->b_id : request()->query('b_id');
     }
 
     protected function getFilteredQuery()
@@ -134,6 +134,26 @@ class Items extends BaseComponent
         $this->filterCategory = null;
         $this->filterStatus = null;
         $this->filterStockLevel = null;
+        $this->resetPage();
+    }
+
+    public function updatedSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterCategory()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterStatus()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterStockLevel()
+    {
         $this->resetPage();
     }
 
@@ -218,12 +238,11 @@ class Items extends BaseComponent
 
     public function openEditModal($id)
     {
-        $item = Item::findOrFail($id);
+        $branchId = $this->getBranchId();
 
-        // Ensure item belongs to branch
-        if ($item->branch_id !== $this->getBranchId()) {
-            abort(403);
-        }
+        $item = Item::where('id', $id)
+            ->where('branch_id', $branchId)
+            ->firstOrFail();
 
         $this->itemId = $item->id;
         $this->name = $item->name;
@@ -271,10 +290,9 @@ class Items extends BaseComponent
         ];
 
         if ($this->isEditing && $this->itemId) {
-            $item = Item::findOrFail($this->itemId);
-
-            // Ensure item belongs to branch
-
+            $item = Item::where('id', $this->itemId)
+                ->where('branch_id', $branchId)
+                ->firstOrFail();
 
             $item->update($data);
             $message = 'Item updated successfully!';
@@ -315,10 +333,11 @@ class Items extends BaseComponent
     public function confirmedDelete(string $message): void
     {
         if ($this->itemId) {
-            $item = Item::findOrFail($this->itemId);
+            $branchId = $this->getBranchId();
 
-            // Ensure item belongs to branch
-
+            $item = Item::where('id', $this->itemId)
+                ->where('branch_id', $branchId)
+                ->firstOrFail();
 
             $item->delete();
             $this->dialog()->success('Success', 'Item deleted successfully!')->send();
@@ -360,12 +379,11 @@ class Items extends BaseComponent
     public function updateStock($itemId, $quantity)
     {
         try {
-            $item = Item::findOrFail($itemId);
+            $branchId = $this->getBranchId();
 
-            // Ensure item belongs to branch
-            // if ($item->branch_id !== $this->getBranchId()) {
-            //     abort(403);
-            // }
+            $item = Item::where('id', $itemId)
+                ->where('branch_id', $branchId)
+                ->firstOrFail();
 
             $stock = Stock::firstOrCreate(
                 [
@@ -410,14 +428,14 @@ class Items extends BaseComponent
     // Stock Modal Methods
     public function openStockModal($itemId)
     {
-        $item = Item::with('stocks')->findOrFail($itemId);
+        $branchId = $this->getBranchId();
+        
+        $item = Item::with('stocks')
+            ->where('id', $itemId)
+            ->where('branch_id', $branchId)
+            ->firstOrFail();
 
-        // Ensure item belongs to branch
-        // if ($item->branch_id !== $this->getBranchId()) {
-        //     abort(403);
-        // }
-
-        $stock = $item->stocks()->where('branch_id', $item->branch_id)->first();
+        $stock = $item->stocks()->where('branch_id', $branchId)->first();
 
         $this->stockItemId = $itemId;
         $this->stockQuantity = $stock->quantity_available ?? 0;
@@ -437,12 +455,11 @@ class Items extends BaseComponent
         ]);
 
         try {
-            $item = Item::findOrFail($this->stockItemId);
+            $branchId = $this->getBranchId();
 
-            // Ensure item belongs to branch
-            // if ($item->branch_id !== $this->getBranchId()) {
-            //     abort(403);
-            // }
+            $item = Item::where('id', $this->stockItemId)
+                ->where('branch_id', $branchId)
+                ->firstOrFail();
 
             $stock = Stock::firstOrCreate(
                 [

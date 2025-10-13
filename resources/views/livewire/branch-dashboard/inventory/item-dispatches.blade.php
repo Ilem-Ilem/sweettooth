@@ -40,7 +40,7 @@
                     <p class="font-medium text-zinc-900 dark:text-zinc-100">{{ $request->request_number }}</p>
                     <p class="text-sm text-zinc-600 dark:text-zinc-400">{{ $request->department->name ?? 'N/A' }}</p>
                 </div>
-                <button wire:click="openDispatchModal({{ $request->id }})"
+                <button wire:click="openDispatchModal('{{ $request->id }}')"
                     class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
                     Dispatch
                 </button>
@@ -72,6 +72,14 @@
         </div>
 
         <div x-show="open" x-collapse class="p-3 space-y-3">
+            <!-- Advanced Search -->
+            <div>
+                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Advanced Search</label>
+                <input type="text" wire:model.live.debounce.300ms="search"
+                    placeholder="Search by request number, item name/SKU, or dispatcher name..."
+                    class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+            </div>
+
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div>
                     <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Shift</label>
@@ -272,7 +280,7 @@
                     class="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors">
                     Cancel
                 </button>
-                <button wire:click="dispatch"
+                <button wire:click="dispatchItems"
                     class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors">
                     Dispatch Items
                 </button>

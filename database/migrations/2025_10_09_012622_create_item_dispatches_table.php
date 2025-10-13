@@ -18,6 +18,8 @@ return new class extends Migration
             $table->unsignedBigInteger('item_id');
             $table->foreign('item_id')->references('id')->on('items')->onDelete('restrict');
             $table->uuid('dispatched_by');
+            $table->uuid('branch_id');
+            $table->foreign('branch_id')->references('id')->on('branches')->onDelete('cascade');
             $table->foreign('dispatched_by')->references('id')->on('employees')->onDelete('restrict');
             $table->uuid('received_by');
             $table->foreign('received_by')->references('id')->on('employees')->onDelete('restrict');

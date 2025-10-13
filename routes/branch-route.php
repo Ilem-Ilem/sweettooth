@@ -25,4 +25,10 @@ Route::middleware(['auth:employees', 'branch'])->prefix('branch-dashboard')->nam
         Route::get('stock-takes', \App\Livewire\BranchDashboard\Inventory\StockTakes::class)->name('stock-takes');
         Route::get('health-checks', \App\Livewire\BranchDashboard\Inventory\HealthChecks::class)->name('health-checks');
     });
+
+    // Analytics routes
+    Route::prefix('analytics')->name('analytics.')->group(function () {
+        Route::get('stock-analytics', \App\Livewire\BranchDashboard\Analytics\StockAnalytics::class)->name('stock-analytics');
+        Route::get('employee-usage', \App\Livewire\BranchDashboard\Analytics\EmployeeUsageAnalytics::class)->name('employee-usage');
+    });
 });

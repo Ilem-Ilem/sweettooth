@@ -13,7 +13,8 @@ use Illuminate\Support\Facades\Auth;
 class HealthChecks extends Component
 {
     use WithPagination;
-
+#[Url(keep:true)]
+    public $b_id;
     public $search = '';
     public $filterCondition = '';
     public $filterDateFrom = '';
@@ -38,11 +39,11 @@ class HealthChecks extends Component
         'action_taken' => 'nullable|string',
     ];
 
-    public function getBranchId()
+       public function getBranchId()
     {
-
-        return request()->query('b_id');
+        return $this->b_id ? $this->b_id : request()->query('b_id');
     }
+
 
     public function mount()
     {

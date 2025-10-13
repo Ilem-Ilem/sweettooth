@@ -62,6 +62,14 @@
         </div>
 
         <div x-show="open" x-collapse class="p-3 space-y-3">
+            <!-- Advanced Search -->
+            <div>
+                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Advanced Search</label>
+                <input type="text" wire:model.live.debounce.300ms="search"
+                    placeholder="Search by request number, requester name, or department..."
+                    class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+            </div>
+
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <div>
                     <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Department</label>

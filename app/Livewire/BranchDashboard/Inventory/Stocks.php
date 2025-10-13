@@ -15,6 +15,10 @@ class Stocks extends Component
 {
     use WithPagination;
 
+    // Pagination
+    public $quantity = 15;
+#[Url(keep:true)]
+    public $b_id;
     // Filters
     public $search = '';
     public $filterCategory = '';
@@ -44,10 +48,11 @@ class Stocks extends Component
         'notes' => 'nullable|string|max:500',
     ];
 
-    public function getBranchId()
+       public function getBranchId()
     {
-        return request()->query('b_id');
+        return $this->b_id ? $this->b_id : request()->query('b_id');
     }
+
 
     public function render()
     {
@@ -84,7 +89,7 @@ class Stocks extends Component
             ->when($this->filterDateTo, fn($q) => $q->whereDate('last_stock_take_date', '<=', $this->filterDateTo))
             ->orderBy('updated_at', 'desc');
 
-        $stocks = $query->paginate(15);
+        $stocks = $query->paginate($this->quantity ?? 15);
 
         return view('livewire.branch-dashboard.inventory.stocks', [
             'stocks' => $stocks,
@@ -93,12 +98,12 @@ class Stocks extends Component
 
     public function openEditModal($stockId)
     {
-        $stock = Stock::with('item')->findOrFail($stockId);
+        $branchId = $this->getBranchId();
 
-        if ($stock->branch_id !== $this->getBranchId()) {
-            session()->flash('error', 'Unauthorized action.');
-            return;
-        }
+        $stock = Stock::with('item')
+            ->where('id', $stockId)
+            ->where('branch_id', $branchId)
+            ->firstOrFail();
 
         $this->editingStockId = $stock->id;
         $this->quantity_available = $stock->quantity_available;
@@ -117,12 +122,11 @@ class Stocks extends Component
 
         DB::beginTransaction();
         try {
-            $stock = Stock::findOrFail($this->editingStockId);
+            $branchId = $this->getBranchId();
 
-            if ($stock->branch_id !== $this->getBranchId()) {
-                session()->flash('error', 'Unauthorized action.');
-                return;
-            }
+            $stock = Stock::where('id', $this->editingStockId)
+                ->where('branch_id', $branchId)
+                ->firstOrFail();
 
             $oldQuantityAvailable = $stock->quantity_available;
 
@@ -190,6 +194,26 @@ class Stocks extends Component
         $this->filterHealthStatus = '';
         $this->filterDateFrom = '';
         $this->filterDateTo = '';
+        $this->resetPage();
+    }
+
+    public function updatedSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterCategory()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterStatus()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterHealthStatus()
+    {
         $this->resetPage();
     }
 }

@@ -16,7 +16,8 @@ use Illuminate\Support\Facades\DB;
 class StockTakes extends Component
 {
     use WithPagination;
-
+#[Url(keep:true)]
+    public $b_id;
     public $search = '';
     public $filterType = '';
     public $filterStatus = '';
@@ -34,11 +35,11 @@ class StockTakes extends Component
         'type' => 'required|in:full,partial,cycle',
         'notes' => 'nullable|string',
     ];
-
+    
+    
     public function getBranchId()
     {
-
-        return request()->query('b_id');
+        return $this->b_id ? $this->b_id : request()->query('b_id');
     }
 
     public function mount()

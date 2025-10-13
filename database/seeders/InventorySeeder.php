@@ -333,6 +333,7 @@ class InventorySeeder extends Seeder
                         'request_id' => $request->id,
                         'item_id' => $detail->item_id,
                         'dispatched_by' => $employee->id,
+                        'branch_id'=>$request->branch_id,
                         'received_by' => $employee->id,
                         'quantity' => $detail->quantity_dispatched,
                         'uom' => $detail->uom,
