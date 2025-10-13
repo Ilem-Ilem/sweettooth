@@ -28,8 +28,6 @@ class StockAnalytics extends Component
     #[Url(keep: true)]
     public $b_id;
 
-    public $selectedDepartmentId = '';
-
     public $trendChartType = 'line';
     public $trendViewMode = 'chart';
     public $typesChartType = 'bar';
@@ -58,13 +56,17 @@ class StockAnalytics extends Component
         if ($firstItem) {
             $this->selectedItemId = $firstItem->id;
             $this->loadItemData();
+            $this->dispatch('charts-updated');
         }
     }
 
     public function updated($property)
     {
-        if (in_array($property, [
-            'selectedItemId',
+        if ($property === 'selectedItemId') {
+            $this->loadItemData();
+            $this->resetPage();
+            $this->dispatch('charts-updated');
+        } elseif (in_array($property, [
             'timeRange',
             'dateFrom',
             'dateTo',

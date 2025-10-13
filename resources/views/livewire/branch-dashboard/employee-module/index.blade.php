@@ -117,7 +117,7 @@
         </div>
 
         <!-- Filter Body -->
-        <div x-show="open" x-collapse class="p-4 space-y-6">
+        <div x-show="open" x-collapse class="p-4 space-y-6" x-cloak>
             <!-- Basic Filters -->
             <div class="">
                 <!-- Advanced Search Toggle -->
