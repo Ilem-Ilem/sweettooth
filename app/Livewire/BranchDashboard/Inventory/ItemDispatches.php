@@ -21,7 +21,7 @@ class ItemDispatches extends Component
 
     // Pagination
     public $quantity = 15;
-#[Url(keep:true)]
+    #[Url(keep: true)]
     public $b_id;
     public $search = '';
     public $filterShift = '';
@@ -39,7 +39,7 @@ class ItemDispatches extends Component
         'dispatchItems.*.quantity' => 'required|numeric|min:0.01',
     ];
 
-       public function getBranchId()
+    public function getBranchId()
     {
         return $this->b_id ? $this->b_id : request()->query('b_id');
     }
@@ -51,17 +51,17 @@ class ItemDispatches extends Component
         $query = ItemDispatch::with(['itemRequest', 'item', 'dispatcher', 'receiver'])
             ->where('branch_id', $branchId)
             ->when($this->search, function ($q) {
-                $q->where(function($query) {
+                $q->where(function ($query) {
                     $query->whereHas('itemRequest', function ($subQuery) {
                         $subQuery->where('request_number', 'like', '%' . $this->search . '%');
                     })
-                    ->orWhereHas('item', function ($subQuery) {
-                        $subQuery->where('name', 'like', '%' . $this->search . '%')
-                            ->orWhere('sku', 'like', '%' . $this->search . '%');
-                    })
-                    ->orWhereHas('dispatcher', function ($subQuery) {
-                        $subQuery->where('name', 'like', '%' . $this->search . '%');
-                    });
+                        ->orWhereHas('item', function ($subQuery) {
+                            $subQuery->where('name', 'like', '%' . $this->search . '%')
+                                ->orWhere('sku', 'like', '%' . $this->search . '%');
+                        })
+                        ->orWhereHas('dispatcher', function ($subQuery) {
+                            $subQuery->where('name', 'like', '%' . $this->search . '%');
+                        });
                 });
             })
             ->when($this->filterShift, fn($q) => $q->where('shift', $this->filterShift))

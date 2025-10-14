@@ -28,6 +28,8 @@ class StockAnalytics extends Component
     #[Url(keep: true)]
     public $b_id;
 
+    public $getStockMovementTrend;
+
     public $trendChartType = 'line';
     public $trendViewMode = 'chart';
     public $typesChartType = 'bar';
@@ -42,31 +44,27 @@ class StockAnalytics extends Component
         return $this->b_id ?: request()->query('b_id');
     }
 
-    public function mount()
-    {
-        $this->dateTo = now()->format('Y-m-d');
-        $this->dateFrom = now()->subDays(30)->format('Y-m-d');
+    // public function mount()
+    // {
+    //     $this->dateTo = now()->format('Y-m-d');
+    //     $this->dateFrom = now()->subDays(30)->format('Y-m-d');
 
-        $branchId = $this->getBranchId();
+    //     $branchId = $this->getBranchId();
 
-        $firstItem = Item::where('branch_id', $branchId)
-            ->where('status', 'active')
-            ->first();
+    //     $firstItem = Item::where('branch_id', $branchId)
+    //         ->where('status', 'active')
+    //         ->first();
 
-        if ($firstItem) {
-            $this->selectedItemId = $firstItem->id;
-            $this->loadItemData();
-            $this->dispatch('charts-updated');
-        }
-    }
+    //     if ($firstItem) {
+    //         $this->selectedItemId = $firstItem->id;
+    //         $this->loadItemData();
+    //         $this->dispatch('charts-updated');
+    //     }
+    // }
 
     public function updated($property)
     {
-        if ($property === 'selectedItemId') {
-            $this->loadItemData();
-            $this->resetPage();
-            $this->dispatch('charts-updated');
-        } elseif (in_array($property, [
+        if (in_array($property, [
             'timeRange',
             'dateFrom',
             'dateTo',
@@ -84,6 +82,13 @@ class StockAnalytics extends Component
         }
     }
 
+    public function updatedselectedItemId(){
+            $this->loadItemData();
+            $this->getStockMovementTrend($this->selectedItem);
+            $this->resetPage();
+            $this->dispatch('charts-updated');
+    }
+
     public function loadItemData()
     {
         if ($this->selectedItemId) {
@@ -96,15 +101,15 @@ class StockAnalytics extends Component
         }
     }
 
-    public function getStockMovementTrend()
+    public function getStockMovementTrend($item=null)
     {
-        if (!$this->selectedItemId) {
+        if (!$item) {
             return [];
         }
 
         $branchId = $this->getBranchId();
         $stock = Stock::where('branch_id', $branchId)
-            ->where('item_id', $this->selectedItemId)
+            ->where('item_id', $this->selectedItem->id)
             ->first();
 
         if (!$stock) {
@@ -112,15 +117,19 @@ class StockAnalytics extends Component
         }
 
         $query = StockMovement::where('stock_id', $stock->id)
-            ->whereBetween('movement_date', [$this->dateFrom, $this->dateTo])
+            ->when($this->dateFrom, function($q){
+                $q ->whereBetween('movement_date', [$this->dateFrom, $this->dateTo]);
+            })
+           
             ->orderBy('movement_date', 'asc');
 
         if ($this->trendViewMode === 'table') {
             return $query->paginate(10, ['*'], 'trendPage');
         }
-
         $movements = $query->get();
-        return $movements->map(function ($movement) {
+       
+        // dd( $query->get()->toArray());
+        $this->stockMovementTrend = $movements->map(function ($movement) {
             return [
                 'date' => $movement->movement_date->format('Y-m-d H:i'),
                 'quantity_before' => (float) $movement->quantity_before,

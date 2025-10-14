@@ -587,7 +587,7 @@
     </div>
 
     <!-- ApexCharts Library -->
-    <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.45.1/dist/apexcharts.min.js"></script>
+    {{-- <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.45.1/dist/apexcharts.min.js"></script> --}}
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
