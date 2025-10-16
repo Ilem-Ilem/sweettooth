@@ -79,6 +79,14 @@ class ItemRequest extends Model
     }
 
     /**
+     * Get the employee who made the request (alias for requester)
+     */
+    public function requestedBy(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'requested_by');
+    }
+
+    /**
      * Get the employee who approved the request
      */
     public function approver(): BelongsTo

@@ -9,7 +9,7 @@ use App\Models\Stock;
 use App\Models\StockMovement;
 use Livewire\Component;
 use Livewire\WithPagination;
-use Livewire\Attributes\Layout;
+use Livewire\Attributes\{Layout, Url};
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 
