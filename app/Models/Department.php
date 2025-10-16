@@ -50,4 +50,12 @@ class Department extends Model
     {
         return $this->hasMany(Employee::class);
     }
+
+    /**
+     * Get the product types for the department.
+     */
+    public function productTypes()
+    {
+        return $this->hasMany(ProductType::class);
+    }
 }

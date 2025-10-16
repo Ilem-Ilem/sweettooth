@@ -26,8 +26,11 @@ class DatabaseSeeder extends Seeder
             BranchSeeder::class,
             DepartmentCategorySeeder::class,
             DepartmentSeeder::class,
+            ProductTypeSeeder::class,
+            ProductSeeder::class,
             EmployeeSeeder::class,
             InventorySeeder::class,
+            SnackRecipeSeeder::class
         ]);
     }
 }

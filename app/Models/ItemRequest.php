@@ -111,6 +111,14 @@ class ItemRequest extends Model
     }
 
     /**
+     * Get the production requests for this item request
+     */
+    public function productionRequests(): HasMany
+    {
+        return $this->hasMany(ProductionRequest::class);
+    }
+
+    /**
      * Generate unique request number
      */
     public static function generateRequestNumber($branchCode, $departmentCode): string

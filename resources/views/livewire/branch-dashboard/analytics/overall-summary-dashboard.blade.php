@@ -117,7 +117,9 @@
         {{-- Stock Health Overview --}}
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
             <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Stock Health Overview</h3>
-            <div id="healthOverviewChart" class="h-80"></div>
+            <div class="h-80 flex items-center justify-center">
+                <canvas id="healthOverviewChart"></canvas>
+            </div>
         </div>
 
         {{-- Top Alerts --}}
@@ -213,15 +215,77 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    document.addEventListener('livewire:navigated', () => {
-        new ApexCharts(document.querySelector("#healthOverviewChart"), {
-            series: @js($healthOverview['series']),
-            chart: { type: 'donut', height: 320 },
-            labels: @js($healthOverview['labels']),
-            colors: ['#10B981', '#F59E0B', '#EF4444', '#6B7280'],
-            legend: { position: 'bottom' }
-        }).render();
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get the chart container
+        const chartContainer = document.getElementById('healthOverviewChart');
+        console.log(@json($healthOverview['series']))
+        // Create the chart
+        const healthOverviewChart = new Chart(chartContainer, {
+            type: 'doughnut',
+            data: {
+                labels: @json($healthOverview['labels']),
+                datasets: [{
+                    data: @json($healthOverview['series']),
+                    
+                    backgroundColor: [
+                        '#10B981', // Green for healthy
+                        '#F59E0B', // Yellow for low stock
+                        '#EF4444', // Red for critical
+                        '#6B7280'  // Gray for expired
+                    ],
+                    borderColor: [
+                        '#10B981',
+                        '#F59E0B', 
+                        '#EF4444',
+                        '#6B7280'
+                    ],
+                    borderWidth: 1,
+                    hoverOffset: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: getComputedStyle(document.documentElement).getPropertyValue('--tw-text-zinc-800').trim() || 
+                                   (document.documentElement.classList.contains('dark') ? '#f4f4f5' : '#27272a'),
+                            padding: 20,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.raw || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = Math.round((value / total) * 100);
+                                return `${label}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    }
+                },
+                cutout: '60%'
+            }
+        });
+        
+        // Function to update chart when new data arrives
+        function updateChart(newData) {
+            healthOverviewChart.data.datasets[0].data = newData.series;
+            healthOverviewChart.data.labels = newData.labels;
+            healthOverviewChart.update();
+        }
+        
+        // Listen for Livewire events if needed
+        document.addEventListener('livewire:navigated', function() {
+            // Chart will be reinitialized when Livewire navigates
+        });
     });
 </script>

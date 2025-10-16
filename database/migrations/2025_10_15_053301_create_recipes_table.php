@@ -19,7 +19,7 @@ return new class extends Migration
             $table->foreign('department_id')->references('id')->on('departments')->onDelete('cascade');
             $table->string('product_name');
             $table->string('sku')->unique();
-            $table->unsignedBigInteger('category_id')->nullable();
+            // $table->unsignedBigInteger('category_id')->nullable();
             $table->enum('product_type', ['gelato_base', 'gelato_flavor', 'pastry', 'hot_kitchen', 'beverage']);
             $table->decimal('cost_per_unit', 10, 4)->default(0);
             $table->enum('uom', ['grams', 'kg', 'liters', 'ml', 'pcs', 'units'])->default('pcs');

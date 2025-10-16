@@ -27,6 +27,13 @@ Route::middleware(['auth:employees', 'branch'])->prefix('branch-dashboard')->nam
         Route::get('health-checks', \App\Livewire\BranchDashboard\Inventory\HealthChecks::class)->name('health-checks');
     });
 
+    // Production routes
+    Route::prefix('production')->name('production.')->group(function () {
+        Route::get('product-types', \App\Livewire\BranchDashboard\Production\ProductTypes::class)->name('product-types');
+        Route::get('products', \App\Livewire\BranchDashboard\Production\Products::class)->name('products');
+        Route::get('requests', \App\Livewire\BranchDashboard\Production\ProductionRequests::class)->name('requests');
+    });
+
     // Analytics routes
     Route::prefix('analytics')->name('analytics.')->group(function () {
         Route::get('overview', \App\Livewire\BranchDashboard\Analytics\OverallSummaryDashboard::class)->name('overview');
