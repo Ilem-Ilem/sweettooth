@@ -51,11 +51,18 @@
         {{-- Filters --}}
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-                <input type="text" wire:model.live="searchTerm" placeholder="Search by item..."
-                    class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Select Item</label>
+                <x-select.styled
+                    wire:model.live="selectedItem"
+                    :options="$availableItems"
+                    select="label:name|value:id"
+                    searchable
+                    placeholder="Search items..."
+                />
             </div>
 
             <div>
+                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Movement Type</label>
                 <select wire:model.live="movementType"
                     class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
                     <option value="">All Types</option>
@@ -84,13 +91,13 @@
         {{-- Movement Trend --}}
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
             <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Movement Trend</h3>
-            <div id="movementTrendChart" class="h-80"></div>
+            <div id="movementTrendChart" class="h-80" wire:ignore></div>
         </div>
 
         {{-- Movement Type Distribution --}}
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
             <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Movement Type Distribution</h3>
-            <div id="typeDistributionChart" class="h-80"></div>
+            <div id="typeDistributionChart" class="h-80" wire:ignore></div>
         </div>
     </div>
 
@@ -118,7 +125,7 @@
         {{-- Stock Velocity --}}
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
             <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Stock Velocity (Frequency)</h3>
-            <div id="velocityChart" class="h-80"></div>
+            <div id="velocityChart" class="h-80" wire:ignore></div>
         </div>
     </div>
 
@@ -208,80 +215,377 @@
             {{ $movements->links() }}
         </div>
     </div>
-</div>
 
-<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    {{-- Scripts and Styles within single root div --}}
+    <div wire:ignore>
+<script src="https://code.highcharts.com/highcharts.js"></script>
+<script src="https://code.highcharts.com/modules/exporting.js"></script>
+<script src="https://code.highcharts.com/modules/export-data.js"></script>
+<script src="https://code.highcharts.com/modules/accessibility.js"></script>
+
 <script>
+    let trendChart, typeChart, velocityChart;
+    let chartData = {
+        trendData: @js($trendData),
+        typeDistribution: @js($typeDistribution),
+        velocityAnalysis: @js($velocityAnalysis)
+    };
+
     document.addEventListener('livewire:navigated', function () {
         initCharts();
     });
 
+    // Listen for chart update events from Livewire
+    document.addEventListener('livewire:init', () => {
+        Livewire.on('chartsUpdated', (event) => {
+            const data = event[0];
+            chartData.trendData = data.trendData;
+            chartData.typeDistribution = data.typeDistribution;
+            chartData.velocityAnalysis = data.velocityAnalysis;
+            updateCharts();
+        });
+    });
+
     function initCharts() {
-        // Movement Trend Chart
-        const trendOptions = {
-            series: @js($trendData['series']),
+        // Destroy existing charts if they exist
+        if (trendChart) trendChart.destroy();
+        if (typeChart) typeChart.destroy();
+        if (velocityChart) velocityChart.destroy();
+
+        const themeColors = getThemeColors();
+
+        // Movement Trend Chart - Area/Spline Chart with Gradients
+        trendChart = Highcharts.chart('movementTrendChart', {
             chart: {
-                type: 'area',
+                type: 'areaspline',
                 height: 320,
-                toolbar: { show: true }
+                backgroundColor: 'transparent'
             },
-            dataLabels: { enabled: false },
-            stroke: { curve: 'smooth', width: 2 },
-            xaxis: {
-                categories: @js($trendData['categories'])
+            title: {
+                text: null
             },
-            yaxis: {
-                title: { text: 'Quantity' }
+            credits: {
+                enabled: false
             },
-            colors: ['#10B981', '#EF4444', '#F59E0B'],
-            fill: {
-                type: 'gradient',
-                gradient: {
-                    shadeIntensity: 1,
-                    opacityFrom: 0.7,
-                    opacityTo: 0.3
+            xAxis: {
+                categories: chartData.trendData.categories,
+                title: {
+                    text: 'Date',
+                    style: {
+                        color: themeColors.textColor
+                    }
+                },
+                labels: {
+                    style: {
+                        color: themeColors.textColor
+                    }
+                },
+                gridLineColor: themeColors.gridColor,
+                gridLineWidth: 1,
+                gridLineDashStyle: 'Dot'
+            },
+            yAxis: {
+                title: {
+                    text: 'Quantity',
+                    style: {
+                        color: themeColors.textColor
+                    }
+                },
+                labels: {
+                    style: {
+                        color: themeColors.textColor
+                    }
+                },
+                gridLineColor: themeColors.gridColor,
+                min: 0
+            },
+            tooltip: {
+                shared: true,
+                crosshairs: true,
+                valueDecimals: 2,
+                backgroundColor: themeColors.backgroundColor,
+                borderWidth: 1,
+                borderRadius: 8,
+                shadow: true,
+                style: {
+                    color: themeColors.textColor
                 }
             },
-            legend: { position: 'top' }
-        };
-        new ApexCharts(document.querySelector("#movementTrendChart"), trendOptions).render();
-
-        // Type Distribution Chart
-        const typeOptions = {
-            series: @js($typeDistribution['series']),
-            chart: {
-                type: 'donut',
-                height: 320
+            plotOptions: {
+                areaspline: {
+                    fillOpacity: 0.3,
+                    marker: {
+                        enabled: true,
+                        radius: 5,
+                        lineWidth: 2,
+                        lineColor: '#ffffff'
+                    },
+                    lineWidth: 3
+                }
             },
-            labels: @js($typeDistribution['labels']),
-            colors: ['#10B981', '#EF4444', '#F59E0B', '#3B82F6', '#F97316', '#8B5CF6'],
-            legend: { position: 'bottom' }
-        };
-        new ApexCharts(document.querySelector("#typeDistributionChart"), typeOptions).render();
+            series: [
+                {
+                    name: 'Stock In',
+                    data: chartData.trendData.series[0].data,
+                    color: '#10B981',
+                    fillColor: {
+                        linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+                        stops: [
+                            [0, 'rgba(16, 185, 129, 0.5)'],
+                            [1, 'rgba(16, 185, 129, 0.05)']
+                        ]
+                    },
+                    zIndex: 3
+                },
+                {
+                    name: 'Stock Out',
+                    data: chartData.trendData.series[1].data,
+                    color: '#EF4444',
+                    fillColor: {
+                        linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+                        stops: [
+                            [0, 'rgba(239, 68, 68, 0.5)'],
+                            [1, 'rgba(239, 68, 68, 0.05)']
+                        ]
+                    },
+                    zIndex: 2
+                },
+                {
+                    name: 'Adjustments',
+                    data: chartData.trendData.series[2].data,
+                    color: '#F59E0B',
+                    fillColor: {
+                        linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+                        stops: [
+                            [0, 'rgba(245, 158, 11, 0.5)'],
+                            [1, 'rgba(245, 158, 11, 0.05)']
+                        ]
+                    },
+                    zIndex: 1
+                }
+            ],
+            legend: {
+                align: 'center',
+                verticalAlign: 'top',
+                floating: false,
+                backgroundColor: themeColors.backgroundColor,
+                borderWidth: 1,
+                borderColor: themeColors.gridColor,
+                borderRadius: 5,
+                itemStyle: {
+                    color: themeColors.textColor
+                },
+                itemHoverStyle: {
+                    color: themeColors.textColor
+                }
+            },
+            exporting: {
+                enabled: true,
+                buttons: {
+                    contextButton: {
+                        menuItems: ['viewFullscreen', 'separator', 'downloadPNG', 'downloadJPEG', 'downloadPDF', 'downloadSVG', 'separator', 'downloadCSV', 'downloadXLS']
+                    }
+                }
+            },
+            responsive: {
+                rules: [{
+                    condition: {
+                        maxWidth: 500
+                    },
+                    chartOptions: {
+                        legend: {
+                            align: 'center',
+                            verticalAlign: 'bottom',
+                            layout: 'horizontal'
+                        }
+                    }
+                }]
+            }
+        });
 
-        // Velocity Chart
-        const velocityOptions = {
-            series: @js($velocityAnalysis['series']),
+        // Type Distribution Chart - Pie Chart
+        const pieData = chartData.typeDistribution.labels.map((label, index) => ({
+            name: label,
+            y: chartData.typeDistribution.series[index]
+        }));
+
+        typeChart = Highcharts.chart('typeDistributionChart', {
+            chart: {
+                type: 'pie',
+                height: 320,
+                backgroundColor: 'transparent'
+            },
+            title: {
+                text: null
+            },
+            credits: {
+                enabled: false
+            },
+            tooltip: {
+                pointFormat: '<b>{point.y}</b> movements ({point.percentage:.1f}%)',
+                backgroundColor: themeColors.backgroundColor,
+                borderWidth: 1,
+                style: {
+                    color: themeColors.textColor
+                }
+            },
+            plotOptions: {
+                pie: {
+                    allowPointSelect: true,
+                    cursor: 'pointer',
+                    dataLabels: {
+                        enabled: true,
+                        format: '<b>{point.name}</b>: {point.percentage:.1f} %',
+                        style: {
+                            fontSize: '11px',
+                            color: themeColors.textColor
+                        }
+                    },
+                    showInLegend: true
+                }
+            },
+            series: [{
+                name: 'Movement Types',
+                colorByPoint: true,
+                data: pieData
+            }],
+            colors: ['#10B981', '#EF4444', '#F59E0B', '#3B82F6', '#F97316', '#8B5CF6'],
+            legend: {
+                align: 'center',
+                verticalAlign: 'bottom',
+                layout: 'horizontal',
+                itemStyle: {
+                    color: themeColors.textColor
+                },
+                itemHoverStyle: {
+                    color: themeColors.textColor
+                }
+            },
+            exporting: {
+                enabled: true,
+                buttons: {
+                    contextButton: {
+                        menuItems: ['viewFullscreen', 'separator', 'downloadPNG', 'downloadJPEG', 'downloadPDF', 'downloadSVG', 'separator', 'downloadCSV', 'downloadXLS']
+                    }
+                }
+            }
+        });
+
+        // Velocity Chart - Horizontal Bar Chart
+        velocityChart = Highcharts.chart('velocityChart', {
             chart: {
                 type: 'bar',
                 height: 320,
-                toolbar: { show: false }
+                backgroundColor: 'transparent'
+            },
+            title: {
+                text: null
+            },
+            credits: {
+                enabled: false
+            },
+            xAxis: {
+                categories: chartData.velocityAnalysis.labels,
+                title: {
+                    text: null
+                },
+                labels: {
+                    style: {
+                        color: themeColors.textColor
+                    }
+                },
+                gridLineColor: themeColors.gridColor
+            },
+            yAxis: {
+                min: 0,
+                title: {
+                    text: 'Movement Frequency',
+                    align: 'high',
+                    style: {
+                        color: themeColors.textColor
+                    }
+                },
+                labels: {
+                    style: {
+                        color: themeColors.textColor
+                    }
+                },
+                gridLineColor: themeColors.gridColor
+            },
+            tooltip: {
+                valueSuffix: ' movements',
+                backgroundColor: themeColors.backgroundColor,
+                borderWidth: 1,
+                style: {
+                    color: themeColors.textColor
+                }
             },
             plotOptions: {
                 bar: {
-                    horizontal: true,
-                    distributed: true
+                    dataLabels: {
+                        enabled: true,
+                        style: {
+                            color: themeColors.textColor
+                        }
+                    },
+                    colorByPoint: true
                 }
             },
-            dataLabels: { enabled: true },
-            xaxis: {
-                categories: @js($velocityAnalysis['labels'])
-            },
-            colors: ['#3B82F6'],
-            legend: { show: false }
+            series: [{
+                name: 'Movement Frequency',
+                data: chartData.velocityAnalysis.series[0].data,
+                showInLegend: false
+            }],
+            colors: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6', '#F97316', '#84CC16'],
+            exporting: {
+                enabled: true,
+                buttons: {
+                    contextButton: {
+                        menuItems: ['viewFullscreen', 'separator', 'downloadPNG', 'downloadJPEG', 'downloadPDF', 'downloadSVG', 'separator', 'downloadCSV', 'downloadXLS']
+                    }
+                }
+            }
+        });
+    }
+
+    function updateCharts() {
+        // Update Trend Chart
+        if (trendChart && chartData.trendData) {
+            trendChart.series[0].setData(chartData.trendData.series[0].data, false);
+            trendChart.series[1].setData(chartData.trendData.series[1].data, false);
+            trendChart.series[2].setData(chartData.trendData.series[2].data, false);
+            trendChart.xAxis[0].setCategories(chartData.trendData.categories, false);
+            trendChart.redraw();
+        }
+
+        // Update Pie Chart
+        if (typeChart && chartData.typeDistribution) {
+            const pieData = chartData.typeDistribution.labels.map((label, index) => ({
+                name: label,
+                y: chartData.typeDistribution.series[index]
+            }));
+            typeChart.series[0].setData(pieData, true);
+        }
+
+        // Update Velocity Chart
+        if (velocityChart && chartData.velocityAnalysis) {
+            velocityChart.series[0].setData(chartData.velocityAnalysis.series[0].data, false);
+            velocityChart.xAxis[0].setCategories(chartData.velocityAnalysis.labels, false);
+            velocityChart.redraw();
+        }
+    }
+
+    // Detect theme and return appropriate colors
+    function getThemeColors() {
+        const isDark = document.documentElement.classList.contains('dark');
+        return {
+            textColor: isDark ? '#e4e4e7' : '#27272a',
+            gridColor: isDark ? '#3f3f46' : '#e4e4e7',
+            backgroundColor: isDark ? '#27272a' : '#ffffff'
         };
-        new ApexCharts(document.querySelector("#velocityChart"), velocityOptions).render();
     }
 
     initCharts();
 </script>
+    </div>
+</div>

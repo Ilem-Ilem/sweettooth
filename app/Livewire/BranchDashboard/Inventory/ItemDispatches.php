@@ -7,36 +7,42 @@ use App\Models\ItemRequest;
 use App\Models\ItemRequestDetail;
 use App\Models\Stock;
 use App\Models\StockMovement;
-use Livewire\Component;
-use Livewire\WithPagination;
-use Livewire\Attributes\Layout;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
+use Livewire\Component;
+use Livewire\WithPagination;
+// use TallStackUi\
+use TallStackUi\Traits\Interactions;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class ItemDispatches extends Component
 {
-    use WithPagination;
+    use Interactions, WithPagination;
 
     // Pagination
     public $quantity = 15;
+
     #[Url(keep: true)]
     public $b_id;
+
     public $search = '';
+
     public $filterShift = '';
+
     public $filterDateFrom = '';
+
     public $filterDateTo = '';
-    public $filterReceived = '';
 
     public $showDispatchModal = false;
+
     public $requestId;
-    public $dispatchItems = [];
-    public $shift = '';
+
+    public $dispatchedItems = [];
 
     protected $rules = [
-        'shift' => 'required|in:morning,afternoon,night',
-        'dispatchItems.*.quantity' => 'required|numeric|min:0.01',
+        'dispatchedItems.*.approve_quantity' => 'nullable|numeric|min:0',
     ];
 
     public function getBranchId()
@@ -48,43 +54,43 @@ class ItemDispatches extends Component
     {
         $branchId = $this->getBranchId();
 
-        $query = ItemDispatch::with(['itemRequest', 'item', 'dispatcher', 'receiver'])
+        // Fetch ItemRequests instead of ItemDispatches
+        $query = ItemRequest::with(['department', 'requestDetails.item', 'requester', 'requestedBy'])
             ->where('branch_id', $branchId)
             ->when($this->search, function ($q) {
                 $q->where(function ($query) {
-                    $query->whereHas('itemRequest', function ($subQuery) {
-                        $subQuery->where('request_number', 'like', '%' . $this->search . '%');
-                    })
-                        ->orWhereHas('item', function ($subQuery) {
-                            $subQuery->where('name', 'like', '%' . $this->search . '%')
-                                ->orWhere('sku', 'like', '%' . $this->search . '%');
+                    $query->where('request_number', 'like', '%'.$this->search.'%')
+                        ->orWhereHas('department', function ($subQuery) {
+                            $subQuery->where('name', 'like', '%'.$this->search.'%');
                         })
-                        ->orWhereHas('dispatcher', function ($subQuery) {
-                            $subQuery->where('name', 'like', '%' . $this->search . '%');
+                        ->orWhereHas('requester', function ($subQuery) {
+                            $subQuery->where('name', 'like', '%'.$this->search.'%');
                         });
                 });
             })
-            ->when($this->filterShift, fn($q) => $q->where('shift', $this->filterShift))
-            ->when($this->filterDateFrom, fn($q) => $q->whereDate('dispatch_time', '>=', $this->filterDateFrom))
-            ->when($this->filterDateTo, fn($q) => $q->whereDate('dispatch_time', '<=', $this->filterDateTo))
-            ->when($this->filterReceived !== '', function ($q) {
-                if ($this->filterReceived === '1') {
-                    $q->whereNotNull('received_time');
-                } else {
-                    $q->whereNull('received_time');
-                }
-            })
-            ->orderBy('dispatch_time', 'desc');
+            ->when($this->filterShift, fn ($q) => $q->where('shift', $this->filterShift))
+            ->when($this->filterDateFrom, fn ($q) => $q->whereDate('created_at', '>=', $this->filterDateFrom))
+            ->when($this->filterDateTo, fn ($q) => $q->whereDate('created_at', '<=', $this->filterDateTo))
+            ->orderBy('created_at', 'desc');
 
-        $dispatches = $query->paginate($this->quantity ?? 15);
+        $requests = $query->paginate($this->quantity ?? 15);
 
+        // Pending requests for the accordion
         $pendingRequests = ItemRequest::with(['department', 'requestDetails.item'])
             ->where('branch_id', $branchId)
-            ->where('status', 'approved')
+            ->whereIn('status', ['pending', 'approved', 'partially_dispatched'])
+            ->whereHas('requestDetails', function ($q) {
+                $q->whereColumn('quantity_approved', '>', 'quantity_dispatched')
+                    ->orWhere(function ($sub) {
+                        $sub->where('quantity_approved', '=', 0)
+                            ->whereColumn('quantity_requested', '>', 'quantity_dispatched');
+                    });
+            })
+            ->latest('created_at')
             ->get();
 
         return view('livewire.branch-dashboard.inventory.item-dispatches', [
-            'dispatches' => $dispatches,
+            'requests' => $requests,
             'pendingRequests' => $pendingRequests,
         ]);
     }
@@ -99,101 +105,269 @@ class ItemDispatches extends Component
             ->firstOrFail();
 
         $this->requestId = $requestId;
-        $this->dispatchItems = [];
+        $this->dispatchedItems = [];
 
+        // Show ALL items - requested, approved, and dispatched
         foreach ($request->requestDetails as $detail) {
-            $remainingQty = $detail->quantity_approved - $detail->quantity_dispatched;
-            if ($remainingQty > 0) {
-                $this->dispatchItems[] = [
-                    'detail_id' => $detail->id,
-                    'item_id' => $detail->item_id,
-                    'item_name' => $detail->item->name,
-                    'quantity_approved' => $detail->quantity_approved,
-                    'quantity_dispatched' => $detail->quantity_dispatched,
-                    'remaining' => $remainingQty,
-                    'quantity' => $remainingQty,
-                    'uom' => $detail->item->uom,
-                ];
-            }
+            $remainingToApprove = $detail->quantity_requested - $detail->quantity_approved;
+            $remainingToDispatch = $detail->quantity_approved - $detail->quantity_dispatched;
+
+            // Get current stock level
+            $stock = Stock::where('branch_id', $branchId)
+                ->where('item_id', $detail->item_id)
+                ->first();
+            $stockAvailable = $stock ? $stock->quantity_available : 0;
+
+            $this->dispatchedItems[] = [
+                'detail_id' => $detail->id,
+                'item_id' => $detail->item_id,
+                'item_name' => $detail->item->name,
+                'quantity_requested' => $detail->quantity_requested,
+                'quantity_approved' => $detail->quantity_approved,
+                'quantity_dispatched' => $detail->quantity_dispatched,
+                'remaining_to_approve' => $remainingToApprove,
+                'remaining_to_dispatch' => $remainingToDispatch,
+                'approve_quantity' => 0,
+                'stock_available' => $stockAvailable,
+                'uom' => $detail->item->uom,
+                'is_fully_approved' => $remainingToApprove <= 0,
+                'is_fully_dispatched' => $remainingToDispatch <= 0,
+                'is_partially_approved' => $detail->quantity_approved > 0 && $remainingToApprove > 0,
+                'is_partially_dispatched' => $detail->quantity_dispatched > 0 && $remainingToDispatch > 0,
+                'has_sufficient_stock' => $stockAvailable >= $remainingToDispatch,
+            ];
         }
 
-        $this->shift = '';
         $this->showDispatchModal = true;
+    }
+
+    public function approveItems()
+    {
+        // $this->authorize('approve-items');
+        $this->validate();
+
+        $branchId = $this->getBranchId();
+
+        if (empty($this->dispatchedItems) || ! is_array($this->dispatchedItems)) {
+            session()->flash('error', 'No items to approve.');
+            return;
+        }
+
+        try {
+            DB::transaction(function () use ($branchId) {
+                // Verify request belongs to this branch
+                $request = ItemRequest::where('id', $this->requestId)
+                    ->where('branch_id', $branchId)
+                    ->firstOrFail();
+
+                $approvedCount = 0;
+
+                foreach ($this->dispatchedItems as $item) {
+                    $approveQty = (float) ($item['approve_quantity'] ?? 0);
+
+                    if ($approveQty <= 0) {
+                        continue; // Skip items with no approval quantity
+                    }
+
+                    // Get the detail record
+                    $detail = ItemRequestDetail::find($item['detail_id']);
+                    if (! $detail) {
+                        throw new \Exception("Request detail missing for {$item['item_name']}.");
+                    }
+
+                    $remainingToApprove = $detail->quantity_requested - $detail->quantity_approved;
+
+                    if ($approveQty > $remainingToApprove) {
+                        throw new \Exception("Cannot approve {$approveQty} {$item['uom']} of {$item['item_name']}. Only {$remainingToApprove} {$item['uom']} remaining to approve.");
+                    }
+
+                    $detail->quantity_approved += $approveQty;
+                    $detail->save();
+
+                    $approvedCount++;
+
+                    logger()->info('Item approved', [
+                        'item_id' => $item['item_id'],
+                        'item_name' => $item['item_name'],
+                        'approved_quantity' => $approveQty,
+                        'total_approved' => $detail->quantity_approved,
+                        'request_id' => $this->requestId,
+                    ]);
+                }
+
+                if ($approvedCount > 0) {
+                    $request->refresh();
+                }
+            });
+
+            session()->flash('success', 'Items approved successfully. You can now dispatch them.');
+
+            // Refresh the modal data to show updated approval status
+            $this->openDispatchModal($this->requestId);
+
+        } catch (\Exception $e) {
+            logger()->error('Approval Error: '.$e->getMessage(), [
+                'exception' => $e,
+                'trace' => $e->getTraceAsString(),
+                'request_id' => $this->requestId ?? null,
+                'branch_id' => $branchId ?? null,
+                'items' => $this->dispatchedItems ?? [],
+            ]);
+
+            session()->flash('error', 'Error approving items: '.$e->getMessage());
+        }
     }
 
     public function dispatchItems()
     {
         // $this->authorize('dispatch-items');
-        $this->validate();
 
-        DB::beginTransaction();
+        $branchId = $this->getBranchId();
+
+        if (empty($this->dispatchedItems) || ! is_array($this->dispatchedItems)) {
+            session()->flash('error', 'No items to dispatch.');
+            return;
+        }
 
         try {
-            $branchId = $this->getBranchId();
-
-            // Verify request belongs to this branch
-            $request = ItemRequest::where('id', $this->requestId)
-                ->where('branch_id', $branchId)
-                ->firstOrFail();
-
-            foreach ($this->dispatchItems as $item) {
-                if ($item['quantity'] > 0) {
-                    // Create dispatch record
-                    ItemDispatch::create([
-                        'request_id' => $this->requestId,
-                        'item_id' => $item['item_id'],
-                        'dispatched_by' => Auth::guard('employees')->id(),
-                        'quantity' => $item['quantity'],
-                        'uom' => $item['uom'],
-                        'dispatch_time' => now(),
-                        'shift' => $this->shift,
-                    ]);
-
-                    // Update request detail
-                    $detail = ItemRequestDetail::find($item['detail_id']);
-                    $detail->quantity_dispatched += $item['quantity'];
-                    $detail->save();
-
-                    // Update stock - use correct field name
-                    $stock = Stock::where('branch_id', $branchId)
-                        ->where('item_id', $item['item_id'])
-                        ->first();
-
-                    if ($stock) {
-                        $stock->quantity_available -= $item['quantity'];
-                        $stock->save();
-
-                        // Record stock movement
-                        StockMovement::create([
-                            'stock_id' => $stock->id,
-                            'item_id' => $item['item_id'],
-                            'branch_id' => $branchId,
-                            'movement_type' => 'out',
-                            'quantity' => $item['quantity'],
-                            'reference_type' => 'App\Models\ItemRequest',
-                            'reference_id' => $this->requestId,
-                            'recorded_by' => Auth::guard('employees')->id(),
-                            'movement_date' => now(),
-                            'notes' => 'Dispatch for request: ' . $request->request_number,
-                        ]);
-                    }
+            // First, check if there are any items to dispatch
+            $hasItemsToDispatch = false;
+            foreach ($this->dispatchedItems as $item) {
+                if ($item['remaining_to_dispatch'] > 0) {
+                    $hasItemsToDispatch = true;
+                    break;
                 }
             }
 
-            // Check if fully dispatched
-            if ($request->isFullyDispatched()) {
-                $request->update(['status' => 'completed']);
-            } else {
-                $request->update(['status' => 'partially_dispatched']);
+            if (!$hasItemsToDispatch) {
+                session()->flash('error', 'No approved items to dispatch.');
+                return;
             }
 
-            DB::commit();
-            session()->flash('success', 'Items dispatched successfully.');
+            // Pre-check stock levels before starting transaction
+            $stockErrors = [];
+            foreach ($this->dispatchedItems as $item) {
+                $remainingToDispatch = $item['remaining_to_dispatch'];
+                if ($remainingToDispatch <= 0) {
+                    continue;
+                }
+
+                if ($item['stock_available'] < $remainingToDispatch) {
+                    $stockErrors[] = "{$item['item_name']}: Need {$remainingToDispatch} {$item['uom']}, but only {$item['stock_available']} {$item['uom']} available in stock.";
+                }
+            }
+
+            if (!empty($stockErrors)) {
+                session()->flash('error', 'Insufficient stock: ' . implode(' | ', $stockErrors));
+                return;
+            }
+
+            DB::transaction(function () use ($branchId) {
+                // Verify request belongs to this branch
+                $request = ItemRequest::where('id', $this->requestId)
+                    ->where('branch_id', $branchId)
+                    ->firstOrFail();
+
+                $dispatchedCount = 0;
+
+                foreach ($this->dispatchedItems as $item) {
+                    // Get fresh data from database
+                    $detail = ItemRequestDetail::find($item['detail_id']);
+                    if (! $detail) {
+                        throw new \Exception("Request detail missing for {$item['item_name']}.");
+                    }
+
+                    $dispatchQty = $detail->quantity_approved - $detail->quantity_dispatched;
+
+                    if ($dispatchQty <= 0) {
+                        continue; // Skip items that don't need dispatching
+                    }
+
+                    // Lock stock row for concurrency safety
+                    $stock = Stock::where('branch_id', $branchId)
+                        ->where('item_id', $item['item_id'])
+                        ->lockForUpdate()
+                        ->first();
+
+                    if (! $stock) {
+                        throw new \Exception("Stock not found for {$item['item_name']} in this branch.");
+                    }
+
+                    if ($stock->quantity_available < $dispatchQty) {
+                        throw new \Exception("Insufficient stock for {$item['item_name']}. Available: {$stock->quantity_available} {$item['uom']}, Required: {$dispatchQty} {$item['uom']}.");
+                    }
+
+                    // Save before and after quantities
+                    $quantityBefore = $stock->quantity_available;
+                    $stock->quantity_available -= $dispatchQty;
+                    $stock->save();
+                    $quantityAfter = $stock->quantity_available;
+
+                    // Create dispatch record
+                    ItemDispatch::create([
+                        'branch_id' => $branchId,
+                        'request_id' => $this->requestId,
+                        'item_id' => $item['item_id'],
+                        'dispatched_by' => Auth::guard('employees')->id(),
+                        'quantity' => $dispatchQty,
+                        'uom' => $item['uom'],
+                        'dispatch_time' => now(),
+                        'shift' => $request->shift,
+                    ]);
+
+                    // Update request detail (track total dispatched)
+                    $detail->quantity_dispatched += $dispatchQty;
+                    $detail->save();
+
+                    // Record stock movement
+                    StockMovement::create([
+                        'stock_id' => $stock->id,
+                        'type' => 'out',
+                        'quantity' => -$dispatchQty,
+                        'quantity_before' => $quantityBefore,
+                        'quantity_after' => $quantityAfter,
+                        'movement_date' => now(),
+                        'reference_type' => ItemRequest::class,
+                        'reference_id' => $this->requestId,
+                        'moved_by' => Auth::guard('employees')->id(),
+                        'notes' => "Dispatch for request: {$request->request_number}",
+                    ]);
+
+                    $dispatchedCount++;
+
+                    logger()->info('Item dispatched', [
+                        'item_id' => $item['item_id'],
+                        'item_name' => $item['item_name'],
+                        'quantity' => $dispatchQty,
+                        'before' => $quantityBefore,
+                        'after' => $quantityAfter,
+                        'stock_id' => $stock->id,
+                        'request_id' => $this->requestId,
+                    ]);
+                }
+
+                // Update request status
+                $request->refresh();
+                $request->update([
+                    'status' => $request->isFullyDispatched()
+                        ? 'completed'
+                        : 'partially_dispatched',
+                ]);
+            });
+
+            session()->flash('success', 'All approved items dispatched successfully. Stock updated.');
             $this->closeModal();
+
         } catch (\Exception $e) {
-            DB::rollBack();
-            dd($e->getMessage());
-            session()->flash('error', 'Error dispatching items: ' . $e->getMessage());
+            logger()->error('Dispatch Error: '.$e->getMessage(), [
+                'exception' => $e,
+                'trace' => $e->getTraceAsString(),
+                'request_id' => $this->requestId ?? null,
+                'branch_id' => $branchId ?? null,
+                'dispatch_items' => $this->dispatchedItems ?? [],
+            ]);
+
+            session()->flash('error', 'Error dispatching items: '.$e->getMessage());
         }
     }
 
@@ -201,8 +375,7 @@ class ItemDispatches extends Component
     {
         $this->showDispatchModal = false;
         $this->requestId = null;
-        $this->dispatchItems = [];
-        $this->shift = '';
+        $this->dispatchedItems = [];
         $this->resetValidation();
     }
 
@@ -212,7 +385,6 @@ class ItemDispatches extends Component
         $this->filterShift = '';
         $this->filterDateFrom = '';
         $this->filterDateTo = '';
-        $this->filterReceived = '';
         $this->resetPage();
     }
 

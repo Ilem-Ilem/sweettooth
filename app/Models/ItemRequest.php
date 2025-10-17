@@ -18,6 +18,7 @@ class ItemRequest extends Model
         'requested_by',
         'request_date',
         'required_date',
+        'shift',
         'status',
         'approved_by',
         'approved_at',

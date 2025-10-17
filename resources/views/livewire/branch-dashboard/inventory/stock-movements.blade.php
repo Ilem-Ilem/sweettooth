@@ -51,7 +51,15 @@
         </div>
 
         <div x-show="open" x-collapse class="p-3 space-y-3">
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <!-- Search -->
+            <div>
+                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Search</label>
+                <input type="text" wire:model.live.debounce.300ms="search"
+                    placeholder="Search by item name, SKU, person, or notes..."
+                    class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                 <div>
                     <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Movement Type</label>
                     <select wire:model.live="filterType"
@@ -61,6 +69,30 @@
                         <option value="out">Out</option>
                         <option value="adjustment">Adjustment</option>
                         <option value="transfer">Transfer</option>
+                        <option value="damaged">Damaged</option>
+                        <option value="return">Return</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Shift</label>
+                    <select wire:model.live="filterShift"
+                        class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Shifts</option>
+                        <option value="morning">Morning</option>
+                        <option value="afternoon">Afternoon</option>
+                        <option value="night">Night</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Department</label>
+                    <select wire:model.live="filterDepartment"
+                        class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Departments</option>
+                        @foreach($departments as $dept)
+                            <option value="{{ $dept->id }}">{{ $dept->name }}</option>
+                        @endforeach
                     </select>
                 </div>
 
@@ -92,13 +124,15 @@
     <!-- Table -->
     <x-table
         :headers="[
-            ['index' => 'movement_date', 'label' => 'Date'],
-            ['index' => 'item_name', 'label' => 'Item'],
-            ['index' => 'movement_type', 'label' => 'Type'],
-            ['index' => 'quantity', 'label' => 'Quantity'],
-            ['index' => 'reference', 'label' => 'Reference'],
-            ['index' => 'recorder', 'label' => 'Recorded By'],
-            ['index' => 'notes', 'label' => 'Notes'],
+            ['index' => 'date_time', 'label' => 'Date & Time'],
+            ['index' => 'item', 'label' => 'Item'],
+            ['index' => 'type', 'label' => 'Type'],
+            ['index' => 'quantity', 'label' => 'Quantity Change'],
+            ['index' => 'stock_levels', 'label' => 'Stock Levels'],
+            ['index' => 'shift', 'label' => 'Shift'],
+            ['index' => 'department', 'label' => 'Department'],
+            ['index' => 'people', 'label' => 'People Involved'],
+            ['index' => 'purpose', 'label' => 'Purpose/Notes'],
         ]"
         :rows="$movements"
         striped
@@ -107,67 +141,167 @@
         :filter="['quantity' => 'quantity', 'search' => 'search']"
         :quantity="[10, 25, 50, 100]">
 
-        @interact('column_movement_date', $row)
-            <span class="text-zinc-900 dark:text-zinc-100">
-                {{ $row->movement_date ? $row->movement_date->format('Y-m-d H:i') : 'N/A' }}
-            </span>
+        @interact('column_date_time', $row)
+            <div class="text-zinc-900 dark:text-zinc-100">
+                <div class="font-medium">{{ $row->movement_date->format('Y-m-d') }}</div>
+                <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $row->movement_date->format('H:i') }}</div>
+            </div>
         @endinteract
 
-        @interact('column_item_name', $row)
-            <span class="font-medium text-zinc-900 dark:text-zinc-100">
-                {{ $row->item->name ?? 'N/A' }}
-            </span>
+        @interact('column_item', $row)
+            <div>
+                <div class="font-medium text-zinc-900 dark:text-zinc-100">
+                    {{ $row->stock->item->name ?? 'N/A' }}
+                </div>
+                <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                    SKU: {{ $row->stock->item->sku ?? 'N/A' }}
+                </div>
+            </div>
         @endinteract
 
-        @interact('column_movement_type', $row)
+        @interact('column_type', $row)
             @php
                 $typeColors = [
                     'in' => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
                     'out' => 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
                     'adjustment' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
                     'transfer' => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+                    'damaged' => 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+                    'return' => 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
                 ];
                 $typeIcons = [
                     'in' => '↓',
                     'out' => '↑',
                     'adjustment' => '⟳',
                     'transfer' => '⇄',
+                    'damaged' => '⚠',
+                    'return' => '↩',
                 ];
             @endphp
-            <span class="px-2 py-1 text-xs font-semibold rounded-full {{ $typeColors[$row->movement_type] ?? '' }}">
-                {{ $typeIcons[$row->movement_type] ?? '' }} {{ ucfirst($row->movement_type) }}
+            <span class="px-2 py-1 text-xs font-semibold rounded-full {{ $typeColors[$row->type] ?? '' }}">
+                {{ $typeIcons[$row->type] ?? '' }} {{ ucfirst($row->type) }}
             </span>
         @endinteract
 
         @interact('column_quantity', $row)
             @php
-                $quantityClass = $row->movement_type === 'in' ? 'text-green-600 dark:text-green-400' : ($row->movement_type === 'out' ? 'text-red-600 dark:text-red-400' : 'text-zinc-900 dark:text-zinc-100');
+                $quantityClass = $row->isInbound() ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+                $sign = $row->isInbound() ? '+' : '-';
             @endphp
-            <span class="font-medium {{ $quantityClass }}">
-                {{ $row->movement_type === 'in' ? '+' : ($row->movement_type === 'out' ? '-' : '') }}{{ number_format($row->quantity, 2) }}
-            </span>
+            <div class="font-semibold {{ $quantityClass }}">
+                {{ $sign }}{{ number_format(abs($row->quantity), 2) }}
+            </div>
+            <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                {{ $row->stock->item->uom ?? '' }}
+            </div>
         @endinteract
 
-        @interact('column_reference', $row)
-            @if($row->reference_type && $row->reference_id)
-            <span class="text-zinc-600 dark:text-zinc-400 text-sm">
-                {{ class_basename($row->reference_type) }} #{{ $row->reference_id }}
-            </span>
+        @interact('column_stock_levels', $row)
+            <div class="text-sm">
+                <div class="text-zinc-600 dark:text-zinc-400">
+                    Before: <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ number_format($row->quantity_before, 2) }}</span>
+                </div>
+                <div class="text-zinc-600 dark:text-zinc-400">
+                    After: <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ number_format($row->quantity_after, 2) }}</span>
+                </div>
+            </div>
+        @endinteract
+
+        @interact('column_shift', $row)
+            @php
+                $shift = null;
+                if ($row->reference && $row->reference instanceof \App\Models\ItemRequest) {
+                    $shift = $row->reference->shift;
+                }
+                $shiftColors = [
+                    'morning' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+                    'afternoon' => 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+                    'night' => 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
+                ];
+            @endphp
+            @if($shift)
+                <span class="px-2 py-1 text-xs font-semibold rounded-full {{ $shiftColors[$shift] ?? '' }}">
+                    {{ ucfirst($shift) }}
+                </span>
             @else
-            <span class="text-zinc-400 dark:text-zinc-500">N/A</span>
+                <span class="text-xs text-zinc-400 dark:text-zinc-500">N/A</span>
             @endif
         @endinteract
 
-        @interact('column_recorder', $row)
-            <span class="text-zinc-900 dark:text-zinc-100">
-                {{ $row->recorder->name ?? 'N/A' }}
-            </span>
+        @interact('column_department', $row)
+            @php
+                $department = null;
+                if ($row->reference && $row->reference instanceof \App\Models\ItemRequest) {
+                    $department = $row->reference->department;
+                }
+            @endphp
+            @if($department)
+                <div class="text-zinc-900 dark:text-zinc-100">
+                    {{ $department->name }}
+                </div>
+            @else
+                <span class="text-xs text-zinc-400 dark:text-zinc-500">N/A</span>
+            @endif
         @endinteract
 
-        @interact('column_notes', $row)
-            <span class="text-zinc-600 dark:text-zinc-400 text-sm">
-                {{ $row->notes ? Str::limit($row->notes, 50) : 'N/A' }}
-            </span>
+        @interact('column_people', $row)
+            <div class="text-sm space-y-1">
+                @php
+                    $request = ($row->reference && $row->reference instanceof \App\Models\ItemRequest) ? $row->reference : null;
+                @endphp
+
+                @if($request)
+                    @if($request->requester)
+                        <div class="text-zinc-600 dark:text-zinc-400">
+                            <span class="text-xs">Ordered:</span>
+                            <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $request->requester->name }}</span>
+                        </div>
+                    @endif
+
+                    @if($request->approver)
+                        <div class="text-zinc-600 dark:text-zinc-400">
+                            <span class="text-xs">Approved:</span>
+                            <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $request->approver->name }}</span>
+                        </div>
+                    @endif
+                @endif
+
+                @if($row->mover)
+                    <div class="text-zinc-600 dark:text-zinc-400">
+                        <span class="text-xs">{{ $row->type === 'out' ? 'Dispatched' : 'Moved' }}:</span>
+                        <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $row->mover->name }}</span>
+                    </div>
+                @endif
+
+                @if(!$request && !$row->mover)
+                    <span class="text-xs text-zinc-400 dark:text-zinc-500">N/A</span>
+                @endif
+            </div>
+        @endinteract
+
+        @interact('column_purpose', $row)
+            <div class="text-sm">
+                @if($row->reference)
+                    <div class="text-zinc-600 dark:text-zinc-400 mb-1">
+                        <span class="font-medium text-zinc-900 dark:text-zinc-100">
+                            {{ class_basename($row->reference_type) }}
+                        </span>
+                        @if($row->reference instanceof \App\Models\ItemRequest)
+                            <span class="text-xs">: {{ $row->reference->request_number }}</span>
+                        @else
+                            <span class="text-xs">: #{{ $row->reference_id }}</span>
+                        @endif
+                    </div>
+                @endif
+
+                @if($row->notes)
+                    <div class="text-zinc-600 dark:text-zinc-400">
+                        {{ Str::limit($row->notes, 80) }}
+                    </div>
+                @else
+                    <span class="text-xs text-zinc-400 dark:text-zinc-500">No notes</span>
+                @endif
+            </div>
         @endinteract
     </x-table>
 

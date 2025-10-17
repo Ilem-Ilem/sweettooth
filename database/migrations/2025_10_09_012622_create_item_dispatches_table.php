@@ -21,13 +21,13 @@ return new class extends Migration
             $table->uuid('branch_id');
             $table->foreign('branch_id')->references('id')->on('branches')->onDelete('cascade');
             $table->foreign('dispatched_by')->references('id')->on('employees')->onDelete('restrict');
-            $table->uuid('received_by');
+            $table->uuid('received_by')->nullable();
             $table->foreign('received_by')->references('id')->on('employees')->onDelete('restrict');
             $table->decimal('quantity', 12, 2);
             $table->enum('uom', ['grams', 'kg', 'liters', 'ml', 'pcs', 'units', 'bags', 'cartons']);
             $table->timestamp('dispatch_time');
             $table->timestamp('received_time')->nullable();
-            $table->enum('shift', ['morning', 'afternoon'])->nullable();
+            $table->enum('shift', ['morning', 'afternoon', 'night'])->nullable();
             $table->text('notes')->nullable();
             $table->timestamps();
         });

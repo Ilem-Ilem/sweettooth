@@ -11,6 +11,7 @@ class ItemDispatch extends Model
     use HasFactory;
 
     protected $fillable = [
+        'branch_id',
         'request_id',
         'item_id',
         'dispatched_by',

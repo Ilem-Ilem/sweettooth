@@ -124,10 +124,10 @@
                     :current="request()->routeIs('branch-dashboard.analytics.stock-valuation')" wire:navigate>
                     {{ __('Stock Valuation') }}
                 </flux:navlist.item>
-                <flux:navlist.item icon="scale" :href="branch_route('branch-dashboard.analytics.stock-variance')"
+                {{-- <flux:navlist.item icon="scale" :href="branch_route('branch-dashboard.analytics.stock-variance')"
                     :current="request()->routeIs('branch-dashboard.analytics.stock-variance')" wire:navigate>
                     {{ __('Stock Variance') }}
-                </flux:navlist.item>
+                </flux:navlist.item> --}}
                 <flux:navlist.item icon="building-office"
                     :href="branch_route('branch-dashboard.analytics.branch-performance')"
                     :current="request()->routeIs('branch-dashboard.analytics.branch-performance')" wire:navigate>
@@ -160,11 +160,11 @@
                         :current="request()->routeIs('branch-dashboard.production.products')" wire:navigate>
                         {{ __('Products') }}
                     </flux:navlist.item>
-                    <flux:navlist.item icon="clipboard-document-list"
+                    {{-- <flux:navlist.item icon="clipboard-document-list"
                         :href="branch_route('branch-dashboard.production.requests')"
                         :current="request()->routeIs('branch-dashboard.production.requests')" wire:navigate>
                         {{ __('Production Requests') }}
-                    </flux:navlist.item>
+                    </flux:navlist.item> --}}
                 </flux:navlist.group>
             </flux:navlist.group>
 

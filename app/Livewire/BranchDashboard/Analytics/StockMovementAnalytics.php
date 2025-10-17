@@ -20,12 +20,16 @@ class StockMovementAnalytics extends Component
     public $movementType = '';
     public $selectedItem = null;
     public $searchTerm = '';
+    public $itemSearch = '';
+    public $trendData;
+    public $typeDistribution;
+    public $velocityAnalysis;
 
     protected $queryString = [
         'dateFrom',
         'dateTo',
         'movementType',
-        'searchTerm'
+        'selectedItem'
     ];
 
     public function mount()
@@ -34,24 +38,65 @@ class StockMovementAnalytics extends Component
         $this->dateTo = now()->format('Y-m-d');
     }
 
-    public function updatedSearchTerm()
+    public function updatedSelectedItem()
     {
         $this->resetPage();
+        $this->updateChartData();
     }
 
     public function updatedMovementType()
     {
         $this->resetPage();
+        $this->updateChartData();
     }
 
     public function updatedDateFrom()
     {
         $this->resetPage();
+        $this->updateChartData();
     }
 
     public function updatedDateTo()
     {
         $this->resetPage();
+        $this->updateChartData();
+    }
+
+    public function updateChartData()
+    {
+        $this->trendData = $this->getMovementTrendData();
+        $this->typeDistribution = $this->getMovementTypeDistribution();
+        $this->velocityAnalysis = $this->getVelocityAnalysis();
+
+        $this->dispatch('chartsUpdated', [
+            'trendData' => $this->trendData,
+            'typeDistribution' => $this->typeDistribution,
+            'velocityAnalysis' => $this->velocityAnalysis
+        ]);
+    }
+
+    public function getAvailableItems()
+    {
+        $branchId = Auth::guard('employees')->user()->branch_id;
+
+        return Stock::with('item')
+            ->where('branch_id', $branchId)
+            ->when($this->itemSearch, function ($query) {
+                $query->whereHas('item', function ($q) {
+                    $q->where('name', 'like', '%' . $this->itemSearch . '%')
+                      ->orWhere('sku', 'like', '%' . $this->itemSearch . '%');
+                });
+            })
+            ->limit(50)
+            ->get()
+            ->map(function ($stock) {
+                return [
+                    'id' => $stock->id,
+                    'name' => $stock->item->name,
+                    'sku' => $stock->item->sku,
+                    'uom' => $stock->item->uom,
+                ];
+            });
     }
 
     public function getMovementTrendData()
@@ -60,6 +105,9 @@ class StockMovementAnalytics extends Component
 
         $movements = StockMovement::whereHas('stock', function ($query) use ($branchId) {
                 $query->where('branch_id', $branchId);
+            })
+            ->when($this->selectedItem, function ($query) {
+                $query->where('stock_id', $this->selectedItem);
             })
             ->whereBetween('movement_date', [$this->dateFrom, $this->dateTo])
             ->selectRaw('DATE(movement_date) as date, type, SUM(quantity) as total_quantity')
@@ -98,6 +146,9 @@ class StockMovementAnalytics extends Component
         $distribution = StockMovement::whereHas('stock', function ($query) use ($branchId) {
                 $query->where('branch_id', $branchId);
             })
+            ->when($this->selectedItem, function ($query) {
+                $query->where('stock_id', $this->selectedItem);
+            })
             ->whereBetween('movement_date', [$this->dateFrom, $this->dateTo])
             ->selectRaw('type, COUNT(*) as count')
             ->groupBy('type')
@@ -131,6 +182,9 @@ class StockMovementAnalytics extends Component
 
         $movements = StockMovement::whereHas('stock', function ($query) use ($branchId) {
                 $query->where('branch_id', $branchId);
+            })
+            ->when($this->selectedItem, function ($query) {
+                $query->where('stock_id', $this->selectedItem);
             })
             ->whereBetween('movement_date', [$this->dateFrom, $this->dateTo])
             ->get();
@@ -180,11 +234,8 @@ class StockMovementAnalytics extends Component
             ->whereHas('stock', function ($query) use ($branchId) {
                 $query->where('branch_id', $branchId);
             })
-            ->when($this->searchTerm, function ($query) {
-                $query->whereHas('stock.item', function ($q) {
-                    $q->where('name', 'like', '%' . $this->searchTerm . '%')
-                      ->orWhere('sku', 'like', '%' . $this->searchTerm . '%');
-                });
+            ->when($this->selectedItem, function ($query) {
+                $query->where('stock_id', $this->selectedItem);
             })
             ->when($this->movementType, function ($query) {
                 $query->where('type', $this->movementType);
@@ -195,14 +246,20 @@ class StockMovementAnalytics extends Component
 
         $movementTypes = ['in', 'out', 'adjustment', 'transfer', 'damaged', 'return'];
 
+        // Store chart data in public properties for JavaScript access
+        $this->trendData = $this->getMovementTrendData();
+        $this->typeDistribution = $this->getMovementTypeDistribution();
+        $this->velocityAnalysis = $this->getVelocityAnalysis();
+
         return view('livewire.branch-dashboard.analytics.stock-movement-analytics', [
             'movements' => $movements,
             'movementTypes' => $movementTypes,
+            'availableItems' => $this->getAvailableItems(),
             'summary' => $this->getMovementSummary(),
-            'trendData' => $this->getMovementTrendData(),
-            'typeDistribution' => $this->getMovementTypeDistribution(),
+            'trendData' => $this->trendData,
+            'typeDistribution' => $this->typeDistribution,
             'topMovedItems' => $this->getTopMovedItems(),
-            'velocityAnalysis' => $this->getVelocityAnalysis(),
+            'velocityAnalysis' => $this->velocityAnalysis,
         ]);
     }
 }

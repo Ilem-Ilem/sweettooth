@@ -60,7 +60,6 @@
         </div>
     </div>
 
-    @push('scripts')
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <script>
         document.addEventListener('livewire:navigated', () => {
@@ -73,5 +72,4 @@
             }).render();
         });
     </script>
-    @endpush
 </div>
