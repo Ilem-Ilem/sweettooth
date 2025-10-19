@@ -15,6 +15,8 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->string('name');
             $table->string('sku')->unique();
+            $table->uuid('branch_id')->nullable();
+            $table->foreign('branch_id')->references('id')->on('branches')->onDelete('cascade');
             $table->foreignId('product_type_id')->constrained('product_types')->onDelete('restrict');
             $table->unsignedBigInteger('category_id')->nullable();
             $table->text('description')->nullable();

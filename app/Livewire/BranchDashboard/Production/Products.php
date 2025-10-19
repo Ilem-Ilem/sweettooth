@@ -93,6 +93,7 @@ class Products extends BaseComponent
                     $query->where('is_available', false);
                 }
             })
+            ->where("branch_id", null)->orWhere("branch_id", $this->getBranchId(), )
             ->orderBy('created_at', 'desc');
     }
 

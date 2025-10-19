@@ -12,7 +12,7 @@ class Index extends Component
     public function render()
     {
         return view('livewire.branch-dashboard.index',[
-            'employee_total'=> Employee::count()
+            'employee_total'=> Employee::where('branch_id', request()->query('b_id'))->count()
         ]);
     }
 }

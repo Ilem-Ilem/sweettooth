@@ -75,6 +75,11 @@
                         :current="request()->routeIs('branch-dashboard.inventory.stocks')" wire:navigate>
                         {{ __('Stock Levels') }}
                     </flux:navlist.item>
+                     <flux:navlist.item icon="cube-transparent"
+                        :href="branch_route('branch-dashboard.inventory.health-checks')"
+                        :current="request()->routeIs('branch-dashboard.inventory.health-checks')" wire:navigate>
+                        {{ __('Health Check') }}
+                    </flux:navlist.item>
                     <flux:navlist.item icon="clipboard-document-list"
                         :href="branch_route('branch-dashboard.inventory.item-requests')"
                         :current="request()->routeIs('branch-dashboard.inventory.item-requests')" wire:navigate>
@@ -154,17 +159,37 @@
                 <flux:navlist.group :heading="__('Kitchen')" expandable
                     :expanded="request()->routeIs('branch-dashboard.production.*') ? true : false" class="grid"
                     icon='cog'>
-                  
+
                     <flux:navlist.item icon="cube"
                         :href="branch_route('branch-dashboard.production.products')"
                         :current="request()->routeIs('branch-dashboard.production.products')" wire:navigate>
                         {{ __('Products') }}
                     </flux:navlist.item>
-                    {{-- <flux:navlist.item icon="clipboard-document-list"
-                        :href="branch_route('branch-dashboard.production.requests')"
-                        :current="request()->routeIs('branch-dashboard.production.requests')" wire:navigate>
+                    <flux:navlist.item icon="clipboard-document-list"
+                        :href="branch_route('branch-dashboard.production.recipes.index')"
+                        :current="request()->routeIs('branch-dashboard.production.recipes.*')" wire:navigate>
+                        {{ __('Recipes') }}
+                    </flux:navlist.item>
+                    <flux:navlist.item icon="home-modern"
+                        :href="branch_route('branch-dashboard.production.kitchen.index')"
+                        :current="request()->routeIs('branch-dashboard.production.kitchen.*')" wire:navigate>
+                        {{ __('Kitchen Dashboard') }}
+                    </flux:navlist.item>
+                    <flux:navlist.item icon="document-text"
+                        :href="branch_route('branch-dashboard.production.request.index')"
+                        :current="request()->routeIs('branch-dashboard.production.request.*')" wire:navigate>
                         {{ __('Production Requests') }}
-                    </flux:navlist.item> --}}
+                    </flux:navlist.item>
+                    <flux:navlist.item icon="chart-bar"
+                        :href="branch_route('branch-dashboard.production.daily-produce.index')"
+                        :current="request()->routeIs('branch-dashboard.production.daily-produce.*')" wire:navigate>
+                        {{ __('Daily Produce') }}
+                    </flux:navlist.item>
+                    <flux:navlist.item icon="beaker"
+                        :href="branch_route('branch-dashboard.production.raw-material-tracking')"
+                        :current="request()->routeIs('branch-dashboard.production.raw-material-tracking')" wire:navigate>
+                        {{ __('Raw Material Tracking') }}
+                    </flux:navlist.item>
                 </flux:navlist.group>
             </flux:navlist.group>
 

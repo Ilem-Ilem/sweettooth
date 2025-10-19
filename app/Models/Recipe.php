@@ -13,7 +13,6 @@ class Recipe extends Model
         'department_id',
         'product_name',
         'sku',
-        'category_id',
         'product_type',
         'cost_per_unit',
         'uom',
@@ -75,5 +74,86 @@ class Recipe extends Model
     public function rawMaterialUtilizations(): HasMany
     {
         return $this->hasMany(RawMaterialUtilization::class);
+    }
+
+    /**
+     * Calculate total ingredient cost for this recipe
+     */
+    public function calculateTotalIngredientCost(): float
+    {
+        return $this->ingredients->sum(function ($ingredient) {
+            return $ingredient->getTotalCost();
+        });
+    }
+
+    /**
+     * Calculate cost per unit of final product
+     */
+    public function calculateCostPerUnit(): float
+    {
+        $totalCost = $this->calculateTotalIngredientCost();
+        $yieldQty = (float) $this->yield_quantity;
+
+        if ($yieldQty <= 0) {
+            return 0;
+        }
+
+        return $totalCost / $yieldQty;
+    }
+
+    /**
+     * Calculate ingredients needed for a specific batch size
+     */
+    public function calculateIngredientsForBatch(int $batchSize): array
+    {
+        $ingredients = [];
+
+        foreach ($this->ingredients as $ingredient) {
+            $ingredients[] = [
+                'item_id' => $ingredient->item_id,
+                'item_name' => $ingredient->item->name ?? 'N/A',
+                'quantity' => $ingredient->getQuantityForBatchSize($batchSize),
+                'base_quantity' => (float) $ingredient->quantity,
+                'uom' => $ingredient->uom,
+                'cost_per_unit' => (float) $ingredient->cost_per_unit,
+                'total_cost' => $ingredient->getCostForBatchSize($batchSize),
+                'waste_percentage' => (float) $ingredient->waste_percentage,
+                'notes' => $ingredient->notes,
+                'preparation_notes' => $ingredient->preparation_notes,
+            ];
+        }
+
+        return $ingredients;
+    }
+
+    /**
+     * Calculate total cost for a specific batch size
+     */
+    public function calculateTotalCostForBatch(int $batchSize): float
+    {
+        return $this->ingredients->sum(function ($ingredient) use ($batchSize) {
+            return $ingredient->getCostForBatchSize($batchSize);
+        });
+    }
+
+    /**
+     * Get recipe instructions as array
+     */
+    public function getInstructionsArray(): array
+    {
+        if (empty($this->instructions)) {
+            return [];
+        }
+
+        $decoded = json_decode($this->instructions, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * Calculate final yield for a batch size
+     */
+    public function calculateYieldForBatch(int $batchSize): float
+    {
+        return (float) $this->yield_quantity * $batchSize;
     }
 }

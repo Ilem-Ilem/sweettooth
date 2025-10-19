@@ -22,6 +22,7 @@ class DailyProduce extends Model
         'closing_quantity',
         'expected_closing',
         'variance',
+        'status',
         'notes',
     ];
 
@@ -52,5 +53,374 @@ class DailyProduce extends Model
     public function productionRecords(): HasMany
     {
         return $this->hasMany(ProductionRecord::class);
+    }
+
+    /**
+     * Get net available quantity (produced minus callbacks/damaged)
+     * Formula: Produced - Callback
+     */
+    public function getNetAvailable(): float
+    {
+        return $this->produced_quantity - $this->callback_quantity;
+    }
+
+    /**
+     * Calculate expected closing quantity
+     * Formula: Opening + Net Available - Sent Out - Order
+     */
+    public function calculateExpectedClosing(): float
+    {
+        $netAvailable = $this->getNetAvailable();
+        return $this->opening_quantity +
+               $netAvailable -
+               $this->sent_out_quantity -
+               $this->order_quantity;
+    }
+
+    /**
+     * Calculate variance
+     * Formula: Closing - Expected Closing
+     */
+    public function calculateVariance(): float
+    {
+        $expectedClosing = $this->calculateExpectedClosing();
+        return $this->closing_quantity - $expectedClosing;
+    }
+
+    /**
+     * Auto-calculate and save expected closing and variance
+     */
+    public function updateCalculations(): void
+    {
+        $this->expected_closing = $this->calculateExpectedClosing();
+        $this->variance = $this->calculateVariance();
+        $this->save();
+    }
+
+    /**
+     * Get opening quantity from previous shift's closing
+     */
+    public static function getOpeningQuantityFromPreviousShift($recipeId, $branchId, $currentShiftDate, $currentShiftType): float
+    {
+        // Determine previous shift
+        $previousShift = null;
+
+        if ($currentShiftType === 'afternoon') {
+            // If current is afternoon, previous is morning of same day
+            $previousShift = static::whereHas('shift', function ($q) use ($branchId, $currentShiftDate) {
+                $q->where('branch_id', $branchId)
+                  ->where('shift_date', $currentShiftDate)
+                  ->where('shift_type', 'morning');
+            })
+            ->where('recipe_id', $recipeId)
+            ->first();
+        } else {
+            // If current is morning, previous is afternoon of previous day
+            $previousDate = \Carbon\Carbon::parse($currentShiftDate)->subDay();
+            $previousShift = static::whereHas('shift', function ($q) use ($branchId, $previousDate) {
+                $q->where('branch_id', $branchId)
+                  ->where('shift_date', $previousDate)
+                  ->where('shift_type', 'afternoon');
+            })
+            ->where('recipe_id', $recipeId)
+            ->first();
+        }
+
+        return $previousShift ? (float) $previousShift->closing_quantity : 0;
+    }
+
+    /**
+     * Auto-create DailyProduce records from ProductionRequests for a shift
+     */
+    public static function autoCreateFromProductionRequests($shift)
+    {
+        $productionRequests = \App\Models\ProductionRequest::where('shift_id', $shift->id)
+            ->with('recipe')
+            ->get();
+
+        $created = [];
+
+        foreach ($productionRequests as $request) {
+            if (!$request->recipe) {
+                continue;
+            }
+
+            // Get opening quantity from previous shift
+            $openingQty = static::getOpeningQuantityFromPreviousShift(
+                $request->recipe_id,
+                $shift->branch_id,
+                $shift->shift_date,
+                $shift->shift_type
+            );
+
+            $dailyProduce = static::firstOrCreate([
+                'shift_id' => $shift->id,
+                'recipe_id' => $request->recipe_id,
+            ], [
+                'produce_date' => $shift->shift_date,
+                'shift_type' => $shift->shift_type,
+                'opening_quantity' => $openingQty,
+                'requested_quantity' => $request->planned_production_quantity,
+                'produced_quantity' => 0,
+                'sent_out_quantity' => 0,
+                'order_quantity' => 0,
+                'callback_quantity' => 0,
+                'closing_quantity' => $openingQty, // Initially same as opening
+                'expected_closing' => $openingQty,
+                'variance' => 0,
+            ]);
+
+            $created[] = $dailyProduce;
+        }
+
+        return $created;
+    }
+
+    /**
+     * Get total produced quantity (sum of all production records)
+     */
+    public function getTotalProducedFromRecords(): float
+    {
+        return $this->productionRecords()->sum('quantity_approved');
+    }
+
+    /**
+     * Check if there's a variance issue (variance exceeds acceptable threshold)
+     */
+    public function hasVarianceIssue($threshold = 5): bool
+    {
+        return abs($this->variance) > $threshold;
+    }
+
+    /**
+     * Get variance percentage
+     */
+    public function getVariancePercentage(): float
+    {
+        if ($this->expected_closing == 0) {
+            return 0;
+        }
+
+        return ($this->variance / $this->expected_closing) * 100;
+    }
+
+    /**
+     * Get computed production status based on ItemRequest and production data
+     */
+    public function getComputedProductionStatus(): string
+    {
+        // Get the production request for this produce
+        $productionRequest = \App\Models\ProductionRequest::where('shift_id', $this->shift_id)
+            ->where('recipe_id', $this->recipe_id)
+            ->with('itemRequest.requestDetails')
+            ->first();
+
+        if (!$productionRequest || !$productionRequest->itemRequest) {
+            return 'no_request';
+        }
+
+        $itemRequest = $productionRequest->itemRequest;
+        $details = $itemRequest->requestDetails;
+
+        // Check ItemRequest status (ingredients status)
+        $allDispatched = true;
+        $anyDispatched = false;
+        $allApproved = true;
+        $anyApproved = false;
+
+        foreach ($details as $detail) {
+            $requested = (float) $detail->quantity_requested;
+            $approved = (float) $detail->quantity_approved;
+            $dispatched = (float) $detail->quantity_dispatched;
+
+            // Check approval status
+            if ($approved == 0) {
+                $allApproved = false;
+            } else {
+                $anyApproved = true;
+            }
+
+            // Check dispatch status
+            if ($approved > 0 && $dispatched < $approved) {
+                $allDispatched = false;
+            }
+            if ($dispatched > 0) {
+                $anyDispatched = true;
+            }
+        }
+
+        // Now check production progress
+        $hasProduced = $this->produced_quantity > 0;
+        $hasCompleted = $this->status === 'completed';
+        $hasClosing = $this->closing_quantity > 0 || $this->sent_out_quantity > 0;
+
+        // Determine status based on workflow
+        if ($hasCompleted) {
+            return 'completed';
+        } elseif ($hasProduced && $hasClosing) {
+            return 'production_complete'; // Produced and distributed
+        } elseif ($hasProduced) {
+            return 'producing'; // Currently producing
+        } elseif ($allDispatched && $anyDispatched) {
+            return 'ready_to_produce'; // All ingredients dispatched, ready to start
+        } elseif ($anyDispatched) {
+            return 'partially_dispatched'; // Some ingredients dispatched
+        } elseif ($allApproved && $anyApproved) {
+            return 'approved'; // All approved, waiting dispatch
+        } elseif ($anyApproved) {
+            return 'partially_approved'; // Some approved
+        }
+
+        return 'pending'; // Nothing approved yet
+    }
+
+    /**
+     * Get status badge color
+     */
+    public function getStatusBadgeColor(): string
+    {
+        $status = $this->getComputedProductionStatus();
+
+        return match($status) {
+            'completed' => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+            'production_complete' => 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
+            'producing' => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+            'ready_to_produce' => 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200',
+            'partially_dispatched' => 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
+            'approved' => 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+            'partially_approved' => 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
+            'pending' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+            'no_request' => 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+            default => 'bg-zinc-100 text-zinc-800 dark:bg-zinc-900 dark:text-zinc-200',
+        };
+    }
+
+    /**
+     * Can production start? (All ingredients must be dispatched)
+     */
+    public function canStartProduction(): bool
+    {
+        $status = $this->getComputedProductionStatus();
+        return in_array($status, ['ready_to_produce', 'producing', 'production_complete']);
+    }
+
+    /**
+     * Calculate how many products can actually be produced based on dispatched ingredients
+     * Returns: [
+     *   'producable_quantity' => X,
+     *   'requested_quantity' => Y,
+     *   'shortage' => Y - X,
+     *   'shortage_percentage' => %,
+     *   'limiting_ingredient' => 'ingredient_name',
+     *   'ingredient_analysis' => [...],
+     *   'can_produce_full_batch' => true/false
+     * ]
+     */
+    public function calculateProducableQuantity(): array
+    {
+        // Get the production request
+        $productionRequest = \App\Models\ProductionRequest::where('shift_id', $this->shift_id)
+            ->where('recipe_id', $this->recipe_id)
+            ->with([
+                'recipe.ingredients.item',
+                'itemRequest.requestDetails.item'
+            ])
+            ->first();
+
+        if (!$productionRequest || !$productionRequest->recipe) {
+            return [
+                'producable_quantity' => 0,
+                'requested_quantity' => $this->requested_quantity,
+                'shortage' => $this->requested_quantity,
+                'shortage_percentage' => 100,
+                'limiting_ingredient' => 'No recipe found',
+                'ingredient_analysis' => [],
+                'can_produce_full_batch' => false,
+            ];
+        }
+
+        $recipe = $productionRequest->recipe;
+        $requestedQty = (float) $this->requested_quantity;
+        $itemRequest = $productionRequest->itemRequest;
+
+        if (!$itemRequest) {
+            return [
+                'producable_quantity' => 0,
+                'requested_quantity' => $requestedQty,
+                'shortage' => $requestedQty,
+                'shortage_percentage' => 100,
+                'limiting_ingredient' => 'No item request',
+                'ingredient_analysis' => [],
+                'can_produce_full_batch' => false,
+            ];
+        }
+
+        $ingredientAnalysis = [];
+        $minProducable = PHP_FLOAT_MAX;
+        $limitingIngredient = null;
+
+        // Analyze each recipe ingredient
+        foreach ($recipe->ingredients as $recipeIngredient) {
+            $itemId = $recipeIngredient->item_id;
+            $qtyNeededPerProduct = (float) $recipeIngredient->quantity;
+
+            // Find matching item request detail
+            $requestDetail = $itemRequest->requestDetails->firstWhere('item_id', $itemId);
+
+            $requested = $requestDetail ? (float) $requestDetail->quantity_requested : 0;
+            $approved = $requestDetail ? (float) $requestDetail->quantity_approved : 0;
+            $dispatched = $requestDetail ? (float) $requestDetail->quantity_dispatched : 0;
+
+            // Calculate how many products can be made with this ingredient
+            $producableFromThisIngredient = 0;
+            if ($qtyNeededPerProduct > 0 && $dispatched > 0) {
+                $producableFromThisIngredient = floor($dispatched / $qtyNeededPerProduct);
+            }
+
+            $analysis = [
+                'item_name' => $recipeIngredient->item->name ?? 'Unknown',
+                'quantity_per_product' => $qtyNeededPerProduct,
+                'quantity_requested' => $requested,
+                'quantity_approved' => $approved,
+                'quantity_dispatched' => $dispatched,
+                'producable_quantity' => $producableFromThisIngredient,
+                'is_limiting' => false,
+                'shortage' => max(0, ($qtyNeededPerProduct * $requestedQty) - $dispatched),
+                'uom' => $recipeIngredient->item->uom ?? '',
+            ];
+
+            $ingredientAnalysis[] = $analysis;
+
+            // Track minimum (limiting ingredient)
+            if ($producableFromThisIngredient < $minProducable) {
+                $minProducable = $producableFromThisIngredient;
+                $limitingIngredient = $recipeIngredient->item->name ?? 'Unknown';
+            }
+        }
+
+        // If no ingredients, can't produce
+        if ($minProducable === PHP_FLOAT_MAX) {
+            $minProducable = 0;
+        }
+
+        // Mark the limiting ingredient
+        foreach ($ingredientAnalysis as &$analysis) {
+            if ($analysis['producable_quantity'] == $minProducable) {
+                $analysis['is_limiting'] = true;
+            }
+        }
+
+        $shortage = max(0, $requestedQty - $minProducable);
+        $shortagePercentage = $requestedQty > 0 ? ($shortage / $requestedQty) * 100 : 0;
+
+        return [
+            'producable_quantity' => $minProducable,
+            'requested_quantity' => $requestedQty,
+            'shortage' => $shortage,
+            'shortage_percentage' => round($shortagePercentage, 2),
+            'limiting_ingredient' => $limitingIngredient,
+            'ingredient_analysis' => $ingredientAnalysis,
+            'can_produce_full_batch' => $minProducable >= $requestedQty,
+        ];
     }
 }

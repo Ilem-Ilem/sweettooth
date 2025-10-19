@@ -6,14 +6,14 @@ use App\Models\HealthCheck;
 use App\Models\Stock;
 use Livewire\Component;
 use Livewire\WithPagination;
-use Livewire\Attributes\Layout;
+use Livewire\Attributes\{Layout,Url};
 use Illuminate\Support\Facades\Auth;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class HealthChecks extends Component
 {
     use WithPagination;
-#[Url(keep:true)]
+    #[Url(keep:true)]
     public $b_id;
     public $search = '';
     public $filterCondition = '';

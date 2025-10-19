@@ -124,9 +124,15 @@ class StockMovementAnalytics extends Component
 
         foreach ($groupedByDate as $date => $items) {
             $dates[] = \Carbon\Carbon::parse($date)->format('M d');
-            $inData[] = $items->where('type', 'in')->sum('total_quantity');
-            $outData[] = $items->where('type', 'out')->sum('total_quantity');
-            $adjustmentData[] = $items->where('type', 'adjustment')->sum('total_quantity');
+
+            // Stock In: 'in' and 'return' types
+            $inData[] = $items->whereIn('type', ['in', 'return'])->sum('total_quantity');
+
+            // Stock Out: 'out', 'transfer', 'damaged' types (use absolute values)
+            $outData[] = abs($items->whereIn('type', ['out', 'transfer', 'damaged'])->sum('total_quantity'));
+
+            // Adjustments: 'adjustment' type
+            $adjustmentData[] = abs($items->where('type', 'adjustment')->sum('total_quantity'));
         }
 
         return [
@@ -191,10 +197,10 @@ class StockMovementAnalytics extends Component
 
         return [
             'total_movements' => $movements->count(),
-            'total_in' => $movements->where('type', 'in')->sum('quantity'),
-            'total_out' => $movements->where('type', 'out')->sum('quantity'),
+            'total_in' => $movements->whereIn('type', ['in', 'return'])->sum('quantity'),
+            'total_out' => abs($movements->whereIn('type', ['out', 'transfer', 'damaged'])->sum('quantity')),
             'total_adjustments' => $movements->where('type', 'adjustment')->count(),
-            'total_damaged' => $movements->where('type', 'damaged')->sum('quantity'),
+            'total_damaged' => abs($movements->where('type', 'damaged')->sum('quantity')),
             'total_transfers' => $movements->where('type', 'transfer')->count(),
         ];
     }

@@ -4,7 +4,9 @@ namespace App\Livewire\BranchDashboard\Analytics;
 
 use App\Models\Item;
 use App\Models\Stock;
+use App\Models\StockMovement;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
@@ -19,14 +21,18 @@ class StockLevelAnalytics extends Component
     public $selectedCategory = '';
     public $selectedItem = null;
     public $searchTerm = '';
+    public $itemSearch = '';
     public $healthFilter = '';
+    public $trendData;
+    public $healthDistribution;
+    public $turnoverAnalysis;
 
     protected $queryString = [
         'dateFrom',
         'dateTo',
         'selectedCategory',
         'healthFilter',
-        'searchTerm'
+        'selectedItem'
     ];
 
     public function mount()
@@ -50,68 +56,119 @@ class StockLevelAnalytics extends Component
         $this->resetPage();
     }
 
-    public function selectItem($itemId)
+    public function updatedSelectedItem()
     {
-        $this->selectedItem = Stock::with(['item'])
-            ->where('branch_id', Auth::guard('employees')->user()->branch_id)
-            ->where('item_id', $itemId)
-            ->first();
+        $this->resetPage();
+        $this->updateChartData();
     }
 
-    public function clearItemSelection()
+    public function updatedDateFrom()
     {
-        $this->selectedItem = null;
+        $this->resetPage();
+        $this->updateChartData();
     }
 
-    public function getStockLevelChartData()
+    public function updatedDateTo()
+    {
+        $this->resetPage();
+        $this->updateChartData();
+    }
+
+    public function updateChartData()
+    {
+        $this->trendData = $this->getStockLevelTrendData();
+        $this->healthDistribution = $this->getHealthStatusDistribution();
+        $this->turnoverAnalysis = $this->getTurnoverAnalysis();
+
+        $this->dispatch('chartsUpdated', [
+            'trendData' => $this->trendData,
+            'healthDistribution' => $this->healthDistribution,
+            'turnoverAnalysis' => $this->turnoverAnalysis
+        ]);
+    }
+
+    public function getAvailableItems()
     {
         $branchId = Auth::guard('employees')->user()->branch_id;
 
-        $stocks = Stock::with('item')
+        return Stock::with('item')
             ->where('branch_id', $branchId)
-            ->when($this->selectedCategory, function ($query) {
+            ->when($this->itemSearch, function ($query) {
                 $query->whereHas('item', function ($q) {
-                    $q->where('category', $this->selectedCategory);
+                    $q->where('name', 'like', '%' . $this->itemSearch . '%')
+                      ->orWhere('sku', 'like', '%' . $this->itemSearch . '%');
                 });
             })
+            ->limit(50)
+            ->get()
+            ->map(function ($stock) {
+                return [
+                    'id' => $stock->id,
+                    'name' => $stock->item->name,
+                    'sku' => $stock->item->sku,
+                    'uom' => $stock->item->uom,
+                ];
+            });
+    }
+
+    public function getStockLevelTrendData()
+    {
+        $branchId = Auth::guard('employees')->user()->branch_id;
+
+        // Get stock movements over time to track stock level changes
+        $movements = StockMovement::with('stock.item')
+            ->whereHas('stock', function ($query) use ($branchId) {
+                $query->where('branch_id', $branchId);
+            })
+            ->when($this->selectedItem, function ($query) {
+                $query->where('stock_id', $this->selectedItem);
+            })
+            ->whereBetween('movement_date', [$this->dateFrom, $this->dateTo])
+            ->selectRaw('DATE(movement_date) as date, stock_id, quantity_after')
+            ->orderBy('date')
+            ->orderBy('movement_date')
             ->get();
 
-        $categories = [];
-        $available = [];
-        $reserved = [];
-        $damaged = [];
-        $reorderLevels = [];
+        if ($this->selectedItem) {
+            // Single item trend
+            $dates = [];
+            $levels = [];
 
-        foreach ($stocks as $stock) {
-            $categories[] = $stock->item->name;
-            $available[] = (float) $stock->quantity_available;
-            $reserved[] = (float) $stock->quantity_reserved;
-            $damaged[] = (float) $stock->quantity_damaged;
-            $reorderLevels[] = (float) $stock->item->reorder_level ?? 0;
+            foreach ($movements->groupBy('date') as $date => $dayMovements) {
+                $dates[] = \Carbon\Carbon::parse($date)->format('M d');
+                $levels[] = $dayMovements->last()->quantity_after ?? 0;
+            }
+
+            return [
+                'categories' => $dates,
+                'series' => [
+                    ['name' => 'Stock Level', 'data' => $levels],
+                ],
+            ];
+        } else {
+            // Overall stock trend (total available)
+            $dailyLevels = Stock::where('branch_id', $branchId)
+                ->selectRaw('DATE(updated_at) as date, SUM(quantity_available) as total_available')
+                ->whereBetween('updated_at', [$this->dateFrom, $this->dateTo])
+                ->groupBy('date')
+                ->orderBy('date')
+                ->get();
+
+            $dates = [];
+            $levels = [];
+
+            foreach ($dailyLevels as $day) {
+                $dates[] = \Carbon\Carbon::parse($day->date)->format('M d');
+                $levels[] = $day->total_available;
+            }
+
+            return [
+                'categories' => $dates,
+                'series' => [
+                    ['name' => 'Total Stock', 'data' => $levels],
+                ],
+            ];
         }
-
-        return [
-            'categories' => $categories,
-            'series' => [
-                [
-                    'name' => 'Available',
-                    'data' => $available,
-                ],
-                [
-                    'name' => 'Reserved',
-                    'data' => $reserved,
-                ],
-                [
-                    'name' => 'Damaged',
-                    'data' => $damaged,
-                ],
-                [
-                    'name' => 'Reorder Level',
-                    'data' => $reorderLevels,
-                    'type' => 'line',
-                ],
-            ],
-        ];
     }
 
     public function getHealthStatusDistribution()
@@ -119,28 +176,16 @@ class StockLevelAnalytics extends Component
         $branchId = Auth::guard('employees')->user()->branch_id;
 
         $distribution = Stock::where('branch_id', $branchId)
+            ->when($this->selectedItem, function ($query) {
+                $query->where('id', $this->selectedItem);
+            })
             ->selectRaw('health_status, COUNT(*) as count')
             ->groupBy('health_status')
             ->get();
 
-        $labels = [];
-        $data = [];
-        $colors = [
-            'good' => '#10B981',
-            'warning' => '#F59E0B',
-            'critical' => '#EF4444',
-            'expired' => '#6B7280',
-        ];
-
-        foreach ($distribution as $item) {
-            $labels[] = ucfirst($item->health_status);
-            $data[] = $item->count;
-        }
-
         return [
-            'labels' => $labels,
-            'series' => $data,
-            'colors' => array_values($colors),
+            'labels' => $distribution->pluck('health_status')->map(fn($type) => ucfirst($type))->toArray(),
+            'series' => $distribution->pluck('count')->toArray(),
         ];
     }
 
@@ -160,6 +205,48 @@ class StockLevelAnalytics extends Component
             'labels' => $distribution->keys()->map(fn($cat) => str_replace('_', ' ', ucfirst($cat)))->toArray(),
             'series' => $distribution->values()->toArray(),
         ];
+    }
+
+    public function getTurnoverAnalysis()
+    {
+        $branchId = Auth::guard('employees')->user()->branch_id;
+
+        // Get items with most stock movement (turnover)
+        $items = StockMovement::with(['stock.item'])
+            ->whereHas('stock', function ($query) use ($branchId) {
+                $query->where('branch_id', $branchId);
+            })
+            ->when($this->selectedItem, function ($query) {
+                $query->where('stock_id', $this->selectedItem);
+            })
+            ->whereBetween('movement_date', [$this->dateFrom, $this->dateTo])
+            ->selectRaw('stock_id, COUNT(*) as turnover_count, SUM(ABS(quantity)) as total_moved')
+            ->groupBy('stock_id')
+            ->orderByDesc('total_moved')
+            ->limit(10)
+            ->get();
+
+        return [
+            'labels' => $items->map(fn($item) => $item->stock->item->name ?? 'Unknown')->toArray(),
+            'series' => [
+                [
+                    'name' => 'Total Quantity Moved',
+                    'data' => $items->pluck('total_moved')->map(fn($val) => abs((float)$val))->toArray(),
+                ],
+            ],
+        ];
+    }
+
+    public function getTopLowStockItems()
+    {
+        $branchId = Auth::guard('employees')->user()->branch_id;
+
+        return Stock::with('item')
+            ->where('branch_id', $branchId)
+            ->whereRaw('quantity_available < COALESCE((SELECT reorder_level FROM items WHERE items.id = stocks.item_id), 0)')
+            ->orderBy('quantity_available', 'asc')
+            ->limit(10)
+            ->get();
     }
 
     public function getStockSummary()
@@ -202,19 +289,27 @@ class StockLevelAnalytics extends Component
                 $query->where('health_status', $this->healthFilter);
             })
             ->latest()
-            ->paginate(10);
+            ->paginate(15);
 
         $categories = ['raw_material', 'packaging', 'consumable', 'equipment'];
         $healthStatuses = ['good', 'warning', 'critical', 'expired'];
+
+        // Store chart data in public properties for JavaScript access
+        $this->trendData = $this->getStockLevelTrendData();
+        $this->healthDistribution = $this->getHealthStatusDistribution();
+        $this->turnoverAnalysis = $this->getTurnoverAnalysis();
 
         return view('livewire.branch-dashboard.analytics.stock-level-analytics', [
             'stocks' => $stocks,
             'categories' => $categories,
             'healthStatuses' => $healthStatuses,
+            'availableItems' => $this->getAvailableItems(),
             'summary' => $this->getStockSummary(),
-            'stockLevelChart' => $this->getStockLevelChartData(),
-            'healthDistribution' => $this->getHealthStatusDistribution(),
+            'trendData' => $this->trendData,
+            'healthDistribution' => $this->healthDistribution,
             'categoryDistribution' => $this->getCategoryDistribution(),
+            'turnoverAnalysis' => $this->turnoverAnalysis,
+            'lowStockItems' => $this->getTopLowStockItems(),
         ]);
     }
 }

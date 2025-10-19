@@ -1,141 +1,151 @@
 <div class="p-3 space-y-3">
-    <!-- Header -->
+    {{-- Header --}}
     <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
-        <h2 class="text-lg font-semibold text-zinc-800 dark:text-zinc-100">Stock Level Analytics</h2>
-    </div>
+        <h2 class="text-lg font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Stock Level Analytics</h2>
 
-    <!-- Summary Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg shadow-sm p-4">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">Total Items</p>
-                    <p class="text-2xl font-bold text-blue-600 dark:text-blue-500">{{ number_format($summary['total_items']) }}</p>
+        {{-- Summary Cards --}}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg shadow-sm p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Total Items</p>
+                        <p class="text-2xl font-bold text-blue-600 dark:text-blue-500">{{ number_format($summary['total_items']) }}</p>
+                    </div>
+                    <svg class="w-12 h-12 text-blue-500 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                    </svg>
                 </div>
-                <svg class="w-12 h-12 text-blue-500 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-                </svg>
+            </div>
+
+            <div class="bg-green-50 dark:bg-green-900/20 rounded-lg shadow-sm p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Available Stock</p>
+                        <p class="text-2xl font-bold text-green-600 dark:text-green-500">{{ number_format($summary['total_available'], 2) }}</p>
+                    </div>
+                    <svg class="w-12 h-12 text-green-500 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+            </div>
+
+            <div class="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg shadow-sm p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Low Stock Items</p>
+                        <p class="text-2xl font-bold text-yellow-600 dark:text-yellow-500">{{ number_format($summary['low_stock_count']) }}</p>
+                    </div>
+                    <svg class="w-12 h-12 text-yellow-500 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                </div>
+            </div>
+
+            <div class="bg-red-50 dark:bg-red-900/20 rounded-lg shadow-sm p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Critical/Expired</p>
+                        <p class="text-2xl font-bold text-red-600 dark:text-red-500">{{ number_format($summary['critical_items'] + $summary['expired_items']) }}</p>
+                    </div>
+                    <svg class="w-12 h-12 text-red-500 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
             </div>
         </div>
 
-        <div class="bg-green-50 dark:bg-green-900/20 rounded-lg shadow-sm p-4">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">Available Stock</p>
-                    <p class="text-2xl font-bold text-green-600 dark:text-green-500">{{ number_format($summary['total_available'], 2) }}</p>
-                </div>
-                <svg class="w-12 h-12 text-green-500 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-            </div>
-        </div>
-
-        <div class="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg shadow-sm p-4">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">Low Stock Items</p>
-                    <p class="text-2xl font-bold text-yellow-600 dark:text-yellow-500">{{ number_format($summary['low_stock_count']) }}</p>
-                </div>
-                <svg class="w-12 h-12 text-yellow-500 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                </svg>
-            </div>
-        </div>
-
-        <div class="bg-red-50 dark:bg-red-900/20 rounded-lg shadow-sm p-4">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">Critical/Expired</p>
-                    <p class="text-2xl font-bold text-red-600 dark:text-red-500">{{ number_format($summary['critical_items'] + $summary['expired_items']) }}</p>
-                </div>
-                <svg class="w-12 h-12 text-red-500 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-            </div>
-        </div>
-    </div>
-
-    <!-- Filters -->
-    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
+        {{-- Filters --}}
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <input type="text" wire:model.live="searchTerm" placeholder="Search by name or SKU..."
-                   class="border border-zinc-300 dark:border-zinc-600 rounded-lg px-4 py-2 bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <div>
+                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Select Item</label>
+                <x-select.styled
+                    wire:model.live="selectedItem"
+                    :options="$availableItems"
+                    select="label:name|value:id"
+                    searchable
+                    placeholder="Search items..."
+                />
+            </div>
 
-            <select wire:model.live="selectedCategory"
-                    class="border border-zinc-300 dark:border-zinc-600 rounded-lg px-4 py-2 bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="">All Categories</option>
-                @foreach($categories as $category)
-                    <option value="{{ $category }}">{{ str_replace('_', ' ', ucfirst($category)) }}</option>
-                @endforeach
-            </select>
+            <div>
+                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Category</label>
+                <select wire:model.live="selectedCategory"
+                    class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                    <option value="">All Categories</option>
+                    @foreach($categories as $category)
+                        <option value="{{ $category }}">{{ str_replace('_', ' ', ucfirst($category)) }}</option>
+                    @endforeach
+                </select>
+            </div>
 
-            <select wire:model.live="healthFilter"
-                    class="border border-zinc-300 dark:border-zinc-600 rounded-lg px-4 py-2 bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="">All Status</option>
-                @foreach($healthStatuses as $status)
-                    <option value="{{ $status }}">{{ ucfirst($status) }}</option>
-                @endforeach
-            </select>
-
-            <div class="flex gap-2">
+            <div>
+                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">From</label>
                 <input type="date" wire:model.live="dateFrom"
-                       class="border border-zinc-300 dark:border-zinc-600 rounded-lg px-4 py-2 bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1">
+                    class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">To</label>
                 <input type="date" wire:model.live="dateTo"
-                       class="border border-zinc-300 dark:border-zinc-600 rounded-lg px-4 py-2 bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1">
+                    class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
             </div>
         </div>
     </div>
 
-    <!-- Charts Row 1 -->
+    {{-- Charts Row 1 --}}
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <!-- Stock Levels Chart -->
+        {{-- Stock Level Trend --}}
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
-            <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Stock Levels Overview</h3>
-            <div id="stockLevelChart" class="h-80"></div>
+            <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Stock Level Trend</h3>
+            <div id="stockLevelTrendChart" class="h-80" wire:ignore></div>
         </div>
 
-        <!-- Health Status Distribution -->
+        {{-- Health Status Distribution --}}
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
             <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Health Status Distribution</h3>
-            <div id="healthDistributionChart" class="h-80"></div>
+            <div id="healthDistributionChart" class="h-80" wire:ignore></div>
         </div>
     </div>
 
-    <!-- Charts Row 2 -->
+    {{-- Charts Row 2 --}}
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <!-- Category Distribution -->
+        {{-- Low Stock Items --}}
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
-            <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Category Distribution</h3>
-            <div id="categoryDistributionChart" class="h-80"></div>
-        </div>
-
-        <!-- Reserved vs Damaged -->
-        <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
-            <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Stock Status Breakdown</h3>
-            <div class="space-y-4">
-                <div>
-                    <div class="flex justify-between mb-2">
-                        <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">Reserved</span>
-                        <span class="text-sm text-gray-600 dark:text-gray-400">{{ number_format($summary['total_reserved'], 2) }}</span>
+            <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Top 10 Low Stock Items</h3>
+            <div class="space-y-3">
+                @forelse($lowStockItems as $item)
+                    <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-zinc-700/50 rounded">
+                        <div>
+                            <p class="font-medium text-zinc-900 dark:text-zinc-100">{{ $item->item->name }}</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">{{ $item->item->sku }}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold text-red-600 dark:text-red-400">{{ number_format($item->quantity_available, 2) }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">{{ $item->item->uom }}</p>
+                        </div>
                     </div>
-                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-                        <div class="bg-blue-600 h-2.5 rounded-full" style="width: {{ $summary['total_available'] > 0 ? ($summary['total_reserved'] / $summary['total_available'] * 100) : 0 }}%"></div>
+                @empty
+                    <div class="text-center py-4 text-gray-500 dark:text-gray-400">
+                        No low stock items
                     </div>
-                </div>
-                <div>
-                    <div class="flex justify-between mb-2">
-                        <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">Damaged</span>
-                        <span class="text-sm text-gray-600 dark:text-gray-400">{{ number_format($summary['total_damaged'], 2) }}</span>
-                    </div>
-                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-                        <div class="bg-red-600 h-2.5 rounded-full" style="width: {{ $summary['total_available'] > 0 ? ($summary['total_damaged'] / $summary['total_available'] * 100) : 0 }}%"></div>
-                    </div>
-                </div>
+                @endforelse
             </div>
         </div>
+
+        {{-- Stock Turnover Analysis --}}
+        <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
+            <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Stock Turnover Analysis</h3>
+            <div id="turnoverChart" class="h-80" wire:ignore></div>
+        </div>
     </div>
 
-    <!-- Stock Items Table -->
+    {{-- Category Distribution --}}
+    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
+        <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Category Distribution</h3>
+        <div id="categoryDistributionChart" class="h-80" wire:ignore></div>
+    </div>
+
+    {{-- Stock Items Table --}}
     <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
         <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Stock Items Details</h3>
         <div class="overflow-x-auto" wire:loading.class="opacity-50">
@@ -149,7 +159,6 @@
                         <th class="px-4 py-3">Damaged</th>
                         <th class="px-4 py-3">Reorder Level</th>
                         <th class="px-4 py-3">Health Status</th>
-                        <th class="px-4 py-3">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
@@ -194,16 +203,10 @@
                                     {{ ucfirst($stock->health_status) }}
                                 </span>
                             </td>
-                            <td class="px-4 py-3">
-                                <button wire:click="selectItem({{ $stock->item_id }})"
-                                        class="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300">
-                                    View Details
-                                </button>
-                            </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                            <td colspan="7" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                                 No stock items found
                             </td>
                         </tr>
@@ -217,180 +220,405 @@
         </div>
     </div>
 
-    <!-- Item Details Modal -->
-    @if($selectedItem)
-        <div class="fixed inset-0 z-50 overflow-y-auto" wire:click="clearItemSelection">
-            <div class="flex items-center justify-center min-h-screen px-4">
-                <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity"></div>
+    {{-- Scripts and Styles within single root div --}}
+    <div wire:ignore>
+<script src="https://code.highcharts.com/highcharts.js"></script>
+<script src="https://code.highcharts.com/modules/exporting.js"></script>
+<script src="https://code.highcharts.com/modules/export-data.js"></script>
+<script src="https://code.highcharts.com/modules/accessibility.js"></script>
 
-                <div class="relative bg-white dark:bg-zinc-800 rounded-lg max-w-2xl w-full p-6 border border-zinc-200 dark:border-zinc-700" wire:click.stop>
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Item Details</h3>
-                        <button wire:click="clearItemSelection" class="text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400">
-                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                            </svg>
-                        </button>
-                    </div>
+<script>
+    let trendChart, healthChart, turnoverChart, categoryChart;
+    let chartData = {
+        trendData: @js($trendData),
+        healthDistribution: @js($healthDistribution),
+        turnoverAnalysis: @js($turnoverAnalysis),
+        categoryDistribution: @js($categoryDistribution)
+    };
 
-                    <div class="space-y-4">
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <p class="text-sm text-gray-600 dark:text-gray-400">Item Name</p>
-                                <p class="font-medium text-zinc-900 dark:text-zinc-100">{{ $selectedItem->item->name }}</p>
-                            </div>
-                            <div>
-                                <p class="text-sm text-gray-600 dark:text-gray-400">SKU</p>
-                                <p class="font-medium text-zinc-900 dark:text-zinc-100">{{ $selectedItem->item->sku }}</p>
-                            </div>
-                            <div>
-                                <p class="text-sm text-gray-600 dark:text-gray-400">Category</p>
-                                <p class="font-medium text-zinc-900 dark:text-zinc-100">{{ str_replace('_', ' ', ucfirst($selectedItem->item->category)) }}</p>
-                            </div>
-                            <div>
-                                <p class="text-sm text-gray-600 dark:text-gray-400">Unit of Measure</p>
-                                <p class="font-medium text-zinc-900 dark:text-zinc-100">{{ strtoupper($selectedItem->item->uom) }}</p>
-                            </div>
-                            <div>
-                                <p class="text-sm text-gray-600 dark:text-gray-400">Available Quantity</p>
-                                <p class="font-medium text-green-600 dark:text-green-400">{{ number_format($selectedItem->quantity_available, 2) }}</p>
-                            </div>
-                            <div>
-                                <p class="text-sm text-gray-600 dark:text-gray-400">Reserved Quantity</p>
-                                <p class="font-medium text-blue-600 dark:text-blue-400">{{ number_format($selectedItem->quantity_reserved, 2) }}</p>
-                            </div>
-                            <div>
-                                <p class="text-sm text-gray-600 dark:text-gray-400">Damaged Quantity</p>
-                                <p class="font-medium text-red-600 dark:text-red-400">{{ number_format($selectedItem->quantity_damaged, 2) }}</p>
-                            </div>
-                            <div>
-                                <p class="text-sm text-gray-600 dark:text-gray-400">Average Cost</p>
-                                <p class="font-medium text-zinc-900 dark:text-zinc-100">₦{{ number_format($selectedItem->average_cost, 2) }}</p>
-                            </div>
-                            <div>
-                                <p class="text-sm text-gray-600 dark:text-gray-400">Health Status</p>
-                                @php
-                                    $badgeColors = match($selectedItem->health_status) {
-                                        'good' => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-                                        'warning' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-                                        'critical' => 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-                                        'expired' => 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
-                                        default => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                                    };
-                                @endphp
-                                <span class="px-2 py-1 text-xs font-semibold rounded {{ $badgeColors }}">
-                                    {{ ucfirst($selectedItem->health_status) }}
-                                </span>
-                            </div>
-                            <div>
-                                <p class="text-sm text-gray-600 dark:text-gray-400">Last Stock Take</p>
-                                <p class="font-medium text-zinc-900 dark:text-zinc-100">{{ $selectedItem->last_stock_take_date ? \Carbon\Carbon::parse($selectedItem->last_stock_take_date)->format('M d, Y') : 'Never' }}</p>
-                            </div>
-                        </div>
-                    </div>
+    document.addEventListener('livewire:navigated', function () {
+        initCharts();
+    });
 
-                    <div class="mt-6 flex justify-end">
-                        <button wire:click="clearItemSelection"
-                                class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
-                            Close
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    @endif
+    // Listen for chart update events from Livewire
+    document.addEventListener('livewire:init', () => {
+        Livewire.on('chartsUpdated', (event) => {
+            const data = event[0];
+            chartData.trendData = data.trendData;
+            chartData.healthDistribution = data.healthDistribution;
+            chartData.turnoverAnalysis = data.turnoverAnalysis;
+            updateCharts();
+        });
+    });
 
-    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-    <script>
-        document.addEventListener('livewire:navigated', function () {
-            initCharts();
+    function initCharts() {
+        // Destroy existing charts if they exist
+        if (trendChart) trendChart.destroy();
+        if (healthChart) healthChart.destroy();
+        if (turnoverChart) turnoverChart.destroy();
+        if (categoryChart) categoryChart.destroy();
+
+        const themeColors = getThemeColors();
+
+        // Stock Level Trend Chart - Area/Spline Chart with Gradient
+        trendChart = Highcharts.chart('stockLevelTrendChart', {
+            chart: {
+                type: 'areaspline',
+                height: 320,
+                backgroundColor: 'transparent'
+            },
+            title: {
+                text: null
+            },
+            credits: {
+                enabled: false
+            },
+            xAxis: {
+                categories: chartData.trendData.categories,
+                title: {
+                    text: 'Date',
+                    style: {
+                        color: themeColors.textColor
+                    }
+                },
+                labels: {
+                    style: {
+                        color: themeColors.textColor
+                    }
+                },
+                gridLineColor: themeColors.gridColor,
+                gridLineWidth: 1,
+                gridLineDashStyle: 'Dot'
+            },
+            yAxis: {
+                title: {
+                    text: 'Stock Level',
+                    style: {
+                        color: themeColors.textColor
+                    }
+                },
+                labels: {
+                    style: {
+                        color: themeColors.textColor
+                    }
+                },
+                gridLineColor: themeColors.gridColor,
+                min: 0
+            },
+            tooltip: {
+                shared: true,
+                crosshairs: true,
+                valueDecimals: 2,
+                backgroundColor: themeColors.backgroundColor,
+                borderWidth: 1,
+                borderRadius: 8,
+                shadow: true,
+                style: {
+                    color: themeColors.textColor
+                }
+            },
+            plotOptions: {
+                areaspline: {
+                    fillOpacity: 0.3,
+                    marker: {
+                        enabled: true,
+                        radius: 5,
+                        lineWidth: 2,
+                        lineColor: '#ffffff'
+                    },
+                    lineWidth: 3
+                }
+            },
+            series: chartData.trendData.series.map((serie, index) => ({
+                name: serie.name,
+                data: serie.data,
+                color: index === 0 ? '#3B82F6' : '#10B981',
+                fillColor: {
+                    linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+                    stops: [
+                        [0, index === 0 ? 'rgba(59, 130, 246, 0.5)' : 'rgba(16, 185, 129, 0.5)'],
+                        [1, index === 0 ? 'rgba(59, 130, 246, 0.05)' : 'rgba(16, 185, 129, 0.05)']
+                    ]
+                }
+            })),
+            legend: {
+                align: 'center',
+                verticalAlign: 'top',
+                floating: false,
+                backgroundColor: themeColors.backgroundColor,
+                borderWidth: 1,
+                borderColor: themeColors.gridColor,
+                borderRadius: 5,
+                itemStyle: {
+                    color: themeColors.textColor
+                },
+                itemHoverStyle: {
+                    color: themeColors.textColor
+                }
+            },
+            exporting: {
+                enabled: true,
+                buttons: {
+                    contextButton: {
+                        menuItems: ['viewFullscreen', 'separator', 'downloadPNG', 'downloadJPEG', 'downloadPDF', 'downloadSVG', 'separator', 'downloadCSV', 'downloadXLS']
+                    }
+                }
+            }
         });
 
-        function initCharts() {
-            // Stock Level Chart
-            const stockLevelOptions = {
-                series: @js($stockLevelChart['series']),
-                chart: {
-                    type: 'bar',
-                    height: 320,
-                    stacked: false,
-                    toolbar: {
-                        show: true
-                    }
-                },
-                plotOptions: {
-                    bar: {
-                        horizontal: false,
-                        columnWidth: '55%',
-                    }
-                },
-                dataLabels: {
-                    enabled: false
-                },
-                stroke: {
-                    show: true,
-                    width: 2,
-                    colors: ['transparent']
-                },
-                xaxis: {
-                    categories: @js($stockLevelChart['categories']),
-                    labels: {
-                        rotate: -45,
-                        rotateAlways: true,
-                    }
-                },
-                yaxis: {
-                    title: {
-                        text: 'Quantity'
-                    }
-                },
-                fill: {
-                    opacity: 1
-                },
-                colors: ['#10B981', '#3B82F6', '#EF4444', '#F59E0B'],
-                legend: {
-                    position: 'top'
-                }
-            };
-            new ApexCharts(document.querySelector("#stockLevelChart"), stockLevelOptions).render();
+        // Health Status Distribution Chart - Pie Chart
+        const healthData = chartData.healthDistribution.labels.map((label, index) => ({
+            name: label,
+            y: chartData.healthDistribution.series[index]
+        }));
 
-            // Health Distribution Chart
-            const healthDistributionOptions = {
-                series: @js($healthDistribution['series']),
-                chart: {
-                    type: 'donut',
-                    height: 320
+        healthChart = Highcharts.chart('healthDistributionChart', {
+            chart: {
+                type: 'pie',
+                height: 320,
+                backgroundColor: 'transparent'
+            },
+            title: {
+                text: null
+            },
+            credits: {
+                enabled: false
+            },
+            tooltip: {
+                pointFormat: '<b>{point.y}</b> items ({point.percentage:.1f}%)',
+                backgroundColor: themeColors.backgroundColor,
+                borderWidth: 1,
+                style: {
+                    color: themeColors.textColor
+                }
+            },
+            plotOptions: {
+                pie: {
+                    allowPointSelect: true,
+                    cursor: 'pointer',
+                    dataLabels: {
+                        enabled: true,
+                        format: '<b>{point.name}</b>: {point.percentage:.1f} %',
+                        style: {
+                            fontSize: '11px',
+                            color: themeColors.textColor
+                        }
+                    },
+                    showInLegend: true
+                }
+            },
+            series: [{
+                name: 'Health Status',
+                colorByPoint: true,
+                data: healthData
+            }],
+            colors: ['#10B981', '#F59E0B', '#EF4444', '#6B7280'],
+            legend: {
+                align: 'center',
+                verticalAlign: 'bottom',
+                layout: 'horizontal',
+                itemStyle: {
+                    color: themeColors.textColor
                 },
-                labels: @js($healthDistribution['labels']),
-                colors: @js($healthDistribution['colors']),
-                legend: {
-                    position: 'bottom'
-                },
-                dataLabels: {
-                    enabled: true,
-                    formatter: function (val, opts) {
-                        return opts.w.config.series[opts.seriesIndex]
+                itemHoverStyle: {
+                    color: themeColors.textColor
+                }
+            },
+            exporting: {
+                enabled: true,
+                buttons: {
+                    contextButton: {
+                        menuItems: ['viewFullscreen', 'separator', 'downloadPNG', 'downloadJPEG', 'downloadPDF', 'downloadSVG', 'separator', 'downloadCSV', 'downloadXLS']
                     }
                 }
-            };
-            new ApexCharts(document.querySelector("#healthDistributionChart"), healthDistributionOptions).render();
+            }
+        });
 
-            // Category Distribution Chart
-            const categoryDistributionOptions = {
-                series: @js($categoryDistribution['series']),
-                chart: {
-                    type: 'pie',
-                    height: 320
+        // Turnover Analysis Chart - Horizontal Bar Chart
+        turnoverChart = Highcharts.chart('turnoverChart', {
+            chart: {
+                type: 'bar',
+                height: 320,
+                backgroundColor: 'transparent'
+            },
+            title: {
+                text: null
+            },
+            credits: {
+                enabled: false
+            },
+            xAxis: {
+                categories: chartData.turnoverAnalysis.labels,
+                title: {
+                    text: null
                 },
-                labels: @js($categoryDistribution['labels']),
-                legend: {
-                    position: 'bottom'
+                labels: {
+                    style: {
+                        color: themeColors.textColor
+                    }
                 },
-                colors: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444']
-            };
-            new ApexCharts(document.querySelector("#categoryDistributionChart"), categoryDistributionOptions).render();
+                gridLineColor: themeColors.gridColor
+            },
+            yAxis: {
+                min: 0,
+                title: {
+                    text: 'Total Quantity Moved',
+                    align: 'high',
+                    style: {
+                        color: themeColors.textColor
+                    }
+                },
+                labels: {
+                    style: {
+                        color: themeColors.textColor
+                    }
+                },
+                gridLineColor: themeColors.gridColor
+            },
+            tooltip: {
+                valueSuffix: ' units',
+                backgroundColor: themeColors.backgroundColor,
+                borderWidth: 1,
+                style: {
+                    color: themeColors.textColor
+                }
+            },
+            plotOptions: {
+                bar: {
+                    dataLabels: {
+                        enabled: true,
+                        style: {
+                            color: themeColors.textColor
+                        }
+                    },
+                    colorByPoint: true
+                }
+            },
+            series: [{
+                name: 'Total Quantity Moved',
+                data: chartData.turnoverAnalysis.series[0].data,
+                showInLegend: false
+            }],
+            colors: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6', '#F97316', '#84CC16'],
+            exporting: {
+                enabled: true,
+                buttons: {
+                    contextButton: {
+                        menuItems: ['viewFullscreen', 'separator', 'downloadPNG', 'downloadJPEG', 'downloadPDF', 'downloadSVG', 'separator', 'downloadCSV', 'downloadXLS']
+                    }
+                }
+            }
+        });
+
+        // Category Distribution Chart - Pie Chart
+        const categoryData = chartData.categoryDistribution.labels.map((label, index) => ({
+            name: label,
+            y: chartData.categoryDistribution.series[index]
+        }));
+
+        categoryChart = Highcharts.chart('categoryDistributionChart', {
+            chart: {
+                type: 'pie',
+                height: 320,
+                backgroundColor: 'transparent'
+            },
+            title: {
+                text: null
+            },
+            credits: {
+                enabled: false
+            },
+            tooltip: {
+                pointFormat: '<b>{point.y}</b> items ({point.percentage:.1f}%)',
+                backgroundColor: themeColors.backgroundColor,
+                borderWidth: 1,
+                style: {
+                    color: themeColors.textColor
+                }
+            },
+            plotOptions: {
+                pie: {
+                    allowPointSelect: true,
+                    cursor: 'pointer',
+                    dataLabels: {
+                        enabled: true,
+                        format: '<b>{point.name}</b>: {point.percentage:.1f} %',
+                        style: {
+                            fontSize: '11px',
+                            color: themeColors.textColor
+                        }
+                    },
+                    showInLegend: true
+                }
+            },
+            series: [{
+                name: 'Categories',
+                colorByPoint: true,
+                data: categoryData
+            }],
+            colors: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'],
+            legend: {
+                align: 'center',
+                verticalAlign: 'bottom',
+                layout: 'horizontal',
+                itemStyle: {
+                    color: themeColors.textColor
+                },
+                itemHoverStyle: {
+                    color: themeColors.textColor
+                }
+            },
+            exporting: {
+                enabled: true,
+                buttons: {
+                    contextButton: {
+                        menuItems: ['viewFullscreen', 'separator', 'downloadPNG', 'downloadJPEG', 'downloadPDF', 'downloadSVG', 'separator', 'downloadCSV', 'downloadXLS']
+                    }
+                }
+            }
+        });
+    }
+
+    function updateCharts() {
+        // Update Trend Chart
+        if (trendChart && chartData.trendData) {
+            chartData.trendData.series.forEach((serie, index) => {
+                if (trendChart.series[index]) {
+                    trendChart.series[index].setData(serie.data, false);
+                }
+            });
+            trendChart.xAxis[0].setCategories(chartData.trendData.categories, false);
+            trendChart.redraw();
         }
 
-        initCharts();
-    </script>
+        // Update Health Chart
+        if (healthChart && chartData.healthDistribution) {
+            const healthData = chartData.healthDistribution.labels.map((label, index) => ({
+                name: label,
+                y: chartData.healthDistribution.series[index]
+            }));
+            healthChart.series[0].setData(healthData, true);
+        }
+
+        // Update Turnover Chart
+        if (turnoverChart && chartData.turnoverAnalysis) {
+            turnoverChart.series[0].setData(chartData.turnoverAnalysis.series[0].data, false);
+            turnoverChart.xAxis[0].setCategories(chartData.turnoverAnalysis.labels, false);
+            turnoverChart.redraw();
+        }
+    }
+
+    // Detect theme and return appropriate colors
+    function getThemeColors() {
+        const isDark = document.documentElement.classList.contains('dark');
+        return {
+            textColor: isDark ? '#e4e4e7' : '#27272a',
+            gridColor: isDark ? '#3f3f46' : '#e4e4e7',
+            backgroundColor: isDark ? '#27272a' : '#ffffff'
+        };
+    }
+
+    initCharts();
+</script>
+    </div>
 </div>
