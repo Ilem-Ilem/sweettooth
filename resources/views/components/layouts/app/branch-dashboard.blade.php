@@ -75,7 +75,7 @@
                         :current="request()->routeIs('branch-dashboard.inventory.stocks')" wire:navigate>
                         {{ __('Stock Levels') }}
                     </flux:navlist.item>
-                     <flux:navlist.item icon="cube-transparent"
+                    <flux:navlist.item icon="cube-transparent"
                         :href="branch_route('branch-dashboard.inventory.health-checks')"
                         :current="request()->routeIs('branch-dashboard.inventory.health-checks')" wire:navigate>
                         {{ __('Health Check') }}
@@ -151,17 +151,15 @@
 
 
             <flux:navlist.group :heading="__('Production')">
-                  <flux:navlist.item icon="tag"
-                        :href="branch_route('branch-dashboard.production.product-types')"
-                        :current="request()->routeIs('branch-dashboard.production.product-types')" wire:navigate>
-                        {{ __('Product Types') }}
-                    </flux:navlist.item>
+                <flux:navlist.item icon="tag" :href="branch_route('branch-dashboard.production.product-types')"
+                    :current="request()->routeIs('branch-dashboard.production.product-types')" wire:navigate>
+                    {{ __('Product Types') }}
+                </flux:navlist.item>
                 <flux:navlist.group :heading="__('Kitchen')" expandable
                     :expanded="request()->routeIs('branch-dashboard.production.*') ? true : false" class="grid"
                     icon='cog'>
 
-                    <flux:navlist.item icon="cube"
-                        :href="branch_route('branch-dashboard.production.products')"
+                    <flux:navlist.item icon="cube" :href="branch_route('branch-dashboard.production.products')"
                         :current="request()->routeIs('branch-dashboard.production.products')" wire:navigate>
                         {{ __('Products') }}
                     </flux:navlist.item>
@@ -177,7 +175,8 @@
                     </flux:navlist.item>
                     <flux:navlist.item icon="eye"
                         :href="branch_route('branch-dashboard.production.kitchen.stock-monitor')"
-                        :current="request()->routeIs('branch-dashboard.production.kitchen.stock-monitor')" wire:navigate>
+                        :current="request()->routeIs('branch-dashboard.production.kitchen.stock-monitor')"
+                        wire:navigate>
                         {{ __('Production Monitor') }}
                     </flux:navlist.item>
                     <flux:navlist.item icon="document-text"
@@ -192,7 +191,8 @@
                     </flux:navlist.item>
                     <flux:navlist.item icon="beaker"
                         :href="branch_route('branch-dashboard.production.raw-material-tracking')"
-                        :current="request()->routeIs('branch-dashboard.production.raw-material-tracking')" wire:navigate>
+                        :current="request()->routeIs('branch-dashboard.production.raw-material-tracking')"
+                        wire:navigate>
                         {{ __('Raw Material Tracking') }}
                     </flux:navlist.item>
                 </flux:navlist.group>
@@ -205,11 +205,22 @@
                     {{ __('Stock Opening') }}
                 </flux:navlist.item>
 
-                  <flux:navlist.item icon="clipboard-document-check"
+                <flux:navlist.item icon="clipboard-document-check"
                     :href="branch_route('branch-dashboard.sales-dashboard.stock-monitor')"
                     :current="request()->routeIs('branch-dashboard.sales-dashboard.stock-monitor')" wire:navigate>
-                Monitor Product Stock
+                    Monitor Product Stock
                 </flux:navlist.item>
+
+                <flux:navlist.group :heading="__('POS System')" class="grid" expandable>
+                    <flux:navlist.item icon="clipboard-document-check"
+                        :href="branch_route('branch-dashboard.sales-dashboard.pos.index')"
+                        :current="request()->routeIs('branch-dashboard.sales-dashboard.pos.*')"
+                        wire:navigate>
+                        {{ __('POS') }}
+                    </flux:navlist.item>
+
+
+                </flux:navlist.group>
             </flux:navlist.group>
 
         </flux:navlist>
@@ -313,8 +324,8 @@
 
         <!-- Navbar Left -->
         <flux:navbar class="-mb-px max-lg:hidden">
-            <flux:navbar.item icon="layout-grid" :href="route('dashboard')" :current="request()->routeIs('dashboard')"
-                wire:navigate>
+            <flux:navbar.item icon="layout-grid" :href="route('dashboard')"
+                :current="request()->routeIs('dashboard')" wire:navigate>
                 {{ __('Dashboard') }}
             </flux:navbar.item>
         </flux:navbar>
@@ -327,15 +338,11 @@
             @livewire('branch-dashboard.header-clock-in-out', ['b_id' => request()->query('b_id')])
 
             <!-- Digital Clock -->
-            <div x-data="{ currentTime: '' }"
-                 x-init="
-                    setInterval(() => {
-                        const now = new Date();
-                        currentTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                    }, 1000);
-                 "
-                 class="font-mono text-base md:text-lg tracking-widest"
-                 x-text="currentTime">
+            <div x-data="{ currentTime: '' }" x-init="setInterval(() => {
+                const now = new Date();
+                currentTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            }, 1000);"
+                class="font-mono text-base md:text-lg tracking-widest" x-text="currentTime">
             </div>
         </div>
 

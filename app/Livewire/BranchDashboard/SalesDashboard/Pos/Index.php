@@ -9,6 +9,7 @@ use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\Receipt;
 use App\Models\SalesShift;
+use App\Models\Shift;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -42,6 +43,7 @@ class Index extends BaseComponent
 
     public function mount(): void
     {
+        // dd( auth("employees")->id());
         $this->mountBase();
         $this->payments = [['method' => 'cash', 'amount' => 0.0]];
         $this->recalculateTotals();
@@ -51,7 +53,7 @@ class Index extends BaseComponent
 
     protected function loadActiveShift(): void
     {
-        $shift = SalesShift::where('employee_id', auth()->id())
+        $shift = Shift::where('employee_id', auth("employees")->id())
             ->where('status', 'active')
             ->whereDate('shift_date', Carbon::today())
             ->first();
@@ -59,10 +61,13 @@ class Index extends BaseComponent
         $this->activeShiftId = $shift?->id;
     }
 
+
     #[Computed]
     public function activeShift()
     {
-        return $this->activeShiftId ? SalesShift::find($this->activeShiftId) : null;
+        // return $this->activeShiftId ? SalesShift::find($this->activeShiftId) : null;
+
+        return $this->activeShiftId ? Shift::find($this->activeShiftId) : null;
     }
 
     public function hasActiveShift(): bool
@@ -239,7 +244,7 @@ class Index extends BaseComponent
                 'sales_shift_id' => $this->activeShiftId,
                 'branch_id' => null,
                 'department_id' => null,
-                'sold_by' => auth()->id(),
+                'sold_by' => auth("employees")->id(),
                 'sale_number' => 'POS-' . Carbon::now()->format('Ymd-His'),
                 'sale_time' => Carbon::now(),
                 'subtotal' => $this->subtotal,
@@ -332,7 +337,7 @@ class Index extends BaseComponent
             'sales_shift_id' => $this->activeShiftId,
             'branch_id' => null,
             'department_id' => null,
-            'sold_by' => auth()->id(),
+            'sold_by' => auth("employees")->id(),
             'sale_number' => 'HOLD-' . Carbon::now()->format('Ymd-His'),
             'sale_time' => Carbon::now(),
             'subtotal' => $this->subtotal,

@@ -25,10 +25,10 @@
                         <div class="text-sm text-red-700 dark:text-red-300">Please start a shift to begin making sales</div>
                     </div>
                 </div>
-                <a href="{{ route('branch-dashboard.sales-dashboard.shift-management.index', ['b_id' => request('b_id')]) }}" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-500 font-medium shadow-sm">
+                {{-- <a href="{{ route('branch-dashboard.sales-dashboard.shift-management.index', ['b_id' => request('b_id')]) }}" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-500 font-medium shadow-sm">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clip-rule="evenodd"/></svg>
                     Start Shift
-                </a>
+                </a> --}}
             </div>
         </div>
     @else
@@ -365,21 +365,7 @@
         </div>
     </div>
 
-    <!-- Kitchen Request Modal -->
-    <div x-show="showKitchenModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center">
-        <div class="absolute inset-0 bg-black/40" @click="showKitchenModal = false"></div>
-        <div class="relative w-full max-w-lg mx-auto rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-lg p-4">
-            <div class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Request from Kitchen</div>
-            <div class="mt-2 text-sm text-zinc-700 dark:text-zinc-300">
-                <p>This is a placeholder modal to request products from the kitchen.</p>
-                <p>Integrate with Production Requests to send a request with items and quantities.</p>
-            </div>
-            <div class="mt-4 flex items-center justify-end gap-2">
-                <button type="button" @click="showKitchenModal = false" class="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-700">Close</button>
-                <button type="button" disabled class="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-zinc-300 text-white cursor-not-allowed">Send Request</button>
-            </div>
-        </div>
-    </div>
+   <livewire:branch-dashboard.componets.pos.request-model>
 
     <!-- Receipt Print Modal -->
     <div x-show="showReceipt" x-cloak class="fixed inset-0 z-50 flex items-center justify-center" @pos-receipt-ready.window="showReceipt = true">
