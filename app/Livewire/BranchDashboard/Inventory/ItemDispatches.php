@@ -113,10 +113,14 @@ class ItemDispatches extends Component
             $remainingToDispatch = $detail->quantity_approved - $detail->quantity_dispatched;
 
             // Get current stock level
-            $stock = Stock::where('branch_id', $branchId)
-                ->where('item_id', $detail->item_id)
-                ->first();
-            $stockAvailable = $stock ? $stock->quantity_available : 0;
+            // $stock = Stock::where('branch_id', $branchId)
+            //     ->where('item_id', $detail->item_id)
+            //     ->first();
+
+            $stock = Stock::where('item_id', $detail->item_id)
+         ->first();
+
+         $stockAvailable = $stock ? $stock->quantity_available : 0;
 
             $this->dispatchedItems[] = [
                 'detail_id' => $detail->id,
@@ -226,7 +230,7 @@ class ItemDispatches extends Component
 
         if (empty($this->dispatchedItems) || ! is_array($this->dispatchedItems)) {
             // session()->flash('error', 'No items to dispatch.');
-            // $this->toast()->error("here")->send();
+            $this->toast()->error("here")->send();
 
             return;
         }
@@ -242,7 +246,7 @@ class ItemDispatches extends Component
             }
 
             if (!$hasItemsToDispatch) {
-                session()->flash('error', 'No approved items to dispatch.');
+                $this->toast()->error('No approved items to dispatch.')->send();
                 return;
             }
 
@@ -271,8 +275,7 @@ class ItemDispatches extends Component
                     }
 
                     // Lock stock row for concurrency safety
-                    $stock = Stock::where('branch_id', $branchId)
-                        ->where('item_id', $item['item_id'])
+                    $stock = Stock::where('item_id', $item['item_id'])
                         ->lockForUpdate()
                         ->first();
 
@@ -366,6 +369,7 @@ class ItemDispatches extends Component
                 'branch_id' => $branchId ?? null,
                 'dispatch_items' => $this->dispatchedItems ?? [],
             ]);
+            $this->toast()->error($e->getMessage())->send();
         }
     }
 

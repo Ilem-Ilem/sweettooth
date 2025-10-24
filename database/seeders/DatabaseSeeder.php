@@ -20,14 +20,14 @@ class DatabaseSeeder extends Seeder
         //     'email' => 'test@example.com',
         // ]);
         $this->call([
-//             PermissionSeeder::class,
-//             RoleSeeder::class,
-//             MDSeeder::class,
-//             BranchSeeder::class,
-//             DepartmentCategorySeeder::class,
-//             DepartmentSeeder::class,
-//             EmployeeSeeder::class,
-//             ItemSeeder::class, // Creates 20 items per branch with stocks
+            PermissionSeeder::class,
+            RoleSeeder::class,
+            MDSeeder::class,
+            BranchSeeder::class,
+            DepartmentCategorySeeder::class,
+            DepartmentSeeder::class,
+            EmployeeSeeder::class,
+            ItemSeeder::class, // Creates 20 items per branch with stocks
             SnackRecipeSeeder::class,
             ProductTypeSeeder::class,
             ProductSeeder::class,
