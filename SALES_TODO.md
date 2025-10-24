@@ -4,6 +4,76 @@
 Sales module for Corner Store, Till, and Confectionaries departments with comprehensive stock tracking, POS system, and shelf-life management.
 
 ---
+ew
+
+  The stock opening page manages the daily opening stock for products at the start of a shift. It
+  helps track inventory by comparing expected vs actual quantities.
+
+  Key Workflow
+
+  1. Initialization (mount() - line 73)
+
+  - Sets stock date to today
+  - Loads the current active shift for the logged-in employee
+  - Loads all stock opening data
+
+  2. Shift Management (loadCurrentShift() - line 83)
+
+  - Checks for an active shift for today for the current employee
+  - Determines shift type (morning/evening)
+  - If no active shift exists, user sees a warning but can still view data
+
+  3. Stock Data Loading (loadStockOpeningData() - line 102)
+
+  For each product in the employee's department:
+
+  Calculates:
+  - Yesterday's Closing: Gets the closing quantity from yesterday's stock record (line 136)
+  - Today's Additions: Sums quantities from product_dispatches table for today's shift (line 144)
+  - Expected Opening: Yesterday's closing + Today's additions (line 164)
+  - Actual Opening: Either the saved value or defaults to expected opening (line 174)
+  - Variance: Actual - Expected (line 175)
+
+  4. User Interactions
+
+  Editable Fields:
+  - Actual Opening - User physically counts and enters real quantity (line 190)
+  - Production Date - When product was made; auto-calculates expiry date (line 207)
+  - Notes - Additional remarks (line 229)
+
+  Real-time Updates:
+  - When actual opening changes, variance recalculates automatically (line 198)
+  - When production date changes, expiry date auto-calculates based on shelf life (line 217)
+
+  5. Saving (saveStockOpenings() - line 243)
+
+  - Requires an active shift
+  - Uses updateOrCreate to save/update records in product_stocks table
+  - Saves: opening quantity, addition quantity, production date, expiry date, notes
+  - Once saved, fields become read-only (is_saved flag)
+
+  6. Verification Status
+
+  - Shows "Verified" badge if stock records exist for current shift
+  - Shows "Not Verified" if not yet saved
+  - Once verified, cannot modify data for that shift
+
+  Key Features
+
+  Filters: Search by product name/SKU, filter by product type (line 121-127)
+
+  Visual Indicators:
+  - Variance: Green (=0), Blue (↑ positive), Red (↓ negative) - line 144-153 in view
+  - Status badges for verification
+
+  Read-only after save: All input fields become disabled once stock opening is saved for the shift
+  (line 136, 161, 181 in view)
+
+  Department-specific: Only shows products from the logged-in employee's department (line 114)
+
+  This system ensures accountability by requiring physical counts, tracking variances, and preventing
+   modifications after verification.
+
 
 ## 🎯 PHASE 1: Database & Core Models (HIGHEST PRIORITY)
 **Goal:** Create database foundation for sales operations

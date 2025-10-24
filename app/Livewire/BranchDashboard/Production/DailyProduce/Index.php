@@ -32,6 +32,9 @@ class Index extends Component
     public $editingQuantities = [];
     public $damagedQuantities = [];
 
+    // For batch-level dispatch management
+    public $batchQuantities = []; // Stores sent_out and order quantities for each batch
+
     // For recording production batches
     public $batchQuantityProduced = 0;
     public $batchQuantityApproved = 0;
@@ -149,6 +152,24 @@ class Index extends Component
                 $produce->updateCalculations();
             }
 
+            // Get production records (batches) with details
+            $batchesData = $produce->productionRecords->map(function ($batch) {
+                return [
+                    'id' => $batch->id,
+                    'batch_number' => $batch->batch_number,
+                    'quantity_produced' => (float) $batch->quantity_produced,
+                    'quantity_approved' => (float) $batch->quantity_approved,
+                    'quantity_rejected' => (float) $batch->quantity_rejected,
+                    'quantity_sent_out' => (float) $batch->quantity_sent_out,
+                    'quantity_for_order' => (float) $batch->quantity_for_order,
+                    'quantity_remaining' => (float) $batch->quantity_remaining,
+                    'dispatch_status' => $batch->dispatch_status,
+                    'quality_status' => $batch->quality_status,
+                    'production_time' => $batch->production_time->format('M d, h:i A'),
+                    'produced_by' => $batch->producedBy->name ?? 'N/A',
+                ];
+            })->toArray();
+
             return [
                 'id' => $produce->id,
                 'recipe_id' => $produce->recipe_id,
@@ -177,6 +198,9 @@ class Index extends Component
                 // Producable quantity calculation (CRITICAL BUSINESS LOGIC)
                 'producability' => $produce->calculateProducableQuantity(),
 
+                // Batch-level data
+                'batches' => $batchesData,
+
                 // Linked data from production request
                 'item_request_status' => $itemRequestStatus,
                 'item_request_number' => $itemRequestNumber,
@@ -195,6 +219,14 @@ class Index extends Component
                     'callback_quantity' => $produce['callback_quantity'],
                     'closing_quantity' => $produce['closing_quantity'],
                 ];
+
+                // Initialize batch quantities for batch-level management
+                foreach ($produce['batches'] as $batch) {
+                    $this->batchQuantities[$batch['id']] = [
+                        'quantity_sent_out' => $batch['quantity_sent_out'],
+                        'quantity_for_order' => $batch['quantity_for_order'],
+                    ];
+                }
             }
         }
     }
@@ -218,14 +250,36 @@ class Index extends Component
             $newValue = (float) ($this->editingQuantities[$produceId][$field] ?? 0);
             $oldValue = (float) $produce->$field;
 
-            // If sent_out_quantity is being updated, create dispatch records
-            if ($field === 'sent_out_quantity' && $newValue > $oldValue) {
-                $quantityToDispatch = $newValue - $oldValue;
-                try {
-                    $this->createProductDispatch($produce, $quantityToDispatch);
-                } catch (\Exception $e) {
-                    // Log error but don't fail the update
-                    logger()->error('Failed to create product dispatch: ' . $e->getMessage());
+            // CRITICAL VALIDATION: Prevent sending out more than available
+            if ($field === 'sent_out_quantity') {
+                $netAvailable = $produce->getNetAvailable();
+                $requestedQty = (float) $produce->requested_quantity;
+
+                // Check 1: Cannot send out more than requested
+                if ($newValue > $requestedQty) {
+                    $this->toast()->error("Cannot send out {$newValue} - only {$requestedQty} was requested!")->send();
+                    // Reset to old value
+                    $this->editingQuantities[$produceId][$field] = $oldValue;
+                    return;
+                }
+
+                // Check 2: Cannot send out more than net available (produced - callback)
+                if ($newValue > $netAvailable) {
+                    $this->toast()->error("Cannot send out {$newValue} - only {$netAvailable} available (after callbacks)!")->send();
+                    // Reset to old value
+                    $this->editingQuantities[$produceId][$field] = $oldValue;
+                    return;
+                }
+
+                // If sent_out_quantity is being updated, create dispatch records
+                if ($newValue > $oldValue) {
+                    $quantityToDispatch = $newValue - $oldValue;
+                    try {
+                        $this->createProductDispatch($produce, $quantityToDispatch);
+                    } catch (\Exception $e) {
+                        // Log error but don't fail the update
+                        logger()->error('Failed to create product dispatch: ' . $e->getMessage());
+                    }
                 }
             }
 
@@ -361,16 +415,41 @@ class Index extends Component
                 return;
             }
 
+            // CRITICAL: Prevent recording batches if status is completed (unless reopened)
+            if ($produce->status === 'completed') {
+                $this->toast()->error('This production is marked as completed. Please reopen it first to record more batches.')->send();
+                return;
+            }
+
+            // VALIDATION: Check if total production would exceed requested quantity
+            $currentProduced = $produce->getTotalProducedFromRecords();
+            $newTotal = $currentProduced + $this->batchQuantityApproved;
+            $requested = (float) $produce->requested_quantity;
+
+            if ($newTotal > $requested) {
+                $this->toast()->error("Cannot record batch: Total produced would be {$newTotal}, but only {$requested} was requested. You cannot produce more than requested!")->send();
+                return;
+            }
+
+            // Generate batch number (e.g., "Batch 1", "Batch 2")
+            $batchCount = $produce->productionRecords()->count() + 1;
+            $batchNumber = "Batch {$batchCount}";
+
             // Create production record
             $productionRecord = new \App\Models\ProductionRecord();
             $productionRecord->daily_produce_id = $produce->id;
             $productionRecord->recipe_id = $produce->recipe_id;
+            $productionRecord->batch_number = $batchNumber;
             $productionRecord->produced_by = Auth::guard('employees')->id();
             $productionRecord->quantity_produced = $this->batchQuantityProduced;
             $productionRecord->quantity_approved = $this->batchQuantityApproved;
             $productionRecord->quantity_rejected = $this->batchQuantityRejected;
+            $productionRecord->quantity_sent_out = 0; // Initially nothing sent out
+            $productionRecord->quantity_for_order = 0; // Initially nothing for orders
+            $productionRecord->quantity_remaining = $this->batchQuantityApproved; // All approved quantity is available
             $productionRecord->production_time = now();
             $productionRecord->quality_status = $this->batchQualityStatus;
+            $productionRecord->dispatch_status = 'available';
             $productionRecord->rejection_reason = $this->batchQuantityRejected > 0 ? $this->batchRejectionReason : null;
             $productionRecord->notes = $this->batchNotes;
             $productionRecord->save();
@@ -440,6 +519,86 @@ class Index extends Component
     public function toggleHelpModal()
     {
         $this->showHelpModal = !$this->showHelpModal;
+    }
+
+    /**
+     * Update batch-level dispatch quantities
+     */
+    public function updateBatchQuantity($batchId, $field)
+    {
+        try {
+            $batch = \App\Models\ProductionRecord::find($batchId);
+
+            if (!$batch) {
+                $this->toast()->error('Batch not found.')->send();
+                return;
+            }
+
+            $newValue = (float) ($this->batchQuantities[$batchId][$field] ?? 0);
+
+            // Validate: sent_out + for_order cannot exceed approved quantity
+            $sentOut = $field === 'quantity_sent_out' ? $newValue : (float) $batch->quantity_sent_out;
+            $forOrder = $field === 'quantity_for_order' ? $newValue : (float) $batch->quantity_for_order;
+
+            $total = $sentOut + $forOrder;
+            $approved = (float) $batch->quantity_approved;
+
+            if ($total > $approved) {
+                $this->toast()->error("Cannot allocate {$total} from batch - only {$approved} approved!")->send();
+                // Reset to old value
+                $this->batchQuantities[$batchId][$field] = (float) $batch->$field;
+                return;
+            }
+
+            // Update the field
+            $batch->$field = $newValue;
+            $batch->updateQuantityRemaining();
+
+            $this->toast()->success("Batch updated: {$batch->quantity_remaining} remaining")->send();
+            $this->loadDailyProduces();
+
+        } catch (\Exception $e) {
+            $this->toast()->error('Error updating batch: ' . $e->getMessage())->send();
+        }
+    }
+
+    /**
+     * Save all batch quantities for a product
+     */
+    public function saveBatchQuantities($produceId)
+    {
+        try {
+            $produce = DailyProduce::with('productionRecords')->find($produceId);
+
+            if (!$produce) {
+                $this->toast()->error('Daily produce record not found.')->send();
+                return;
+            }
+
+            DB::transaction(function () use ($produce) {
+                foreach ($produce->productionRecords as $batch) {
+                    if (isset($this->batchQuantities[$batch->id])) {
+                        $batch->quantity_sent_out = (float) ($this->batchQuantities[$batch->id]['quantity_sent_out'] ?? 0);
+                        $batch->quantity_for_order = (float) ($this->batchQuantities[$batch->id]['quantity_for_order'] ?? 0);
+                        $batch->updateQuantityRemaining();
+                    }
+                }
+
+                // Update aggregate quantities in daily produce
+                $totalSentOut = $produce->productionRecords()->sum('quantity_sent_out');
+                $totalForOrder = $produce->productionRecords()->sum('quantity_for_order');
+
+                $produce->sent_out_quantity = $totalSentOut;
+                $produce->order_quantity = $totalForOrder;
+                $produce->updateCalculations();
+            });
+
+            $this->toast()->success('All batch quantities saved successfully.')->send();
+            $this->loadDailyProduces();
+
+        } catch (\Exception $e) {
+            $this->toast()->error('Error saving batch quantities: ' . $e->getMessage())->send();
+        }
     }
 
     /**

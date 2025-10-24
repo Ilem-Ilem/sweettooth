@@ -104,61 +104,61 @@
                 <table class="w-full">
                     <thead class="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-700">
                         <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase" rowspan="2">Product</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase" rowspan="2">Status</th>
-                            <th class="px-4 py-3 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase" colspan="2">Opening</th>
-                            <th class="px-4 py-3 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase" colspan="6">Production & Dispatch</th>
-                            <th class="px-4 py-3 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase" colspan="3">Closing & Variance</th>
-                            <th class="px-4 py-3 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase" rowspan="2">Actions</th>
-                        </tr>
-                        <tr>
-                            <!-- Opening -->
-                            <th class="px-4 py-2 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400">Opening</th>
-                            <th class="px-4 py-2 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400">Requested</th>
-
-                            <!-- Production & Dispatch -->
-                            <th class="px-4 py-2 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400" title="Auto-calculated from batches">
-                                Produced <span class="text-blue-500">🔄</span>
-                            </th>
-                            <th class="px-4 py-2 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400" title="Damaged/Rejected Items">
-                                Callback <span class="text-red-500">⚠</span>
-                            </th>
-                            <th class="px-4 py-2 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400" title="Produced - Callback">
-                                Net Available <span class="text-green-500">✓</span>
-                            </th>
-                            <th class="px-4 py-2 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400">Sent Out</th>
-                            <th class="px-4 py-2 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400">Order</th>
-                            <th class="px-4 py-2 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400">Closing</th>
-
-                            <!-- Closing & Variance -->
-                            <th class="px-4 py-2 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400">Expected</th>
-                            <th class="px-4 py-2 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400">Variance</th>
-                            <th class="px-4 py-2 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400">Variance %</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">Product & Request</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">Status</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
                         @foreach($dailyProduces as $produce)
-                        <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-900/50">
-                            <!-- Product -->
+                        <!-- Main Collapsed Row -->
+                        <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-900/50 cursor-pointer"
+                            
+                            @click="expanded = !expanded">
+                            <!-- Product & Request Info -->
                             <td class="px-4 py-3">
-                                <div>
-                                    <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $produce['recipe_name'] }}</p>
-                                    <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ $produce['uom'] }}</p>
-                                    @if($produce['production_records_count'] > 0)
-                                        <span class="inline-block mt-1 px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 text-xs rounded-full">
-                                            {{ $produce['production_records_count'] }} batches
-                                        </span>
-                                    @endif
+                                <div class="flex items-center gap-3">
+                                    <!-- Collapse/Expand Icon -->
+                                    <div class="flex-shrink-0">
+                                        <svg class="w-5 h-5 text-zinc-600 dark:text-zinc-400 transform transition-transform"
+                                             :class="{ 'rotate-90': expanded }"
+                                             fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                        </svg>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2 flex-wrap">
+                                            <span class="text-xs font-mono px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded">
+                                                {{ $produce['item_request_number'] }}
+                                            </span>
+                                            <span class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                                                {{ $produce['recipe_name'] }}
+                                            </span>
+                                        </div>
+                                        <div class="flex items-center gap-3 mt-1">
+                                            <span class="text-xs text-zinc-500 dark:text-zinc-400">{{ $produce['uom'] }}</span>
+                                            @if($produce['production_records_count'] > 0)
+                                                <span class="inline-block px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 text-xs rounded-full">
+                                                    {{ $produce['production_records_count'] }} batches
+                                                </span>
+                                            @endif
+                                            <span class="text-xs text-zinc-600 dark:text-zinc-400">
+                                                Requested: <strong>{{ number_format($produce['requested_quantity'], 2) }}</strong>
+                                            </span>
+                                            <span class="text-xs text-blue-600 dark:text-blue-400">
+                                                Produced: <strong>{{ number_format($produce['produced_quantity'], 2) }}</strong>
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
                             </td>
 
-                            <!-- Production Status (Computed from ingredients + production) -->
-                            <td class="px-4 py-3">
-                                <div class="space-y-1">
+                            <!-- Status -->
+                            <td class="px-4 py-3 text-center" @click.stop>
+                                <div class="flex flex-col items-center gap-2">
                                     <span class="inline-block px-2 py-1 rounded-full text-xs font-medium {{ $produce['status_badge_color'] }}">
                                         {{ ucfirst(str_replace('_', ' ', $produce['computed_status'])) }}
                                     </span>
-                                    <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ $produce['item_request_number'] }}</p>
 
                                     <!-- Producability Information -->
                                     @php
@@ -168,161 +168,180 @@
                                     @endphp
 
                                     @if($canMake == 0)
-                                        <p class="text-xs text-red-600 dark:text-red-400 font-semibold">❌ Cannot produce</p>
-                                        <p class="text-xs text-red-500">Missing: {{ $prod['limiting_ingredient'] }}</p>
+                                        <span class="text-xs text-red-600 dark:text-red-400 font-semibold">❌ Cannot produce</span>
                                     @elseif($canMake < $requested)
-                                        <p class="text-xs text-orange-600 dark:text-orange-400 font-semibold">
+                                        <span class="text-xs text-orange-600 dark:text-orange-400 font-semibold">
                                             ⚠ Can make {{ number_format($canMake) }} of {{ number_format($requested) }}
-                                        </p>
-                                        <p class="text-xs text-orange-500">
-                                            Limited by: {{ $prod['limiting_ingredient'] }}
-                                        </p>
-                                        <p class="text-xs text-red-500">Shortage: {{ number_format($prod['shortage_percentage'], 1) }}%</p>
+                                        </span>
                                     @else
-                                        <p class="text-xs text-green-600 dark:text-green-400 font-semibold">
-                                            ✓ Can make all {{ number_format($requested) }}
-                                        </p>
+                                        <span class="text-xs text-green-600 dark:text-green-400 font-semibold">
+                                            ✓ Ready to produce
+                                        </span>
                                     @endif
-                                </div>
-                            </td>
 
-                            <!-- Opening -->
-                            <td class="px-4 py-3 text-center text-sm text-zinc-900 dark:text-zinc-100">
-                                {{ number_format($produce['opening_quantity'], 2) }}
-                            </td>
-
-                            <!-- Requested -->
-                            <td class="px-4 py-3 text-center text-sm text-zinc-900 dark:text-zinc-100">
-                                {{ number_format($produce['requested_quantity'], 2) }}
-                            </td>
-
-                            <!-- Produced (READ-ONLY - Auto from batches) -->
-                            <td class="px-4 py-3 text-center">
-                                <div class="flex flex-col items-center">
-                                    <span class="text-sm font-semibold text-blue-600 dark:text-blue-400">
-                                        {{ number_format($produce['produced_quantity'], 2) }}
-                                    </span>
-                                    @if($produce['production_records_count'] > 0)
-                                        <span class="text-xs text-zinc-500 dark:text-zinc-400">
-                                            {{ $produce['production_records_count'] }} batch(es)
+                                    <!-- Variance indicator -->
+                                    @if($produce['has_variance_issue'])
+                                        <span class="text-xs text-red-600 dark:text-red-400 font-semibold">
+                                            ⚠ Variance: {{ number_format($produce['variance_percentage'], 1) }}%
                                         </span>
                                     @endif
                                 </div>
                             </td>
 
-                            <!-- Callback (EDITABLE - Damaged items) -->
-                            <td class="px-4 py-3">
-                                <input type="number" step="0.01" min="0"
-                                       wire:model.blur="editingQuantities.{{ $produce['id'] }}.callback_quantity"
-                                       wire:change="updateQuantity({{ $produce['id'] }}, 'callback_quantity')"
-                                       class="w-24 px-2 py-1 text-center border border-red-300 dark:border-red-600 rounded bg-red-50 dark:bg-red-900/20 text-zinc-900 dark:text-zinc-100 text-sm focus:ring-2 focus:ring-red-500">
-                            </td>
-
-                            <!-- Net Available (AUTO-CALCULATED) -->
-                            <td class="px-4 py-3 text-center">
-                                <span class="text-sm font-bold {{ $produce['net_available'] > 0 ? 'text-green-600 dark:text-green-400' : 'text-zinc-600 dark:text-zinc-400' }}">
-                                    {{ number_format($produce['net_available'], 2) }}
-                                </span>
-                            </td>
-
-                            <!-- Sent Out (EDITABLE) -->
-                            <td class="px-4 py-3">
-                                <input type="number" step="0.01" min="0"
-                                       wire:model.blur="editingQuantities.{{ $produce['id'] }}.sent_out_quantity"
-                                       wire:change="updateQuantity({{ $produce['id'] }}, 'sent_out_quantity')"
-                                       class="w-24 px-2 py-1 text-center border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 text-sm">
-                            </td>
-
-                            <!-- Order (EDITABLE) -->
-                            <td class="px-4 py-3">
-                                <input type="number" step="0.01" min="0"
-                                       wire:model.blur="editingQuantities.{{ $produce['id'] }}.order_quantity"
-                                       wire:change="updateQuantity({{ $produce['id'] }}, 'order_quantity')"
-                                       class="w-24 px-2 py-1 text-center border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 text-sm">
-                            </td>
-
-                            <!-- Closing (EDITABLE) -->
-                            <td class="px-4 py-3">
-                                <input type="number" step="0.01" min="0"
-                                       wire:model.blur="editingQuantities.{{ $produce['id'] }}.closing_quantity"
-                                       wire:change="updateQuantity({{ $produce['id'] }}, 'closing_quantity')"
-                                       class="w-24 px-2 py-1 text-center border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 text-sm">
-                            </td>
-
-                            <!-- Expected Closing -->
-                            <td class="px-4 py-3 text-center text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                                {{ number_format($produce['expected_closing'], 2) }}
-                            </td>
-
-                            <!-- Variance -->
-                            <td class="px-4 py-3 text-center">
-                                <span class="text-sm font-semibold {{ $produce['has_variance_issue'] ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400' }}">
-                                    {{ number_format($produce['variance'], 2) }}
-                                </span>
-                            </td>
-
-                            <!-- Variance % -->
-                            <td class="px-4 py-3 text-center">
-                                <span class="text-sm font-semibold {{ $produce['has_variance_issue'] ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400' }}">
-                                    {{ number_format($produce['variance_percentage'], 1) }}%
-                                </span>
-                            </td>
-
                             <!-- Actions -->
-                            <td class="px-4 py-3">
-                                <div class="flex flex-col items-center justify-center gap-2">
+                            <td class="px-4 py-3 text-center" @click.stop>
+                                <div class="flex items-center justify-center gap-2">
                                     @php
                                         $canProduce = $produce['producability']['producable_quantity'] > 0;
                                     @endphp
 
                                     @if($canProduce)
                                         <button wire:click="openRecordModal({{ $produce['id'] }})"
-                                                class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium w-full"
+                                                class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium"
                                                 title="Record Production Batch">
-                                            Record Batch
+                                            📝 Record Batch
                                         </button>
                                     @else
                                         <button disabled
-                                                class="px-3 py-1 bg-gray-400 text-white rounded text-xs font-medium w-full cursor-not-allowed"
+                                                class="px-3 py-1.5 bg-gray-400 text-white rounded text-xs font-medium cursor-not-allowed"
                                                 title="Cannot produce - {{ $produce['producability']['limiting_ingredient'] }} missing">
-                                            Record Batch
+                                            📝 Record Batch
                                         </button>
                                     @endif
 
                                     @if($produce['manual_status'] === 'completed')
-                                        @if($canProduce)
-                                            <button wire:click="markInProgress({{ $produce['id'] }})"
-                                                    class="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded text-xs font-medium w-full"
-                                                    title="Reopen for production">
-                                                Reopen
-                                            </button>
-                                        @else
-                                            <button disabled
-                                                    class="px-3 py-1 bg-gray-400 text-white rounded text-xs font-medium w-full cursor-not-allowed"
-                                                    title="Cannot reopen - no ingredients">
-                                                Reopen
-                                            </button>
-                                        @endif
+                                        <button wire:click="markInProgress({{ $produce['id'] }})"
+                                                class="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded text-xs font-medium"
+                                                title="Reopen for production">
+                                            🔄 Reopen
+                                        </button>
                                     @else
                                         <button wire:click="markComplete({{ $produce['id'] }})"
-                                                class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium w-full"
+                                                class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium"
                                                 title="Mark this product as completed">
-                                            Complete
+                                            ✓ Complete
                                         </button>
                                     @endif
                                 </div>
                             </td>
                         </tr>
 
-                        <!-- Ingredient Analysis Row (Expandable Details) -->
-                        @if(!empty($produce['producability']['ingredient_analysis']))
-                        <tr class="bg-zinc-50 dark:bg-zinc-900/50">
-                            <td colspan="16" class="px-4 py-3">
-                                <details class="text-xs">
-                                    <summary class="cursor-pointer font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100">
-                                        📊 View Ingredient Analysis ({{ count($produce['producability']['ingredient_analysis']) }} ingredients)
-                                    </summary>
-                                    <div class="mt-3 overflow-x-auto">
+                        <!-- Expanded Details Section -->
+                        <tr x-show="expanded" x-collapse class="bg-zinc-50 dark:bg-zinc-900/50">
+                            <td colspan="3" class="px-6 py-4">
+                                <div class="space-y-4">
+
+                                    <!-- Production Details Grid -->
+                                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+                                        <!-- Opening & Requested Section -->
+                                        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
+                                            <h4 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-3 flex items-center gap-2">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                                                </svg>
+                                                Opening & Request
+                                            </h4>
+                                            <div class="space-y-2 text-sm">
+                                                <div class="flex justify-between">
+                                                    <span class="text-zinc-600 dark:text-zinc-400">Opening Qty:</span>
+                                                    <span class="font-semibold text-zinc-900 dark:text-zinc-100">{{ number_format($produce['opening_quantity'], 2) }}</span>
+                                                </div>
+                                                <div class="flex justify-between">
+                                                    <span class="text-zinc-600 dark:text-zinc-400">Requested:</span>
+                                                    <span class="font-semibold text-blue-600 dark:text-blue-400">{{ number_format($produce['requested_quantity'], 2) }}</span>
+                                                </div>
+                                                <div class="flex justify-between pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                                                    <span class="text-zinc-600 dark:text-zinc-400">Produced:</span>
+                                                    <span class="font-bold text-blue-600 dark:text-blue-400">{{ number_format($produce['produced_quantity'], 2) }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Production & Dispatch Section -->
+                                        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
+                                            <h4 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-3 flex items-center gap-2">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                                                </svg>
+                                                Dispatch & Orders
+                                            </h4>
+                                            <div class="space-y-3 text-sm" @click.stop>
+                                                <div>
+                                                    <label class="text-xs text-red-600 dark:text-red-400 font-medium">Callback (Damaged):</label>
+                                                    <input type="number" step="0.01" min="0"
+                                                           wire:model.blur="editingQuantities.{{ $produce['id'] }}.callback_quantity"
+                                                           wire:change="updateQuantity({{ $produce['id'] }}, 'callback_quantity')"
+                                                           class="w-full mt-1 px-3 py-2 text-sm border border-red-300 dark:border-red-600 rounded bg-red-50 dark:bg-red-900/20 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-red-500">
+                                                </div>
+                                                <div class="flex justify-between pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                                                    <span class="text-zinc-600 dark:text-zinc-400">Net Available:</span>
+                                                    <span class="font-bold text-green-600 dark:text-green-400">{{ number_format($produce['net_available'], 2) }}</span>
+                                                </div>
+                                                <div>
+                                                    <label class="text-xs text-zinc-600 dark:text-zinc-400 font-medium">Sent Out:</label>
+                                                    <input type="number" step="0.01" min="0"
+                                                           wire:model.blur="editingQuantities.{{ $produce['id'] }}.sent_out_quantity"
+                                                           wire:change="updateQuantity({{ $produce['id'] }}, 'sent_out_quantity')"
+                                                           class="w-full mt-1 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500">
+                                                </div>
+                                                <div>
+                                                    <label class="text-xs text-zinc-600 dark:text-zinc-400 font-medium">For Order:</label>
+                                                    <input type="number" step="0.01" min="0"
+                                                           wire:model.blur="editingQuantities.{{ $produce['id'] }}.order_quantity"
+                                                           wire:change="updateQuantity({{ $produce['id'] }}, 'order_quantity')"
+                                                           class="w-full mt-1 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500">
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Closing & Variance Section -->
+                                        <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
+                                            <h4 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-3 flex items-center gap-2">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                                                </svg>
+                                                Closing & Variance
+                                            </h4>
+                                            <div class="space-y-3 text-sm" @click.stop>
+                                                <div>
+                                                    <label class="text-xs text-zinc-600 dark:text-zinc-400 font-medium">Closing (Physical Count):</label>
+                                                    <input type="number" step="0.01" min="0"
+                                                           wire:model.blur="editingQuantities.{{ $produce['id'] }}.closing_quantity"
+                                                           wire:change="updateQuantity({{ $produce['id'] }}, 'closing_quantity')"
+                                                           class="w-full mt-1 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500">
+                                                </div>
+                                                <div class="flex justify-between pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                                                    <span class="text-zinc-600 dark:text-zinc-400">Expected:</span>
+                                                    <span class="font-semibold text-purple-600 dark:text-purple-400">{{ number_format($produce['expected_closing'], 2) }}</span>
+                                                </div>
+                                                <div class="flex justify-between">
+                                                    <span class="text-zinc-600 dark:text-zinc-400">Variance:</span>
+                                                    <span class="font-bold {{ $produce['has_variance_issue'] ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400' }}">
+                                                        {{ number_format($produce['variance'], 2) }}
+                                                    </span>
+                                                </div>
+                                                <div class="flex justify-between">
+                                                    <span class="text-zinc-600 dark:text-zinc-400">Variance %:</span>
+                                                    <span class="font-bold {{ $produce['has_variance_issue'] ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400' }}">
+                                                        {{ number_format($produce['variance_percentage'], 1) }}%
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Ingredient Analysis Section -->
+                                    @if(!empty($produce['producability']['ingredient_analysis']))
+                                    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
+                                        <div class="text-xs">
+                                    <div class="mb-3 font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                                        </svg>
+                                        Ingredient Analysis ({{ count($produce['producability']['ingredient_analysis']) }} ingredients)
+                                    </div>
+                                    <div class="overflow-x-auto">
                                         <table class="w-full text-xs">
                                             <thead class="bg-zinc-100 dark:bg-zinc-800">
                                                 <tr>
@@ -379,10 +398,155 @@
                                             </tbody>
                                         </table>
                                     </div>
-                                </details>
+                                </div>
+                                    </div>
+                                    @endif
+
+                                    <!-- Batch Management Section (NEW: Manage individual batches) -->
+                                    @if(!empty($produce['batches']))
+                                    <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
+                                        <div class="text-xs">
+                                    <div class="mb-3 font-medium text-blue-700 dark:text-blue-300 flex items-center gap-2">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                                        </svg>
+                                        Batch Management - Allocate Production to Sales/Orders
+                                    </div>
+
+                                    <div class="mb-3 p-3 bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+                                        <p class="text-xs text-blue-800 dark:text-blue-200">
+                                            <strong>How it works:</strong> For each batch produced, specify how many units to send out to sales and how many to reserve for orders. The system tracks remaining inventory per batch.
+                                        </p>
+                                    </div>
+
+                                    <div class="overflow-x-auto">
+                                        <table class="w-full text-xs border border-zinc-200 dark:border-zinc-700">
+                                            <thead class="bg-blue-100 dark:bg-blue-900/50">
+                                                <tr>
+                                                    <th class="px-3 py-2 text-left font-semibold text-blue-900 dark:text-blue-100">Batch #</th>
+                                                    <th class="px-3 py-2 text-center font-semibold text-blue-900 dark:text-blue-100">Produced</th>
+                                                    <th class="px-3 py-2 text-center font-semibold text-blue-900 dark:text-blue-100">Approved</th>
+                                                    <th class="px-3 py-2 text-center font-semibold text-blue-900 dark:text-blue-100">Rejected</th>
+                                                    <th class="px-3 py-2 text-center font-semibold text-green-900 dark:text-green-100 bg-green-50 dark:bg-green-900/20">Sent Out</th>
+                                                    <th class="px-3 py-2 text-center font-semibold text-purple-900 dark:text-purple-100 bg-purple-50 dark:bg-purple-900/20">For Order</th>
+                                                    <th class="px-3 py-2 text-center font-semibold text-blue-900 dark:text-blue-100">Remaining</th>
+                                                    <th class="px-3 py-2 text-center font-semibold text-blue-900 dark:text-blue-100">Status</th>
+                                                    <th class="px-3 py-2 text-left font-semibold text-blue-900 dark:text-blue-100">Details</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                                                @foreach($produce['batches'] as $batch)
+                                                <tr class="hover:bg-blue-50 dark:hover:bg-blue-900/20">
+                                                    <!-- Batch Number -->
+                                                    <td class="px-3 py-2 font-medium text-blue-900 dark:text-blue-100">
+                                                        {{ $batch['batch_number'] }}
+                                                    </td>
+
+                                                    <!-- Produced -->
+                                                    <td class="px-3 py-2 text-center text-zinc-700 dark:text-zinc-300">
+                                                        {{ number_format($batch['quantity_produced'], 2) }}
+                                                    </td>
+
+                                                    <!-- Approved -->
+                                                    <td class="px-3 py-2 text-center text-green-700 dark:text-green-300 font-semibold">
+                                                        {{ number_format($batch['quantity_approved'], 2) }}
+                                                    </td>
+
+                                                    <!-- Rejected -->
+                                                    <td class="px-3 py-2 text-center {{ $batch['quantity_rejected'] > 0 ? 'text-red-700 dark:text-red-300 font-semibold' : 'text-zinc-500' }}">
+                                                        {{ number_format($batch['quantity_rejected'], 2) }}
+                                                    </td>
+
+                                                    <!-- Sent Out (EDITABLE) -->
+                                                    <td class="px-3 py-2 bg-green-50 dark:bg-green-900/10">
+                                                        <input type="number" step="0.01" min="0" max="{{ $batch['quantity_approved'] }}"
+                                                               wire:model.blur="batchQuantities.{{ $batch['id'] }}.quantity_sent_out"
+                                                               wire:change="updateBatchQuantity({{ $batch['id'] }}, 'quantity_sent_out')"
+                                                               class="w-20 px-2 py-1 text-center border border-green-300 dark:border-green-600 rounded bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-green-500">
+                                                    </td>
+
+                                                    <!-- For Order (EDITABLE) -->
+                                                    <td class="px-3 py-2 bg-purple-50 dark:bg-purple-900/10">
+                                                        <input type="number" step="0.01" min="0" max="{{ $batch['quantity_approved'] }}"
+                                                               wire:model.blur="batchQuantities.{{ $batch['id'] }}.quantity_for_order"
+                                                               wire:change="updateBatchQuantity({{ $batch['id'] }}, 'quantity_for_order')"
+                                                               class="w-20 px-2 py-1 text-center border border-purple-300 dark:border-purple-600 rounded bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-purple-500">
+                                                    </td>
+
+                                                    <!-- Remaining (AUTO) -->
+                                                    <td class="px-3 py-2 text-center font-bold {{ $batch['quantity_remaining'] > 0 ? 'text-blue-700 dark:text-blue-300' : 'text-zinc-500 dark:text-zinc-500' }}">
+                                                        {{ number_format($batch['quantity_remaining'], 2) }}
+                                                    </td>
+
+                                                    <!-- Dispatch Status -->
+                                                    <td class="px-3 py-2 text-center">
+                                                        @php
+                                                            $statusColors = [
+                                                                'available' => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+                                                                'partial' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+                                                                'fully_dispatched' => 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
+                                                            ];
+                                                        @endphp
+                                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-medium {{ $statusColors[$batch['dispatch_status']] ?? '' }}">
+                                                            {{ ucfirst(str_replace('_', ' ', $batch['dispatch_status'])) }}
+                                                        </span>
+                                                    </td>
+
+                                                    <!-- Details -->
+                                                    <td class="px-3 py-2">
+                                                        <div class="space-y-1">
+                                                            <p class="text-zinc-700 dark:text-zinc-300">
+                                                                <strong>Quality:</strong> {{ ucfirst($batch['quality_status']) }}
+                                                            </p>
+                                                            <p class="text-zinc-600 dark:text-zinc-400">
+                                                                {{ $batch['production_time'] }}
+                                                            </p>
+                                                            <p class="text-zinc-500 dark:text-zinc-500">
+                                                                By: {{ $batch['produced_by'] }}
+                                                            </p>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                @endforeach
+
+                                                <!-- Totals Row -->
+                                                <tr class="bg-blue-100 dark:bg-blue-900/30 font-bold">
+                                                    <td class="px-3 py-2 text-blue-900 dark:text-blue-100">TOTALS</td>
+                                                    <td class="px-3 py-2 text-center text-blue-900 dark:text-blue-100">
+                                                        {{ number_format(collect($produce['batches'])->sum('quantity_produced'), 2) }}
+                                                    </td>
+                                                    <td class="px-3 py-2 text-center text-green-700 dark:text-green-300">
+                                                        {{ number_format(collect($produce['batches'])->sum('quantity_approved'), 2) }}
+                                                    </td>
+                                                    <td class="px-3 py-2 text-center text-red-700 dark:text-red-300">
+                                                        {{ number_format(collect($produce['batches'])->sum('quantity_rejected'), 2) }}
+                                                    </td>
+                                                    <td class="px-3 py-2 text-center text-green-800 dark:text-green-200 bg-green-100 dark:bg-green-900/30">
+                                                        {{ number_format(collect($produce['batches'])->sum('quantity_sent_out'), 2) }}
+                                                    </td>
+                                                    <td class="px-3 py-2 text-center text-purple-800 dark:text-purple-200 bg-purple-100 dark:bg-purple-900/30">
+                                                        {{ number_format(collect($produce['batches'])->sum('quantity_for_order'), 2) }}
+                                                    </td>
+                                                    <td class="px-3 py-2 text-center text-blue-800 dark:text-blue-200">
+                                                        {{ number_format(collect($produce['batches'])->sum('quantity_remaining'), 2) }}
+                                                    </td>
+                                                    <td colspan="2" class="px-3 py-2">
+                                                        <button wire:click="saveBatchQuantities({{ $produce['id'] }})"
+                                                                class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium">
+                                                            💾 Save All Batches
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                    </div>
+                                    @endif
+
+                                </div>
                             </td>
                         </tr>
-                        @endif
                         @endforeach
                     </tbody>
                 </table>

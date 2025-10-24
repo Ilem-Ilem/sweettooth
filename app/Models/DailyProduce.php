@@ -194,14 +194,26 @@ class DailyProduce extends Model
 
     /**
      * Get variance percentage
+     * Fixed to handle negative expected_closing and edge cases
      */
     public function getVariancePercentage(): float
     {
+        // If expected closing is 0, check if there's actual variance
         if ($this->expected_closing == 0) {
-            return 0;
+            // If closing is also 0, no variance
+            if ($this->closing_quantity == 0) {
+                return 0;
+            }
+            // If expected is 0 but actual closing exists, it's 100% variance
+            return $this->variance > 0 ? 100 : -100;
         }
 
-        return ($this->variance / $this->expected_closing) * 100;
+        // For negative expected closing (over-usage scenario)
+        // Calculate based on absolute value to avoid confusing negative percentages
+        $percentage = ($this->variance / abs($this->expected_closing)) * 100;
+
+        // Cap at reasonable bounds (-100% to 100%)
+        return max(-100, min(100, $percentage));
     }
 
     /**
