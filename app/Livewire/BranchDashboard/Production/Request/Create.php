@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Livewire\BranchDashboard\Production\Request;
 
 use App\Models\Department;
@@ -14,10 +13,13 @@ use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use TallStackUi\Traits\Interactions;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Create extends Component
 {
+    use Interactions;
+
     #[Url(keep: true)]
     public $b_id;
 
@@ -56,10 +58,10 @@ class Create extends Component
     public function addProduct()
     {
         $this->selectedProducts[] = [
-            'product_id' => null,
-            'quantity' => 1,
+            'product_id'      => null,
+            'quantity'        => 1,
             'product_details' => null,
-            'recipe_id' => null,
+            'recipe_id'       => null,
         ];
     }
 
@@ -76,7 +78,7 @@ class Create extends Component
     {
         // Extract index from key (e.g., "0.product_id" -> 0)
         if (str_contains($key, '.product_id')) {
-            $index = explode('.', $key)[0];
+            $index     = explode('.', $key)[0];
             $productId = $this->selectedProducts[$index]['product_id'];
 
             if ($productId) {
@@ -89,24 +91,24 @@ class Create extends Component
                     ->first();
 
                 if ($recipe) {
-                    $this->selectedProducts[$index]['recipe_id'] = $recipe->id;
+                    $this->selectedProducts[$index]['recipe_id']       = $recipe->id;
                     $this->selectedProducts[$index]['product_details'] = [
-                        'name' => $product->name,
-                        'recipe_name' => $recipe->product_name,
+                        'name'           => $product->name,
+                        'recipe_name'    => $recipe->product_name,
                         'yield_quantity' => $recipe->yield_quantity,
-                        'uom' => $recipe->uom,
-                        'ingredients' => $recipe->ingredients->map(function ($ing) {
+                        'uom'            => $recipe->uom,
+                        'ingredients'    => $recipe->ingredients->map(function ($ing) {
                             return [
-                                'item_id' => $ing->item_id,
-                                'item_name' => $ing->item->name ?? 'N/A',
+                                'item_id'            => $ing->item_id,
+                                'item_name'          => $ing->item->name ?? 'N/A',
                                 'quantity_per_batch' => $ing->quantity,
-                                'uom' => $ing->uom,
-                                'waste_percentage' => $ing->waste_percentage,
+                                'uom'                => $ing->uom,
+                                'waste_percentage'   => $ing->waste_percentage,
                             ];
                         })->toArray(),
                     ];
                 } else {
-                    $this->selectedProducts[$index]['recipe_id'] = null;
+                    $this->selectedProducts[$index]['recipe_id']       = null;
                     $this->selectedProducts[$index]['product_details'] = null;
                 }
             }
@@ -116,49 +118,49 @@ class Create extends Component
     public function save()
     {
         $this->validate([
-            'selectedProducts' => 'required|array|min:1',
+            'selectedProducts'              => 'required|array|min:1',
             'selectedProducts.*.product_id' => 'required|exists:products,id',
-            'selectedProducts.*.quantity' => 'required|numeric|min:1',
+            'selectedProducts.*.quantity'   => 'required|numeric|min:1',
         ], [
-            'selectedProducts.required' => 'Please add at least one product to request.',
+            'selectedProducts.required'              => 'Please add at least one product to request.',
             'selectedProducts.*.product_id.required' => 'Please select a product.',
-            'selectedProducts.*.quantity.required' => 'Please enter quantity.',
+            'selectedProducts.*.quantity.required'   => 'Please enter quantity.',
         ]);
 
-        $employee = Auth::guard('employees')->user();
-        $branchId = $this->getBranchId();
+        $employee     = Auth::guard('employees')->user();
+        $branchId     = $this->getBranchId();
         $departmentId = $employee->department_id;
 
         DB::transaction(function () use ($employee, $branchId, $departmentId) {
             // Get or create shift for today
             $shift = Shift::firstOrCreate([
-                'branch_id' => $branchId,
+                'branch_id'     => $branchId,
                 'department_id' => $departmentId,
-                'shift_date' => today(),
-                'shift_type' => $this->currentShift,
+                'shift_date'    => today(),
+                'shift_type'    => $this->currentShift,
             ], [
-                'employee_id' => $employee->id,
+                'employee_id'  => $employee->id,
                 'shift_number' => Shift::where('shift_date', today())->count() + 1,
-                'status' => 'active',
+                'status'       => 'active',
             ]);
 
             // Create Item Request
-            $department = Department::find($departmentId);
-            $deptCode = strtoupper(substr($department->name ?? 'DEPT', 0, 4));
+            $department    = Department::find($departmentId);
+            $deptCode      = strtoupper(substr($department->name ?? 'DEPT', 0, 4));
             $requestNumber = ItemRequest::generateRequestNumber(
                 substr($branchId, 0, 8),
                 $deptCode
             );
 
             $itemRequest = ItemRequest::create([
-                'branch_id' => $branchId,
-                'department_id' => $departmentId,
-                'requested_by' => $employee->id,
+                'branch_id'      => $branchId,
+                'department_id'  => $departmentId,
+                'requested_by'   => $employee->id,
                 'request_number' => $requestNumber,
-                'request_date' => today(),
-                'shift' => $this->currentShift,
-                'status' => 'pending',
-                'notes' => $this->notes,
+                'request_date'   => today(),
+                'shift'          => $this->currentShift,
+                'status'         => 'pending',
+                'notes'          => $this->notes,
             ]);
 
             // Process each selected product
@@ -166,7 +168,7 @@ class Create extends Component
                 // Get the recipe for this product
                 $recipe = Recipe::with('ingredients')->find($selectedProduct['recipe_id']);
 
-                if (!$recipe) {
+                if (! $recipe) {
                     continue; // Skip if no recipe found
                 }
 
@@ -174,38 +176,38 @@ class Create extends Component
 
                 // Create Production Request
                 ProductionRequest::create([
-                    'shift_id' => $shift->id,
-                    'item_request_id' => $itemRequest->id,
-                    'recipe_id' => $recipe->id,
+                    'shift_id'                    => $shift->id,
+                    'item_request_id'             => $itemRequest->id,
+                    'recipe_id'                   => $recipe->id,
                     'planned_production_quantity' => $quantity,
                 ]);
 
                 // Create Item Request Details for each ingredient
                 foreach ($recipe->ingredients as $ingredient) {
                     $actualQuantity = $ingredient->getActualQuantityNeeded();
-                    $totalQuantity = $actualQuantity * $quantity;
+                    $totalQuantity  = $actualQuantity * $quantity;
 
                     ItemRequestDetail::create([
-                        'request_id' => $itemRequest->id,
-                        'item_id' => $ingredient->item_id,
-                        'quantity_requested' => $totalQuantity,
-                        'quantity_approved' => 0,
+                        'request_id'          => $itemRequest->id,
+                        'item_id'             => $ingredient->item_id,
+                        'quantity_requested'  => $totalQuantity,
+                        'quantity_approved'   => 0,
                         'quantity_dispatched' => 0,
-                        'uom' => $ingredient->uom,
-                        'notes' => "For {$recipe->product_name} production (Qty: {$quantity})",
+                        'uom'                 => $ingredient->uom,
+                        'notes'               => "For {$recipe->product_name} production (Qty: {$quantity})",
                     ]);
                 }
             }
         });
 
         $this->toast()->success('Production request created successfully!')->send();
-        return $this->redirect(branch_route('branch-dashboard.production.request.index'), navigate: true);
+        return $this->redirect(route('branch-dashboard.production.request.index', ['b_id'=> $this->b_id]), navigate: true);
     }
 
     public function render()
     {
-        $employee = Auth::guard('employees')->user();
-        $branchId = $this->getBranchId();
+        $employee     = Auth::guard('employees')->user();
+        $branchId     = $this->getBranchId();
         $departmentId = $employee->department_id;
 
         // Get products that have recipes in the department

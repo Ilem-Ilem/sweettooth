@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
+use App\Models\Employee;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Recipes extends BaseComponent
@@ -57,7 +58,9 @@ class Recipes extends BaseComponent
     protected function getFilteredQuery()
     {
         $branchId = $this->getBranchId();
-
+        
+        $department = Employee::where('id', auth('employees')->id())->first()->department_id;
+        
         return Recipe::query()
             ->where('branch_id', $branchId)
             ->with(['department', 'createdBy', 'ingredients.item'])
@@ -71,7 +74,7 @@ class Recipes extends BaseComponent
             })
             ->when($this->filterStatus, function ($query) {
                 $query->where('status', $this->filterStatus);
-            })
+            })->where('department_id', $department)
             ->orderBy('created_at', 'desc');
     }
 

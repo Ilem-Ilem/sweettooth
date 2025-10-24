@@ -225,7 +225,9 @@ class ItemDispatches extends Component
         $branchId = $this->getBranchId();
 
         if (empty($this->dispatchedItems) || ! is_array($this->dispatchedItems)) {
-            session()->flash('error', 'No items to dispatch.');
+            // session()->flash('error', 'No items to dispatch.');
+            // $this->toast()->error("here")->send();
+
             return;
         }
 
@@ -244,25 +246,10 @@ class ItemDispatches extends Component
                 return;
             }
 
-            // Pre-check stock levels before starting transaction
-            $stockErrors = [];
-            foreach ($this->dispatchedItems as $item) {
-                $remainingToDispatch = $item['remaining_to_dispatch'];
-                if ($remainingToDispatch <= 0) {
-                    continue;
-                }
+            // Track low stock warnings
+            $lowStockWarnings = [];
 
-                if ($item['stock_available'] < $remainingToDispatch) {
-                    $stockErrors[] = "{$item['item_name']}: Need {$remainingToDispatch} {$item['uom']}, but only {$item['stock_available']} {$item['uom']} available in stock.";
-                }
-            }
-
-            if (!empty($stockErrors)) {
-                session()->flash('error', 'Insufficient stock: ' . implode(' | ', $stockErrors));
-                return;
-            }
-
-            DB::transaction(function () use ($branchId) {
+            DB::transaction(function () use ($branchId, &$lowStockWarnings) {
                 // Verify request belongs to this branch
                 $request = ItemRequest::where('id', $this->requestId)
                     ->where('branch_id', $branchId)
@@ -293,8 +280,9 @@ class ItemDispatches extends Component
                         throw new \Exception("Stock not found for {$item['item_name']} in this branch.");
                     }
 
+                    // Check if stock is insufficient - still dispatch but warn
                     if ($stock->quantity_available < $dispatchQty) {
-                        throw new \Exception("Insufficient stock for {$item['item_name']}. Available: {$stock->quantity_available} {$item['uom']}, Required: {$dispatchQty} {$item['uom']}.");
+                        $lowStockWarnings[] = "{$item['item_name']}: Dispatching {$dispatchQty} {$item['uom']}, but only {$stock->quantity_available} {$item['uom']} available. Stock will go negative!";
                     }
 
                     // Save before and after quantities
@@ -302,6 +290,11 @@ class ItemDispatches extends Component
                     $stock->quantity_available -= $dispatchQty;
                     $stock->save();
                     $quantityAfter = $stock->quantity_available;
+
+                    // Check if stock is now below reorder level
+                    if ($stock->item && $stock->item->reorder_level && $quantityAfter <= $stock->item->reorder_level) {
+                        $lowStockWarnings[] = "{$item['item_name']}: Stock level is now {$quantityAfter} {$item['uom']}, which is at or below the reorder level of {$stock->item->reorder_level} {$item['uom']}. Please restock!";
+                    }
 
                     // Create dispatch record
                     ItemDispatch::create([
@@ -355,7 +348,14 @@ class ItemDispatches extends Component
                 ]);
             });
 
-            session()->flash('success', 'All approved items dispatched successfully. Stock updated.');
+            // Show success message with warnings if applicable
+            if (!empty($lowStockWarnings)) {
+                $warningMessage = 'Items dispatched successfully, but with warnings: ' . implode(' | ', $lowStockWarnings);
+                $this->toast()->warning($warningMessage)->send();
+            } else {
+                $this->toast()->success("All approved items dispatched successfully. Stock updated")->send();
+            }
+
             $this->closeModal();
 
         } catch (\Exception $e) {
@@ -366,8 +366,6 @@ class ItemDispatches extends Component
                 'branch_id' => $branchId ?? null,
                 'dispatch_items' => $this->dispatchedItems ?? [],
             ]);
-
-            session()->flash('error', 'Error dispatching items: '.$e->getMessage());
         }
     }
 

@@ -172,8 +172,13 @@
                     </flux:navlist.item>
                     <flux:navlist.item icon="home-modern"
                         :href="branch_route('branch-dashboard.production.kitchen.index')"
-                        :current="request()->routeIs('branch-dashboard.production.kitchen.*')" wire:navigate>
+                        :current="request()->routeIs('branch-dashboard.production.kitchen.index')" wire:navigate>
                         {{ __('Kitchen Dashboard') }}
+                    </flux:navlist.item>
+                    <flux:navlist.item icon="eye"
+                        :href="branch_route('branch-dashboard.production.kitchen.stock-monitor')"
+                        :current="request()->routeIs('branch-dashboard.production.kitchen.stock-monitor')" wire:navigate>
+                        {{ __('Production Monitor') }}
                     </flux:navlist.item>
                     <flux:navlist.item icon="document-text"
                         :href="branch_route('branch-dashboard.production.request.index')"
@@ -191,6 +196,20 @@
                         {{ __('Raw Material Tracking') }}
                     </flux:navlist.item>
                 </flux:navlist.group>
+            </flux:navlist.group>
+
+            <flux:navlist.group :heading="__('Sales')" class="grid">
+                <flux:navlist.item icon="clipboard-document-check"
+                    :href="branch_route('branch-dashboard.sales-dashboard.stock-opening.index')"
+                    :current="request()->routeIs('branch-dashboard.sales-dashboard.stock-opening.*')" wire:navigate>
+                    {{ __('Stock Opening') }}
+                </flux:navlist.item>
+
+                  <flux:navlist.item icon="clipboard-document-check"
+                    :href="branch_route('branch-dashboard.sales-dashboard.stock-monitor')"
+                    :current="request()->routeIs('branch-dashboard.sales-dashboard.stock-monitor')" wire:navigate>
+                Monitor Product Stock
+                </flux:navlist.item>
             </flux:navlist.group>
 
         </flux:navlist>
@@ -303,29 +322,21 @@
         <flux:spacer />
 
         <!-- Clock In Section + Digital Clock -->
-        <div x-data="clockInHeader()" x-init="init()"
-            class="flex items-center gap-6 text-sm text-zinc-700 dark:text-zinc-200 me-3">
-            <!-- Clock In/Out Buttons + Active Time -->
-            <div class="flex items-center gap-3">
-                <button x-show="!clockedIn" @click="clockIn"
-                    class="px-3 py-1 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition">
-                    Clock In
-                </button>
-
-                <button x-show="clockedIn" @click="clockOut"
-                    class="px-3 py-1 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition">
-                    Clock Out
-                </button>
-
-                <template x-if="clockedIn">
-                    <div class="text-xs md:text-sm text-zinc-600 dark:text-zinc-400">
-                        Active for <span x-text="activeDuration"></span>
-                    </div>
-                </template>
-            </div>
+        <div class="flex items-center gap-6 text-sm text-zinc-700 dark:text-zinc-200 me-3">
+            <!-- Livewire Clock In/Out Component -->
+            @livewire('branch-dashboard.header-clock-in-out', ['b_id' => request()->query('b_id')])
 
             <!-- Digital Clock -->
-            <div class="font-mono text-base md:text-lg tracking-widest" x-text="currentTime"></div>
+            <div x-data="{ currentTime: '' }"
+                 x-init="
+                    setInterval(() => {
+                        const now = new Date();
+                        currentTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    }, 1000);
+                 "
+                 class="font-mono text-base md:text-lg tracking-widest"
+                 x-text="currentTime">
+            </div>
         </div>
 
         <!-- Search Navbar -->
@@ -447,40 +458,6 @@
             </flux:menu>
         </flux:dropdown>
 
-        <!-- Alpine.js Clock Logic -->
-        <script>
-            function clockInHeader() {
-                return {
-                    clockedIn: false,
-                    clockInTime: null,
-                    currentTime: '',
-                    activeDuration: '',
-                    init() {
-                        this.updateClock();
-                        setInterval(() => this.updateClock(), 1000);
-                    },
-                    updateClock() {
-                        const now = new Date();
-                        this.currentTime = now.toLocaleTimeString();
-                        if (this.clockedIn && this.clockInTime) {
-                            const diff = now - this.clockInTime;
-                            const hours = Math.floor(diff / (1000 * 60 * 60));
-                            const minutes = Math.floor((diff / (1000 * 60)) % 60);
-                            const seconds = Math.floor((diff / 1000) % 60);
-                            this.activeDuration = `${hours}h ${minutes}m ${seconds}s`;
-                        }
-                    },
-                    clockIn() {
-                        this.clockedIn = true;
-                        this.clockInTime = new Date();
-                    },
-                    clockOut() {
-                        this.clockedIn = false;
-                        this.activeDuration = '';
-                    }
-                };
-            }
-        </script>
     </flux:header>
 
     <flux:main>

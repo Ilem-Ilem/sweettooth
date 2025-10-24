@@ -12,7 +12,21 @@
 
     <!-- Filters -->
     <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
+        <!-- Filter Mode Toggle -->
+        <div class="mb-4 flex gap-2">
+            <button wire:click="$set('filterMode', 'shift')"
+                    class="px-4 py-2 rounded-lg font-medium transition-colors {{ $filterMode === 'shift' ? 'bg-blue-600 text-white' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 hover:bg-zinc-300 dark:hover:bg-zinc-600' }}">
+                Filter by Shift
+            </button>
+            <button wire:click="$set('filterMode', 'date_range')"
+                    class="px-4 py-2 rounded-lg font-medium transition-colors {{ $filterMode === 'date_range' ? 'bg-blue-600 text-white' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 hover:bg-zinc-300 dark:hover:bg-zinc-600' }}">
+                Filter by Date Range
+            </button>
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <!-- Shift Filter (shown when filterMode is 'shift') -->
+            @if($filterMode === 'shift')
             <div>
                 <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Shift</label>
                 <select wire:model.live="selectedShiftId"
@@ -25,6 +39,22 @@
                     @endforeach
                 </select>
             </div>
+            @endif
+
+            <!-- Date Range Filters (shown when filterMode is 'date_range') -->
+            @if($filterMode === 'date_range')
+            <div>
+                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Start Date</label>
+                <input type="date" wire:model.live="filterStartDate"
+                       class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">End Date</label>
+                <input type="date" wire:model.live="filterEndDate"
+                       class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200">
+            </div>
+            @endif
 
             <div>
                 <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Recipe</label>
@@ -57,7 +87,7 @@
         </div>
     </div>
 
-    @if($selectedShiftId)
+    @if(($filterMode === 'shift' && $selectedShiftId) || ($filterMode === 'date_range' && $filterStartDate && $filterEndDate))
         <!-- Summary Cards -->
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
@@ -101,6 +131,9 @@
                 <table class="w-full">
                     <thead class="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-700">
                         <tr>
+                            @if($filterMode === 'date_range')
+                            <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">Shift Date</th>
+                            @endif
                             <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">Recipe</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">Ingredient</th>
                             <th class="px-4 py-3 text-center text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">Units Produced</th>
@@ -114,6 +147,12 @@
                     <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
                         @forelse($utilizations as $utilization)
                         <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-900/50">
+                            @if($filterMode === 'date_range')
+                            <td class="px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100">
+                                {{ $utilization->shift->shift_date->format('M d, Y') }}
+                                <span class="block text-xs text-zinc-500">{{ ucfirst($utilization->shift->shift_type) }}</span>
+                            </td>
+                            @endif
                             <td class="px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100">
                                 {{ $utilization->recipe->product_name ?? 'N/A' }}
                             </td>
@@ -146,8 +185,8 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="8" class="px-4 py-8 text-center text-zinc-500 dark:text-zinc-400">
-                                No raw material utilization records found for this shift.
+                            <td colspan="{{ $filterMode === 'date_range' ? '9' : '8' }}" class="px-4 py-8 text-center text-zinc-500 dark:text-zinc-400">
+                                No raw material utilization records found{{ $filterMode === 'shift' ? ' for this shift' : ' for this date range' }}.
                             </td>
                         </tr>
                         @endforelse
@@ -164,15 +203,19 @@
         </div>
 
     @else
-        <!-- No Shift Selected -->
+        <!-- No Filter Applied -->
         <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-8">
             <div class="text-center">
                 <svg class="w-16 h-16 mx-auto mb-4 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
-                <h3 class="text-lg font-semibold text-yellow-900 dark:text-yellow-100 mb-2">No Shift Selected</h3>
+                <h3 class="text-lg font-semibold text-yellow-900 dark:text-yellow-100 mb-2">No Filter Applied</h3>
                 <p class="text-yellow-700 dark:text-yellow-300">
-                    Please select a shift from the dropdown above to view raw material utilization.
+                    @if($filterMode === 'shift')
+                        Please select a shift from the dropdown above to view raw material utilization.
+                    @else
+                        Please select a date range to view raw material utilization for that period.
+                    @endif
                 </p>
             </div>
         </div>

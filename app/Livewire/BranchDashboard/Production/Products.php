@@ -3,7 +3,7 @@
 namespace App\Livewire\BranchDashboard\Production;
 
 use App\Livewire\BaseComponent;
-use App\Models\Product;
+use App\Models\{Product, Employee};
 use App\Models\ProductType;
 use App\Models\Department;
 use Livewire\Attributes\Layout;
@@ -67,6 +67,7 @@ class Products extends BaseComponent
 
     protected function getFilteredQuery()
     {
+        $department = Employee::where('id', auth('employees')->id())->first()->department_id;
         return Product::query()
             ->with(['productType.department'])
             ->when($this->search, function ($query) {
@@ -92,6 +93,9 @@ class Products extends BaseComponent
                 } elseif ($this->filterStatus === 'unavailable') {
                     $query->where('is_available', false);
                 }
+            })
+            ->whereHas('productType', function ($q) use ($department){
+                $q->where('department_id', $department);
             })
             ->where("branch_id", null)->orWhere("branch_id", $this->getBranchId(), )
             ->orderBy('created_at', 'desc');

@@ -91,7 +91,7 @@ class ItemDispatch extends Model
      */
     public function markAsReceived(): void
     {
-        $this->received_time = now();
+        $this->recei = now();
         $this->save();
     }
 }

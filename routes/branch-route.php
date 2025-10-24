@@ -12,7 +12,9 @@ Route::middleware(['auth:employees', 'branch'])->prefix('branch-dashboard')->nam
 
     Route::get('departments', App\Livewire\BranchDashboard\DepartmentModule\Index::class)->name('branch.departments.index');
     Route::get('departments/category', \App\Livewire\BranchDashboard\DepartmentModule\Category::class)->name('branch.departments.category');
-
+    
+    //Shift Selection functionality
+    Route::get('auth/shift', \App\Livewire\Auth\Shift::class)->name('select_shift');
     // Inventory routes
     Route::prefix('inventory')->name('inventory.')->group(function () {
         Route::get('items', \App\Livewire\BranchDashboard\Inventory\Items::class)->name('items');
@@ -48,6 +50,7 @@ Route::middleware(['auth:employees', 'branch'])->prefix('branch-dashboard')->nam
 
         Route::prefix('kitchen')->name('kitchen.')->group(function () {
             Route::get('/', \App\Livewire\BranchDashboard\Production\KitchenModule\Index::class)->name('index');
+            Route::get('/stock-monitor', \App\Livewire\BranchDashboard\Production\KitchenModule\StockMonitor::class)->name('stock-monitor');
         });
 
         // Raw Material Tracking
@@ -66,5 +69,22 @@ Route::middleware(['auth:employees', 'branch'])->prefix('branch-dashboard')->nam
         Route::get('supplier-performance', \App\Livewire\BranchDashboard\Analytics\SupplierPerformance::class)->name('supplier-performance');
         Route::get('alerts', \App\Livewire\BranchDashboard\Analytics\AlertsDashboard::class)->name('alerts');
         Route::get('stock-valuation', \App\Livewire\BranchDashboard\Analytics\StockValuation::class)->name('stock-valuation');
+    });
+
+    // Sales Dashboard routes
+    Route::prefix('sales-dashboard')->name('sales-dashboard.')->group(function () {
+
+        // Expiry Alerts - shown after clock-in
+        Route::get('/expiry-alerts', \App\Livewire\BranchDashboard\SalesDashboard\ExpiryAlerts::class)->name('expiry-alerts');
+
+        Route::prefix('stock-opening')->name('stock-opening.')->group(function () {
+            Route::get('/', \App\Livewire\BranchDashboard\SalesDashboard\StockOpening\Index::class)->name('index');
+        });
+
+        Route::prefix('callbacks')->name('callbacks.')->group(function () {
+            Route::get('/', \App\Livewire\BranchDashboard\SalesDashboard\Callbacks\Index::class)->name('index');
+        });
+
+        Route::get('/stock-monitor', \App\Livewire\BranchDashboard\SalesDashboard\StockMonitor::class)->name('stock-monitor');
     });
 });

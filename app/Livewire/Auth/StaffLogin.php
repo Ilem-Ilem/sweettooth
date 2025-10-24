@@ -57,7 +57,7 @@ class StaffLogin extends Component
         Session::regenerate();
 
         $this->redirectIntended(
-            default: route('branch-dashboard.index', ['b_id' => $this->branch_id], absolute: false),
+            default: route('branch-dashboard.select_shift', ['b_id' => $this->branch_id], absolute: false),
             navigate: true
         );
     }

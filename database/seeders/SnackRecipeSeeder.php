@@ -177,12 +177,13 @@ class SnackRecipeSeeder extends Seeder
             ]);
 
             $i = 1;
-            foreach ($r['ingredients'] as $ing) {
+            $item = \App\Models\Item::get()->toArray();
+            foreach ($r['ingredients'] as $key => $ing) {
                 DB::table('recipe_ingredients')->insert([
                     'recipe_id' => $recipeId,
-                    'item_id' => null, // optional if you don't have matching items
+                    'item_id' => $item[$key]['id'], // optional if you don't have matching items
                     'quantity' => $ing[1],
-                    'uom' => $ing[2],
+                    'uom' => 'grams',
                     'sort_order' => $i++,
                     'notes' => $ing[0],
                     'created_at' => now(),

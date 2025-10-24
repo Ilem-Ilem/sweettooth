@@ -5,6 +5,7 @@ namespace App\Livewire\BranchDashboard\Production\DailyProduce;
 use App\Models\DailyProduce;
 use App\Models\Shift;
 use App\Models\ProductionRequest;
+use App\Models\ProductDispatch;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
@@ -95,6 +96,7 @@ class Index extends Component
 
         // Auto-create DailyProduce records from ProductionRequests if they don't exist
         DailyProduce::autoCreateFromProductionRequests($shift);
+    
 
         // Load all daily produces for this shift with all related data
         $produces = DailyProduce::with([
@@ -105,6 +107,7 @@ class Index extends Component
         ->where('shift_id', $this->selectedShiftId)
         ->orderBy('recipe_id')
         ->get();
+        
 
         $this->dailyProduces = $produces->map(function ($produce) use ($shift) {
             // Get the production request for this recipe and shift (department-wide, not user-specific)
@@ -205,15 +208,29 @@ class Index extends Component
     public function updateQuantity($produceId, $field)
     {
         try {
-            $produce = DailyProduce::find($produceId);
+            $produce = DailyProduce::with(['recipe', 'shift'])->find($produceId);
 
             if (!$produce) {
                 $this->toast()->error('Daily produce record not found.')->send();
                 return;
             }
 
+            $newValue = (float) ($this->editingQuantities[$produceId][$field] ?? 0);
+            $oldValue = (float) $produce->$field;
+
+            // If sent_out_quantity is being updated, create dispatch records
+            if ($field === 'sent_out_quantity' && $newValue > $oldValue) {
+                $quantityToDispatch = $newValue - $oldValue;
+                try {
+                    $this->createProductDispatch($produce, $quantityToDispatch);
+                } catch (\Exception $e) {
+                    // Log error but don't fail the update
+                    logger()->error('Failed to create product dispatch: ' . $e->getMessage());
+                }
+            }
+
             // Update the field from editing quantities array
-            $produce->$field = (float) ($this->editingQuantities[$produceId][$field] ?? 0);
+            $produce->$field = $newValue;
 
             // Recalculate expected closing and variance
             $produce->updateCalculations();
@@ -311,16 +328,20 @@ class Index extends Component
 
     public function recordBatch()
     {
+        // Custom validation for rejection reason
+        if ($this->batchQuantityRejected > 0 && empty($this->batchRejectionReason)) {
+            $this->toast()->error('Please provide a reason for rejected items')->send();
+            return;
+        }
+
         $this->validate([
             'batchQuantityProduced' => 'required|numeric|min:0.01',
             'batchQuantityApproved' => 'required|numeric|min:0',
             'batchQuantityRejected' => 'required|numeric|min:0',
             'batchQualityStatus' => 'required|in:excellent,good,acceptable,rejected',
-            'batchRejectionReason' => 'required_if:batchQuantityRejected,>,0',
         ], [
             'batchQuantityProduced.required' => 'Quantity produced is required',
             'batchQuantityProduced.min' => 'Quantity produced must be greater than 0',
-            'batchRejectionReason.required_if' => 'Please provide a reason for rejected items',
         ]);
 
         try {
@@ -329,7 +350,7 @@ class Index extends Component
             $produced = (float) $this->batchQuantityProduced;
 
             if (abs($total - $produced) > 0.01) {
-                $this->toast()->error('Approved + Rejected must equal Produced quantity')->send();
+                $this->toast()->error("Approved ({$this->batchQuantityApproved}) + Rejected ({$this->batchQuantityRejected}) must equal Produced ({$this->batchQuantityProduced})")->send();
                 return;
             }
 
@@ -357,12 +378,16 @@ class Index extends Component
             // Track raw material utilization for this batch
             $this->trackRawMaterialUtilization($produce, $this->batchQuantityApproved);
 
+            // Refresh the produce model to ensure productionRecords relationship is fresh
+            $produce->refresh();
+            $produce->load('productionRecords');
+
             // Auto-update produced quantity from all production records
             $totalProduced = $produce->getTotalProducedFromRecords();
             $produce->produced_quantity = $totalProduced;
             $produce->updateCalculations();
 
-            $this->toast()->success('Production batch recorded successfully!')->send();
+            $this->toast()->success("Production batch recorded successfully! Total produced: {$totalProduced}")->send();
             $this->closeRecordModal();
 
         } catch (\Exception $e) {
@@ -415,6 +440,40 @@ class Index extends Component
     public function toggleHelpModal()
     {
         $this->showHelpModal = !$this->showHelpModal;
+    }
+
+    /**
+     * Create a product dispatch record when products are sent out to sales
+     */
+    private function createProductDispatch($produce, $quantity)
+    {
+        if ($quantity <= 0) {
+            return;
+        }
+
+        // Find product by matching SKU with recipe SKU
+        $product = \App\Models\Product::where('sku', $produce->recipe->sku)->first();
+
+        if (!$product) {
+            // Log warning but don't fail - product might not be created yet
+            logger()->warning("Product not found for recipe SKU: {$produce->recipe->sku}");
+            return;
+        }
+
+        ProductDispatch::create([
+            'branch_id' => $this->getBranchId(),
+            'daily_produce_id' => $produce->id,
+            'production_shift_id' => $produce->shift_id,
+            'product_id' => $product->id,
+            'dispatched_by' => Auth::guard('employees')->id(),
+            'quantity' => $quantity,
+            'uom' => $product->uom ?? $produce->recipe->uom ?? 'units',
+            'dispatch_time' => now(),
+            'shift_type' => $produce->shift_type,
+            'dispatch_date' => $produce->produce_date,
+            'status' => 'dispatched',
+            'notes' => "Dispatched from kitchen to sales - {$produce->recipe->product_name}",
+        ]);
     }
 
     private function trackRawMaterialUtilization($produce, $unitsProduced)
@@ -497,7 +556,8 @@ class Index extends Component
             ->orderBy('shift_type')
             ->limit(30) // Show more shifts
             ->get();
-
+    
+        
         // Debug info: count production requests for current shift
         $productionRequestsCount = 0;
         if ($this->selectedShiftId) {

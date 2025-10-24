@@ -113,8 +113,8 @@
                                         @php
                                             $baseQty = $ingredient['quantity_per_batch'];
                                             $wasteMultiplier = 1 + ($ingredient['waste_percentage'] / 100);
-                                            $actualQtyPerBatch = $baseQty * $wasteMultiplier;
-                                            $totalQty = $actualQtyPerBatch * $product['quantity'];
+                                            $actualQtyPerBatch = $baseQty *(float) $wasteMultiplier;
+                                            $totalQty = $actualQtyPerBatch *(float) $product['quantity'];
                                         @endphp
                                         <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
                                             <td class="px-3 py-2 text-zinc-900 dark:text-zinc-100">
@@ -146,7 +146,7 @@
                                 <div class="flex justify-between items-center text-sm">
                                     <span class="text-zinc-600 dark:text-zinc-400">Total Production:</span>
                                     <span class="font-semibold text-zinc-900 dark:text-zinc-100">
-                                        {{ number_format($product['product_details']['yield_quantity'] * $product['quantity'], 2) }}
+                                        {{ (float)number_format($product['product_details']['yield_quantity'] * (float)$product['quantity'], 2) }}
                                         {{ $product['product_details']['uom'] }}
                                     </span>
                                 </div>

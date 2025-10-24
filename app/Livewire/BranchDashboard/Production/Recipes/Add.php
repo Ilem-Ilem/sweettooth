@@ -12,10 +12,13 @@ use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+// use TallStackUi\Traits\Interaction;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Add extends Component
 {
+//     use Interactions;
+    
     #[Url(keep: true)]
     public $b_id;
 
