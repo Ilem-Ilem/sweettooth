@@ -34,6 +34,25 @@
             </div>
         </div>
     </div>
+
+    <!-- Shift Selector -->
+    @if(count($availableShifts) > 0)
+        <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
+            <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                Select Shift to View/Edit
+            </label>
+            <select wire:model.live="selectedShiftForViewing"
+                class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                <option value="">-- Current Shift --</option>
+                @foreach($availableShifts as $shift)
+                    <option value="{{ $shift->id }}">
+                        {{ $shift->shift_date->format('M d, Y') }} - {{ ucfirst($shift->shift_type) }} Shift
+                        @if($shift->id == $currentShiftId) (Current) @endif
+                    </option>
+                @endforeach
+            </select>
+        </div>
+    @endif
     <!-- Alert if no shift -->
     @if (!$currentShiftId)
         <div class="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-4 rounded">
@@ -117,6 +136,13 @@
                 <span class="font-medium text-blue-600 dark:text-blue-400">
                     {{ number_format($row->today_additions, 2) }} {{ $row->product_uom }}
                 </span>
+                @if(!empty($row->addition_sources))
+                    <div class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                        @foreach($row->addition_sources as $source)
+                            <div>Batch #{{ $source['batch'] }}: {{ number_format($source['quantity'], 2) }}</div>
+                        @endforeach
+                    </div>
+                @endif
             </div>
         @endinteract
 
@@ -150,6 +176,18 @@
                 <span class="font-semibold {{ $varianceClass }}">
                     {{ $varianceIcon }} {{ number_format(abs($variance), 2) }}
                 </span>
+            </div>
+        @endinteract
+
+        @interact('column_variance_source', $row)
+            <div class="text-center">
+                @if($row->variance != 0)
+                    <span class="px-2 py-1 rounded-full text-xs font-medium {{ $row->variance > 0 ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' }}">
+                        {{ $row->variance_source }}
+                    </span>
+                @else
+                    <span class="text-zinc-400 dark:text-zinc-600">-</span>
+                @endif
             </div>
         @endinteract
 
@@ -219,14 +257,17 @@
             <div class="text-sm text-blue-800 dark:text-blue-200">
                 <h4 class="font-semibold mb-1">Stock Opening Instructions:</h4>
                 <ul class="list-disc list-inside space-y-1">
-                    <li><strong>Expected Opening:</strong> Yesterday's closing + Today's additions from kitchen</li>
-                    <li><strong>Actual Opening:</strong> Physically count and enter the actual quantity you have</li>
-                    <li><strong>Variance:</strong> Difference between expected and actual (investigate if significant)
-                    </li>
+                    <li><strong>Previous Closing:</strong> Stock from previous shift/day's closing count</li>
+                    <li><strong>Production Sent:</strong> Products sent from production (from production_records table)</li>
+                    <li><strong>Expected Opening:</strong> Previous closing + Production sent</li>
+                    <li><strong>Actual Opening:</strong> Physically count and enter the actual quantity you have at START of shift</li>
+                    <li><strong>Variance:</strong> Difference between expected and actual opening (investigate if significant)</li>
+                    <li><strong>Variance From:</strong> Shows which shift/day caused the variance (Previous closing or Production)</li>
                     <li><strong>Production Date:</strong> When the product was made (affects expiry calculation)</li>
-                    <li><strong>Shelf Life Status:</strong> Fresh (green), Warning (yellow), Critical (orange), Expired
-                        (red)</li>
-                    <li>Once verified and saved, stock opening cannot be modified for this shift</li>
+                    <li>Note: Closing stock is tracked separately at end of day</li>
+                    <li><strong>Shelf Life Status:</strong> Fresh (green), Warning (yellow), Critical (orange), Expired (red)</li>
+                    <li>Use the shift selector to view or edit past shifts</li>
+                    <li>Once verified and saved, stock opening cannot be modified for that shift</li>
                 </ul>
             </div>
         </div>

@@ -30,17 +30,20 @@ class Index extends BaseComponent
     public ?string $currentShiftId = null;
     public string $shiftType = 'morning';
     public $stockDate;
+    public $availableShifts = [];
+    public $selectedShiftForViewing = null;
 
     public $selectedStockItem;
 
     // Table headers
     public array $headers = [
         ['index' => 'product', 'label' => 'Product'],
-        ['index' => 'yesterday_closing', 'label' => 'Yesterday Closing', 'collapsible' => true],
-        ['index' => 'today_additions', 'label' => 'Today\'s Additions', 'collapsible' => true],
+        ['index' => 'yesterday_closing', 'label' => 'Previous Closing', 'collapsible' => true],
+        ['index' => 'today_additions', 'label' => 'Production Sent', 'collapsible' => true],
         ['index' => 'expected_opening', 'label' => 'Expected Opening', 'collapsible' => true],
         ['index' => 'actual_opening', 'label' => 'Actual Opening'],
         ['index' => 'variance', 'label' => 'Variance', 'collapsible' => true],
+        ['index' => 'variance_source', 'label' => 'Variance From', 'collapsible' => true],
         ['index' => 'production_date', 'label' => 'Production Date', 'collapsible' => true],
         ['index' => 'shelf_life', 'label' => 'Shelf Life', 'collapsible' => true],
         ['index' => 'notes', 'label' => 'Notes', 'collapsible' => true],
@@ -73,7 +76,48 @@ class Index extends BaseComponent
     public function mount()
     {
         $this->stockDate = \Carbon\Carbon::today()->format('Y-m-d');
+        $this->loadAvailableShifts();
         $this->loadCurrentShift();
+        $this->loadStockOpeningData();
+    }
+
+    /**
+     * Load available shifts for date/shift selection
+     */
+    protected function loadAvailableShifts()
+    {
+        $employee = auth('employees')->user();
+
+        // Get shifts from last 30 days for the sales department
+        $this->availableShifts = Shift::where('branch_id', $this->getBranchId())
+            ->where('department_id', $employee->department_id)
+            ->where('shift_date', '>=', \Carbon\Carbon::today()->subDays(30))
+            ->orderBy('shift_date', 'desc')
+            ->orderBy('shift_type', 'desc')
+            ->get();
+    }
+
+    /**
+     * When user selects a different shift to view
+     */
+    public function updatedSelectedShiftForViewing($shiftId)
+    {
+        if ($shiftId) {
+            $shift = Shift::find($shiftId);
+            if ($shift) {
+                $this->stockDate = $shift->shift_date->format('Y-m-d');
+                $this->shiftType = $shift->shift_type;
+                $this->currentShiftId = $shiftId;
+                $this->loadStockOpeningData();
+            }
+        }
+    }
+
+    /**
+     * When stock date changes
+     */
+    public function updatedStockDate($value)
+    {
         $this->loadStockOpeningData();
     }
 
@@ -110,7 +154,8 @@ class Index extends BaseComponent
         $employee  = auth('employees')->user();
         $yesterday = \Carbon\Carbon::parse($this->stockDate)->subDay()->format('Y-m-d');
 
-        // Get all products from the department
+        // Get ALL products from the sales department
+        // We'll show production data where it exists
         $products = Product::whereHas('productType', function ($q) use ($employee) {
             $q->where('department_id', $employee->department_id);
         })
@@ -127,8 +172,6 @@ class Index extends BaseComponent
             })
             ->get();
 
-//         dd($products);
-
         $stockOpenings = [];
 
         foreach ($products as $product) {
@@ -138,17 +181,48 @@ class Index extends BaseComponent
                 ->where('shift_type', $this->shiftType)
                 ->first();
 
-            // Get today's additions from kitchen dispatches (product_dispatches, not item_dispatches)
+            // Get today's additions from production records (quantity_sent_out)
+            // This pulls from production_records table where batches were marked as sent to sales
             $todayAdditions = 0;
+            $additionSources = [];
+
             try {
-                $todayAdditions = DB::table('product_dispatches')
-                    ->where('product_id', $product->id)
-                    ->whereDate('dispatch_date', $this->stockDate)
-                    ->where('shift_type', $this->shiftType)
-                    ->sum('quantity') ?? 0;
+                // Get production records for this product (match by product name from recipe)
+                $productionRecords = DB::table('production_records')
+                    ->join('daily_produces', 'production_records.daily_produce_id', '=', 'daily_produces.id')
+                    ->join('shifts', 'daily_produces.shift_id', '=', 'shifts.id')
+                    ->join('recipes', 'daily_produces.recipe_id', '=', 'recipes.id')
+                    ->where('recipes.product_name', $product->name) // Match by product name
+                    ->whereDate('shifts.shift_date', $this->stockDate)
+                    ->where('shifts.shift_type', $this->shiftType)
+                    ->select(
+                        'production_records.quantity_sent_out',
+                        'production_records.batch_number',
+                        'production_records.quantity_approved',
+                        'production_records.quantity_produced',
+                        'shifts.shift_type',
+                        'shifts.shift_date'
+                    )
+                    ->get();
+
+                foreach ($productionRecords as $record) {
+                    $todayAdditions += $record->quantity_sent_out ?? 0;
+                    if ($record->quantity_sent_out > 0) {
+                        $additionSources[] = [
+                            'batch' => $record->batch_number,
+                            'quantity' => $record->quantity_sent_out,
+                            'produced' => $record->quantity_produced,
+                            'approved' => $record->quantity_approved,
+                            'shift' => $record->shift_type,
+                            'date' => $record->shift_date,
+                        ];
+                    }
+                }
             } catch (\Exception $e) {
-                // Table might not exist yet - ignore error
+                // Table might not exist yet or query error - log for debugging
                 $todayAdditions = 0;
+                $additionSources = [];
+                // Uncomment for debugging: \Log::error('Stock opening query error: ' . $e->getMessage());
             }
 
             // Get today's existing stock record
@@ -162,6 +236,25 @@ class Index extends BaseComponent
 
             $yesterdayClosing = $yesterdayStock ? $yesterdayStock->closing_quantity : 0;
             $expectedOpening  = $yesterdayClosing + $todayAdditions;
+            $actualOpening = $todayStock ? $todayStock->opening_quantity : $expectedOpening;
+            $variance = $actualOpening - $expectedOpening;
+
+            // Determine variance source
+            $varianceSource = 'None';
+            if ($variance != 0) {
+                if ($todayAdditions > 0 && $yesterdayClosing > 0) {
+                    // Both sources contributed
+                    $varianceSource = 'Previous closing + Production';
+                } elseif ($todayAdditions > 0) {
+                    // Only production additions
+                    $varianceSource = 'Production (' . $this->shiftType . ' shift)';
+                } elseif ($yesterdayClosing > 0) {
+                    // Only previous closing
+                    $varianceSource = 'Previous closing (' . $yesterday . ')';
+                } else {
+                    $varianceSource = 'Unknown';
+                }
+            }
 
             $stockOpenings[] = [
                 'product_id'        => $product->id,
@@ -170,9 +263,11 @@ class Index extends BaseComponent
                 'product_uom'       => $product->uom,
                 'yesterday_closing' => $yesterdayClosing,
                 'today_additions'   => $todayAdditions,
+                'addition_sources'  => $additionSources,
                 'expected_opening'  => $expectedOpening,
-                'actual_opening'    => $todayStock ? $todayStock->opening_quantity : $expectedOpening,
-                'variance'          => $todayStock ? ($todayStock->opening_quantity - $expectedOpening) : 0,
+                'actual_opening'    => $actualOpening,
+                'variance'          => $variance,
+                'variance_source'   => $varianceSource,
                 'production_date'   => $todayStock ? $todayStock->production_date?->format('Y-m-d') : \Carbon\Carbon::today()->format('Y-m-d'),
                 'expiry_date'       => $todayStock ? $todayStock->expiry_date?->format('Y-m-d') : null,
                 'shelf_life_days'   => $product->shelf_life_days,
@@ -237,6 +332,7 @@ class Index extends BaseComponent
         }
     }
 
+
     /**
      * Save all stock openings
      */
@@ -250,14 +346,16 @@ class Index extends BaseComponent
         DB::beginTransaction();
         try {
             foreach ($this->stockOpenings as $stockOpening) {
+                // Use shift_id from shifts table (sales department shift)
+                // sales_shift_id can be null since we're using the general shifts table
                 ProductStock::updateOrCreate(
                     [
-                        'sales_shift_id' => $this->currentShiftId,
                         'product_id'     => $stockOpening['product_id'],
                         'stock_date'     => $this->stockDate,
                         'shift_type'     => $this->shiftType,
                     ],
                     [
+                        'sales_shift_id'    => null, // Make nullable - we use shifts table instead
                         'opening_quantity'  => $stockOpening['actual_opening'],
                         'addition_quantity' => $stockOpening['today_additions'],
                         'production_date'   => $stockOpening['production_date'],

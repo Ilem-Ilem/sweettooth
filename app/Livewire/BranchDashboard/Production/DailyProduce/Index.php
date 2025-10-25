@@ -22,6 +22,7 @@ class Index extends Component
     public $b_id;
 
     public $selectedShiftId = null;
+    public $availableShifts = [];
     public $dailyProduces = [];
     public $currentShift = null;
     public $showRecordModal = false;
@@ -46,7 +47,40 @@ class Index extends Component
 
     public function mount()
     {
+        $this->loadAvailableShifts();
         $this->loadCurrentShift();
+    }
+
+    /**
+     * Load available shifts for past/future shift viewing
+     */
+    public function loadAvailableShifts()
+    {
+        $branchId = $this->getBranchId();
+        $employee = Auth::guard('employees')->user();
+
+        // Get shifts from last 30 days for production department
+        $this->availableShifts = Shift::where('branch_id', $branchId)
+            ->where('department_id', $employee->department_id)
+            ->where('shift_date', '>=', now()->subDays(30))
+            ->orderBy('shift_date', 'desc')
+            ->orderBy('shift_type', 'desc')
+            ->get();
+    }
+
+    /**
+     * When user selects a different shift to view/edit
+     */
+    public function updatedSelectedShiftId($shiftId = null)
+    {
+        // Clear editing state when switching shifts
+        $this->editingQuantities = [];
+
+        if ($shiftId) {
+            $this->currentShift = Shift::find($shiftId);
+        }
+
+        $this->loadDailyProduces();
     }
 
     public function getBranchId()
@@ -231,11 +265,6 @@ class Index extends Component
         }
     }
 
-    public function updatedSelectedShiftId()
-    {
-        $this->editingQuantities = [];
-        $this->loadDailyProduces();
-    }
 
     public function updateQuantity($produceId, $field)
     {
