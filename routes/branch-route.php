@@ -86,5 +86,10 @@ Route::middleware(['auth:employees', 'branch'])->prefix('branch-dashboard')->nam
         });
 
         Route::get('/stock-monitor', \App\Livewire\BranchDashboard\SalesDashboard\StockMonitor::class)->name('stock-monitor');
+
+        // POS route
+        Route::prefix('pos')->name('pos.')->group(function () {
+            Route::get('/', \App\Livewire\BranchDashboard\SalesDashboard\Pos\Index::class)->name('index');
+        });
     });
 });

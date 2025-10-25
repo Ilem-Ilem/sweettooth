@@ -34,7 +34,7 @@ class Sale extends Model
     // Relationships
     public function salesShift(): BelongsTo
     {
-        return $this->belongsTo(SalesHift::class, 'sales_shift_id');
+        return $this->belongsTo(SalesShift::class, 'sales_shift_id');
     }
 
     public function branch(): BelongsTo
