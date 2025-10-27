@@ -31,4 +31,9 @@ Route::middleware(['auth'])->prefix('super-admin')->name('super-admin.')->group(
         Route::get('stock-takes', \App\Livewire\SuperAdmin\Inventory\StockTakes::class)->name('stock-takes');
         Route::get('health-checks', \App\Livewire\SuperAdmin\Inventory\HealthChecks::class)->name('health-checks');
     });
+
+    // Super Admin Settings Routes
+    Route::get('/settings', \App\Livewire\SuperAdmin\Settings\Index::class)->name('super-admin.settings');
+
+
 });
