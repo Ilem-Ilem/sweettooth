@@ -6,12 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class GlobalBusinessConfiguration extends Model
 {
-    protected $fillable = ['company_name', 'logo_upload', 'contact_details', 'business_type', 'storage_settings', 'subscription_plan'];
+    protected $fillable = ['company_name', 'logo_upload', 'contact_details', 'auto_backup', 'backup_period', 'backup_interval'];
 
     protected $casts = [
         'contact_details' => 'array',
-        'business_type' => 'array',
-        'storage_settings' => 'array',
+        'auto_backup'=>'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

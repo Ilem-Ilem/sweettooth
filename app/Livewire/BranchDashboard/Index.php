@@ -2,6 +2,7 @@
 
 namespace App\Livewire\BranchDashboard;
 
+use App\Helpers\Settings;
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 use App\Models\Employee;

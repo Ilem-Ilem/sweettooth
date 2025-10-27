@@ -33,7 +33,11 @@ Route::middleware(['auth'])->prefix('super-admin')->name('super-admin.')->group(
     });
 
     // Super Admin Settings Routes
-    Route::get('/settings', \App\Livewire\SuperAdmin\Settings\Index::class)->name('super-admin.settings');
+    Route::prefix('settings')->name('settings.')->group(function () {
+        Route::get('/', \App\Livewire\SuperAdmin\Settings\Index::class)->name('index');
+        Route::get('/business-configuration', \App\Livewire\SuperAdmin\Settings\BusinessConfiguration::class)->name('business-configuration');
+        Route::get('/backup-management', \App\Livewire\SuperAdmin\Settings\BackupManagement::class)->name('backup-management');
+    });
 
 
 });

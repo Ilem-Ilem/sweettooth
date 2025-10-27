@@ -71,6 +71,7 @@ return [
         'employees' => [
             'driver' => 'eloquent',
             'model' => App\Models\Employee::class,
+            'table' => 'employees'
         ],
         // 'users' => [
         //     'driver' => 'database',
@@ -105,7 +106,7 @@ return [
             'throttle' => 60,
         ],
 
-               'employees' => [
+        'employees' => [
             'provider' => 'employees',
             'table' => 'password_reset_tokens',
             'expire' => 60,
