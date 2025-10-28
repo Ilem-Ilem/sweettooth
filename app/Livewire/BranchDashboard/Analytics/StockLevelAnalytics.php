@@ -49,6 +49,7 @@ class StockLevelAnalytics extends Component
     public function updatedSelectedCategory()
     {
         $this->resetPage();
+        $this->updateChartData();
     }
 
     public function updatedHealthFilter()

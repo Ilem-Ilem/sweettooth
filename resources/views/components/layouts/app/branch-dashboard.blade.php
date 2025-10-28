@@ -103,7 +103,7 @@
                 :expanded="request()->routeIs('branch-dashboard.analytics.*') ? true : false" class="grid"
                 icon='chart-bar-square'>
                 <flux:navlist.item icon="squares-plus" :href="branch_route('branch-dashboard.analytics.overview')"
-                    :current="request()->routeIs('branch-dashboard.analytics.overview')" wire:navigate>
+                    :current="request()->routeIs('branch-dashboard.analytics.overview')">
                     {{ __('Overview Dashboard') }}
                 </flux:navlist.item>
                 <flux:navlist.item icon="cube" :href="branch_route('branch-dashboard.analytics.stock-level')"
@@ -112,39 +112,26 @@
                 </flux:navlist.item>
                 <flux:navlist.item icon="arrows-right-left"
                     :href="branch_route('branch-dashboard.analytics.stock-movement')"
-                    :current="request()->routeIs('branch-dashboard.analytics.stock-movement')" wire:navigate>
+                    :current="request()->routeIs('branch-dashboard.analytics.stock-movement')">
                     {{ __('Stock Movement') }}
                 </flux:navlist.item>
                 <flux:navlist.item icon="shopping-cart" :href="branch_route('branch-dashboard.analytics.purchase')"
-                    :current="request()->routeIs('branch-dashboard.analytics.purchase')" wire:navigate>
+                    :current="request()->routeIs('branch-dashboard.analytics.purchase')">
                     {{ __('Purchases') }}
                 </flux:navlist.item>
                 <flux:navlist.item icon="clipboard-document-list"
                     :href="branch_route('branch-dashboard.analytics.request-dispatch')"
-                    :current="request()->routeIs('branch-dashboard.analytics.request-dispatch')" wire:navigate>
+                    :current="request()->routeIs('branch-dashboard.analytics.request-dispatch')">
                     {{ __('Requests & Dispatch') }}
                 </flux:navlist.item>
                 <flux:navlist.item icon="currency-dollar"
                     :href="branch_route('branch-dashboard.analytics.stock-valuation')"
-                    :current="request()->routeIs('branch-dashboard.analytics.stock-valuation')" wire:navigate>
+                    :current="request()->routeIs('branch-dashboard.analytics.stock-valuation')">
                     {{ __('Stock Valuation') }}
                 </flux:navlist.item>
-                {{-- <flux:navlist.item icon="scale" :href="branch_route('branch-dashboard.analytics.stock-variance')"
-                    :current="request()->routeIs('branch-dashboard.analytics.stock-variance')" wire:navigate>
-                    {{ __('Stock Variance') }}
-                </flux:navlist.item> --}}
-                <flux:navlist.item icon="building-office"
-                    :href="branch_route('branch-dashboard.analytics.branch-performance')"
-                    :current="request()->routeIs('branch-dashboard.analytics.branch-performance')" wire:navigate>
-                    {{ __('Branch Performance') }}
-                </flux:navlist.item>
-                <flux:navlist.item icon="user-group"
-                    :href="branch_route('branch-dashboard.analytics.supplier-performance')"
-                    :current="request()->routeIs('branch-dashboard.analytics.supplier-performance')" wire:navigate>
-                    {{ __('Supplier Performance') }}
-                </flux:navlist.item>
+     
                 <flux:navlist.item icon="bell-alert" :href="branch_route('branch-dashboard.analytics.alerts')"
-                    :current="request()->routeIs('branch-dashboard.analytics.alerts')" wire:navigate>
+                    :current="request()->routeIs('branch-dashboard.analytics.alerts')">
                     {{ __('Alerts Dashboard') }}
                 </flux:navlist.item>
             </flux:navlist.group>

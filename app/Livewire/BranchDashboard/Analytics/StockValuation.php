@@ -20,8 +20,37 @@ class StockValuation extends Component
 
     protected $queryString = ['selectedCategory', 'searchTerm', 'sortBy', 'sortDirection'];
 
-    public function updatedSearchTerm() { $this->resetPage(); }
-    public function updatedSelectedCategory() { $this->resetPage(); }
+    public function updatedSearchTerm()
+    {
+        $this->resetPage();
+        $this->dispatch('chartsUpdated', [
+            'categoryValuation' => $this->getCategoryValuation(),
+            'topItems' => $this->getTopValueItems()->map(function($item) {
+                return [
+                    'name' => $item->item->name,
+                    'value' => $item->total_value,
+                    'quantity' => $item->quantity_available + $item->quantity_reserved,
+                    'avg_cost' => $item->average_cost
+                ];
+            })->values()->toArray()
+        ]);
+    }
+
+    public function updatedSelectedCategory()
+    {
+        $this->resetPage();
+        $this->dispatch('chartsUpdated', [
+            'categoryValuation' => $this->getCategoryValuation(),
+            'topItems' => $this->getTopValueItems()->map(function($item) {
+                return [
+                    'name' => $item->item->name,
+                    'value' => $item->total_value,
+                    'quantity' => $item->quantity_available + $item->quantity_reserved,
+                    'avg_cost' => $item->average_cost
+                ];
+            })->values()->toArray()
+        ]);
+    }
 
     public function sortByColumn($column)
     {
@@ -56,7 +85,20 @@ class StockValuation extends Component
     {
         $branchId = Auth::guard('employees')->user()->branch_id;
 
-        $stocks = Stock::with('item')->where('branch_id', $branchId)->get();
+        $stocks = Stock::with('item')
+            ->where('branch_id', $branchId)
+            ->when($this->searchTerm, function ($query) {
+                $query->whereHas('item', function ($q) {
+                    $q->where('name', 'like', '%' . $this->searchTerm . '%')
+                      ->orWhere('sku', 'like', '%' . $this->searchTerm . '%');
+                });
+            })
+            ->when($this->selectedCategory, function ($query) {
+                $query->whereHas('item', function ($q) {
+                    $q->where('category', $this->selectedCategory);
+                });
+            })
+            ->get();
 
         $categoryValues = $stocks->groupBy('item.category')->map(function ($items) {
             return $items->sum(fn($s) => ($s->quantity_available + $s->quantity_reserved) * $s->average_cost);
@@ -74,6 +116,17 @@ class StockValuation extends Component
 
         return Stock::with('item')
             ->where('branch_id', $branchId)
+            ->when($this->searchTerm, function ($query) {
+                $query->whereHas('item', function ($q) {
+                    $q->where('name', 'like', '%' . $this->searchTerm . '%')
+                      ->orWhere('sku', 'like', '%' . $this->searchTerm . '%');
+                });
+            })
+            ->when($this->selectedCategory, function ($query) {
+                $query->whereHas('item', function ($q) {
+                    $q->where('category', $this->selectedCategory);
+                });
+            })
             ->get()
             ->map(function ($stock) {
                 $stock->total_value = ($stock->quantity_available + $stock->quantity_reserved) * $stock->average_cost;

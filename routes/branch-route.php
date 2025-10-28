@@ -64,9 +64,6 @@ Route::middleware(['auth:employees', 'branch'])->prefix('branch-dashboard')->nam
         Route::get('stock-movement', \App\Livewire\BranchDashboard\Analytics\StockMovementAnalytics::class)->name('stock-movement');
         Route::get('purchase', \App\Livewire\BranchDashboard\Analytics\PurchaseAnalytics::class)->name('purchase');
         Route::get('request-dispatch', \App\Livewire\BranchDashboard\Analytics\RequestDispatchAnalytics::class)->name('request-dispatch');
-        Route::get('stock-variance', \App\Livewire\BranchDashboard\Analytics\StockVarianceAnalytics::class)->name('stock-variance');
-        Route::get('branch-performance', \App\Livewire\BranchDashboard\Analytics\BranchPerformance::class)->name('branch-performance');
-        Route::get('supplier-performance', \App\Livewire\BranchDashboard\Analytics\SupplierPerformance::class)->name('supplier-performance');
         Route::get('alerts', \App\Livewire\BranchDashboard\Analytics\AlertsDashboard::class)->name('alerts');
         Route::get('stock-valuation', \App\Livewire\BranchDashboard\Analytics\StockValuation::class)->name('stock-valuation');
     });

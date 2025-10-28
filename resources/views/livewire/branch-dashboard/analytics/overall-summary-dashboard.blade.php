@@ -117,8 +117,16 @@
         {{-- Stock Health Overview --}}
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
             <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Stock Health Overview</h3>
-            <div class="h-80 flex items-center justify-center">
-                <canvas id="healthOverviewChart"></canvas>
+            <div id="healthOverviewChart" class="h-80" wire:ignore>
+                <div class="flex items-center justify-center h-full">
+                    <div class="text-center">
+                        <svg class="animate-spin h-10 w-10 mx-auto text-blue-600 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading chart...</p>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -215,77 +223,133 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+@push('scripts')
+<script src="https://code.highcharts.com/highcharts.js"></script>
+<script src="https://code.highcharts.com/modules/exporting.js"></script>
+<script src="https://code.highcharts.com/modules/export-data.js"></script>
+<script src="https://code.highcharts.com/modules/accessibility.js"></script>
+
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Get the chart container
+    let healthOverviewChart;
+    let chartData = {
+        healthOverview: @js($healthOverview)
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        if (typeof Highcharts !== 'undefined') {
+            initChart();
+        }
+    });
+
+    document.addEventListener('livewire:navigated', function () {
+        if (typeof Highcharts !== 'undefined') {
+            initChart();
+        }
+    });
+
+    function initChart() {
+        if (typeof Highcharts === 'undefined') {
+            console.error('Highcharts is not loaded');
+            return;
+        }
+
+        if (healthOverviewChart) healthOverviewChart.destroy();
+
+        // Clear loading spinner
         const chartContainer = document.getElementById('healthOverviewChart');
-        console.log(@json($healthOverview['series']))
-        // Create the chart
-        const healthOverviewChart = new Chart(chartContainer, {
-            type: 'doughnut',
-            data: {
-                labels: @json($healthOverview['labels']),
-                datasets: [{
-                    data: @json($healthOverview['series']),
-                    
-                    backgroundColor: [
-                        '#10B981', // Green for healthy
-                        '#F59E0B', // Yellow for low stock
-                        '#EF4444', // Red for critical
-                        '#6B7280'  // Gray for expired
-                    ],
-                    borderColor: [
-                        '#10B981',
-                        '#F59E0B', 
-                        '#EF4444',
-                        '#6B7280'
-                    ],
-                    borderWidth: 1,
-                    hoverOffset: 8
-                }]
+        if (chartContainer) chartContainer.innerHTML = '';
+
+        const themeColors = getThemeColors();
+        const healthData = chartData.healthOverview.labels.map((label, index) => ({
+            name: label,
+            y: chartData.healthOverview.series[index]
+        }));
+
+        healthOverviewChart = Highcharts.chart('healthOverviewChart', {
+            chart: {
+                type: 'pie',
+                height: 320,
+                backgroundColor: 'transparent'
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: {
-                            color: getComputedStyle(document.documentElement).getPropertyValue('--tw-text-zinc-800').trim() || 
-                                   (document.documentElement.classList.contains('dark') ? '#f4f4f5' : '#27272a'),
-                            padding: 20,
-                            font: {
-                                size: 12
-                            }
+            title: {
+                text: null
+            },
+            credits: {
+                enabled: false
+            },
+            tooltip: {
+                pointFormat: '<b>{point.y}</b> items ({point.percentage:.1f}%)',
+                backgroundColor: themeColors.backgroundColor,
+                borderWidth: 1,
+                borderRadius: 8,
+                shadow: true,
+                style: {
+                    color: themeColors.textColor
+                }
+            },
+            plotOptions: {
+                pie: {
+                    innerSize: '60%',
+                    allowPointSelect: true,
+                    cursor: 'pointer',
+                    dataLabels: {
+                        enabled: true,
+                        format: '<b>{point.name}</b>: {point.percentage:.1f}%',
+                        style: {
+                            fontSize: '11px',
+                            color: themeColors.textColor
                         }
                     },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const label = context.label || '';
-                                const value = context.raw || 0;
-                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                const percentage = Math.round((value / total) * 100);
-                                return `${label}: ${value} (${percentage}%)`;
-                            }
-                        }
-                    }
+                    showInLegend: true
+                }
+            },
+            series: [{
+                name: 'Stock Health',
+                colorByPoint: true,
+                data: healthData
+            }],
+            colors: ['#10B981', '#F59E0B', '#EF4444', '#6B7280'],
+            legend: {
+                align: 'center',
+                verticalAlign: 'bottom',
+                layout: 'horizontal',
+                itemStyle: {
+                    color: themeColors.textColor
                 },
-                cutout: '60%'
+                itemHoverStyle: {
+                    color: themeColors.textColor
+                }
+            },
+            exporting: {
+                enabled: true,
+                buttons: {
+                    contextButton: {
+                        menuItems: ['viewFullscreen', 'separator', 'downloadPNG', 'downloadJPEG', 'downloadPDF', 'downloadSVG', 'separator', 'downloadCSV', 'downloadXLS']
+                    }
+                }
             }
         });
-        
-        // Function to update chart when new data arrives
-        function updateChart(newData) {
-            healthOverviewChart.data.datasets[0].data = newData.series;
-            healthOverviewChart.data.labels = newData.labels;
-            healthOverviewChart.update();
-        }
-        
-        // Listen for Livewire events if needed
-        document.addEventListener('livewire:navigated', function() {
-            // Chart will be reinitialized when Livewire navigates
-        });
-    });
+    }
+
+    function getThemeColors() {
+        const isDark = document.documentElement.classList.contains('dark');
+        return {
+            textColor: isDark ? '#e4e4e7' : '#27272a',
+            gridColor: isDark ? '#3f3f46' : '#e4e4e7',
+            backgroundColor: isDark ? '#27272a' : '#ffffff'
+        };
+    }
+
+    // Initialize chart when script loads
+    if (typeof Highcharts !== 'undefined') {
+        initChart();
+    } else {
+        setTimeout(() => {
+            if (typeof Highcharts !== 'undefined') {
+                initChart();
+            }
+        }, 100);
+    }
 </script>
+@endpush

@@ -109,6 +109,9 @@ class StockMovementAnalytics extends Component
             ->when($this->selectedItem, function ($query) {
                 $query->where('stock_id', $this->selectedItem);
             })
+            ->when($this->movementType, function ($query) {
+                $query->where('type', $this->movementType);
+            })
             ->whereBetween('movement_date', [$this->dateFrom, $this->dateTo])
             ->selectRaw('DATE(movement_date) as date, type, SUM(quantity) as total_quantity')
             ->groupBy('date', 'type')
@@ -155,6 +158,9 @@ class StockMovementAnalytics extends Component
             ->when($this->selectedItem, function ($query) {
                 $query->where('stock_id', $this->selectedItem);
             })
+            ->when($this->movementType, function ($query) {
+                $query->where('type', $this->movementType);
+            })
             ->whereBetween('movement_date', [$this->dateFrom, $this->dateTo])
             ->selectRaw('type, COUNT(*) as count')
             ->groupBy('type')
@@ -174,6 +180,12 @@ class StockMovementAnalytics extends Component
             ->whereHas('stock', function ($query) use ($branchId) {
                 $query->where('branch_id', $branchId);
             })
+            ->when($this->selectedItem, function ($query) {
+                $query->where('stock_id', $this->selectedItem);
+            })
+            ->when($this->movementType, function ($query) {
+                $query->where('type', $this->movementType);
+            })
             ->whereBetween('movement_date', [$this->dateFrom, $this->dateTo])
             ->selectRaw('stock_id, SUM(ABS(quantity)) as total_moved')
             ->groupBy('stock_id')
@@ -191,6 +203,9 @@ class StockMovementAnalytics extends Component
             })
             ->when($this->selectedItem, function ($query) {
                 $query->where('stock_id', $this->selectedItem);
+            })
+            ->when($this->movementType, function ($query) {
+                $query->where('type', $this->movementType);
             })
             ->whereBetween('movement_date', [$this->dateFrom, $this->dateTo])
             ->get();
@@ -212,6 +227,12 @@ class StockMovementAnalytics extends Component
         $items = StockMovement::with(['stock.item'])
             ->whereHas('stock', function ($query) use ($branchId) {
                 $query->where('branch_id', $branchId);
+            })
+            ->when($this->selectedItem, function ($query) {
+                $query->where('stock_id', $this->selectedItem);
+            })
+            ->when($this->movementType, function ($query) {
+                $query->where('type', $this->movementType);
             })
             ->whereBetween('movement_date', [$this->dateFrom, $this->dateTo])
             ->whereIn('type', ['out', 'dispatch'])

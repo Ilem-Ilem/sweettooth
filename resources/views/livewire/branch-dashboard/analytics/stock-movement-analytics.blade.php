@@ -91,13 +91,33 @@
         {{-- Movement Trend --}}
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
             <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Movement Trend</h3>
-            <div id="movementTrendChart" class="h-80" wire:ignore></div>
+            <div id="movementTrendChart" class="h-80" wire:ignore>
+                <div class="flex items-center justify-center h-full">
+                    <div class="text-center">
+                        <svg class="animate-spin h-10 w-10 mx-auto text-blue-600 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading chart...</p>
+                    </div>
+                </div>
+            </div>
         </div>
 
         {{-- Movement Type Distribution --}}
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
             <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Movement Type Distribution</h3>
-            <div id="typeDistributionChart" class="h-80" wire:ignore></div>
+            <div id="typeDistributionChart" class="h-80" wire:ignore>
+                <div class="flex items-center justify-center h-full">
+                    <div class="text-center">
+                        <svg class="animate-spin h-10 w-10 mx-auto text-blue-600 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading chart...</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -125,7 +145,17 @@
         {{-- Stock Velocity --}}
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
             <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Stock Velocity (Frequency)</h3>
-            <div id="velocityChart" class="h-80" wire:ignore></div>
+            <div id="velocityChart" class="h-80" wire:ignore>
+                <div class="flex items-center justify-center h-full">
+                    <div class="text-center">
+                        <svg class="animate-spin h-10 w-10 mx-auto text-blue-600 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading chart...</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -216,8 +246,8 @@
         </div>
     </div>
 
-    {{-- Scripts and Styles within single root div --}}
-    <div wire:ignore>
+
+    @push('scripts')
 <script src="https://code.highcharts.com/highcharts.js"></script>
 <script src="https://code.highcharts.com/modules/exporting.js"></script>
 <script src="https://code.highcharts.com/modules/export-data.js"></script>
@@ -231,8 +261,16 @@
         velocityAnalysis: @js($velocityAnalysis)
     };
 
+    document.addEventListener('DOMContentLoaded', function () {
+        if (typeof Highcharts !== 'undefined') {
+            initCharts();
+        }
+    });
+
     document.addEventListener('livewire:navigated', function () {
-        initCharts();
+        if (typeof Highcharts !== 'undefined') {
+            initCharts();
+        }
     });
 
     // Listen for chart update events from Livewire
@@ -247,10 +285,22 @@
     });
 
     function initCharts() {
+        if (typeof Highcharts === 'undefined') {
+            console.error('Highcharts is not loaded');
+            return;
+        }
         // Destroy existing charts if they exist
         if (trendChart) trendChart.destroy();
         if (typeChart) typeChart.destroy();
         if (velocityChart) velocityChart.destroy();
+
+        // Clear loading spinners
+        const trendContainer = document.getElementById('movementTrendChart');
+        const typeContainer = document.getElementById('typeDistributionChart');
+        const velocityContainer = document.getElementById('velocityChart');
+        if (trendContainer) trendContainer.innerHTML = '';
+        if (typeContainer) typeContainer.innerHTML = '';
+        if (velocityContainer) velocityContainer.innerHTML = '';
 
         const themeColors = getThemeColors();
 
@@ -585,7 +635,17 @@
         };
     }
 
-    initCharts();
+    // Initialize charts when script loads
+    if (typeof Highcharts !== 'undefined') {
+        initCharts();
+    } else {
+        // Wait for Highcharts to load
+        setTimeout(() => {
+            if (typeof Highcharts !== 'undefined') {
+                initCharts();
+            }
+        }, 100);
+    }
 </script>
-    </div>
+    @endpush
 </div>

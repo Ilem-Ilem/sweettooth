@@ -27,9 +27,35 @@ class RequestDispatchAnalytics extends Component
         $this->dateTo = now()->format('Y-m-d');
     }
 
-    public function updatedDateFrom() { $this->resetPage(); }
-    public function updatedDateTo() { $this->resetPage(); }
-    public function updatedStatusFilter() { $this->resetPage(); }
+    public function updatedDateFrom()
+    {
+        $this->resetPage();
+        $this->dispatch('chartsUpdated', [
+            'trendData' => $this->getRequestTrendData(),
+            'departmentAnalysis' => $this->getDepartmentAnalysis(),
+            'fulfillmentRate' => $this->getFulfillmentRate(),
+        ]);
+    }
+
+    public function updatedDateTo()
+    {
+        $this->resetPage();
+        $this->dispatch('chartsUpdated', [
+            'trendData' => $this->getRequestTrendData(),
+            'departmentAnalysis' => $this->getDepartmentAnalysis(),
+            'fulfillmentRate' => $this->getFulfillmentRate(),
+        ]);
+    }
+
+    public function updatedStatusFilter()
+    {
+        $this->resetPage();
+        $this->dispatch('chartsUpdated', [
+            'trendData' => $this->getRequestTrendData(),
+            'departmentAnalysis' => $this->getDepartmentAnalysis(),
+            'fulfillmentRate' => $this->getFulfillmentRate(),
+        ]);
+    }
 
     public function getRequestTrendData()
     {

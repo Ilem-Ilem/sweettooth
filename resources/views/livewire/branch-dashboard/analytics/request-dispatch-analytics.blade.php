@@ -50,15 +50,45 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
             <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
                 <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Request Trend</h3>
-                <div id="requestTrendChart" class="h-80"></div>
+                <div id="requestTrendChart" class="h-80" wire:ignore>
+                    <div class="flex items-center justify-center h-full">
+                        <div class="text-center">
+                            <svg class="animate-spin h-10 w-10 mx-auto text-blue-600 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading chart...</p>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
                 <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Department Analysis</h3>
-                <div id="departmentChart" class="h-80"></div>
+                <div id="departmentChart" class="h-80" wire:ignore>
+                    <div class="flex items-center justify-center h-full">
+                        <div class="text-center">
+                            <svg class="animate-spin h-10 w-10 mx-auto text-blue-600 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading chart...</p>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
                 <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Fulfillment Status</h3>
-                <div id="fulfillmentChart" class="h-80"></div>
+                <div id="fulfillmentChart" class="h-80" wire:ignore>
+                    <div class="flex items-center justify-center h-full">
+                        <div class="text-center">
+                            <svg class="animate-spin h-10 w-10 mx-auto text-blue-600 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading chart...</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -111,29 +141,334 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-    <script>
-        document.addEventListener('livewire:navigated', () => {
-            new ApexCharts(document.querySelector("#requestTrendChart"), {
-                series: @js($trendData['series']),
-                chart: { type: 'line', height: 320, stacked: false },
-                xaxis: { categories: @js($trendData['categories']) },
-                stroke: { curve: 'smooth', width: 2 },
-                colors: ['#F59E0B', '#8B5CF6', '#10B981']
-            }).render();
+    @push('scripts')
+<script src="https://code.highcharts.com/highcharts.js"></script>
+<script src="https://code.highcharts.com/modules/exporting.js"></script>
+<script src="https://code.highcharts.com/modules/export-data.js"></script>
+<script src="https://code.highcharts.com/modules/accessibility.js"></script>
 
-            new ApexCharts(document.querySelector("#departmentChart"), {
-                series: @js($departmentAnalysis['series']),
-                chart: { type: 'donut', height: 320 },
-                labels: @js($departmentAnalysis['labels'])
-            }).render();
+<script>
+    let trendChart, departmentChart, fulfillmentChart;
+    let chartData = {
+        trendData: @js($trendData),
+        departmentAnalysis: @js($departmentAnalysis),
+        fulfillmentRate: @js($fulfillmentRate)
+    };
 
-            new ApexCharts(document.querySelector("#fulfillmentChart"), {
-                series: @js($fulfillmentRate['series']),
-                chart: { type: 'pie', height: 320 },
-                labels: @js($fulfillmentRate['labels']),
-                colors: ['#F59E0B', '#8B5CF6', '#10B981', '#EF4444']
-            }).render();
+    document.addEventListener('DOMContentLoaded', function () {
+        initCharts();
+    });
+
+    document.addEventListener('livewire:navigated', function () {
+        initCharts();
+    });
+
+    // Listen for chart update events from Livewire
+    document.addEventListener('livewire:init', () => {
+        Livewire.on('chartsUpdated', (event) => {
+            const data = event[0];
+            chartData.trendData = data.trendData;
+            chartData.departmentAnalysis = data.departmentAnalysis;
+            chartData.fulfillmentRate = data.fulfillmentRate;
+            updateCharts();
         });
-    </script>
+    });
+
+    function initCharts() {
+        // Destroy existing charts if they exist
+        if (trendChart) trendChart.destroy();
+        if (departmentChart) departmentChart.destroy();
+        if (fulfillmentChart) fulfillmentChart.destroy();
+
+        // Clear loading spinners
+        const trendContainer = document.getElementById('requestTrendChart');
+        const deptContainer = document.getElementById('departmentChart');
+        const fulfillContainer = document.getElementById('fulfillmentChart');
+        if (trendContainer) trendContainer.innerHTML = '';
+        if (deptContainer) deptContainer.innerHTML = '';
+        if (fulfillContainer) fulfillContainer.innerHTML = '';
+
+        const themeColors = getThemeColors();
+
+        // Request Trend Chart - Line/Spline Chart
+        trendChart = Highcharts.chart('requestTrendChart', {
+            chart: {
+                type: 'spline',
+                height: 320,
+                backgroundColor: 'transparent'
+            },
+            title: {
+                text: null
+            },
+            credits: {
+                enabled: false
+            },
+            xAxis: {
+                categories: chartData.trendData.categories,
+                title: {
+                    text: 'Date',
+                    style: {
+                        color: themeColors.textColor
+                    }
+                },
+                labels: {
+                    style: {
+                        color: themeColors.textColor
+                    }
+                },
+                gridLineColor: themeColors.gridColor
+            },
+            yAxis: {
+                title: {
+                    text: 'Number of Requests',
+                    style: {
+                        color: themeColors.textColor
+                    }
+                },
+                labels: {
+                    style: {
+                        color: themeColors.textColor
+                    }
+                },
+                gridLineColor: themeColors.gridColor,
+                min: 0
+            },
+            tooltip: {
+                shared: true,
+                crosshairs: true,
+                backgroundColor: themeColors.backgroundColor,
+                borderWidth: 1,
+                borderRadius: 8,
+                shadow: true,
+                style: {
+                    color: themeColors.textColor
+                }
+            },
+            plotOptions: {
+                spline: {
+                    marker: {
+                        enabled: true,
+                        radius: 4,
+                        lineWidth: 2,
+                        lineColor: '#ffffff'
+                    },
+                    lineWidth: 3
+                }
+            },
+            series: chartData.trendData.series.map((s, index) => ({
+                name: s.name,
+                data: s.data,
+                color: ['#F59E0B', '#8B5CF6', '#10B981'][index]
+            })),
+            legend: {
+                align: 'center',
+                verticalAlign: 'top',
+                floating: false,
+                backgroundColor: themeColors.backgroundColor,
+                borderWidth: 1,
+                borderColor: themeColors.gridColor,
+                borderRadius: 5,
+                itemStyle: {
+                    color: themeColors.textColor
+                },
+                itemHoverStyle: {
+                    color: themeColors.textColor
+                }
+            },
+            exporting: {
+                enabled: true,
+                buttons: {
+                    contextButton: {
+                        menuItems: ['viewFullscreen', 'separator', 'downloadPNG', 'downloadJPEG', 'downloadPDF', 'downloadSVG', 'separator', 'downloadCSV', 'downloadXLS']
+                    }
+                }
+            }
+        });
+
+        // Department Analysis Chart - Donut Chart
+        const departmentData = chartData.departmentAnalysis.labels.map((label, index) => ({
+            name: label,
+            y: chartData.departmentAnalysis.series[index]
+        }));
+
+        departmentChart = Highcharts.chart('departmentChart', {
+            chart: {
+                type: 'pie',
+                height: 320,
+                backgroundColor: 'transparent'
+            },
+            title: {
+                text: null
+            },
+            credits: {
+                enabled: false
+            },
+            tooltip: {
+                pointFormat: '<b>{point.y}</b> requests ({point.percentage:.1f}%)',
+                backgroundColor: themeColors.backgroundColor,
+                borderWidth: 1,
+                borderRadius: 8,
+                shadow: true,
+                style: {
+                    color: themeColors.textColor
+                }
+            },
+            plotOptions: {
+                pie: {
+                    innerSize: '50%', // Makes it a donut
+                    allowPointSelect: true,
+                    cursor: 'pointer',
+                    dataLabels: {
+                        enabled: true,
+                        format: '<b>{point.name}</b>: {point.percentage:.1f}%',
+                        style: {
+                            fontSize: '11px',
+                            color: themeColors.textColor
+                        }
+                    },
+                    showInLegend: true
+                }
+            },
+            series: [{
+                name: 'Requests',
+                colorByPoint: true,
+                data: departmentData
+            }],
+            colors: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6'],
+            legend: {
+                align: 'center',
+                verticalAlign: 'bottom',
+                layout: 'horizontal',
+                itemStyle: {
+                    color: themeColors.textColor
+                },
+                itemHoverStyle: {
+                    color: themeColors.textColor
+                }
+            },
+            exporting: {
+                enabled: true,
+                buttons: {
+                    contextButton: {
+                        menuItems: ['viewFullscreen', 'separator', 'downloadPNG', 'downloadJPEG', 'downloadPDF', 'downloadSVG', 'separator', 'downloadCSV', 'downloadXLS']
+                    }
+                }
+            }
+        });
+
+        // Fulfillment Status Chart - Pie Chart
+        const fulfillmentData = chartData.fulfillmentRate.labels.map((label, index) => ({
+            name: label,
+            y: chartData.fulfillmentRate.series[index]
+        }));
+
+        fulfillmentChart = Highcharts.chart('fulfillmentChart', {
+            chart: {
+                type: 'pie',
+                height: 320,
+                backgroundColor: 'transparent'
+            },
+            title: {
+                text: null
+            },
+            credits: {
+                enabled: false
+            },
+            tooltip: {
+                pointFormat: '<b>{point.y}</b> requests ({point.percentage:.1f}%)',
+                backgroundColor: themeColors.backgroundColor,
+                borderWidth: 1,
+                borderRadius: 8,
+                shadow: true,
+                style: {
+                    color: themeColors.textColor
+                }
+            },
+            plotOptions: {
+                pie: {
+                    allowPointSelect: true,
+                    cursor: 'pointer',
+                    dataLabels: {
+                        enabled: true,
+                        format: '<b>{point.name}</b>: {point.percentage:.1f}%',
+                        style: {
+                            fontSize: '11px',
+                            color: themeColors.textColor
+                        }
+                    },
+                    showInLegend: true
+                }
+            },
+            series: [{
+                name: 'Status',
+                colorByPoint: true,
+                data: fulfillmentData
+            }],
+            colors: ['#F59E0B', '#8B5CF6', '#10B981', '#EF4444', '#6366F1', '#14B8A6'],
+            legend: {
+                align: 'center',
+                verticalAlign: 'bottom',
+                layout: 'horizontal',
+                itemStyle: {
+                    color: themeColors.textColor
+                },
+                itemHoverStyle: {
+                    color: themeColors.textColor
+                }
+            },
+            exporting: {
+                enabled: true,
+                buttons: {
+                    contextButton: {
+                        menuItems: ['viewFullscreen', 'separator', 'downloadPNG', 'downloadJPEG', 'downloadPDF', 'downloadSVG', 'separator', 'downloadCSV', 'downloadXLS']
+                    }
+                }
+            }
+        });
+    }
+
+    function updateCharts() {
+        // Update Trend Chart
+        if (trendChart && chartData.trendData) {
+            chartData.trendData.series.forEach((s, index) => {
+                if (trendChart.series[index]) {
+                    trendChart.series[index].setData(s.data, false);
+                }
+            });
+            trendChart.xAxis[0].setCategories(chartData.trendData.categories, false);
+            trendChart.redraw();
+        }
+
+        // Update Department Chart
+        if (departmentChart && chartData.departmentAnalysis) {
+            const departmentData = chartData.departmentAnalysis.labels.map((label, index) => ({
+                name: label,
+                y: chartData.departmentAnalysis.series[index]
+            }));
+            departmentChart.series[0].setData(departmentData, true);
+        }
+
+        // Update Fulfillment Chart
+        if (fulfillmentChart && chartData.fulfillmentRate) {
+            const fulfillmentData = chartData.fulfillmentRate.labels.map((label, index) => ({
+                name: label,
+                y: chartData.fulfillmentRate.series[index]
+            }));
+            fulfillmentChart.series[0].setData(fulfillmentData, true);
+        }
+    }
+
+    // Detect theme and return appropriate colors
+    function getThemeColors() {
+        const isDark = document.documentElement.classList.contains('dark');
+        return {
+            textColor: isDark ? '#e4e4e7' : '#27272a',
+            gridColor: isDark ? '#3f3f46' : '#e4e4e7',
+            backgroundColor: isDark ? '#27272a' : '#ffffff'
+        };
+    }
+
+    initCharts();
+</script>
+    @endpush
 </div>

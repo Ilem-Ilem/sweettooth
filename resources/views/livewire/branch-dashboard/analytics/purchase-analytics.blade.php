@@ -53,28 +53,58 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
             <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Purchase Trend</h3>
-            <div id="purchaseTrendChart" class="h-80"></div>
+            <div id="purchaseTrendChart" class="h-80" wire:ignore>
+                <div class="flex items-center justify-center h-full">
+                    <div class="text-center">
+                        <svg class="animate-spin h-10 w-10 mx-auto text-blue-600 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading chart...</p>
+                    </div>
+                </div>
+            </div>
         </div>
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
             <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Top Suppliers by Spending</h3>
-            <div id="supplierChart" class="h-80"></div>
+            <div id="supplierChart" class="h-80" wire:ignore>
+                <div class="flex items-center justify-center h-full">
+                    <div class="text-center">
+                        <svg class="animate-spin h-10 w-10 mx-auto text-blue-600 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading chart...</p>
+                    </div>
+                </div>
+            </div>
         </div>
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
             <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Cost Breakdown</h3>
-            <div id="costBreakdownChart" class="h-80"></div>
+            <div id="costBreakdownChart" class="h-80" wire:ignore>
+                <div class="flex items-center justify-center h-full">
+                    <div class="text-center">
+                        <svg class="animate-spin h-10 w-10 mx-auto text-blue-600 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading chart...</p>
+                    </div>
+                </div>
+            </div>
         </div>
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
             <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Top 10 Purchased Items</h3>
-            <div class="space-y-2">
-                @foreach($topItems as $item)
-                    <div class="flex justify-between items-center p-2 bg-gray-50 dark:bg-zinc-700/50 rounded">
-                        <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $item->item->name }}</span>
-                        <div class="text-right">
-                            <p class="font-bold text-green-600 dark:text-green-400">₦{{ number_format($item->total_cost, 2) }}</p>
-                            <p class="text-xs text-gray-500 dark:text-gray-400">{{ number_format($item->total_quantity, 2) }} {{ $item->item->uom }}</p>
-                        </div>
+            <div id="topItemsChart" class="h-80" wire:ignore>
+                <div class="flex items-center justify-center h-full">
+                    <div class="text-center">
+                        <svg class="animate-spin h-10 w-10 mx-auto text-blue-600 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading chart...</p>
                     </div>
-                @endforeach
+                </div>
             </div>
         </div>
     </div>
@@ -127,31 +157,248 @@
         <div class="mt-4">{{ $purchases->links() }}</div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-    <script>
-        document.addEventListener('livewire:navigated', () => {
-            new ApexCharts(document.querySelector("#purchaseTrendChart"), {
-                series: @js($trendData['series']),
-                chart: { type: 'line', height: 320 },
-                xaxis: { categories: @js($trendData['categories']) },
-                stroke: { curve: 'smooth', width: 3 },
-                colors: ['#10B981', '#3B82F6']
-            }).render();
 
-            new ApexCharts(document.querySelector("#supplierChart"), {
-                series: @js($supplierAnalysis['series']),
-                chart: { type: 'bar', height: 320 },
-                plotOptions: { bar: { horizontal: true } },
-                xaxis: { categories: @js($supplierAnalysis['labels']) },
-                colors: ['#3B82F6']
-            }).render();
+    @push('scripts')
+<script src="https://code.highcharts.com/highcharts.js"></script>
+<script src="https://code.highcharts.com/modules/exporting.js"></script>
+<script src="https://code.highcharts.com/modules/export-data.js"></script>
+<script src="https://code.highcharts.com/modules/accessibility.js"></script>
 
-            new ApexCharts(document.querySelector("#costBreakdownChart"), {
-                series: @js($costBreakdown['series']),
-                chart: { type: 'pie', height: 320 },
-                labels: @js($costBreakdown['labels']),
-                colors: ['#3B82F6', '#F59E0B', '#10B981']
-            }).render();
+<script>
+    let trendChart, supplierChart, costChart, topItemsChart;
+    let chartData = {
+        trendData: @js($trendData),
+        supplierAnalysis: @js($supplierAnalysis),
+        costBreakdown: @js($costBreakdown),
+        topItems: @js($topItems->map(function($item) {
+            return [
+                'name' => $item->item->name,
+                'total_cost' => $item->total_cost,
+                'total_quantity' => $item->total_quantity,
+                'uom' => $item->item->uom
+            ];
+        })->toArray())
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        if (typeof Highcharts !== 'undefined') {
+            initCharts();
+        }
+    });
+
+    document.addEventListener('livewire:navigated', function () {
+        if (typeof Highcharts !== 'undefined') {
+            initCharts();
+        }
+    });
+
+    document.addEventListener('livewire:init', () => {
+        Livewire.on('chartsUpdated', (event) => {
+            const data = event[0];
+            chartData.trendData = data.trendData;
+            chartData.supplierAnalysis = data.supplierAnalysis;
+            chartData.costBreakdown = data.costBreakdown;
+            chartData.topItems = data.topItems;
+            updateCharts();
         });
-    </script>
+    });
+
+    function initCharts() {
+        if (typeof Highcharts === 'undefined') {
+            console.error('Highcharts is not loaded');
+            return;
+        }
+
+        if (trendChart) trendChart.destroy();
+        if (supplierChart) supplierChart.destroy();
+        if (costChart) costChart.destroy();
+        if (topItemsChart) topItemsChart.destroy();
+
+        // Clear loading spinners
+        const trendContainer = document.getElementById('purchaseTrendChart');
+        const supplierContainer = document.getElementById('supplierChart');
+        const costContainer = document.getElementById('costBreakdownChart');
+        const topItemsContainer = document.getElementById('topItemsChart');
+        if (trendContainer) trendContainer.innerHTML = '';
+        if (supplierContainer) supplierContainer.innerHTML = '';
+        if (costContainer) costContainer.innerHTML = '';
+        if (topItemsContainer) topItemsContainer.innerHTML = '';
+
+        const themeColors = getThemeColors();
+
+        // Purchase Trend Chart
+        trendChart = Highcharts.chart('purchaseTrendChart', {
+            chart: { type: 'spline', height: 320, backgroundColor: 'transparent' },
+            title: { text: null },
+            credits: { enabled: false },
+            xAxis: {
+                categories: chartData.trendData.categories,
+                labels: { style: { color: themeColors.textColor } },
+                gridLineColor: themeColors.gridColor
+            },
+            yAxis: [{
+                title: { text: 'Total Cost (₦)', style: { color: themeColors.textColor } },
+                labels: {
+                    style: { color: themeColors.textColor },
+                    formatter: function() { return '₦' + Highcharts.numberFormat(this.value, 0, '.', ','); }
+                },
+                gridLineColor: themeColors.gridColor
+            }, {
+                title: { text: 'Count', style: { color: themeColors.textColor } },
+                labels: { style: { color: themeColors.textColor } },
+                opposite: true,
+                gridLineColor: themeColors.gridColor
+            }],
+            tooltip: { shared: true, backgroundColor: themeColors.backgroundColor, style: { color: themeColors.textColor } },
+            plotOptions: { spline: { marker: { enabled: true, radius: 4 }, lineWidth: 3 } },
+            series: [{
+                name: chartData.trendData.series[0].name,
+                data: chartData.trendData.series[0].data,
+                color: '#10B981',
+                yAxis: 0
+            }, {
+                name: chartData.trendData.series[1].name,
+                data: chartData.trendData.series[1].data,
+                color: '#3B82F6',
+                yAxis: 1
+            }],
+            legend: { itemStyle: { color: themeColors.textColor } },
+            exporting: { enabled: true }
+        });
+
+        // Supplier Chart
+        supplierChart = Highcharts.chart('supplierChart', {
+            chart: { type: 'bar', height: 320, backgroundColor: 'transparent' },
+            title: { text: null },
+            credits: { enabled: false },
+            xAxis: {
+                categories: chartData.supplierAnalysis.labels,
+                labels: { style: { color: themeColors.textColor, fontSize: '10px' } }
+            },
+            yAxis: {
+                title: { text: 'Total (₦)', style: { color: themeColors.textColor } },
+                labels: {
+                    style: { color: themeColors.textColor },
+                    formatter: function() { return '₦' + Highcharts.numberFormat(this.value, 0, '.', ','); }
+                }
+            },
+            tooltip: {
+                backgroundColor: themeColors.backgroundColor,
+                formatter: function() { return '<b>' + this.point.category + '</b><br/>₦' + Highcharts.numberFormat(this.y, 2, '.', ','); }
+            },
+            plotOptions: { bar: { dataLabels: { enabled: true, formatter: function() { return '₦' + Highcharts.numberFormat(this.y, 0, '.', ','); } } } },
+            series: [{ name: 'Total Spent', data: chartData.supplierAnalysis.series[0].data, color: '#3B82F6', showInLegend: false }],
+            exporting: { enabled: true }
+        });
+
+        // Cost Breakdown Chart
+        const costData = chartData.costBreakdown.labels.map((label, index) => ({
+            name: label,
+            y: chartData.costBreakdown.series[index]
+        }));
+
+        costChart = Highcharts.chart('costBreakdownChart', {
+            chart: { type: 'pie', height: 320, backgroundColor: 'transparent' },
+            title: { text: null },
+            credits: { enabled: false },
+            tooltip: { pointFormat: '<b>₦{point.y:,.2f}</b> ({point.percentage:.1f}%)', backgroundColor: themeColors.backgroundColor },
+            plotOptions: {
+                pie: {
+                    allowPointSelect: true,
+                    dataLabels: { enabled: true, format: '<b>{point.name}</b>: {point.percentage:.1f}%', style: { color: themeColors.textColor } },
+                    showInLegend: true
+                }
+            },
+            series: [{ name: 'Cost', colorByPoint: true, data: costData }],
+            colors: ['#3B82F6', '#F59E0B', '#10B981'],
+            legend: { itemStyle: { color: themeColors.textColor } },
+            exporting: { enabled: true }
+        });
+
+        // Top Items Chart
+        const topItemsData = chartData.topItems.map(item => item.total_cost);
+        const topItemsLabels = chartData.topItems.map(item => item.name);
+
+        topItemsChart = Highcharts.chart('topItemsChart', {
+            chart: { type: 'bar', height: 320, backgroundColor: 'transparent' },
+            title: { text: null },
+            credits: { enabled: false },
+            xAxis: {
+                categories: topItemsLabels,
+                labels: { style: { color: themeColors.textColor, fontSize: '10px' } }
+            },
+            yAxis: {
+                title: { text: 'Cost (₦)', style: { color: themeColors.textColor } },
+                labels: {
+                    style: { color: themeColors.textColor },
+                    formatter: function() { return '₦' + Highcharts.numberFormat(this.value, 0, '.', ','); }
+                }
+            },
+            tooltip: {
+                backgroundColor: themeColors.backgroundColor,
+                formatter: function() {
+                    const item = chartData.topItems[this.point.index];
+                    return '<b>' + this.point.category + '</b><br/>Cost: ₦' + Highcharts.numberFormat(this.y, 2, '.', ',') + '<br/>Qty: ' + Highcharts.numberFormat(item.total_quantity, 2) + ' ' + item.uom;
+                }
+            },
+            plotOptions: { bar: { dataLabels: { enabled: true, formatter: function() { return '₦' + Highcharts.numberFormat(this.y, 0, '.', ','); } }, colorByPoint: true } },
+            series: [{ name: 'Total Cost', data: topItemsData, showInLegend: false }],
+            colors: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6', '#F97316', '#84CC16'],
+            exporting: { enabled: true }
+        });
+    }
+
+    function updateCharts() {
+        if (trendChart && chartData.trendData) {
+            trendChart.series[0].setData(chartData.trendData.series[0].data, false);
+            trendChart.series[1].setData(chartData.trendData.series[1].data, false);
+            trendChart.xAxis[0].setCategories(chartData.trendData.categories, false);
+            trendChart.redraw();
+        }
+
+        if (supplierChart && chartData.supplierAnalysis) {
+            supplierChart.series[0].setData(chartData.supplierAnalysis.series[0].data, false);
+            supplierChart.xAxis[0].setCategories(chartData.supplierAnalysis.labels, false);
+            supplierChart.redraw();
+        }
+
+        if (costChart && chartData.costBreakdown) {
+            const costData = chartData.costBreakdown.labels.map((label, index) => ({
+                name: label,
+                y: chartData.costBreakdown.series[index]
+            }));
+            costChart.series[0].setData(costData, true);
+        }
+
+        if (topItemsChart && chartData.topItems) {
+            const topItemsData = chartData.topItems.map(item => item.total_cost);
+            const topItemsLabels = chartData.topItems.map(item => item.name);
+            topItemsChart.series[0].setData(topItemsData, false);
+            topItemsChart.xAxis[0].setCategories(topItemsLabels, false);
+            topItemsChart.redraw();
+        }
+    }
+
+    function getThemeColors() {
+        const isDark = document.documentElement.classList.contains('dark');
+        return {
+            textColor: isDark ? '#e4e4e7' : '#27272a',
+            gridColor: isDark ? '#3f3f46' : '#e4e4e7',
+            backgroundColor: isDark ? '#27272a' : '#ffffff'
+        };
+    }
+
+    // Initialize charts when script loads
+    if (typeof Highcharts !== 'undefined') {
+        initCharts();
+    } else {
+        // Wait for Highcharts to load
+        setTimeout(() => {
+            if (typeof Highcharts !== 'undefined') {
+                initCharts();
+            }
+        }, 100);
+    }
+</script>
+    @endpush
 </div>

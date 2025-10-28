@@ -28,16 +28,85 @@ class PurchaseAnalytics extends Component
         $this->dateTo = now()->format('Y-m-d');
     }
 
-    public function updatedDateFrom() { $this->resetPage(); }
-    public function updatedDateTo() { $this->resetPage(); }
-    public function updatedSupplierFilter() { $this->resetPage(); }
-    public function updatedPaymentStatus() { $this->resetPage(); }
+    public function updatedDateFrom()
+    {
+        $this->resetPage();
+        $this->dispatch('chartsUpdated', [
+            'trendData' => $this->getPurchaseTrendData(),
+            'supplierAnalysis' => $this->getSupplierAnalysis(),
+            'costBreakdown' => $this->getCostBreakdown(),
+            'topItems' => $this->getTopPurchasedItems()->map(function($item) {
+                return [
+                    'name' => $item->item->name,
+                    'total_cost' => $item->total_cost,
+                    'total_quantity' => $item->total_quantity,
+                    'uom' => $item->item->uom
+                ];
+            })->toArray()
+        ]);
+    }
+
+    public function updatedDateTo()
+    {
+        $this->resetPage();
+        $this->dispatch('chartsUpdated', [
+            'trendData' => $this->getPurchaseTrendData(),
+            'supplierAnalysis' => $this->getSupplierAnalysis(),
+            'costBreakdown' => $this->getCostBreakdown(),
+            'topItems' => $this->getTopPurchasedItems()->map(function($item) {
+                return [
+                    'name' => $item->item->name,
+                    'total_cost' => $item->total_cost,
+                    'total_quantity' => $item->total_quantity,
+                    'uom' => $item->item->uom
+                ];
+            })->toArray()
+        ]);
+    }
+
+    public function updatedSupplierFilter()
+    {
+        $this->resetPage();
+        $this->dispatch('chartsUpdated', [
+            'trendData' => $this->getPurchaseTrendData(),
+            'supplierAnalysis' => $this->getSupplierAnalysis(),
+            'costBreakdown' => $this->getCostBreakdown(),
+            'topItems' => $this->getTopPurchasedItems()->map(function($item) {
+                return [
+                    'name' => $item->item->name,
+                    'total_cost' => $item->total_cost,
+                    'total_quantity' => $item->total_quantity,
+                    'uom' => $item->item->uom
+                ];
+            })->toArray()
+        ]);
+    }
+
+    public function updatedPaymentStatus()
+    {
+        $this->resetPage();
+        $this->dispatch('chartsUpdated', [
+            'trendData' => $this->getPurchaseTrendData(),
+            'supplierAnalysis' => $this->getSupplierAnalysis(),
+            'costBreakdown' => $this->getCostBreakdown(),
+            'topItems' => $this->getTopPurchasedItems()->map(function($item) {
+                return [
+                    'name' => $item->item->name,
+                    'total_cost' => $item->total_cost,
+                    'total_quantity' => $item->total_quantity,
+                    'uom' => $item->item->uom
+                ];
+            })->toArray()
+        ]);
+    }
 
     public function getPurchaseTrendData()
     {
         $branchId = Auth::guard('employees')->user()->branch_id;
 
         $purchases = Purchase::where('branch_id', $branchId)
+            ->when($this->supplierFilter, fn($q) => $q->where('supplier_name', 'like', '%' . $this->supplierFilter . '%'))
+            ->when($this->paymentStatus, fn($q) => $q->where('payment_status', $this->paymentStatus))
             ->whereBetween('purchase_date', [$this->dateFrom, $this->dateTo])
             ->selectRaw('DATE(purchase_date) as date, COUNT(*) as count, SUM(total_cost) as total')
             ->groupBy('date')
@@ -58,6 +127,8 @@ class PurchaseAnalytics extends Component
         $branchId = Auth::guard('employees')->user()->branch_id;
 
         $suppliers = Purchase::where('branch_id', $branchId)
+            ->when($this->supplierFilter, fn($q) => $q->where('supplier_name', 'like', '%' . $this->supplierFilter . '%'))
+            ->when($this->paymentStatus, fn($q) => $q->where('payment_status', $this->paymentStatus))
             ->whereBetween('purchase_date', [$this->dateFrom, $this->dateTo])
             ->selectRaw('supplier_name, COUNT(*) as purchase_count, SUM(total_cost) as total_spent')
             ->groupBy('supplier_name')
@@ -78,6 +149,8 @@ class PurchaseAnalytics extends Component
         $branchId = Auth::guard('employees')->user()->branch_id;
 
         $breakdown = Purchase::where('branch_id', $branchId)
+            ->when($this->supplierFilter, fn($q) => $q->where('supplier_name', 'like', '%' . $this->supplierFilter . '%'))
+            ->when($this->paymentStatus, fn($q) => $q->where('payment_status', $this->paymentStatus))
             ->whereBetween('purchase_date', [$this->dateFrom, $this->dateTo])
             ->selectRaw('
                 SUM(total_fob_ngn) as fob_total,
@@ -103,6 +176,8 @@ class PurchaseAnalytics extends Component
         return PurchaseItem::with(['item', 'purchase'])
             ->whereHas('purchase', function ($query) use ($branchId) {
                 $query->where('branch_id', $branchId)
+                    ->when($this->supplierFilter, fn($q) => $q->where('supplier_name', 'like', '%' . $this->supplierFilter . '%'))
+                    ->when($this->paymentStatus, fn($q) => $q->where('payment_status', $this->paymentStatus))
                     ->whereBetween('purchase_date', [$this->dateFrom, $this->dateTo]);
             })
             ->selectRaw('item_id, SUM(quantity) as total_quantity, SUM(total_cost) as total_cost')

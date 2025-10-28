@@ -38,20 +38,30 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
                 <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Valuation by Category</h3>
-                <div id="categoryValuationChart" class="h-80"></div>
+                <div id="categoryValuationChart" class="h-80" wire:ignore>
+                    <div class="flex items-center justify-center h-full">
+                        <div class="text-center">
+                            <svg class="animate-spin h-10 w-10 mx-auto text-blue-600 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading chart...</p>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
                 <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Top 10 Most Valuable Items</h3>
-                <div class="space-y-2">
-                    @foreach($topItems as $item)
-                        <div class="flex justify-between items-center p-3 bg-gray-50 dark:bg-zinc-700/50 rounded">
-                            <div>
-                                <p class="font-medium text-zinc-900 dark:text-zinc-100">{{ $item->item->name }}</p>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">Qty: {{ number_format($item->quantity_available + $item->quantity_reserved, 2) }} @ ₦{{ number_format($item->average_cost, 2) }}</p>
-                            </div>
-                            <p class="font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($item->total_value, 2) }}</p>
+                <div id="topItemsChart" class="h-80" wire:ignore>
+                    <div class="flex items-center justify-center h-full">
+                        <div class="text-center">
+                            <svg class="animate-spin h-10 w-10 mx-auto text-blue-600 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading chart...</p>
                         </div>
-                    @endforeach
+                    </div>
                 </div>
             </div>
         </div>
@@ -103,17 +113,254 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-    <script>
-        document.addEventListener('livewire:navigated', () => {
-            new ApexCharts(document.querySelector("#categoryValuationChart"), {
-                series: @js($categoryValuation['series']),
-                chart: { type: 'pie', height: 320 },
-                labels: @js($categoryValuation['labels']),
-                colors: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444'],
-                legend: { position: 'bottom' },
-                dataLabels: { enabled: true, formatter: (val) => '₦' + val.toFixed(0) }
-            }).render();
+    @push('scripts')
+<script src="https://code.highcharts.com/highcharts.js"></script>
+<script src="https://code.highcharts.com/modules/exporting.js"></script>
+<script src="https://code.highcharts.com/modules/export-data.js"></script>
+<script src="https://code.highcharts.com/modules/accessibility.js"></script>
+
+<script>
+    let categoryChart, topItemsChart;
+    let chartData = {
+        categoryValuation: @js($categoryValuation),
+        topItems: @js($topItems->map(function($item) {
+            return [
+                'name' => $item->item->name,
+                'value' => $item->total_value,
+                'quantity' => $item->quantity_available + $item->quantity_reserved,
+                'avg_cost' => $item->average_cost
+            ];
+        })->values()->toArray())
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        initCharts();
+    });
+
+    document.addEventListener('livewire:navigated', function () {
+        initCharts();
+    });
+
+    // Listen for chart update events from Livewire
+    document.addEventListener('livewire:init', () => {
+        Livewire.on('chartsUpdated', (event) => {
+            const data = event[0];
+            chartData.categoryValuation = data.categoryValuation;
+            chartData.topItems = data.topItems;
+            updateCharts();
         });
-    </script>
+    });
+
+    function initCharts() {
+        // Destroy existing charts if they exist
+        if (categoryChart) categoryChart.destroy();
+        if (topItemsChart) topItemsChart.destroy();
+
+        // Clear loading spinners
+        const categoryContainer = document.getElementById('categoryValuationChart');
+        const topItemsContainer = document.getElementById('topItemsChart');
+        if (categoryContainer) categoryContainer.innerHTML = '';
+        if (topItemsContainer) topItemsContainer.innerHTML = '';
+
+        const themeColors = getThemeColors();
+
+        // Category Valuation Chart - Pie Chart
+        const pieData = chartData.categoryValuation.labels.map((label, index) => ({
+            name: label,
+            y: chartData.categoryValuation.series[index]
+        }));
+
+        categoryChart = Highcharts.chart('categoryValuationChart', {
+            chart: {
+                type: 'pie',
+                height: 320,
+                backgroundColor: 'transparent'
+            },
+            title: {
+                text: null
+            },
+            credits: {
+                enabled: false
+            },
+            tooltip: {
+                pointFormat: '<b>₦{point.y:,.2f}</b> ({point.percentage:.1f}%)',
+                backgroundColor: themeColors.backgroundColor,
+                borderWidth: 1,
+                borderRadius: 8,
+                shadow: true,
+                style: {
+                    color: themeColors.textColor
+                }
+            },
+            plotOptions: {
+                pie: {
+                    allowPointSelect: true,
+                    cursor: 'pointer',
+                    dataLabels: {
+                        enabled: true,
+                        format: '<b>{point.name}</b>: {point.percentage:.1f}%',
+                        style: {
+                            fontSize: '11px',
+                            color: themeColors.textColor
+                        }
+                    },
+                    showInLegend: true
+                }
+            },
+            series: [{
+                name: 'Valuation',
+                colorByPoint: true,
+                data: pieData
+            }],
+            colors: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'],
+            legend: {
+                align: 'center',
+                verticalAlign: 'bottom',
+                layout: 'horizontal',
+                itemStyle: {
+                    color: themeColors.textColor
+                },
+                itemHoverStyle: {
+                    color: themeColors.textColor
+                }
+            },
+            exporting: {
+                enabled: true,
+                buttons: {
+                    contextButton: {
+                        menuItems: ['viewFullscreen', 'separator', 'downloadPNG', 'downloadJPEG', 'downloadPDF', 'downloadSVG', 'separator', 'downloadCSV', 'downloadXLS']
+                    }
+                }
+            }
+        });
+
+        // Top Items Chart - Horizontal Bar Chart
+        const topItemsData = chartData.topItems.map(item => item.value);
+        const topItemsLabels = chartData.topItems.map(item => item.name);
+
+        topItemsChart = Highcharts.chart('topItemsChart', {
+            chart: {
+                type: 'bar',
+                height: 320,
+                backgroundColor: 'transparent'
+            },
+            title: {
+                text: null
+            },
+            credits: {
+                enabled: false
+            },
+            xAxis: {
+                categories: topItemsLabels,
+                title: {
+                    text: null
+                },
+                labels: {
+                    style: {
+                        color: themeColors.textColor,
+                        fontSize: '10px'
+                    }
+                },
+                gridLineColor: themeColors.gridColor
+            },
+            yAxis: {
+                min: 0,
+                title: {
+                    text: 'Value (₦)',
+                    align: 'high',
+                    style: {
+                        color: themeColors.textColor
+                    }
+                },
+                labels: {
+                    style: {
+                        color: themeColors.textColor
+                    },
+                    formatter: function() {
+                        return '₦' + Highcharts.numberFormat(this.value, 0, '.', ',');
+                    }
+                },
+                gridLineColor: themeColors.gridColor
+            },
+            tooltip: {
+                backgroundColor: themeColors.backgroundColor,
+                borderWidth: 1,
+                borderRadius: 8,
+                shadow: true,
+                style: {
+                    color: themeColors.textColor
+                },
+                formatter: function() {
+                    const item = chartData.topItems[this.point.index];
+                    return '<b>' + this.point.category + '</b><br/>' +
+                           'Value: <b>₦' + Highcharts.numberFormat(this.y, 2, '.', ',') + '</b><br/>' +
+                           'Qty: ' + Highcharts.numberFormat(item.quantity, 2) + '<br/>' +
+                           'Avg Cost: ₦' + Highcharts.numberFormat(item.avg_cost, 2);
+                }
+            },
+            plotOptions: {
+                bar: {
+                    dataLabels: {
+                        enabled: true,
+                        style: {
+                            color: themeColors.textColor,
+                            fontSize: '10px'
+                        },
+                        formatter: function() {
+                            return '₦' + Highcharts.numberFormat(this.y, 0, '.', ',');
+                        }
+                    },
+                    colorByPoint: true
+                }
+            },
+            series: [{
+                name: 'Item Value',
+                data: topItemsData,
+                showInLegend: false
+            }],
+            colors: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6', '#F97316', '#84CC16'],
+            exporting: {
+                enabled: true,
+                buttons: {
+                    contextButton: {
+                        menuItems: ['viewFullscreen', 'separator', 'downloadPNG', 'downloadJPEG', 'downloadPDF', 'downloadSVG', 'separator', 'downloadCSV', 'downloadXLS']
+                    }
+                }
+            }
+        });
+    }
+
+    function updateCharts() {
+        // Update Category Chart
+        if (categoryChart && chartData.categoryValuation) {
+            const pieData = chartData.categoryValuation.labels.map((label, index) => ({
+                name: label,
+                y: chartData.categoryValuation.series[index]
+            }));
+            categoryChart.series[0].setData(pieData, true);
+        }
+
+        // Update Top Items Chart
+        if (topItemsChart && chartData.topItems) {
+            const topItemsData = chartData.topItems.map(item => item.value);
+            const topItemsLabels = chartData.topItems.map(item => item.name);
+            topItemsChart.series[0].setData(topItemsData, false);
+            topItemsChart.xAxis[0].setCategories(topItemsLabels, false);
+            topItemsChart.redraw();
+        }
+    }
+
+    // Detect theme and return appropriate colors
+    function getThemeColors() {
+        const isDark = document.documentElement.classList.contains('dark');
+        return {
+            textColor: isDark ? '#e4e4e7' : '#27272a',
+            gridColor: isDark ? '#3f3f46' : '#e4e4e7',
+            backgroundColor: isDark ? '#27272a' : '#ffffff'
+        };
+    }
+
+    initCharts();
+</script>
+    @endpush
 </div>

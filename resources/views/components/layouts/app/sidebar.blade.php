@@ -64,18 +64,36 @@
                 </flux:navlist.item>
             </flux:navlist.group>
 
-            <flux:navlist.group :heading="__('Inventory')">
-                <flux:navlist.group :heading="__('Inventory')" expandable
-                    :expanded="request()->routeIs('super-admin.inventory.*') ? true : false" class="grid"
-                    icon='cube'>
-                    <flux:navlist.item icon="squares-2x2" :href="route('super-admin.inventory.items')"
-                        :current="request()->routeIs('super-admin.inventory.items')" wire:navigate>{{ __('Items') }}
-                    </flux:navlist.item>
-                    <flux:navlist.item icon="cube-transparent" :href="route('super-admin.inventory.stocks')"
-                        :current="request()->routeIs('super-admin.inventory.stocks')" wire:navigate>
-                        {{ __('Stock Levels') }}
-                    </flux:navlist.item>
-                </flux:navlist.group>
+            <flux:navlist.group :heading="__('Inventory')" expandable
+                :expanded="request()->routeIs('super-admin.inventory.*') ? true : false" class="grid"
+                icon='cube'>
+                <flux:navlist.item icon="squares-2x2" :href="route('super-admin.inventory.items')"
+                    :current="request()->routeIs('super-admin.inventory.items')" wire:navigate>{{ __('Items') }}
+                </flux:navlist.item>
+                <flux:navlist.item icon="cube-transparent" :href="route('super-admin.inventory.stocks')"
+                    :current="request()->routeIs('super-admin.inventory.stocks')" wire:navigate>
+                    {{ __('Stock Levels') }}
+                </flux:navlist.item>
+                <flux:navlist.item icon="arrow-path" :href="route('super-admin.inventory.stock-movements')"
+                    :current="request()->routeIs('super-admin.inventory.stock-movements')" wire:navigate>
+                    {{ __('Stock Movements') }}
+                </flux:navlist.item>
+                <flux:navlist.item icon="document-text" :href="route('super-admin.inventory.item-requests')"
+                    :current="request()->routeIs('super-admin.inventory.item-requests')" wire:navigate>
+                    {{ __('Item Requests') }}
+                </flux:navlist.item>
+                <flux:navlist.item icon="truck" :href="route('super-admin.inventory.item-dispatches')"
+                    :current="request()->routeIs('super-admin.inventory.item-dispatches')" wire:navigate>
+                    {{ __('Item Dispatches') }}
+                </flux:navlist.item>
+                <flux:navlist.item icon="clipboard-document-check" :href="route('super-admin.inventory.stock-takes')"
+                    :current="request()->routeIs('super-admin.inventory.stock-takes')" wire:navigate>
+                    {{ __('Stock Takes') }}
+                </flux:navlist.item>
+                <flux:navlist.item icon="heart" :href="route('super-admin.inventory.health-checks')"
+                    :current="request()->routeIs('super-admin.inventory.health-checks')" wire:navigate>
+                    {{ __('Health Checks') }}
+                </flux:navlist.item>
             </flux:navlist.group>
             <flux:navlist.item icon="cog" :href="route('super-admin.settings.index')"
                 :current="request()->routeIs('super-admin.settings.index')" wire:navigate>{{ __('Settings') }}
