@@ -91,10 +91,48 @@
                     {{ __('Stock Takes') }}
                 </flux:navlist.item>
                 <flux:navlist.item icon="heart" :href="route('super-admin.inventory.health-checks')"
-                    :current="request()->routeIs('super-admin.inventory.health-checks')" wire:navigate>
-                    {{ __('Health Checks') }}
+                :current="request()->routeIs('super-admin.inventory.health-checks')" wire:navigate>
+                {{ __('Health Checks') }}
                 </flux:navlist.item>
+                </flux:navlist.group>
+
+                <flux:navlist.group :heading="__('Analytics')" expandable
+                :expanded="request()->routeIs('super-admin.analytics.*') ? true : false" class="grid"
+                icon='chart-bar'>
+                {{-- <flux:navlist.item icon="chart-pie" :href="route('super-admin.analytics.dashboard')" --}}
+                    {{-- :current="request()->routeIs('super-admin.analytics.dashboard')" wire:navigate>
+                    {{ __('Analytics Dashboard') }}
+                </flux:navlist.item>
+                <flux:navlist.item icon="chart-bar" :href="route('super-admin.analytics.stock-level')"
+                    :current="request()->routeIs('super-admin.analytics.stock-level')" wire:navigate>
+                    {{ __('Stock Level Analytics') }}
+                </flux:navlist.item>
+                <flux:navlist.item icon="arrows-right-left" :href="route('super-admin.analytics.stock-movement')"
+                    :current="request()->routeIs('super-admin.analytics.stock-movement')" wire:navigate>
+                    {{ __('Stock Movement Analytics') }}
+                </flux:navlist.item>
+                <flux:navlist.item icon="shopping-cart" :href="route('super-admin.analytics.purchase')"
+                    :current="request()->routeIs('super-admin.analytics.purchase')" wire:navigate>
+                    {{ __('Purchase Analytics') }}
+                </flux:navlist.item>
+                <flux:navlist.item icon="clipboard-document-list" :href="route('super-admin.analytics.request-dispatch')"
+                    :current="request()->routeIs('super-admin.analytics.request-dispatch')" wire:navigate>
+                    {{ __('Request Dispatch Analytics') }}
+                </flux:navlist.item> --}}
+                {{-- <flux:navlist.item icon="currency-dollar" :href="route('super-admin.analytics.stock-valuation')"
+                    :current="request()->routeIs('super-admin.analytics.stock-valuation')" wire:navigate>
+                    {{ __('Stock Valuation') }}
+                </flux:navlist.item> --}}
+                <flux:navlist.item icon="exclamation-triangle" :href="route('super-admin.analytics.alerts')"
+                    :current="request()->routeIs('super-admin.analytics.alerts')" wire:navigate>
+                    {{ __('Alerts Dashboard') }}
+                </flux:navlist.item>
+                {{-- <flux:navlist.item icon="user-group" :href="route('super-admin.analytics.supplier-performance')"
+                    :current="request()->routeIs('super-admin.analytics.supplier-performance')" wire:navigate>
+                    {{ __('Supplier Performance') }}
+                </flux:navlist.item> --}}
             </flux:navlist.group>
+
             <flux:navlist.item icon="cog" :href="route('super-admin.settings.index')"
                 :current="request()->routeIs('super-admin.settings.index')" wire:navigate>{{ __('Settings') }}
             </flux:navlist.item>

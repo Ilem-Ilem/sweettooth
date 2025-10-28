@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class StockMovement extends Model
 {
@@ -56,8 +57,9 @@ class StockMovement extends Model
 
     /**
      * Get the reference (polymorphic relationship)
+     * Handle cases where reference_type is not a valid class
      */
-    public function reference()
+    public function reference(): MorphTo
     {
         return $this->morphTo(__FUNCTION__, 'reference_type', 'reference_id');
     }

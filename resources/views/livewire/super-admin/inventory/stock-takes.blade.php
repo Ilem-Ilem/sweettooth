@@ -1,5 +1,5 @@
 <div class="p-3 space-y-3">
-    <x-breadcrumb title="Stock Takes" :links="[['label' => 'Dashboard', 'url' => route('super-admin.dashboard')], ['label' => 'Inventory'], ['label' => 'Stock Takes']]" />
+    <x-breadcrumb title="Stock Takes" :links="[['label' => 'Dashboard', 'url' => route('dashboard')], ['label' => 'Inventory'], ['label' => 'Stock Takes']]" />
 
     @if (session()->has('success'))
         <div class="bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded text-sm">
