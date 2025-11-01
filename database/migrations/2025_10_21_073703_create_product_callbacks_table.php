@@ -15,11 +15,11 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('product_stock_id');
             $table->foreign('product_stock_id')->references('id')->on('product_stocks')->onDelete('cascade');
-            $table->unsignedBigInteger('product_id');
+            $table->uuid('product_id');
             $table->foreign('product_id')->references('id')->on('products')->onDelete('cascade');
             $table->unsignedBigInteger('sales_shift_id');
             $table->foreign('sales_shift_id')->references('id')->on('sales_shifts')->onDelete('cascade');
-            $table->unsignedBigInteger('recorded_by');
+            $table->uuid('recorded_by');
             $table->foreign('recorded_by')->references('id')->on('employees')->onDelete('cascade');
 
             $table->decimal('quantity', 12, 2);

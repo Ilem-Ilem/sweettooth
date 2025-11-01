@@ -24,7 +24,8 @@ return new class extends Migration
 
         Schema::create('branch_pos_configurations', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('branch_id')->constrained()->onDelete('cascade');
+            $table->uuid('branch_id')->nullable();
+            $table->foreign('branch_id')->references('id')->on('branches')->onDelete('cascade');
             $table->string('pos_use', 50)->nullable(); // 'enabled'
             $table->string('payment_modes', 50)->nullable(); // 'apply'
             $table->string('receipt_custom', 50)->nullable(); // 'limited'

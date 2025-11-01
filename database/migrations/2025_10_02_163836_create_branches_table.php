@@ -22,10 +22,10 @@ return new class extends Migration
             $table->text('description')->nullable(); // Optional description
 
             $table->uuid('manager_user_id')->nullable(); // Manager ID
-            $table->foreign('manager_user_id')
-                  ->references('id')
-                  ->on('employees')
-                  ->onDelete('set null');
+            // $table->foreign('manager_user_id')
+            //       ->references('id')
+            //       ->on('employees')
+            //       ->onDelete('set null');
 
             // New fields for more standard branch details
             $table->string('country')->nullable(); // Country

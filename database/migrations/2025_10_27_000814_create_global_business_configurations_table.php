@@ -24,7 +24,8 @@ return new class extends Migration
 
         Schema::create('branch_business_configurations', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('branch_id')->constrained()->onDelete('cascade');
+            $table->uuid('branch_id')->nullable();
+            $table->foreign('branch_id')->references('id')->on('branches')->onDelete('cascade');
             $table->string('company_name', 255)->nullable();
             $table->string('logo_upload', 50)->nullable();
             $table->json('contact_details')->nullable();

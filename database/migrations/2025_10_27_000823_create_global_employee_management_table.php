@@ -24,8 +24,9 @@ return new class extends Migration
 
         Schema::create('branch_employee_managements', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('branch_id')->constrained()->onDelete('cascade');
-            $table->json('branch_staff')->nullable(); // 'add,edit'
+            $table->uuid('branch_id')->nullable();
+            $table->foreign('branch_id')->references('id')->on('branches')->onDelete('cascade');
+             $table->json('branch_staff')->nullable(); // 'add,edit'
             $table->json('permissions_local')->nullable(); // 'pos,local_reports'
             $table->string('pin_assign', 50)->nullable(); // 'enabled'
             $table->boolean('is_overridden')->default(false);

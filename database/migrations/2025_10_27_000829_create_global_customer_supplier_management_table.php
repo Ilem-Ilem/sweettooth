@@ -21,7 +21,8 @@ return new class extends Migration
 
         Schema::create('branch_customer_supplier_managements', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('branch_id')->constrained()->onDelete('cascade');
+            $table->uuid('branch_id')->nullable();
+            $table->foreign('branch_id')->references('id')->on('branches')->onDelete('cascade');
             $table->json('local_customers')->nullable(); // 'add,view'
             $table->string('local_suppliers', 50)->nullable(); // 'view'
             $table->boolean('is_overridden')->default(false);

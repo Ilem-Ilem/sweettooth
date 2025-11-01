@@ -13,7 +13,8 @@ return new class extends Migration
     {
         Schema::create('branch_inventory_managements', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('branch_id')->constrained()->onDelete('cascade');
+            $table->uuid('branch_id')->nullable();
+            $table->foreign('branch_id')->references('id')->on('branches')->onDelete('cascade');
             $table->string('local_stock', 50)->nullable(); // 'add,edit,view'
             $table->string('stock_adjustment', 50)->nullable(); // 'local,approval'
             $table->string('purchase_returns', 50)->nullable(); // 'submit'

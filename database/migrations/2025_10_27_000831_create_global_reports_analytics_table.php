@@ -22,7 +22,8 @@ return new class extends Migration
 
         Schema::create('branch_reports_analytics', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('branch_id')->constrained()->onDelete('cascade');
+            $table->uuid('branch_id')->nullable();
+            $table->foreign('branch_id')->references('id')->on('branches')->onDelete('cascade');
             $table->json('branch_reports')->nullable(); // 'sales,stock'
             $table->string('date_filter', 50)->nullable(); // 'enabled'
             $table->string('export', 50)->nullable(); // 'csv'

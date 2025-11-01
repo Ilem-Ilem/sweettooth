@@ -26,8 +26,9 @@ return new class extends Migration
 
         Schema::create('branch_managements', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('branch_id')->constrained()->onDelete('cascade');
-            $table->string('branch_details', 50)->nullable(); // 'edit,approval'
+            $table->uuid('branch_id')->nullable();
+            $table->foreign('branch_id')->references('id')->on('branches')->onDelete('cascade');
+             $table->string('branch_details', 50)->nullable(); // 'edit,approval'
             $table->string('operating_hours', 50)->nullable();
             $table->string('tax_override', 50)->nullable(); // 'view_only'
             $table->boolean('is_overridden')->default(false);

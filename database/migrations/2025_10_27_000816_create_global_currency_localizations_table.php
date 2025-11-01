@@ -13,7 +13,8 @@ return new class extends Migration
     {
         Schema::create('branch_currency_localizations', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('branch_id')->constrained()->onDelete('cascade');
+            $table->uuid('branch_id')->nullable();
+            $table->foreign('branch_id')->references('id')->on('branches')->onDelete('cascade');
             $table->string('currency_display', 50)->nullable(); // 'inherit' or specific currency
             $table->string('language', 10)->nullable(); // 'inherit' or specific language
             $table->string('units_local', 50)->nullable(); // 'inherit' or view-only

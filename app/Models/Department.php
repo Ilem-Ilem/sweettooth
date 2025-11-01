@@ -16,6 +16,7 @@ class Department extends Model
         'branch_id',
         'category_id',
         'name',
+        'slug',
         'description',
     ];
 
@@ -57,5 +58,13 @@ class Department extends Model
     public function productTypes()
     {
         return $this->hasMany(ProductType::class);
+    }
+
+    /**
+     * Get the pages for the department.
+     */
+    public function pages()
+    {
+        return $this->hasMany(DepartmentPage::class);
     }
 }

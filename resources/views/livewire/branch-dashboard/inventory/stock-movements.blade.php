@@ -29,6 +29,189 @@
         :with-icons="true"
     />
 
+    <!-- Analytics Summary Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+        <!-- Stock In Today -->
+        <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-3">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Stock In Today</p>
+                    <p class="text-xl font-bold text-green-600 dark:text-green-400">
+                        +{{ number_format($analytics['today']['stock_in'] ?? 0, 2) }}
+                    </p>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                        {{ $analytics['today']['total_movements'] }} movements
+                    </p>
+                </div>
+                <div class="text-3xl text-green-500 opacity-20">↓</div>
+            </div>
+        </div>
+
+        <!-- Stock Out Today -->
+        <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-3">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Stock Out Today</p>
+                    <p class="text-xl font-bold text-red-600 dark:text-red-400">
+                        -{{ number_format($analytics['today']['stock_out'] ?? 0, 2) }}
+                    </p>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                        Net: {{ number_format(($analytics['today']['stock_in'] ?? 0) - ($analytics['today']['stock_out'] ?? 0), 2) }}
+                    </p>
+                </div>
+                <div class="text-3xl text-red-500 opacity-20">↑</div>
+            </div>
+        </div>
+
+        <!-- Transfers -->
+        <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-3">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Transfers</p>
+                    <p class="text-xl font-bold text-blue-600 dark:text-blue-400">
+                        {{ $analytics['today']['transfers'] ?? 0 }}
+                    </p>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Today</p>
+                </div>
+                <div class="text-3xl text-blue-500 opacity-20">⇄</div>
+            </div>
+        </div>
+
+        <!-- Latest Movement -->
+        <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-3">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">Latest Movement</p>
+                    @if($analytics['latest_movement'])
+                        <p class="text-sm font-bold text-zinc-800 dark:text-zinc-200">
+                            {{ $analytics['latest_movement']->diffForHumans() }}
+                        </p>
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                            {{ $analytics['latest_movement']->format('M d, H:i') }}
+                        </p>
+                    @else
+                        <p class="text-sm text-zinc-400 dark:text-zinc-500">No movements</p>
+                    @endif
+                </div>
+                <div class="text-3xl text-zinc-500 opacity-20">🕓</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Weekly Summary & Insights -->
+    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-zinc-800 dark:to-zinc-700 rounded-lg shadow-sm border border-blue-200 dark:border-zinc-600 p-4 mb-3">
+        <h3 class="text-sm font-bold text-zinc-800 dark:text-zinc-100 mb-3 flex items-center">
+            <svg class="w-4 h-4 mr-1.5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            This Week's Summary
+        </h3>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+            <div class="bg-white dark:bg-zinc-700 rounded p-2.5">
+                <p class="text-xs text-zinc-500 dark:text-zinc-400">Total Stock Ins</p>
+                <p class="text-lg font-bold text-green-600 dark:text-green-400">
+                    {{ number_format($analytics['week']['stock_in'] ?? 0, 0) }} units
+                </p>
+                @php
+                    $weekChange = ($analytics['last_week']['total_movements'] ?? 0) > 0
+                        ? (($analytics['week']['total_movements'] ?? 0) - ($analytics['last_week']['total_movements'] ?? 0)) / ($analytics['last_week']['total_movements'] ?? 1) * 100
+                        : 0;
+                @endphp
+                @if($weekChange != 0)
+                    <p class="text-xs {{ $weekChange > 0 ? 'text-green-600' : 'text-red-600' }}">
+                        {{ $weekChange > 0 ? '↑' : '↓' }} {{ number_format(abs($weekChange), 1) }}% vs last week
+                    </p>
+                @endif
+            </div>
+
+            <div class="bg-white dark:bg-zinc-700 rounded p-2.5">
+                <p class="text-xs text-zinc-500 dark:text-zinc-400">Total Stock Outs</p>
+                <p class="text-lg font-bold text-red-600 dark:text-red-400">
+                    {{ number_format($analytics['week']['stock_out'] ?? 0, 0) }} units
+                </p>
+            </div>
+
+            <div class="bg-white dark:bg-zinc-700 rounded p-2.5">
+                <p class="text-xs text-zinc-500 dark:text-zinc-400">Net Stock Growth</p>
+                @php
+                    $netGrowth = ($analytics['week']['stock_in'] ?? 0) - ($analytics['week']['stock_out'] ?? 0);
+                @endphp
+                <p class="text-lg font-bold {{ $netGrowth >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400' }}">
+                    {{ $netGrowth >= 0 ? '+' : '' }}{{ number_format($netGrowth, 0) }} units
+                </p>
+            </div>
+
+            <div class="bg-white dark:bg-zinc-700 rounded p-2.5">
+                <p class="text-xs text-zinc-500 dark:text-zinc-400">Total Movements</p>
+                <p class="text-lg font-bold text-zinc-800 dark:text-zinc-200">
+                    {{ number_format($analytics['week']['total_movements'] ?? 0, 0) }}
+                </p>
+            </div>
+        </div>
+
+        <!-- Additional Insights -->
+        <div class="mt-3 pt-3 border-t border-blue-200 dark:border-zinc-600 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            @if($analytics['most_moved_item'])
+                <div class="flex items-start">
+                    <span class="text-zinc-600 dark:text-zinc-400">Most Moved Item:</span>
+                    <span class="ml-2 font-semibold text-zinc-900 dark:text-zinc-100">
+                        {{ $analytics['most_moved_item']->stock->item->name ?? 'N/A' }}
+                        <span class="text-zinc-500">({{ $analytics['most_moved_item']->movement_count }} moves)</span>
+                    </span>
+                </div>
+            @endif
+
+            @if($analytics['most_active_user'])
+                <div class="flex items-start">
+                    <span class="text-zinc-600 dark:text-zinc-400">Most Active User:</span>
+                    <span class="ml-2 font-semibold text-zinc-900 dark:text-zinc-100">
+                        {{ $analytics['most_active_user']->mover->name ?? 'N/A' }}
+                        <span class="text-zinc-500">({{ $analytics['most_active_user']->operation_count }} ops)</span>
+                    </span>
+                </div>
+            @endif
+
+            @if($analytics['peak_hours']->isNotEmpty())
+                <div class="flex items-start">
+                    <span class="text-zinc-600 dark:text-zinc-400">Peak Activity Hours:</span>
+                    <span class="ml-2 font-semibold text-zinc-900 dark:text-zinc-100">
+                        {{ $analytics['peak_hours']->pluck('formatted')->take(3)->implode(', ') }}
+                    </span>
+                </div>
+            @endif
+        </div>
+    </div>
+
+    <!-- View Mode Tabs & Export -->
+    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 mb-3 p-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+            <!-- View Mode Tabs -->
+            <div class="flex gap-1 bg-zinc-100 dark:bg-zinc-700 p-1 rounded-lg">
+                <button
+                    wire:click="setViewMode('table')"
+                    class="px-3 py-1.5 text-xs font-medium rounded transition-all {{ $viewMode === 'table' ? 'bg-white dark:bg-zinc-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200' }}">
+                    📋 Table View
+                </button>
+                <button
+                    wire:click="setViewMode('feed')"
+                    class="px-3 py-1.5 text-xs font-medium rounded transition-all {{ $viewMode === 'feed' ? 'bg-white dark:bg-zinc-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200' }}">
+                    🕐 Activity Feed
+                </button>
+            </div>
+
+            <!-- Export Button -->
+            <button
+                wire:click="exportCsv"
+                class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-colors flex items-center">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export CSV
+            </button>
+        </div>
+    </div>
+
     <!-- Filters Section -->
     <div x-data="{ open: false }"
         class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 transition-all duration-300">
@@ -121,8 +304,89 @@
         </div>
     </div>
 
-    <!-- Table -->
-    <x-table
+    <!-- Activity Feed View -->
+    @if($viewMode === 'feed')
+        <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
+            <h3 class="text-sm font-bold text-zinc-800 dark:text-zinc-100 mb-4 flex items-center">
+                <svg class="w-4 h-4 mr-1.5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Real-Time Activity Feed
+                <span class="ml-2 text-xs font-normal text-zinc-500 dark:text-zinc-400">(Last 20 movements)</span>
+            </h3>
+
+            <div class="space-y-2 max-h-[600px] overflow-y-auto scrollbar-thin">
+                @forelse($activityFeed as $activity)
+                    @php
+                        $typeIcons = [
+                            'in' => '🟢',
+                            'out' => '🔴',
+                            'transfer' => '🟣',
+                            'return' => '🟡',
+                            'adjustment' => '🟠',
+                            'damaged' => '⚠️',
+                        ];
+                        $icon = $typeIcons[$activity->type] ?? '⚪';
+                        $sign = $activity->isInbound() ? '+' : '-';
+                    @endphp
+
+                    <div class="flex items-start gap-3 p-3 bg-zinc-50 dark:bg-zinc-700/50 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors">
+                        <div class="text-2xl">{{ $icon }}</div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="flex-1">
+                                    <p class="text-sm text-zinc-900 dark:text-zinc-100">
+                                        <span class="font-semibold {{ $activity->isInbound() ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400' }}">
+                                            {{ $sign }}{{ number_format(abs($activity->quantity), 2) }} units
+                                        </span>
+                                        of
+                                        <span class="font-medium">{{ $activity->stock->item->name ?? 'N/A' }}</span>
+                                        {{ $activity->type === 'in' ? 'added to' : ($activity->type === 'out' ? 'removed from' : ($activity->type === 'transfer' ? 'transferred from' : 'adjusted in')) }}
+                                        <span class="font-medium">{{ $activity->stock->branch->name ?? 'Stock' }}</span>
+                                    </p>
+
+                                    @if($activity->mover)
+                                        <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
+                                            by <span class="font-medium">{{ $activity->mover->name }}</span>
+                                        </p>
+                                    @endif
+
+                                    @if($activity->notes)
+                                        <p class="text-xs text-zinc-500 dark:text-zinc-500 mt-1 italic">
+                                            "{{ Str::limit($activity->notes, 100) }}"
+                                        </p>
+                                    @endif
+                                </div>
+
+                                <div class="text-right flex-shrink-0">
+                                    <p class="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                                        {{ $activity->movement_date->format('H:i') }}
+                                    </p>
+                                    <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                                        {{ $activity->movement_date->format('M d') }}
+                                    </p>
+                                    <p class="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
+                                        {{ $activity->movement_date->diffForHumans() }}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                @empty
+                    <div class="text-center py-12 text-zinc-500 dark:text-zinc-400">
+                        <svg class="w-16 h-16 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                        </svg>
+                        <p class="text-sm">No recent activity found</p>
+                    </div>
+                @endforelse
+            </div>
+        </div>
+    @endif
+
+    <!-- Table View -->
+    @if($viewMode === 'table')
+        <x-table
         :headers="[
             ['index' => 'date_time', 'label' => 'Date & Time'],
             ['index' => 'item', 'label' => 'Item'],
@@ -304,5 +568,6 @@
             </div>
         @endinteract
     </x-table>
+    @endif
 
 </div>

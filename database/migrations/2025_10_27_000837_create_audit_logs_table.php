@@ -13,10 +13,12 @@ return new class extends Migration
     {
         Schema::create('audit_logs', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('branch_id')->nullable()->constrained()->onDelete('cascade');
+            $table->uuid('branch_id')->nullable();
+            $table->foreign('branch_id')->references('id')->on('branches')->onDelete('cascade');
             $table->string('setting_type', 50); // e.g., 'inventory', 'pos'
             $table->string('action', 50); // e.g., 'update', 'delete'
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->uuid('user_id')->nullable();
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
             $table->json('details');
             $table->timestamps();
         });

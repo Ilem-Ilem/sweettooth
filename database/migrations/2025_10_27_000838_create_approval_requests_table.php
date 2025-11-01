@@ -13,11 +13,13 @@ return new class extends Migration
     {
         Schema::create('approval_requests', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('branch_id')->constrained()->onDelete('cascade');
-            $table->string('setting_type', 50); // e.g., 'stock_adjustment'
+            $table->uuid('branch_id')->nullable();
+            $table->foreign('branch_id')->references('id')->on('branches')->onDelete('cascade');
+             $table->string('setting_type', 50); // e.g., 'stock_adjustment'
             $table->string('proposed_value', 255);
             $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
-            $table->foreignId('super_admin_id')->nullable()->constrained('users')->onDelete('set null');
+            $table->uuid('super_admin_id')->nullable();
+            $table->foreign('super_admin_id')->references('id')->on('users')->onDelete('cascade');
             $table->timestamps();
         });
     }

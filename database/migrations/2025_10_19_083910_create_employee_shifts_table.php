@@ -11,14 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('employee_shifts', function (Blueprint $table) {
-            $table->id();
-            $table->foreignUuid('branch_id')->constrained('branch_id', 'id')->cascadeOnDelete();
-            $table->string('shift_name');
-            $table->dateTime('start_time');
-            $table->dateTime('end_time');
-            $table->timestamps();
-        });
+        // Schema::create('employee_shifts', function (Blueprint $table) {
+        //     $table->id();
+        //     $table->foreignUuid('branch_id')->constrained('branch', 'id')->cascadeOnDelete();
+        //     $table->string('shift_name');
+        //     $table->dateTime('start_time');
+        //     $table->dateTime('end_time');
+        //     $table->timestamps();
+        // });
     }
 
     /**

@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('sales_shift_id');
             $table->foreign('sales_shift_id')->references('id')->on('sales_shifts')->onDelete('cascade');
-            $table->unsignedBigInteger('product_id');
+            $table->uuid('product_id');
             $table->foreign('product_id')->references('id')->on('products')->onDelete('cascade');
             $table->date('stock_date');
             $table->enum('shift_type', ['morning', 'afternoon']);

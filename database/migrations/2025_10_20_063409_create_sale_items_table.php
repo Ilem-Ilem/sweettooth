@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('sale_id');
             $table->foreign('sale_id')->references('id')->on('sales')->onDelete('cascade');
-            $table->unsignedBigInteger('product_id');
+            $table->uuid('product_id');
             $table->foreign('product_id')->references('id')->on('products')->onDelete('restrict');
             $table->decimal('quantity', 10, 2);
             $table->decimal('unit_price', 10, 2);

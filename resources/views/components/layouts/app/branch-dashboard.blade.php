@@ -138,6 +138,12 @@
 
 
             <flux:navlist.group :heading="__('Production')">
+                <flux:navlist.item icon="view-columns" :href="branch_route('branch-dashboard.production.menu')"
+                    :current="request()->routeIs('branch-dashboard.production.*')" wire:navigate>
+                    {{ __('Production Modules') }}
+                </flux:navlist.item>
+
+                {{-- OLD STATIC NAVIGATION - COMMENTED OUT
                 <flux:navlist.item icon="tag" :href="branch_route('branch-dashboard.production.product-types')"
                     :current="request()->routeIs('branch-dashboard.production.product-types')" wire:navigate>
                     {{ __('Product Types') }}
@@ -183,6 +189,7 @@
                         {{ __('Raw Material Tracking') }}
                     </flux:navlist.item>
                 </flux:navlist.group>
+                --}}
             </flux:navlist.group>
 
             <flux:navlist.group :heading="__('Sales')" class="grid">

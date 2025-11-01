@@ -27,34 +27,73 @@ Route::middleware(['auth:employees', 'branch'])->prefix('branch-dashboard')->nam
         Route::get('health-checks', \App\Livewire\BranchDashboard\Inventory\HealthChecks::class)->name('health-checks');
     });
 
-    // Production routes
+    // Production routes - Modular System
     Route::prefix('production')->name('production.')->group(function () {
-        Route::get('product-types', \App\Livewire\BranchDashboard\Production\ProductTypes::class)->name('product-types');
-        Route::get('products', \App\Livewire\BranchDashboard\Production\Products::class)->name('products');
+        // Main production menu (shows all departments and their pages)
+        Route::get('/', \App\Livewire\BranchDashboard\Production\ProductionMenu::class)->name('menu');
 
-        // Production Requests routes
+        // Helper function to register department routes
+        $registerDepartmentRoutes = function ($deptSlug) {
+            Route::prefix($deptSlug)->name("{$deptSlug}.")->group(function () {
+                // Products Management
+                Route::get('product-types', \App\Livewire\BranchDashboard\Production\ProductTypes::class)->name('product-types');
+                Route::get('products', \App\Livewire\BranchDashboard\Production\Products::class)->name('products');
+
+                // Request Management
+                Route::prefix('request')->name('request.')->group(function () {
+                    Route::get('/', \App\Livewire\BranchDashboard\Production\Request\Index::class)->name('index');
+                    Route::get('/create', \App\Livewire\BranchDashboard\Production\Request\Create::class)->name('create');
+                });
+
+                // Daily Produce
+                Route::prefix('daily-produce')->name('daily-produce.')->group(function () {
+                    Route::get('/', \App\Livewire\BranchDashboard\Production\DailyProduce\Index::class)->name('index');
+                });
+
+                // Recipes
+                Route::get('recipes', App\Livewire\BranchDashboard\Production\Recipes::class)->name('recipes.index');
+                Route::get('recipes/add', App\Livewire\BranchDashboard\Production\Recipes\Add::class)->name('recipes.add');
+                Route::get('recipes/{id}/edit', App\Livewire\BranchDashboard\Production\Recipes\Edit::class)->name('recipes.edit');
+                Route::get('recipes/{id}', App\Livewire\BranchDashboard\Production\RecipeDetail::class)->name('recipes.detail');
+
+                // Module
+                Route::prefix('module')->name('module.')->group(function () {
+                    Route::get('/', \App\Livewire\BranchDashboard\Production\KitchenModule\Index::class)->name('index');
+                    Route::get('/stock-monitor', \App\Livewire\BranchDashboard\Production\KitchenModule\StockMonitor::class)->name('stock-monitor');
+                });
+
+                // Raw Material Tracking
+                Route::get('raw-material-tracking', \App\Livewire\BranchDashboard\Production\RawMaterialTracking::class)->name('raw-material-tracking');
+
+                // Production Requests (different from Request Management above)
+                Route::get('production-requests', \App\Livewire\BranchDashboard\Production\ProductionRequests::class)->name('production-requests');
+            });
+        };
+
+        // $Departments = \App\Models\Department::with('category')->where('')->get();
+        // Register routes for each production department
+        $registerDepartmentRoutes('kitchen');
+        $registerDepartmentRoutes('gelato-production');
+        $registerDepartmentRoutes('confectionaries-production');
+
+        // OLD STATIC ROUTES - COMMENTED OUT (kept for reference)
+        /* Route::get('product-types', \App\Livewire\BranchDashboard\Production\ProductTypes::class)->name('product-types');
+        Route::get('products', \App\Livewire\BranchDashboard\Production\Products::class)->name('products');
         Route::prefix('request')->name('request.')->group(function () {
             Route::get('/', \App\Livewire\BranchDashboard\Production\Request\Index::class)->name('index');
             Route::get('/create', \App\Livewire\BranchDashboard\Production\Request\Create::class)->name('create');
         });
-
-        // Daily Produce routes
         Route::prefix('daily-produce')->name('daily-produce.')->group(function () {
             Route::get('/', \App\Livewire\BranchDashboard\Production\DailyProduce\Index::class)->name('index');
         });
-
-        // Recipes routes
         Route::get('recipes', App\Livewire\BranchDashboard\Production\Recipes::class)->name('recipes.index');
         Route::get('recipes/add', App\Livewire\BranchDashboard\Production\Recipes\Add::class)->name('recipes.add');
         Route::get('recipes/{id}', App\Livewire\BranchDashboard\Production\RecipeDetail::class)->name('recipes.detail');
-
         Route::prefix('kitchen')->name('kitchen.')->group(function () {
             Route::get('/', \App\Livewire\BranchDashboard\Production\KitchenModule\Index::class)->name('index');
             Route::get('/stock-monitor', \App\Livewire\BranchDashboard\Production\KitchenModule\StockMonitor::class)->name('stock-monitor');
         });
-
-        // Raw Material Tracking
-        Route::get('raw-material-tracking', \App\Livewire\BranchDashboard\Production\RawMaterialTracking::class)->name('raw-material-tracking');
+        Route::get('raw-material-tracking', \App\Livewire\BranchDashboard\Production\RawMaterialTracking::class)->name('raw-material-tracking'); */
     });
 
     // Analytics routes
