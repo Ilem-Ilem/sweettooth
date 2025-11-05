@@ -3,6 +3,7 @@
 namespace App\Livewire\BranchDashboard\Production;
 
 use App\Models\Recipe;
+use App\Models\Department;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -17,15 +18,29 @@ class RecipeDetail extends Component
     public $recipe;
     public $batchSize = 1;
 
-    public function mount($id)
+
+    #[Url(keep: true)]
+    public $dept_slug;
+
+    public $department;
+
+    public function mount($id, $deptSlug)
     {
         $this->recipeId = $id;
+        $this->dept_slug = $deptSlug;
+        $this->department = Department::where('slug', $deptSlug)->first();
+
+        if (!$this->department) {
+            abort(404, 'Department not found');
+        }
+
         $this->loadRecipe();
     }
 
     public function loadRecipe()
     {
         $this->recipe = Recipe::with(['ingredients.item', 'department', 'createdBy'])
+            ->where('department_id', $this->department->id)
             ->findOrFail($this->recipeId);
     }
 

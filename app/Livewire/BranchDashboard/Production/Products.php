@@ -45,6 +45,16 @@ class Products extends BaseComponent
     public string $image_url = '';
     public array $allergens = [];
     public array $tags = [];
+    public $department;
+
+    #[Url(keep: true)]
+    public $dept_slug;
+
+    public function mount($deptSlug){
+        $this->dept_slug = $deptSlug;
+
+        $this->department =  Employee::where('id', auth('employees')->id())->first();
+    }
 
     protected array $bulkActions = [
         'delete' => ['label' => 'Delete Selected', 'method' => 'bulkDelete'],
@@ -67,7 +77,12 @@ class Products extends BaseComponent
 
     protected function getFilteredQuery()
     {
-        $department = Employee::where('id', auth('employees')->id())->first()->department_id;
+        $department = Department::where('slug', $this->dept_slug)->first()->id;
+
+        // if($department !== $department_from_route){
+        //     abort(403, "Wrong Departmental Access");
+        // }
+
         return Product::query()
             ->with(['productType.department'])
             ->when($this->search, function ($query) {
@@ -156,7 +171,7 @@ class Products extends BaseComponent
     public function render()
     {
         $rows = $this->getFilteredQuery()->paginate($this->quantity ?? 10);
-        $productTypes = ProductType::with('department')->active()->ordered()->get();
+        $productTypes = ProductType::with('department')->where('department_id',  Department::where('slug', $this->dept_slug)->first()->id)->active()->ordered()->get();
         $departments = Department::whereHas('category', function ($q) {
             $q->where('name', 'Production');
         })->orderBy('name')->get();
@@ -168,6 +183,7 @@ class Products extends BaseComponent
                 ['index' => 'name', 'label' => 'Product Name'],
                 ['index' => 'product_type', 'label' => 'Type'],
                 ['index' => 'department', 'label' => 'Department'],
+                ['index' => 'recipe_yield', 'label' => 'Yield/Batch'],
                 ['index' => 'price', 'label' => 'Price'],
                 ['index' => 'shelf_life', 'label' => 'Shelf Life'],
                 ['index' => 'uom', 'label' => 'UOM'],
@@ -177,6 +193,7 @@ class Products extends BaseComponent
             'rows' => $rows,
             'productTypes' => $productTypes,
             'departments' => $departments,
+            'employees_department'=> Department::where('id', $this->department->department_id)->first()
         ]);
     }
 

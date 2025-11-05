@@ -137,9 +137,30 @@
                     {{ number_format($row->today_additions, 2) }} {{ $row->product_uom }}
                 </span>
                 @if(!empty($row->addition_sources))
-                    <div class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                    <div class="mt-2 space-y-1">
                         @foreach($row->addition_sources as $source)
-                            <div>Batch #{{ $source['batch'] }}: {{ number_format($source['quantity'], 2) }}</div>
+                            <div class="text-xs bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded border border-blue-200 dark:border-blue-800">
+                                <div class="font-semibold text-blue-900 dark:text-blue-100">{{ $source['batch'] }}</div>
+                                <div class="text-zinc-600 dark:text-zinc-400 mt-0.5">
+                                    Sent: <span class="font-medium">{{ number_format($source['quantity_sent'], 2) }}</span> {{ $row->product_uom }}
+                                </div>
+                                <div class="text-zinc-600 dark:text-zinc-400">
+                                    Yield: <span class="font-medium text-green-700 dark:text-green-400">{{ number_format($source['quantity_approved'], 2) }}</span>
+                                    / {{ number_format($source['quantity_produced'], 2) }}
+                                    @if($source['quantity_rejected'] > 0)
+                                        <span class="text-red-600 dark:text-red-400">({{ number_format($source['quantity_rejected'], 2) }} rejected)</span>
+                                    @endif
+                                </div>
+                                <div class="text-zinc-600 dark:text-zinc-400">
+                                    Yield %:
+                                    <span class="font-semibold {{ $source['actual_yield_percentage'] >= 90 ? 'text-green-600 dark:text-green-400' : ($source['actual_yield_percentage'] >= 70 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400') }}">
+                                        {{ $source['actual_yield_percentage'] }}%
+                                    </span>
+                                    @if($source['recipe_yield'] > 0)
+                                        <span class="text-xs">(Expected: {{ number_format($source['recipe_yield'], 2) }})</span>
+                                    @endif
+                                </div>
+                            </div>
                         @endforeach
                     </div>
                 @endif

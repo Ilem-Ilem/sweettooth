@@ -1,15 +1,10 @@
 <div class="p-3 space-y-3">
 
-    <x-breadcrumb
-        title="Products"
-        :items="[
-            ['label' => 'Dashboard', 'url' => branch_route('branch-dashboard.index')],
-            ['label' => 'Production'],
-            ['label' => 'Products']
-        ]"
-        :compact="false"
-        :with-icons="true"
-    />
+    <x-breadcrumb title="Products" :items="[
+        ['label' => 'Dashboard', 'url' => branch_route('branch-dashboard.index')],
+        ['label' => 'Production'],
+        ['label' => 'Products'],
+    ]" :compact="false" :with-icons="true" />
 
     <!-- Header with Add Button -->
     <div class="flex justify-between items-center">
@@ -53,7 +48,8 @@
         class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 transition-all duration-300">
         <div class="flex justify-between items-center px-3 py-2 border-b border-zinc-200 dark:border-zinc-700">
             <h2 class="text-sm font-semibold text-zinc-800 dark:text-zinc-100 flex items-center">
-                <svg class="w-4 h-4 mr-1.5 text-zinc-600 dark:text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-4 h-4 mr-1.5 text-zinc-600 dark:text-zinc-400" fill="none" stroke="currentColor"
+                    viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707L14.293 13H10v5l-4-4v-3.586L3.293 7.293A1 1 0 013 6.586V4z" />
                 </svg>
@@ -62,8 +58,10 @@
             <button @click="open = !open"
                 class="flex items-center px-2.5 py-1 rounded text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white transition-all duration-200">
                 <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path x-show="!open" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16" />
-                    <path x-show="open" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    <path x-show="!open" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 8h16M4 16h16" />
+                    <path x-show="open" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M6 18L18 6M6 6l12 12" />
                 </svg>
                 <span x-text="open ? 'Close' : 'Show Filters'"></span>
             </button>
@@ -82,10 +80,16 @@
                     <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Department</label>
                     <select wire:model.live="filterDepartment"
                         class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
-                        <option value="">All Departments</option>
-                        @foreach($departments as $dept)
-                            <option value="{{ $dept->id }}">{{ $dept->name }}</option>
-                        @endforeach
+                        @if ($employees_department->slug == request()->get('dept_slug'))
+                            <option value="{{ $employees_department->Id }}" selected>{{ $employees_department->name }}
+                            </option>
+                        @else
+                            <option value="">All Departments</option>
+                            @foreach ($departments as $dept)
+                                <option value="{{ $dept->id }}">{{ $dept->name }}</option>
+                            @endforeach
+                        @endif
+
                     </select>
                 </div>
 
@@ -94,8 +98,9 @@
                     <select wire:model.live="filterProductType"
                         class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
                         <option value="">All Types</option>
-                        @foreach($productTypes as $type)
-                            <option value="{{ $type->id }}">{{ $type->name }} ({{ $type->department->name }})</option>
+                        @foreach ($productTypes as $type)
+                            <option value="{{ $type->id }}">{{ $type->name }} ({{ $type->department->name }})
+                            </option>
                         @endforeach
                     </select>
                 </div>
@@ -117,7 +122,8 @@
                 <button wire:click="resetFilters"
                     class="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors duration-200 flex items-center">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                     Reset
                 </button>
@@ -126,8 +132,7 @@
     </div>
 
     <!-- Table -->
-    <x-table :$headers :$rows selectable wire:model="selectedIds" striped paginate persist
-        :filter="['quantity' => 'quantity', 'search' => 'search']"
+    <x-table :$headers :$rows selectable wire:model="selectedIds" striped paginate persist :filter="['quantity' => 'quantity', 'search' => 'search']"
         :quantity="[10, 25, 50, 100]">
 
         @interact('column_sku', $row)
@@ -162,19 +167,22 @@
         @endinteract
 
         @interact('column_uom', $row)
-            <span class="px-2 py-1 text-xs font-medium rounded-full bg-zinc-100 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200 uppercase">
+            <span
+                class="px-2 py-1 text-xs font-medium rounded-full bg-zinc-100 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200 uppercase">
                 {{ $row->uom }}
             </span>
         @endinteract
 
         @interact('column_status', $row)
             <div class="flex flex-col gap-1">
-                <span class="px-2 py-1 text-xs font-semibold rounded-full
+                <span
+                    class="px-2 py-1 text-xs font-semibold rounded-full
                     {{ $row->is_active ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' }}">
                     {{ $row->is_active ? 'Active' : 'Inactive' }}
                 </span>
-                @if($row->is_active)
-                    <span class="px-2 py-1 text-xs font-semibold rounded-full
+                @if ($row->is_active)
+                    <span
+                        class="px-2 py-1 text-xs font-semibold rounded-full
                         {{ $row->is_available ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200' }}">
                         {{ $row->is_available ? 'Available' : 'Unavailable' }}
                     </span>

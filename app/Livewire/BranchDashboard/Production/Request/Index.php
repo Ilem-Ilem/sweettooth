@@ -5,6 +5,7 @@ namespace App\Livewire\BranchDashboard\Production\Request;
 use App\Models\ProductionRequest;
 use App\Models\Shift;
 use App\Models\ItemRequest;
+use App\Models\Department;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
@@ -21,6 +22,11 @@ class Index extends Component
     #[Url(keep: true)]
     public $b_id;
 
+    #[Url(keep: true)]
+    public $dept_slug;
+
+    public $department;
+
     public $search = '';
     public $statusFilter = 'all';
     public $shiftFilter = 'all';
@@ -29,6 +35,16 @@ class Index extends Component
     public $showViewModal = false;
     public $viewingRequest = null;
     public $requestItems = [];
+
+    public function mount($deptSlug)
+    {
+        $this->dept_slug = $deptSlug;
+        $this->department = Department::where('slug', $deptSlug)->first();
+
+        if (!$this->department) {
+            abort(404, 'Department not found');
+        }
+    }
 
     public function getBranchId()
     {
@@ -48,7 +64,6 @@ class Index extends Component
     public function openViewModal($requestId)
     {
         $branchId = $this->getBranchId();
-        $employee = Auth::guard('employees')->user();
 
         $request = ProductionRequest::with([
             'recipe',
@@ -57,9 +72,9 @@ class Index extends Component
             'itemRequest.department',
             'itemRequest.requester'
         ])
-            ->whereHas('itemRequest', function ($q) use ($branchId, $employee) {
+            ->whereHas('itemRequest', function ($q) use ($branchId) {
                 $q->where('branch_id', $branchId)
-                  ->where('department_id', $employee->department_id);
+                  ->where('department_id', $this->department->id);
             })
             ->findOrFail($requestId);
 
@@ -119,14 +134,13 @@ class Index extends Component
     public function cancelRequest($requestId)
     {
         $branchId = $this->getBranchId();
-        $employee = Auth::guard('employees')->user();
 
         try {
-            DB::transaction(function () use ($requestId, $branchId, $employee) {
+            DB::transaction(function () use ($requestId, $branchId) {
                 $request = ProductionRequest::with('itemRequest')
-                    ->whereHas('itemRequest', function ($q) use ($branchId, $employee) {
+                    ->whereHas('itemRequest', function ($q) use ($branchId) {
                         $q->where('branch_id', $branchId)
-                          ->where('department_id', $employee->department_id);
+                          ->where('department_id', $this->department->id);
                     })
                     ->findOrFail($requestId);
 
@@ -148,13 +162,11 @@ class Index extends Component
     public function render()
     {
         $branchId = $this->getBranchId();
-        $employee = Auth::guard('employees')->user();
-        $departmentId = $employee->department_id;
 
         $query = ProductionRequest::with(['recipe', 'shift', 'itemRequest.requestDetails'])
-            ->whereHas('itemRequest', function ($q) use ($branchId, $departmentId) {
+            ->whereHas('itemRequest', function ($q) use ($branchId) {
                 $q->where('branch_id', $branchId)
-                  ->where('department_id', $departmentId);
+                  ->where('department_id', $this->department->id);
             });
 
         // Apply status filter
@@ -194,7 +206,7 @@ class Index extends Component
 
         // Get all shifts for the department
         $allShifts = Shift::where('branch_id', $branchId)
-            ->where('department_id', $departmentId)
+            ->where('department_id', $this->department->id)
             ->orderBy('shift_date', 'desc')
             ->orderBy('shift_type')
             ->limit(30) // Limit to recent shifts
@@ -202,9 +214,9 @@ class Index extends Component
 
         // Get status summary - requests that have been worked on (not pending, not cancelled)
         $statusSummary = ProductionRequest::with('itemRequest')
-            ->whereHas('itemRequest', function ($q) use ($branchId, $departmentId) {
+            ->whereHas('itemRequest', function ($q) use ($branchId) {
                 $q->where('branch_id', $branchId)
-                  ->where('department_id', $departmentId);
+                  ->where('department_id', $this->department->id);
             })
             ->get()
             ->groupBy(function ($request) {

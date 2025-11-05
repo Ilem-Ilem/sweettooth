@@ -1,37 +1,116 @@
 <div class="p-3 space-y-3">
-    <x-breadcrumb title="Product Callbacks" :items="[
+    <x-breadcrumb title="Callbacks Management" :items="[
         ['label' => 'Dashboard', 'url' => branch_route('branch-dashboard.index')],
         ['label' => 'Sales Dashboard'],
         ['label' => 'Callbacks'],
     ]" :compact="false" :with-icons="true" />
 
     <!-- Header -->
-    <div class="bg-gradient-to-r from-red-600 to-red-700 rounded-lg p-4 text-white shadow-lg">
+    <div class="bg-gradient-to-r from-orange-600 to-orange-700 rounded-lg p-4 text-white shadow-lg">
         <div class="flex justify-between items-center">
             <div>
-                <h2 class="text-xl font-bold">Product Callbacks</h2>
+                <h2 class="text-xl font-bold">Sales Callbacks Management</h2>
                 <p class="text-sm opacity-90 mt-1">
-                    Manage expired, damaged, and returned products
+                    Track and manage all dispatch callbacks to production
                 </p>
+            </div>
+            <div class="flex gap-2">
+                <a href="{{ branch_route('sales-dashboard.callbacks.dispatch-callbacks') }}"
+                    class="px-4 py-2 bg-white text-orange-600 rounded-lg font-medium hover:bg-orange-50 transition-colors">
+                    <svg class="w-5 h-5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    Create Callback
+                </a>
             </div>
         </div>
     </div>
 
-    <!-- Alert if no shift -->
-    @if (!$currentShiftId)
-        <div class="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-4 rounded">
-            <div class="flex items-center">
-                <svg class="w-5 h-5 text-yellow-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        @php
+            $totalCallbacks = \App\Models\ProductDispatchCallback::whereHas('salesShift', function($q) {
+                $q->where('branch_id', $this->getBranchId());
+            })->count();
+
+            $pendingCallbacks = \App\Models\ProductDispatchCallback::whereHas('salesShift', function($q) {
+                $q->where('branch_id', $this->getBranchId());
+            })->where('status', 'pending')->count();
+
+            $approvedCallbacks = \App\Models\ProductDispatchCallback::whereHas('salesShift', function($q) {
+                $q->where('branch_id', $this->getBranchId());
+            })->where('status', 'approved_by_production')->count();
+
+            $completedCallbacks = \App\Models\ProductDispatchCallback::whereHas('salesShift', function($q) {
+                $q->where('branch_id', $this->getBranchId());
+            })->where('status', 'completed')->count();
+        @endphp
+
+        <div class="bg-white dark:bg-zinc-800 rounded-lg p-4 shadow-sm border border-zinc-200 dark:border-zinc-700">
+            <div class="flex items-center justify-between">
                 <div>
-                    <h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-200">No Active Shift</h3>
-                    <p class="text-sm text-yellow-700 dark:text-yellow-300 mt-1">Please clock in to manage callbacks.</p>
+                    <p class="text-sm text-zinc-600 dark:text-zinc-400">Total Callbacks</p>
+                    <p class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{{ $totalCallbacks }}</p>
+                </div>
+                <div class="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
                 </div>
             </div>
         </div>
-    @endif
+
+        <div class="bg-white dark:bg-zinc-800 rounded-lg p-4 shadow-sm border border-zinc-200 dark:border-zinc-700">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-zinc-600 dark:text-zinc-400">Pending</p>
+                    <p class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{{ $pendingCallbacks }}</p>
+                </div>
+                <div class="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
+                    <svg class="w-6 h-6 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-zinc-800 rounded-lg p-4 shadow-sm border border-zinc-200 dark:border-zinc-700">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-zinc-600 dark:text-zinc-400">Approved</p>
+                    <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ $approvedCallbacks }}</p>
+                </div>
+                <div class="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-zinc-800 rounded-lg p-4 shadow-sm border border-zinc-200 dark:border-zinc-700">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-zinc-600 dark:text-zinc-400">Completed</p>
+                    <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ $completedCallbacks }}</p>
+                </div>
+                <div class="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                    <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M5 13l4 4L19 7" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Filters Section -->
     <div x-data="{ open: false }"
@@ -58,215 +137,102 @@
         </div>
 
         <div x-show="open" x-collapse class="p-3 space-y-3">
-            <div>
-                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Search</label>
-                <input type="text" wire:model.live.debounce.300ms="search"
-                    placeholder="Search by product name or SKU..."
-                    class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
-            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div>
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Search</label>
+                    <input type="text" wire:model.live.debounce.300ms="search"
+                        placeholder="Search by product or employee..."
+                        class="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500 text-sm">
+                </div>
 
-            <div>
-                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Shelf Life Status</label>
-                <select wire:model.live="filterStatus"
-                    class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
-                    <option value="">All Status</option>
-                    <option value="fresh">Fresh</option>
-                    <option value="warning">Warning</option>
-                    <option value="critical">Critical</option>
-                    <option value="expired">Expired</option>
-                </select>
+                <div>
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Status</label>
+                    <select wire:model.live="filterStatus"
+                        class="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500 text-sm">
+                        <option value="">All Statuses</option>
+                        @foreach ($statusOptions as $value => $label)
+                            <option value="{{ $value }}">{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Start Date</label>
+                    <input type="date" wire:model.live="startDate"
+                        class="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500 text-sm">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">End Date</label>
+                    <input type="date" wire:model.live="endDate"
+                        class="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500 text-sm">
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Callbacks Table -->
     <x-table :$headers :$rows striped paginate persist collapsible
-        :filter="['quantity' => 'quantity', 'search' => 'search']"
+        :filter="['quantity' => 'quantity', 'search' => 'search', 'filterStatus' => 'filterStatus', 'startDate' => 'startDate', 'endDate' => 'endDate']"
         :quantity="[10, 20, 50, 100]">
+
+        @interact('column_callback_id', $row)
+            <div class="text-center">
+                <span class="font-mono text-sm text-zinc-600 dark:text-zinc-400">#{{ $row->id }}</span>
+            </div>
+        @endinteract
 
         @interact('column_product', $row)
             <div>
                 <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $row->product->name }}</div>
-                <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $row->product->sku }}</div>
+                <div class="text-xs text-zinc-500 dark:text-zinc-400">SKU: {{ $row->product->sku }}</div>
             </div>
         @endinteract
 
-        @interact('column_current_stock', $row)
+        @interact('column_quantity', $row)
             <div class="text-center">
-                <span class="font-semibold text-zinc-900 dark:text-zinc-100">
-                    {{ number_format($row->total_available, 2) }} {{ $row->product->uom }}
+                <span class="font-semibold text-orange-600 dark:text-orange-400">
+                    {{ number_format($row->quantity, 2) }} {{ $row->uom }}
                 </span>
             </div>
         @endinteract
 
-        @interact('column_production_date', $row)
+        @interact('column_reason', $row)
+            <div class="text-center">
+                <span class="text-sm text-zinc-700 dark:text-zinc-300">
+                    {{ $row->formatted_reason }}
+                </span>
+            </div>
+        @endinteract
+
+        @interact('column_status', $row)
+            <div class="text-center">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $this->getStatusBadgeClass($row->status) }}">
+                    {{ $row->formatted_status }}
+                </span>
+            </div>
+        @endinteract
+
+        @interact('column_callback_time', $row)
             <div class="text-center text-sm text-zinc-600 dark:text-zinc-400">
-                {{ $row->production_date ? $row->production_date->format('M d, Y') : 'N/A' }}
+                {{ $row->callback_time->format('M d, Y H:i') }}
             </div>
         @endinteract
 
-        @interact('column_expiry_date', $row)
-            <div class="text-center text-sm text-zinc-600 dark:text-zinc-400">
-                {{ $row->expiry_date ? $row->expiry_date->format('M d, Y') : 'N/A' }}
-            </div>
-        @endinteract
-
-        @interact('column_shelf_life', $row)
-            @php
-                $status = $row->getShelfLifeStatus();
-                $badgeColor = $row->getShelfLifeBadgeColor();
-                $daysRemaining = $row->getDaysRemaining();
-            @endphp
-            <div class="text-center">
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $badgeColor }}">
-                    {{ ucfirst($status) }}
-                    @if($daysRemaining !== null)
-                        ({{ $daysRemaining }} days)
-                    @endif
-                </span>
-            </div>
-        @endinteract
-
-        @interact('column_callback_qty', $row)
-            <div class="text-center">
-                <span class="font-medium text-red-600 dark:text-red-400">
-                    {{ number_format($row->callback_quantity, 2) }} {{ $row->product->uom }}
-                </span>
+        @interact('column_recorded_by', $row)
+            <div class="text-sm text-zinc-700 dark:text-zinc-300">
+                {{ $row->recordedBy->name ?? 'N/A' }}
             </div>
         @endinteract
 
         @interact('column_action', $row)
-            <div class="flex justify-center">
-                <button wire:click="openCallbackModal({{ $row->id }})"
-                    class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-medium transition-colors">
-                    Record Callback
+            <div class="flex justify-center gap-2">
+                <button wire:click="viewDetails({{ $row->id }})"
+                    class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium transition-colors">
+                    View Details
                 </button>
             </div>
         @endinteract
 
     </x-table>
-
-    <!-- Callback Modal -->
-    @if($showCallbackModal && $selectedProductStock)
-        <div x-data="{ open: @entangle('showCallbackModal') }" x-show="open" x-cloak
-            class="fixed inset-0 z-50 overflow-y-auto" @keydown.escape.window="$wire.closeCallbackModal()">
-            <div class="flex items-center justify-center min-h-screen px-4">
-                <div class="fixed inset-0 bg-black/50 dark:bg-black/70" @click="$wire.closeCallbackModal()"></div>
-
-                <div class="relative bg-white dark:bg-zinc-800 rounded-lg shadow-xl max-w-md w-full p-6">
-                    <!-- Modal Header -->
-                    <div class="flex justify-between items-start mb-4">
-                        <div>
-                            <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Record Callback</h3>
-                            <p class="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                                {{ $selectedProductStock->product->name }}
-                            </p>
-                        </div>
-                        <button @click="$wire.closeCallbackModal()"
-                            class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-                    </div>
-
-                    <!-- Current Stock Info -->
-                    <div class="bg-zinc-100 dark:bg-zinc-700/50 rounded-lg p-3 mb-4">
-                        <div class="grid grid-cols-2 gap-2 text-sm">
-                            <div>
-                                <span class="text-zinc-600 dark:text-zinc-400">Available:</span>
-                                <span class="font-semibold text-zinc-900 dark:text-zinc-100 ml-1">
-                                    {{ number_format($selectedProductStock->total_available, 2) }}
-                                    {{ $selectedProductStock->product->uom }}
-                                </span>
-                            </div>
-                            <div>
-                                <span class="text-zinc-600 dark:text-zinc-400">Already Called Back:</span>
-                                <span class="font-semibold text-red-600 dark:text-red-400 ml-1">
-                                    {{ number_format($selectedProductStock->callback_quantity, 2) }}
-                                    {{ $selectedProductStock->product->uom }}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Form -->
-                    <form wire:submit.prevent="submitCallback" class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                                Callback Quantity *
-                            </label>
-                            <input type="number" step="0.01" min="0" wire:model="callbackQuantity"
-                                class="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-red-500"
-                                required>
-                            @error('callbackQuantity')
-                                <span class="text-red-500 text-xs mt-1">{{ $message }}</span>
-                            @enderror
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                                Reason *
-                            </label>
-                            <select wire:model="callbackReason"
-                                class="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-red-500"
-                                required>
-                                <option value="">Select reason</option>
-                                <option value="expired">Expired</option>
-                                <option value="damaged">Damaged</option>
-                                <option value="quality_issue">Quality Issue</option>
-                                <option value="customer_return">Customer Return</option>
-                                <option value="other">Other</option>
-                            </select>
-                            @error('callbackReason')
-                                <span class="text-red-500 text-xs mt-1">{{ $message }}</span>
-                            @enderror
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                                Notes (Optional)
-                            </label>
-                            <textarea wire:model="callbackNotes" rows="3"
-                                class="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-red-500"
-                                placeholder="Additional details..."></textarea>
-                        </div>
-
-                        <!-- Actions -->
-                        <div class="flex justify-end gap-3 pt-2">
-                            <button type="button" @click="$wire.closeCallbackModal()"
-                                class="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors">
-                                Cancel
-                            </button>
-                            <button type="submit"
-                                class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors">
-                                Record Callback
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    @endif
-
-    <!-- Help Panel -->
-    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-        <div class="flex items-start">
-            <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 mr-3 flex-shrink-0" fill="none"
-                stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <div class="text-sm text-blue-800 dark:text-blue-200">
-                <h4 class="font-semibold mb-1">Callback Instructions:</h4>
-                <ul class="list-disc list-inside space-y-1">
-                    <li><strong>Expired Products:</strong> Products past their expiry date should be called back immediately</li>
-                    <li><strong>Damaged Products:</strong> Record any products damaged during handling or storage</li>
-                    <li><strong>Quality Issues:</strong> Report products that don't meet quality standards</li>
-                    <li><strong>Stock Update:</strong> Callbacks automatically reduce available stock</li>
-                </ul>
-            </div>
-        </div>
-    </div>
 </div>

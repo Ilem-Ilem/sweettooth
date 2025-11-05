@@ -200,6 +200,8 @@ class Index extends BaseComponent
                         'production_records.batch_number',
                         'production_records.quantity_approved',
                         'production_records.quantity_produced',
+                        'production_records.quantity_rejected',
+                        'recipes.batch_yield',
                         'shifts.shift_type',
                         'shifts.shift_date'
                     )
@@ -208,11 +210,20 @@ class Index extends BaseComponent
                 foreach ($productionRecords as $record) {
                     $todayAdditions += $record->quantity_sent_out ?? 0;
                     if ($record->quantity_sent_out > 0) {
+                        // Calculate yield percentage
+                        $yieldPercentage = 0;
+                        if ($record->quantity_produced > 0) {
+                            $yieldPercentage = ($record->quantity_approved / $record->quantity_produced) * 100;
+                        }
+
                         $additionSources[] = [
                             'batch' => $record->batch_number,
-                            'quantity' => $record->quantity_sent_out,
-                            'produced' => $record->quantity_produced,
-                            'approved' => $record->quantity_approved,
+                            'quantity_sent' => $record->quantity_sent_out,
+                            'quantity_produced' => $record->quantity_produced,
+                            'quantity_approved' => $record->quantity_approved,
+                            'quantity_rejected' => $record->quantity_rejected,
+                            'recipe_yield' => $record->batch_yield ?? 0,
+                            'actual_yield_percentage' => round($yieldPercentage, 2),
                             'shift' => $record->shift_type,
                             'date' => $record->shift_date,
                         ];
@@ -348,6 +359,7 @@ class Index extends BaseComponent
             foreach ($this->stockOpenings as $stockOpening) {
                 // Use shift_id from shifts table (sales department shift)
                 // sales_shift_id can be null since we're using the general shifts table
+                // addition_quantity represents the total quantity yield (approved quantity sent from production)
                 ProductStock::updateOrCreate(
                     [
                         'product_id'     => $stockOpening['product_id'],
@@ -355,12 +367,14 @@ class Index extends BaseComponent
                         'shift_type'     => $this->shiftType,
                     ],
                     [
-                        'sales_shift_id'    => null, // Make nullable - we use shifts table instead
+                        'sales_shift_id'    => null, // Nullable - we use shifts table instead
                         'opening_quantity'  => $stockOpening['actual_opening'],
-                        'addition_quantity' => $stockOpening['today_additions'],
+                        'addition_quantity' => $stockOpening['today_additions'], // Total yield from production
                         'production_date'   => $stockOpening['production_date'],
                         'expiry_date'       => $stockOpening['expiry_date'],
                         'notes'             => $stockOpening['notes'],
+                        'total_available'   => $stockOpening['actual_opening'] + $stockOpening['today_additions'],
+                        'closing_quantity'  => $stockOpening['actual_opening'] + $stockOpening['today_additions'],
                     ]
                 );
             }

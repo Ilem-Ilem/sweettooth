@@ -36,6 +36,20 @@ class Recipes extends BaseComponent
     // public bool $isEditing = false;
 
 
+    #[Url(keep: true)]
+    public $dept_slug;
+
+    public $department;
+
+    public function mount($deptSlug){
+        $this->dept_slug = $deptSlug;
+        $this->department = Department::where('slug', $deptSlug)->first();
+
+        if (!$this->department) {
+            abort(404, 'Department not found');
+        }
+    }
+
     protected array $bulkActions = [
         'delete' => ['label' => 'Delete Selected', 'method' => 'bulkDelete'],
     ];
@@ -58,23 +72,19 @@ class Recipes extends BaseComponent
     protected function getFilteredQuery()
     {
         $branchId = $this->getBranchId();
-        
-        $department = Employee::where('id', auth('employees')->id())->first()->department_id;
-        
+
         return Recipe::query()
             ->where('branch_id', $branchId)
+            ->where('department_id', $this->department->id)
             ->with(['department', 'createdBy', 'ingredients.item'])
             ->when($this->search, function ($query) {
                 $query->where('product_name', 'like', '%'.$this->search.'%')
                     ->orWhere('sku', 'like', '%'.$this->search.'%')
                     ->orWhere('product_type', 'like', '%'.$this->search.'%');
             })
-            ->when($this->filterDepartment, function ($query) {
-                $query->where('department_id', $this->filterDepartment);
-            })
             ->when($this->filterStatus, function ($query) {
                 $query->where('status', $this->filterStatus);
-            })->where('department_id', $department)
+            })
             ->orderBy('created_at', 'desc');
     }
 
@@ -114,10 +124,17 @@ class Recipes extends BaseComponent
     {
         $rows = $this->getFilteredQuery()->paginate($this->quantity ?? 10);
         $branchId = $this->getBranchId();
-        $departments = Department::whereHas('category', function ($q) {
-            $q->where('name', 'Production');
-        })->orderBy('name')->get();
-        $products = Product::active()->orderBy('name')->pluck('id')->pluck('name')->toArray();
+
+        // Filter products by department
+        $products = Product::active()
+            ->whereHas('productType', function ($q) {
+                $q->where('department_id', $this->department->id);
+            })
+            ->orderBy('name')
+            ->pluck('id')
+            ->pluck('name')
+            ->toArray();
+
         $items = Item::orderBy('name')->get();
 
         return view('livewire.branch-dashboard.production.recipes', [
@@ -134,9 +151,10 @@ class Recipes extends BaseComponent
                 ['index' => 'action', 'label' => 'Actions', 'display' => true],
             ],
             'rows' => $rows,
-            'departments' => $departments,
             'products' => $products,
             'items' => $items,
+            'department' => $this->department,
+            'dept_slug'=>$this->dept_slug
         ]);
     }
 

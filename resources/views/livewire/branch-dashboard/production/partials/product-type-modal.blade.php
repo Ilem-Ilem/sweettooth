@@ -5,15 +5,14 @@
     <div x-show="show" x-transition:enter="transition-opacity ease-linear duration-300"
         x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
         x-transition:leave="transition-opacity ease-linear duration-300" x-transition:leave-start="opacity-100"
-        x-transition:leave-end="opacity-0" class="fixed inset-0 bg-black bg-opacity-50"
-        @click="$wire.closeModal()">
+        x-transition:leave-end="opacity-0" class="fixed inset-0 bg-black bg-opacity-50" @click="$wire.closeModal()">
     </div>
 
     <!-- Slide-in Panel -->
     <div x-show="show" x-transition:enter="transform transition ease-in-out duration-300"
         x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
-        x-transition:leave="transform transition ease-in-out duration-300"
-        x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full"
+        x-transition:leave="transform transition ease-in-out duration-300" x-transition:leave-start="translate-x-0"
+        x-transition:leave-end="translate-x-full"
         class="fixed inset-y-0 right-0 w-full md:w-1/2 lg:w-1/3 bg-white dark:bg-zinc-900 shadow-xl flex flex-col">
 
         <!-- Header -->
@@ -23,8 +22,7 @@
             <button wire:click="closeModal"
                 class="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M6 18L18 6M6 6l12 12" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
             </button>
         </div>
@@ -34,14 +32,19 @@
             <form wire:submit.prevent="save">
                 <!-- Department -->
                 <div>
-                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Department *</label>
-                    <x-select.styled
-                        wire:model="department_id"
-                        :options="$departments"
-                        select="label:name|value:id"
-                        placeholder="Select Department"
-                        required
-                    />
+                    <label for="department_id" class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                        Select Department
+                    </label>
+
+                    <select wire:model="department_id" id="department_id"
+                        class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 
+                                   rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 
+                                   focus:border-indigo-500 text-zinc-900 dark:text-zinc-100 transition duration-150 ease-in-out">
+                        <option value="{{ $department->id }}" selected>
+                            {{ $department->name }}
+                        </option>
+                    </select>
+
                     @error('department_id')
                         <span class="text-red-500 text-sm">{{ $message }}</span>
                     @enderror
@@ -64,7 +67,8 @@
                     <input type="text" wire:model="code"
                         class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500 font-mono uppercase"
                         placeholder="e.g., PT, GB, GF" maxlength="50" required>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Short code for product type (will be converted to uppercase)</p>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Short code for product type (will be
+                        converted to uppercase)</p>
                     @error('code')
                         <span class="text-red-500 text-sm">{{ $message }}</span>
                     @enderror
@@ -87,7 +91,8 @@
                     <input type="number" wire:model="sort_order" min="0"
                         class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500"
                         placeholder="0" required>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Display order (lower numbers appear first)</p>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Display order (lower numbers appear first)
+                    </p>
                     @error('sort_order')
                         <span class="text-red-500 text-sm">{{ $message }}</span>
                     @enderror
@@ -96,16 +101,11 @@
                 <!-- Status -->
                 <div>
                     <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Status *</label>
-                    <x-select.styled
-                        wire:model="status"
-                        :options="[
-                            ['label' => 'Active', 'value' => 'active'],
-                            ['label' => 'Inactive', 'value' => 'inactive']
-                        ]"
-                        select="label:label|value:value"
-                        placeholder="Select Status"
-                        required
-                    />
+                    <x-select.styled wire:model="status" :options="[
+                        ['label' => 'Active', 'value' => 'active'],
+                        ['label' => 'Inactive', 'value' => 'inactive'],
+                    ]" select="label:label|value:value"
+                        placeholder="Select Status" required />
                     @error('status')
                         <span class="text-red-500 text-sm">{{ $message }}</span>
                     @enderror

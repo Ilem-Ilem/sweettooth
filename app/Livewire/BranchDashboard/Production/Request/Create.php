@@ -23,12 +23,24 @@ class Create extends Component
     #[Url(keep: true)]
     public $b_id;
 
+    #[Url(keep: true)]
+    public $dept_slug;
+
+    public $department;
+
     public $selectedProducts = [];
     public $currentShift = null;
     public $notes = '';
 
-    public function mount()
+    public function mount($deptSlug)
     {
+        $this->dept_slug = $deptSlug;
+        $this->department = Department::where('slug', $deptSlug)->first();
+
+        if (!$this->department) {
+            abort(404, 'Department not found');
+        }
+
         $this->determineCurrentShift();
     }
 
@@ -84,9 +96,10 @@ class Create extends Component
             if ($productId) {
                 $product = Product::find($productId);
 
-                // Find recipe for this product
+                // Find recipe for this product in the current department
                 $recipe = Recipe::with('ingredients.item')
                     ->where('product_name', $product->name)
+                    ->where('department_id', $this->department->id)
                     ->where('status', 'active')
                     ->first();
 
@@ -129,13 +142,12 @@ class Create extends Component
 
         $employee     = Auth::guard('employees')->user();
         $branchId     = $this->getBranchId();
-        $departmentId = $employee->department_id;
 
-        DB::transaction(function () use ($employee, $branchId, $departmentId) {
+        DB::transaction(function () use ($employee, $branchId) {
             // Get or create shift for today
             $shift = Shift::firstOrCreate([
                 'branch_id'     => $branchId,
-                'department_id' => $departmentId,
+                'department_id' => $this->department->id,
                 'shift_date'    => today(),
                 'shift_type'    => $this->currentShift,
             ], [
@@ -145,8 +157,7 @@ class Create extends Component
             ]);
 
             // Create Item Request
-            $department    = Department::find($departmentId);
-            $deptCode      = strtoupper(substr($department->name ?? 'DEPT', 0, 4));
+            $deptCode      = strtoupper(substr($this->department->name ?? 'DEPT', 0, 4));
             $requestNumber = ItemRequest::generateRequestNumber(
                 substr($branchId, 0, 8),
                 $deptCode
@@ -154,7 +165,7 @@ class Create extends Component
 
             $itemRequest = ItemRequest::create([
                 'branch_id'      => $branchId,
-                'department_id'  => $departmentId,
+                'department_id'  => $this->department->id,
                 'requested_by'   => $employee->id,
                 'request_number' => $requestNumber,
                 'request_date'   => today(),
@@ -172,20 +183,22 @@ class Create extends Component
                     continue; // Skip if no recipe found
                 }
 
-                $quantity = (float) $selectedProduct['quantity'];
+                $batchesRequested = (float) $selectedProduct['quantity']; // Number of batches
+                $recipeYield = (float) $recipe->yield_quantity; // Units per batch
+                $actualUnitsRequested = $batchesRequested * $recipeYield; // Total units to produce
 
-                // Create Production Request
+                // Create Production Request (store actual units, not batches)
                 ProductionRequest::create([
                     'shift_id'                    => $shift->id,
                     'item_request_id'             => $itemRequest->id,
                     'recipe_id'                   => $recipe->id,
-                    'planned_production_quantity' => $quantity,
+                    'planned_production_quantity' => $actualUnitsRequested, // Actual units (batches × yield)
                 ]);
 
                 // Create Item Request Details for each ingredient
                 foreach ($recipe->ingredients as $ingredient) {
                     $actualQuantity = $ingredient->getActualQuantityNeeded();
-                    $totalQuantity  = $actualQuantity * $quantity;
+                    $totalQuantity  = $actualQuantity * $batchesRequested; // Ingredients based on batches
 
                     ItemRequestDetail::create([
                         'request_id'          => $itemRequest->id,
@@ -194,21 +207,19 @@ class Create extends Component
                         'quantity_approved'   => 0,
                         'quantity_dispatched' => 0,
                         'uom'                 => $ingredient->uom,
-                        'notes'               => "For {$recipe->product_name} production (Qty: {$quantity})",
+                        'notes'               => "For {$recipe->product_name} production ({$batchesRequested} batches × {$recipeYield} {$recipe->uom} = {$actualUnitsRequested} {$recipe->uom})",
                     ]);
                 }
             }
         });
 
         $this->toast()->success('Production request created successfully!')->send();
-        return $this->redirect(route('branch-dashboard.production.request.index', ['b_id'=> $this->b_id]), navigate: true);
+        return $this->redirect(branch_route('branch-dashboard.production.request.index', ['deptSlug' => $this->dept_slug]), navigate: true);
     }
 
     public function render()
     {
-        $employee     = Auth::guard('employees')->user();
         $branchId     = $this->getBranchId();
-        $departmentId = $employee->department_id;
 
         // Get products that have recipes in the department
         $products = Product::where('is_active', 1)
@@ -216,8 +227,8 @@ class Create extends Component
                 $query->whereNull('branch_id')
                     ->orWhere('branch_id', $branchId);
             })
-            ->whereHas('productType', function ($q) use ($departmentId) {
-                $q->where('department_id', $departmentId);
+            ->whereHas('productType', function ($q) {
+                $q->where('department_id', $this->department->id);
             })
             ->orderBy('name')
             ->get();

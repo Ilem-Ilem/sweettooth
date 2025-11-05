@@ -3,10 +3,8 @@
 namespace App\Livewire\BranchDashboard\SalesDashboard\Callbacks;
 
 use App\Livewire\BaseComponent;
-use App\Models\ProductStock;
-use App\Models\Product;
-use App\Models\Shift;
-use Illuminate\Support\Facades\DB;
+use App\Models\ProductDispatchCallback;
+use App\Models\SalesShift;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Livewire\WithPagination;
@@ -23,37 +21,48 @@ class Index extends BaseComponent
     public ?int $quantity = 20;
     public ?string $search = null;
     public ?string $filterStatus = null;
-
-    public ?string $currentShiftId = null;
-    public string $shiftType = 'morning';
-    public $stockDate;
-
-    // Callback form
-    public $showCallbackModal = false;
-    public $selectedProductStock = null;
-    public $callbackQuantity = 0;
-    public $callbackReason = '';
-    public $callbackNotes = '';
+    public ?string $startDate = null;
+    public ?string $endDate = null;
 
     // Table headers
     public array $headers = [
+        ['index' => 'callback_id', 'label' => 'Callback ID'],
         ['index' => 'product', 'label' => 'Product'],
-        ['index' => 'current_stock', 'label' => 'Current Stock', 'collapsible' => true],
-        ['index' => 'production_date', 'label' => 'Production Date', 'collapsible' => true],
-        ['index' => 'expiry_date', 'label' => 'Expiry Date', 'collapsible' => true],
-        ['index' => 'shelf_life', 'label' => 'Shelf Life Status'],
-        ['index' => 'callback_qty', 'label' => 'Callback Qty', 'collapsible' => true],
+        ['index' => 'quantity', 'label' => 'Quantity'],
+        ['index' => 'reason', 'label' => 'Reason'],
+        ['index' => 'status', 'label' => 'Status'],
+        ['index' => 'callback_time', 'label' => 'Callback Time'],
+        ['index' => 'recorded_by', 'label' => 'Recorded By'],
         ['index' => 'action', 'label' => 'Action'],
+    ];
+
+    // Status options for filter
+    public array $statusOptions = [
+        'pending' => 'Pending',
+        'approved_by_production' => 'Approved by Production',
+        'received_by_production' => 'Received by Production',
+        'completed' => 'Completed',
     ];
 
     protected function getModelClass(): string
     {
-        return ProductStock::class;
+        return ProductDispatchCallback::class;
     }
 
     protected function getAllSelectableIds(): array
     {
         return $this->getFilteredQuery()->pluck('id')->toArray();
+    }
+
+    protected function getFilteredQuery()
+    {
+        $query = ProductDispatchCallback::query()
+            ->with(['product', 'salesShift', 'recordedBy', 'approvedBy', 'receivedBy'])
+            ->whereHas('salesShift', function ($q) {
+                $q->where('branch_id', $this->getBranchId());
+            });
+
+        return $query;
     }
 
     public function getBranchId()
@@ -63,150 +72,80 @@ class Index extends BaseComponent
 
     public function mount()
     {
-        $this->stockDate = \Carbon\Carbon::today()->format('Y-m-d');
-        $this->loadCurrentShift();
-    }
-
-    protected function loadCurrentShift()
-    {
-        $employee = auth('employees')->user();
-
-        $activeShift = Shift::where('employee_id', $employee->id)
-            ->where('shift_date', \Carbon\Carbon::today())
-            ->where('status', 'active')
-            ->first();
-
-        if ($activeShift) {
-            $this->currentShiftId = $activeShift->id;
-            $this->shiftType = $activeShift->shift_type ?? 'morning';
-        }
+        $this->startDate = \Carbon\Carbon::today()->subDays(30)->format('Y-m-d');
+        $this->endDate = \Carbon\Carbon::today()->format('Y-m-d');
     }
 
     public function getRowsProperty()
     {
-        if (!$this->currentShiftId) {
-            return [];
-        }
-
-        $query = ProductStock::with(['product', 'salesShift'])
-            ->where('sales_shift_id', $this->currentShiftId)
-            ->where('stock_date', $this->stockDate);
+        $query = ProductDispatchCallback::with(['product', 'salesShift', 'recordedBy', 'approvedBy', 'receivedBy'])
+            ->whereHas('salesShift', function ($q) {
+                $q->where('branch_id', $this->getBranchId());
+            });
 
         // Search filter
         if ($this->search) {
-            $query->whereHas('product', function ($q) {
-                $q->where('name', 'like', '%' . $this->search . '%')
-                  ->orWhere('sku', 'like', '%' . $this->search . '%');
+            $query->where(function ($q) {
+                $q->whereHas('product', function ($productQuery) {
+                    $productQuery->where('name', 'like', '%' . $this->search . '%')
+                                 ->orWhere('sku', 'like', '%' . $this->search . '%');
+                })
+                ->orWhereHas('recordedBy', function ($employeeQuery) {
+                    $employeeQuery->where('name', 'like', '%' . $this->search . '%');
+                });
             });
         }
 
         // Status filter
         if ($this->filterStatus) {
-            $query->where(function ($q) {
-                foreach ($q->get() as $stock) {
-                    if ($stock->getShelfLifeStatus() === $this->filterStatus) {
-                        $q->orWhere('id', $stock->id);
-                    }
-                }
-            });
+            $query->where('status', $this->filterStatus);
         }
 
-        return $query->paginate($this->quantity);
+        // Date range filter
+        if ($this->startDate) {
+            $query->whereDate('callback_time', '>=', $this->startDate);
+        }
+        if ($this->endDate) {
+            $query->whereDate('callback_time', '<=', $this->endDate);
+        }
+
+        return $query->orderBy('callback_time', 'desc')->paginate($this->quantity);
     }
 
-    public function openCallbackModal($stockId)
+    public function viewDetails($callbackId)
     {
-        $this->selectedProductStock = ProductStock::with('product')->find($stockId);
+        $callback = ProductDispatchCallback::with([
+            'product',
+            'productDispatch',
+            'salesShift',
+            'recordedBy',
+            'approvedBy',
+            'receivedBy'
+        ])->find($callbackId);
 
-        if (!$this->selectedProductStock) {
-            $this->toast()->error('Product stock not found.')->send();
+        if (!$callback) {
+            $this->toast()->error('Callback not found.')->send();
             return;
         }
 
-        // Auto-fill callback quantity for expired products
-        if ($this->selectedProductStock->shouldCallback()) {
-            $this->callbackQuantity = $this->selectedProductStock->total_available;
-            $this->callbackReason = 'expired';
-        } else {
-            $this->callbackQuantity = 0;
-            $this->callbackReason = '';
-        }
-
-        $this->callbackNotes = '';
-        $this->showCallbackModal = true;
+        // Store for modal display
+        $this->dispatch('show-callback-details', callback: $callback->toArray());
     }
 
-    public function closeCallbackModal()
+    public function exportCallbacks()
     {
-        $this->showCallbackModal = false;
-        $this->selectedProductStock = null;
-        $this->callbackQuantity = 0;
-        $this->callbackReason = '';
-        $this->callbackNotes = '';
+        $this->toast()->info('Export feature coming soon.')->send();
     }
 
-    public function submitCallback()
+    public function getStatusBadgeClass($status)
     {
-        $this->validate([
-            'callbackQuantity' => 'required|numeric|min:0.01',
-            'callbackReason' => 'required|in:expired,damaged,quality_issue,customer_return,other',
-        ], [
-            'callbackQuantity.required' => 'Callback quantity is required',
-            'callbackQuantity.min' => 'Callback quantity must be greater than 0',
-            'callbackReason.required' => 'Please select a callback reason',
-        ]);
-
-        try {
-            DB::beginTransaction();
-
-            if (!$this->selectedProductStock) {
-                throw new \Exception('Product stock not found');
-            }
-
-            // Validate callback quantity doesn't exceed available
-            if ($this->callbackQuantity > $this->selectedProductStock->total_available) {
-                $this->toast()->error('Callback quantity cannot exceed available stock.')->send();
-                return;
-            }
-
-            // Update product stock
-            $this->selectedProductStock->callback_quantity += $this->callbackQuantity;
-            $this->selectedProductStock->updateCalculatedFields();
-            $this->selectedProductStock->save();
-
-            // Log callback in notes
-            $logEntry = sprintf(
-                "[%s] Callback: %.2f %s - Reason: %s%s",
-                now()->format('Y-m-d H:i'),
-                $this->callbackQuantity,
-                $this->selectedProductStock->product->uom ?? 'units',
-                ucfirst(str_replace('_', ' ', $this->callbackReason)),
-                $this->callbackNotes ? " - Notes: {$this->callbackNotes}" : ''
-            );
-
-            $this->selectedProductStock->notes = $this->selectedProductStock->notes
-                ? $this->selectedProductStock->notes . "\n" . $logEntry
-                : $logEntry;
-
-            $this->selectedProductStock->save();
-
-            DB::commit();
-
-            $this->toast()->success('Callback recorded successfully!')->send();
-            $this->closeCallbackModal();
-            $this->resetPage();
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            $this->toast()->error('Error recording callback: ' . $e->getMessage())->send();
-        }
-    }
-
-    protected function getFilteredQuery()
-    {
-        return ProductStock::query()
-            ->where('sales_shift_id', $this->currentShiftId)
-            ->where('stock_date', $this->stockDate);
+        return match ($status) {
+            'pending' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+            'approved_by_production' => 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+            'received_by_production' => 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+            'completed' => 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+            default => 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400',
+        };
     }
 
     public function render()

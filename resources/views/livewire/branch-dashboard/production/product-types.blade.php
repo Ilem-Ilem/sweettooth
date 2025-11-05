@@ -77,8 +77,8 @@
                     class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
+            <div class="grid grid-cols-1 sm:grid-cols-1 gap-3">
+                {{-- <div>
                     <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Department</label>
                     <select wire:model.live="filterDepartment"
                         class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
@@ -87,7 +87,7 @@
                             <option value="{{ $dept->id }}">{{ $dept->name }}</option>
                         @endforeach
                     </select>
-                </div>
+                </div> --}}
 
                 <div>
                     <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Status</label>

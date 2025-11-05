@@ -6,6 +6,7 @@ use App\Models\DailyProduce;
 use App\Models\Shift;
 use App\Models\ProductionRequest;
 use App\Models\ProductDispatch;
+use App\Models\Department;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
@@ -20,6 +21,11 @@ class Index extends Component
 
     #[Url(keep: true)]
     public $b_id;
+
+    #[Url(keep: true)]
+    public $dept_slug;
+
+    public $department;
 
     public $selectedShiftId = null;
     public $availableShifts = [];
@@ -45,8 +51,15 @@ class Index extends Component
     public $batchNotes = '';
     public $recordingProduce = null;
 
-    public function mount()
+    public function mount($deptSlug)
     {
+        $this->dept_slug = $deptSlug;
+        $this->department = Department::where('slug', $deptSlug)->first();
+
+        if (!$this->department) {
+            abort(404, 'Department not found');
+        }
+
         $this->loadAvailableShifts();
         $this->loadCurrentShift();
     }
@@ -57,11 +70,10 @@ class Index extends Component
     public function loadAvailableShifts()
     {
         $branchId = $this->getBranchId();
-        $employee = Auth::guard('employees')->user();
 
-        // Get shifts from last 30 days for production department
+        // Get shifts from last 30 days for this department
         $this->availableShifts = Shift::where('branch_id', $branchId)
-            ->where('department_id', $employee->department_id)
+            ->where('department_id', $this->department->id)
             ->where('shift_date', '>=', now()->subDays(30))
             ->orderBy('shift_date', 'desc')
             ->orderBy('shift_type', 'desc')
@@ -91,12 +103,10 @@ class Index extends Component
     public function loadCurrentShift()
     {
         $branchId = $this->getBranchId();
-        $employee = Auth::guard('employees')->user();
 
-        // Get today's shift for the employee's department
-        // This should get the production department shift (where kitchen/production happens)
+        // Get today's shift for this department
         $this->currentShift = Shift::where('branch_id', $branchId)
-            ->where('department_id', $employee->department_id)
+            ->where('department_id', $this->department->id)
             ->where('shift_date', today())
             ->orderBy('shift_type')
             ->first();
@@ -107,7 +117,7 @@ class Index extends Component
         } else {
             // If no shift found for today, try to get the most recent shift
             $this->currentShift = Shift::where('branch_id', $branchId)
-                ->where('department_id', $employee->department_id)
+                ->where('department_id', $this->department->id)
                 ->orderBy('shift_date', 'desc')
                 ->orderBy('shift_type', 'desc')
                 ->first();
@@ -735,11 +745,10 @@ class Index extends Component
     public function render()
     {
         $branchId = $this->getBranchId();
-        $employee = Auth::guard('employees')->user();
 
         // Get available shifts for this department
         $availableShifts = Shift::where('branch_id', $branchId)
-            ->where('department_id', $employee->department_id)
+            ->where('department_id', $this->department->id)
             ->orderBy('shift_date', 'desc')
             ->orderBy('shift_type')
             ->limit(30) // Show more shifts

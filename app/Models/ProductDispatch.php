@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ProductDispatch extends Model
 {
@@ -11,9 +12,11 @@ class ProductDispatch extends Model
         'branch_id',
         'daily_produce_id',
         'production_shift_id',
+        'sales_shift_id',
         'product_id',
         'dispatched_by',
         'quantity',
+        'received_quantity',
         'uom',
         'dispatch_time',
         'shift_type',
@@ -26,6 +29,7 @@ class ProductDispatch extends Model
 
     protected $casts = [
         'quantity' => 'decimal:2',
+        'received_quantity' => 'decimal:2',
         'dispatch_time' => 'datetime',
         'dispatch_date' => 'date',
         'received_at' => 'datetime',
@@ -47,6 +51,11 @@ class ProductDispatch extends Model
         return $this->belongsTo(Shift::class, 'production_shift_id');
     }
 
+    public function salesShift(): BelongsTo
+    {
+        return $this->belongsTo(SalesShift::class);
+    }
+
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
@@ -60,6 +69,11 @@ class ProductDispatch extends Model
     public function receivedBy(): BelongsTo
     {
         return $this->belongsTo(Employee::class, 'received_by');
+    }
+
+    public function productDispatchCallbacks(): HasMany
+    {
+        return $this->hasMany(ProductDispatchCallback::class);
     }
 
     // Helper Methods

@@ -6,6 +6,7 @@ use App\Models\RawMaterialUtilization;
 use App\Models\Shift;
 use App\Models\Recipe;
 use App\Models\Item;
+use App\Models\Department;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
@@ -31,8 +32,34 @@ class RawMaterialTracking extends Component
     public $filterEndDate = null;
     public $filterMode = 'shift'; // 'shift' or 'date_range'
 
-    public function mount()
-    {
+
+    #[Url(keep: true)]
+    public $dept_slug;
+
+    public $department;
+
+    public function mount($deptSlug = null){
+        // Get dept_slug from parameter or URL query
+        $this->dept_slug = $deptSlug ?? request()->query('dept_slug') ?? request()->query('deptSlug');
+
+        if ($this->dept_slug) {
+            $this->department = Department::where('slug', $this->dept_slug)->first();
+        }
+
+        // If no department found via slug, try to get default production department for this branch
+        if (!$this->department) {
+            $branchId = $this->getBranchId();
+            $this->department = Department::where('branch_id', $branchId)
+                ->whereHas('category', function($q) {
+                    $q->where('name', 'Production');
+                })
+                ->first();
+        }
+
+        if (!$this->department) {
+            abort(404, 'Department not found. Please ensure you have a Production department set up.');
+        }
+
         $this->loadCurrentShift();
     }
 
@@ -44,11 +71,10 @@ class RawMaterialTracking extends Component
     public function loadCurrentShift()
     {
         $branchId = $this->getBranchId();
-        $employee = Auth::guard('employees')->user();
 
-        // Get today's shift for the employee's DEPARTMENT (not specific employee)
+        // Get today's shift for the department based on dept_slug
         $this->currentShift = Shift::where('branch_id', $branchId)
-            ->where('department_id', $employee->department_id)
+            ->where('department_id', $this->department->id)
             ->where('shift_date', today())
             ->orderBy('shift_type')
             ->first();
@@ -109,27 +135,27 @@ class RawMaterialTracking extends Component
     public function render()
     {
         $branchId = $this->getBranchId();
-        $employee = Auth::guard('employees')->user();
 
-        // Get available shifts for this DEPARTMENT (not specific employee)
+        // Get available shifts for this department based on dept_slug
         $availableShifts = Shift::where('branch_id', $branchId)
-            ->where('department_id', $employee->department_id)
+            ->where('department_id', $this->department->id)
             ->orderBy('shift_date', 'desc')
             ->orderBy('shift_type')
             ->limit(30)
             ->get();
 
-        // Get recipes for filter
+        // Get recipes for filter - filtered by department
         $recipes = Recipe::where('branch_id', $branchId)
+            ->where('department_id', $this->department->id)
             ->where('status', 'active')
             ->orderBy('product_name')
             ->get();
 
-        // Query raw material utilizations - DEPARTMENT BASED
+        // Query raw material utilizations - DEPARTMENT BASED on dept_slug
         $query = RawMaterialUtilization::with(['shift', 'recipe', 'item'])
-            ->whereHas('shift', function($q) use ($branchId, $employee) {
+            ->whereHas('shift', function($q) use ($branchId) {
                 $q->where('branch_id', $branchId)
-                  ->where('department_id', $employee->department_id);
+                  ->where('department_id', $this->department->id);
             });
 
         // Apply filters based on mode
@@ -161,9 +187,9 @@ class RawMaterialTracking extends Component
         ];
 
         // Build summary query based on filter mode
-        $summaryQuery = RawMaterialUtilization::whereHas('shift', function($q) use ($branchId, $employee) {
+        $summaryQuery = RawMaterialUtilization::whereHas('shift', function($q) use ($branchId) {
             $q->where('branch_id', $branchId)
-              ->where('department_id', $employee->department_id);
+              ->where('department_id', $this->department->id);
         });
 
         if ($this->filterMode === 'shift' && $this->selectedShiftId) {

@@ -54,9 +54,9 @@ class Shift extends Model
         return $this->hasMany(ProductionRequest::class);
     }
 
-    public function callBacks(): HasMany
+    public function productionCallbacks(): HasMany
     {
-        return $this->hasMany(CallBack::class);
+        return $this->hasMany(ProductionCallback::class);
     }
 
     public function rawMaterialUtilizations(): HasMany

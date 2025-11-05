@@ -6,6 +6,8 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Blade;
 use App\Models\Employee;
+use App\Models\Department;
+use App\Observers\DepartmentObserver;
 use App\Helpers\RolePermission;
 
 
@@ -24,6 +26,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Register observers
+        Department::observe(DepartmentObserver::class);
+
         Auth::macro('employee', function () {
             return Auth::guard('employees')->user();
         });

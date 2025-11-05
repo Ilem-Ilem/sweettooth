@@ -1,0 +1,223 @@
+<?php
+
+namespace App\Livewire\BranchDashboard\SalesDashboard\Callbacks;
+
+use App\Livewire\BaseComponent;
+use App\Models\ProductDispatch;
+use App\Models\ProductDispatchCallback;
+use App\Models\SalesShift;
+use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\Url;
+use Livewire\WithPagination;
+use TallStackUi\Traits\Interactions;
+
+#[Layout('components.layouts.app.branch-dashboard')]
+class CreateDispatchCallback extends BaseComponent
+{
+    use WithPagination, Interactions;
+
+    #[Url(keep: true)]
+    public $b_id;
+
+    public ?int $quantity = 20;
+    public ?string $search = null;
+    public ?string $filterStatus = null;
+
+    public ?string $currentSalesShiftId = null;
+    public $stockDate;
+
+    // Callback form
+    public $showCallbackModal = false;
+    public $selectedDispatch = null;
+    public $callbackQuantity = 0;
+    public $callbackReason = '';
+    public $callbackNotes = '';
+
+    // Reason options
+    public array $reasonOptions = [
+        'expired' => 'Expired',
+        'damaged' => 'Damaged',
+        'quality_issue' => 'Quality Issue',
+        'customer_return' => 'Customer Return',
+        'over_received' => 'Over Received',
+        'wrong_item' => 'Wrong Item',
+        'other' => 'Other',
+    ];
+
+    // Table headers
+    public array $headers = [
+        ['index' => 'product', 'label' => 'Product'],
+        ['index' => 'dispatch_date', 'label' => 'Dispatch Date'],
+        ['index' => 'received_qty', 'label' => 'Received Qty'],
+        ['index' => 'returned_qty', 'label' => 'Returned Qty'],
+        ['index' => 'available_to_return', 'label' => 'Available to Return'],
+        ['index' => 'status', 'label' => 'Status'],
+        ['index' => 'action', 'label' => 'Action'],
+    ];
+
+    protected function getModelClass(): string
+    {
+        return ProductDispatch::class;
+    }
+
+    protected function getAllSelectableIds(): array
+    {
+        return $this->getFilteredQuery()->pluck('id')->toArray();
+    }
+
+    protected function getFilteredQuery()
+    {
+        if (!$this->currentSalesShiftId) {
+            return ProductDispatch::query()->whereRaw('1=0');
+        }
+
+        return ProductDispatch::query()
+            ->where('sales_shift_id', $this->currentSalesShiftId)
+            ->where('status', 'received');
+    }
+
+    public function getBranchId()
+    {
+        return $this->b_id ?: request()->query('b_id');
+    }
+
+    public function mount()
+    {
+        $this->stockDate = \Carbon\Carbon::today()->format('Y-m-d');
+        $this->loadCurrentSalesShift();
+    }
+
+    protected function loadCurrentSalesShift()
+    {
+        $employee = auth('employees')->user();
+
+        // Find active sales shift for this employee
+        $activeShift = SalesShift::where('branch_id', $this->getBranchId())
+            ->where('shift_date', \Carbon\Carbon::today())
+            ->where('status', 'active')
+            ->whereHas('shift', function ($q) use ($employee) {
+                $q->where('employee_id', $employee->id);
+            })
+            ->first();
+
+        if ($activeShift) {
+            $this->currentSalesShiftId = $activeShift->id;
+        }
+    }
+
+    public function getRowsProperty()
+    {
+        if (!$this->currentSalesShiftId) {
+            return collect();
+        }
+
+        $query = ProductDispatch::with(['product', 'shift', 'productDispatchCallbacks'])
+            ->where('sales_shift_id', $this->currentSalesShiftId)
+            ->where('status', 'received');
+
+        // Search filter
+        if ($this->search) {
+            $query->whereHas('product', function ($q) {
+                $q->where('name', 'like', '%' . $this->search . '%')
+                  ->orWhere('sku', 'like', '%' . $this->search . '%');
+            });
+        }
+
+        return $query->orderBy('dispatch_date', 'desc')->paginate($this->quantity);
+    }
+
+    public function openCallbackModal($dispatchId)
+    {
+        $this->selectedDispatch = ProductDispatch::with(['product', 'productDispatchCallbacks'])->find($dispatchId);
+
+        if (!$this->selectedDispatch) {
+            $this->toast()->error('Dispatch not found.')->send();
+            return;
+        }
+
+        $this->callbackQuantity = 0;
+        $this->callbackReason = '';
+        $this->callbackNotes = '';
+        $this->showCallbackModal = true;
+    }
+
+    public function closeCallbackModal()
+    {
+        $this->showCallbackModal = false;
+        $this->selectedDispatch = null;
+        $this->callbackQuantity = 0;
+        $this->callbackReason = '';
+        $this->callbackNotes = '';
+    }
+
+    public function getAvailableQuantity($dispatch)
+    {
+        $totalCallbacks = $dispatch->productDispatchCallbacks()
+            ->whereIn('status', ['pending', 'approved_by_production', 'received_by_production', 'completed'])
+            ->sum('quantity');
+
+        return $dispatch->received_quantity - $totalCallbacks;
+    }
+
+    public function submitCallback()
+    {
+        $this->validate([
+            'callbackQuantity' => 'required|numeric|min:0.01',
+            'callbackReason' => 'required|in:expired,damaged,quality_issue,customer_return,over_received,wrong_item,other',
+        ], [
+            'callbackQuantity.required' => 'Callback quantity is required',
+            'callbackQuantity.min' => 'Callback quantity must be greater than 0',
+            'callbackReason.required' => 'Please select a callback reason',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            if (!$this->selectedDispatch) {
+                throw new \Exception('Dispatch not found');
+            }
+
+            // Validate callback quantity doesn't exceed available
+            $availableQty = $this->getAvailableQuantity($this->selectedDispatch);
+            if ($this->callbackQuantity > $availableQty) {
+                $this->toast()->error("Callback quantity cannot exceed available quantity ({$availableQty}).")->send();
+                return;
+            }
+
+            $employee = auth('employees')->user();
+
+            // Create callback record
+            ProductDispatchCallback::create([
+                'product_dispatch_id' => $this->selectedDispatch->id,
+                'sales_shift_id' => $this->currentSalesShiftId,
+                'product_id' => $this->selectedDispatch->product_id,
+                'recorded_by' => $employee->id,
+                'quantity' => $this->callbackQuantity,
+                'uom' => $this->selectedDispatch->uom,
+                'reason' => $this->callbackReason,
+                'status' => 'pending',
+                'notes' => $this->callbackNotes,
+                'callback_time' => now(),
+            ]);
+
+            DB::commit();
+
+            $this->toast()->success('Dispatch callback created successfully! Awaiting production approval.')->send();
+            $this->closeCallbackModal();
+            $this->resetPage();
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $this->toast()->error('Error creating callback: ' . $e->getMessage())->send();
+        }
+    }
+
+    public function render()
+    {
+        return view('livewire.branch-dashboard.sales-dashboard.callbacks.create-dispatch-callback', [
+            'rows' => $this->rows,
+            'currentSalesShift' => $this->currentSalesShiftId ? SalesShift::find($this->currentSalesShiftId) : null,
+        ]);
+    }
+}

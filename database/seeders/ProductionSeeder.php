@@ -9,7 +9,6 @@ use App\Models\Shift;
 use App\Models\DailyProduce;
 use App\Models\ProductionRecord;
 use App\Models\ProductionRequest;
-use App\Models\CallBack;
 use App\Models\RawMaterialUtilization;
 use Faker\Factory as Faker;
 use Illuminate\Support\Str;
@@ -139,26 +138,26 @@ class ProductionSeeder extends Seeder
             }
         }
 
-        // 7. Seed Call Backs (20 records)
-        foreach ($shifts as $shift) {
-            for ($i = 0; $i < 20; $i++) {
-                $callbackType = $faker->randomElement(['inventory_item', 'produced_item']);
-                CallBack::create([
-                    'shift_id' => $shift->id,
-                    'callback_type' => $callbackType,
-                    'reference_id' => $callbackType === 'inventory_item' 
-                        ? $faker->randomElement($itemIds) 
-                        : $faker->randomElement($recipes)->id,
-                    'quantity' => $faker->randomFloat(2, 0, 20),
-                    'uom' => $faker->randomElement(['grams', 'kg', 'liters', 'ml', 'pcs', 'units']),
-                    'reason' => $faker->randomElement(['expired', 'damaged', 'quality_issue', 'contaminated', 'other']),
-                    'description' => $faker->optional()->sentence,
-                    'reported_by' => $faker->randomElement($employeeIds),
-                    'callback_time' => $faker->dateTimeBetween('-1 day', 'now'),
-                    'action_taken' => $faker->randomElement(['disposed', 'returned_to_supplier', 'reprocessed', 'pending']),
-                ]);
-            }
-        }
+        // 7. Seed Call Backs - DISABLED (obsolete CallBack model replaced by ProductionCallback and ProductDispatchCallback)
+        // foreach ($shifts as $shift) {
+        //     for ($i = 0; $i < 20; $i++) {
+        //         $callbackType = $faker->randomElement(['inventory_item', 'produced_item']);
+        //         CallBack::create([
+        //             'shift_id' => $shift->id,
+        //             'callback_type' => $callbackType,
+        //             'reference_id' => $callbackType === 'inventory_item'
+        //                 ? $faker->randomElement($itemIds)
+        //                 : $faker->randomElement($recipes)->id,
+        //             'quantity' => $faker->randomFloat(2, 0, 20),
+        //             'uom' => $faker->randomElement(['grams', 'kg', 'liters', 'ml', 'pcs', 'units']),
+        //             'reason' => $faker->randomElement(['expired', 'damaged', 'quality_issue', 'contaminated', 'other']),
+        //             'description' => $faker->optional()->sentence,
+        //             'reported_by' => $faker->randomElement($employeeIds),
+        //             'callback_time' => $faker->dateTimeBetween('-1 day', 'now'),
+        //             'action_taken' => $faker->randomElement(['disposed', 'returned_to_supplier', 'reprocessed', 'pending']),
+        //         ]);
+        //     }
+        // }
 
         // 8. Seed Raw Material Utilizations (20 records)
         foreach ($shifts as $shift) {

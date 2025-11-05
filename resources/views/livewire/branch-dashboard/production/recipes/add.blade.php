@@ -5,7 +5,7 @@
         :items="[
             ['label' => 'Dashboard', 'url' => branch_route('branch-dashboard.index')],
             ['label' => 'Production'],
-            ['label' => 'Recipes', 'url' => branch_route('branch-dashboard.production.recipes.index')],
+            ['label' => 'Recipes', 'url' => branch_route('branch-dashboard.production.recipes.index', ['deptSlug'=>$dept_slug])],
             ['label' => 'Add']
         ]"
         :compact="false"
@@ -42,15 +42,9 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Department *</label>
-                        <select wire:model="department_id"
-                                class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
-                            <option value="">Select Department</option>
-                            @foreach($departments as $department)
-                                <option value="{{ $department->id }}">{{ $department->name }}</option>
-                            @endforeach
-                        </select>
-                        @error('department_id') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Department</label>
+                        <input type="text" value="{{ $department->name }}" readonly
+                                class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 cursor-not-allowed">
                     </div>
 
                     <div>
@@ -248,7 +242,7 @@
 
             <!-- Form Actions -->
             <div class="flex justify-end gap-3 pt-4 border-t border-zinc-200 dark:border-zinc-700">
-                <a href="{{ branch_route('branch-dashboard.production.recipes.index') }}"
+                <a href="{{ branch_route('branch-dashboard.production.recipes.index', ['deptSlug'=>$dept_slug]) }}"
                    class="px-6 py-2 border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors">
                     Cancel
                 </a>

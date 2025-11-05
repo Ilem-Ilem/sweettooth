@@ -47,7 +47,8 @@ class ProductStock extends Model
     // Relationships
     public function salesShift(): BelongsTo
     {
-        return $this->belongsTo(SalesHift::class, 'sales_shift_id');
+        // sales_shift_id is nullable - we use the general shifts table instead
+        return $this->belongsTo(SalesShift::class, 'sales_shift_id');
     }
 
     public function product(): BelongsTo

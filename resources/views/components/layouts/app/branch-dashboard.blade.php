@@ -14,7 +14,6 @@
             <x-app-logo />
         </a>
 
-
         <flux:navlist variant="outline">
             <flux:navlist.group :heading="__('Platform')" class="grid">
                 <flux:navlist.item icon="home" :href="branch_route('branch-dashboard.index')"
@@ -24,8 +23,7 @@
 
             <flux:navlist.group :heading="__('Organization')" class="grid">
                 <flux:navlist.group :heading="__('Organization')" expandable
-                    :expanded="request()->routeIs('branch-dashboard.branch.departments.*') || request()->routeIs('branch-dashboard.branch.departments.*') ? true : false"
-                    class="grid">
+                    :expanded="request()->routeIs('branch-dashboard.branch.departments.*')" class="grid">
                     <flux:navlist.item icon="tag"
                         :href="branch_route('branch-dashboard.branch.departments.category')"
                         :current="request()->routeIs('branch-dashboard.branch.departments.category')" wire:navigate>
@@ -36,12 +34,11 @@
                         :current="request()->routeIs('branch-dashboard.branch.departments.index')" wire:navigate>
                         {{ __('Departments') }}
                     </flux:navlist.item>
-
                 </flux:navlist.group>
             </flux:navlist.group>
 
             <flux:navlist.group :heading="__('Employee Management')" expandable
-                :expanded="request()->routeIs('branch-dashboard.employees.*') || request()->routeIs('branch-dashboard.assignments.*') ? true : false"
+                :expanded="request()->routeIs('branch-dashboard.employees.*') || request()->routeIs('branch-dashboard.assignments.*')"
                 class="grid" icon='users'>
                 <flux:navlist.item icon="user" :href="branch_route('branch-dashboard.employees.index')"
                     :current="request()->routeIs('branch-dashboard.employees.index')" wire:navigate>
@@ -51,17 +48,11 @@
                     :current="request()->routeIs('branch-dashboard.employee.create')" wire:navigate>
                     {{ __('Create Employee') }}
                 </flux:navlist.item>
-                {{-- <flux:navlist.item icon="briefcase" :href="branch_route('branch-dashboard.role-assignments.index')"
-                    :current="request()->routeIs('branch-dashboard.role-assignments.*')" wire:navigate>
-                    {{ __('Positions') }}
-                </flux:navlist.item> --}}
             </flux:navlist.group>
-
 
             <flux:navlist.group :heading="__('Inventory')" icon='cube'>
                 <flux:navlist.group :heading="__('Inventory Management')" expandable
-                    :expanded="request()->routeIs('branch-dashboard.inventory.*') ? true : false" class="grid"
-                    icon='cube'>
+                    :expanded="request()->routeIs('branch-dashboard.inventory.*')" class="grid" icon='cube'>
                     <flux:navlist.item icon="squares-2x2" :href="branch_route('branch-dashboard.inventory.items')"
                         :current="request()->routeIs('branch-dashboard.inventory.items')" wire:navigate>
                         {{ __('Items') }}
@@ -98,10 +89,8 @@
                 </flux:navlist.group>
             </flux:navlist.group>
 
-
             <flux:navlist.group :heading="__('Analytics')" expandable
-                :expanded="request()->routeIs('branch-dashboard.analytics.*') ? true : false" class="grid"
-                icon='chart-bar-square'>
+                :expanded="request()->routeIs('branch-dashboard.analytics.*')" class="grid" icon='chart-bar-square'>
                 <flux:navlist.item icon="squares-plus" :href="branch_route('branch-dashboard.analytics.overview')"
                     :current="request()->routeIs('branch-dashboard.analytics.overview')">
                     {{ __('Overview Dashboard') }}
@@ -129,68 +118,77 @@
                     :current="request()->routeIs('branch-dashboard.analytics.stock-valuation')">
                     {{ __('Stock Valuation') }}
                 </flux:navlist.item>
-     
                 <flux:navlist.item icon="bell-alert" :href="branch_route('branch-dashboard.analytics.alerts')"
                     :current="request()->routeIs('branch-dashboard.analytics.alerts')">
                     {{ __('Alerts Dashboard') }}
                 </flux:navlist.item>
             </flux:navlist.group>
 
+            {{-- ==================== DYNAMIC PRODUCTION MENU ==================== --}}
+            @php
 
-            <flux:navlist.group :heading="__('Production')">
-                <flux:navlist.item icon="view-columns" :href="branch_route('branch-dashboard.production.menu')"
-                    :current="request()->routeIs('branch-dashboard.production.*')" wire:navigate>
-                    {{ __('Production Modules') }}
-                </flux:navlist.item>
+                $employee = \Illuminate\Support\Facades\Auth::guard('employees')->user();
+                $branchId = $employee?->branch_id;
 
-                {{-- OLD STATIC NAVIGATION - COMMENTED OUT
-                <flux:navlist.item icon="tag" :href="branch_route('branch-dashboard.production.product-types')"
-                    :current="request()->routeIs('branch-dashboard.production.product-types')" wire:navigate>
-                    {{ __('Product Types') }}
-                </flux:navlist.item>
-                <flux:navlist.group :heading="__('Kitchen')" expandable
-                    :expanded="request()->routeIs('branch-dashboard.production.*') ? true : false" class="grid"
-                    icon='cog'>
+                $departments = collect();
+                $OPEN_PRODUCTION = false;
+                $OPEN_DEPT = null;
 
-                    <flux:navlist.item icon="cube" :href="branch_route('branch-dashboard.production.products')"
-                        :current="request()->routeIs('branch-dashboard.production.products')" wire:navigate>
-                        {{ __('Products') }}
-                    </flux:navlist.item>
-                    <flux:navlist.item icon="clipboard-document-list"
-                        :href="branch_route('branch-dashboard.production.recipes.index')"
-                        :current="request()->routeIs('branch-dashboard.production.recipes.*')" wire:navigate>
-                        {{ __('Recipes') }}
-                    </flux:navlist.item>
-                    <flux:navlist.item icon="home-modern"
-                        :href="branch_route('branch-dashboard.production.kitchen.index')"
-                        :current="request()->routeIs('branch-dashboard.production.kitchen.index')" wire:navigate>
-                        {{ __('Kitchen Dashboard') }}
-                    </flux:navlist.item>
-                    <flux:navlist.item icon="eye"
-                        :href="branch_route('branch-dashboard.production.kitchen.stock-monitor')"
-                        :current="request()->routeIs('branch-dashboard.production.kitchen.stock-monitor')"
-                        wire:navigate>
-                        {{ __('Production Monitor') }}
-                    </flux:navlist.item>
-                    <flux:navlist.item icon="document-text"
-                        :href="branch_route('branch-dashboard.production.request.index')"
-                        :current="request()->routeIs('branch-dashboard.production.request.*')" wire:navigate>
-                        {{ __('Production Requests') }}
-                    </flux:navlist.item>
-                    <flux:navlist.item icon="chart-bar"
-                        :href="branch_route('branch-dashboard.production.daily-produce.index')"
-                        :current="request()->routeIs('branch-dashboard.production.daily-produce.*')" wire:navigate>
-                        {{ __('Daily Produce') }}
-                    </flux:navlist.item>
-                    <flux:navlist.item icon="beaker"
-                        :href="branch_route('branch-dashboard.production.raw-material-tracking')"
-                        :current="request()->routeIs('branch-dashboard.production.raw-material-tracking')"
-                        wire:navigate>
-                        {{ __('Raw Material Tracking') }}
-                    </flux:navlist.item>
-                </flux:navlist.group>
-                --}}
+                if ($branchId) {
+                    $departments = \App\Models\Department::where(
+                        fn($q) => $q->where('branch_id', $branchId)->orWhereNull('branch_id'),
+                    )
+                        ->with([
+                            'category',
+                            'pages' => fn($q) => $q->where('is_active', true)->orderBy('order')->orderBy('name'),
+                        ])
+                        ->get()
+                        ->filter(fn($d) => $d->category?->name === 'Production')
+                        ->map(function ($dept) {
+                            $dept->pages = $dept->pages->reject(
+                                fn($p) => str_contains($p->route_name, 'edit') ||
+                                    str_contains($p->route_name, 'detail'),
+                            );
+                            return $dept;
+                        });
+
+                    $currentRoute = request()->route()?->getName();
+                    $OPEN_DEPT = $departments->firstWhere(
+                        fn($d) => $d->pages->pluck('route_name')->contains($currentRoute),
+                    )?->id;
+
+                    $OPEN_PRODUCTION = $departments->isNotEmpty() || $OPEN_DEPT !== null;
+                }
+            @endphp
+
+            <flux:navlist.group :heading="__('Production')" icon="o-cog-6-tooth">
+                @forelse($departments as $dept)
+                    <flux:navlist.group :heading="$dept->name" :badge="$dept->category?->name" expandable
+                        :expanded="(request()->get('dept_slug') == $dept->slug) ? true : false" class="grid">
+                        @forelse($dept->pages as $page)
+                            <flux:navlist.item icon="{{ $page->icon ?? 'o-beaker' }}"
+                                :href="branch_route($page->route_name, [
+                                                            'deptSlug' => $dept->slug,
+                                                            'dept_slug'=>$dept->slug,
+                                                            'page' => $page->name . '_' . $dept->slug
+                                                        ])"
+                                :current="request()->get('page') === $page->name . '_' . $dept->slug" wire:navigate>
+                                {{ $page->name }}
+                            </flux:navlist.item>
+
+                        @empty
+                            <div class="pl-10 pr-4 py-1.5 text-xs text-gray-500 italic">
+                                {{ __('No pages configured') }}
+                            </div>
+                        @endforelse
+                    </flux:navlist.group>
+                @empty
+                    <div class="pl-10 pr-4 py-1.5 text-xs text-gray-500 italic">
+                        {{ __('No production departments') }}
+                    </div>
+                @endforelse
             </flux:navlist.group>
+            {{-- ==================== END PRODUCTION MENU ==================== --}}
 
             <flux:navlist.group :heading="__('Sales')" class="grid">
                 <flux:navlist.item icon="clipboard-document-check"
@@ -202,22 +200,33 @@
                 <flux:navlist.item icon="clipboard-document-check"
                     :href="branch_route('branch-dashboard.sales-dashboard.stock-monitor')"
                     :current="request()->routeIs('branch-dashboard.sales-dashboard.stock-monitor')" wire:navigate>
-                    Monitor Product Stock
+                    {{ __('Monitor Product Stock') }}
                 </flux:navlist.item>
+
+                <flux:navlist.group :heading="__('Callbacks')" class="grid" expandable
+                    :expanded="request()->routeIs('branch-dashboard.sales-dashboard.callbacks.*')">
+                    <flux:navlist.item icon="arrow-uturn-left"
+                        :href="branch_route('branch-dashboard.sales-dashboard.callbacks.index')"
+                        :current="request()->routeIs('branch-dashboard.sales-dashboard.callbacks.index')" wire:navigate>
+                        {{ __('Product Callbacks') }}
+                    </flux:navlist.item>
+                    <flux:navlist.item icon="arrow-path-rounded-square"
+                        :href="branch_route('branch-dashboard.sales-dashboard.callbacks.dispatch-callbacks')"
+                        :current="request()->routeIs('branch-dashboard.sales-dashboard.callbacks.dispatch-callbacks')" wire:navigate>
+                        {{ __('Dispatch Callbacks') }}
+                    </flux:navlist.item>
+                </flux:navlist.group>
 
                 <flux:navlist.group :heading="__('POS System')" class="grid" expandable>
                     <flux:navlist.item icon="clipboard-document-check"
                         :href="branch_route('branch-dashboard.sales-dashboard.pos.index')"
-                        :current="request()->routeIs('branch-dashboard.sales-dashboard.pos.*')"
-                        wire:navigate>
+                        :current="request()->routeIs('branch-dashboard.sales-dashboard.pos.*')" wire:navigate>
                         {{ __('POS') }}
                     </flux:navlist.item>
-
-
                 </flux:navlist.group>
             </flux:navlist.group>
-
         </flux:navlist>
+
         <flux:spacer />
 
         <!-- Desktop User Menu -->
@@ -235,7 +244,6 @@
                                     {{ auth()->user()->initials() }}
                                 </span>
                             </span>
-
                             <div class="grid flex-1 text-start text-sm leading-tight">
                                 <span class="truncate font-semibold">{{ auth()->user()->name }}</span>
                                 <span class="truncate text-xs">{{ auth()->user()->email }}</span>
@@ -263,7 +271,6 @@
             </flux:menu>
         </flux:dropdown>
     </flux:sidebar>
-
     <!-- Mobile User Menu -->
     <flux:header class="lg:hidden">
         <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
@@ -318,8 +325,8 @@
 
         <!-- Navbar Left -->
         <flux:navbar class="-mb-px max-lg:hidden">
-            <flux:navbar.item icon="layout-grid" :href="route('dashboard')"
-                :current="request()->routeIs('dashboard')" wire:navigate>
+            <flux:navbar.item icon="layout-grid" :href="route('dashboard')" :current="request()->routeIs('dashboard')"
+                wire:navigate>
                 {{ __('Dashboard') }}
             </flux:navbar.item>
         </flux:navbar>
@@ -335,8 +342,8 @@
             <div x-data="{ currentTime: '' }" x-init="setInterval(() => {
                 const now = new Date();
                 currentTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            }, 1000);"
-                class="font-mono text-base md:text-lg tracking-widest" x-text="currentTime">
+            }, 1000);" class="font-mono text-base md:text-lg tracking-widest"
+                x-text="currentTime">
             </div>
         </div>
 

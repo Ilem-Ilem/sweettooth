@@ -895,10 +895,15 @@
                     <!-- Quantity Produced -->
                     <div>
                         <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                            Quantity Produced <span class="text-red-500">*</span>
+                            Quantity Produced ({{ $recordingProduce->recipe->uom ?? 'units' }}) <span class="text-red-500">*</span>
+                            <span class="text-xs font-normal text-zinc-500 dark:text-zinc-400">- Enter actual units produced, not batch number</span>
                         </label>
                         <input type="number" step="0.01" min="0.01" wire:model.live="batchQuantityProduced"
+                               placeholder="e.g., {{ $recordingProduce->recipe->yield_quantity ?? '20' }}"
                                class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500">
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                            Recipe yield: {{ number_format($recordingProduce->recipe->yield_quantity ?? 0, 2) }} {{ $recordingProduce->recipe->uom ?? 'units' }} per batch
+                        </p>
                         @error('batchQuantityProduced')
                             <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                         @enderror

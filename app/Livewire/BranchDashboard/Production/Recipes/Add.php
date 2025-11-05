@@ -49,6 +49,23 @@ class Add extends Component
     // Recipe Ingredients
     public array $ingredients = [];
 
+    #[Url(keep:true)]
+    public $dept_slug;
+
+    public $department;
+
+    public function mount($deptSlug){
+        $this->dept_slug = $deptSlug;
+        $this->department = Department::where('slug', $deptSlug)->first();
+
+        if (!$this->department) {
+            abort(404, 'Department not found');
+        }
+
+        // Auto-set department_id based on dept_slug
+        $this->department_id = $this->department->id;
+    }
+
     public function getBranchId()
     {
         return $this->b_id ? $this->b_id : request()->query('b_id');
@@ -79,12 +96,17 @@ class Add extends Component
         if (!empty($this->productName)) {
             $this->generateSku();
 
-            $product = Product::with('productType')->where('name', $this->productName)->first();
+            // Find product within the current department only
+            $product = Product::with('productType')
+                ->where('name', $this->productName)
+                ->whereHas('productType', function ($q) {
+                    $q->where('department_id', $this->department->id);
+                })
+                ->first();
 
             if ($product && $product->productType) {
-                $this->department_id = $product->productType->department_id;
+                // Department is already set from mount, no need to override
                 // Don't auto-set product_type, let user select from dropdown
-                // You can optionally suggest based on product type name
             }
         }
     }
@@ -141,7 +163,7 @@ class Add extends Component
                 return $actualQuantity * $costPerUnit;
             });
 
-            $costPerUnit = $totalCost / max((float) $this->yield_quantity, 1);
+            $costPerUnit = (int) $totalCost / max((float) $this->yield_quantity, 1);
 
             $data = [
                 'branch_id' => $branchId,
@@ -181,19 +203,21 @@ class Add extends Component
         });
 
         $this->toast()->success($message ?? 'Recipe saved successfully!')->send();
-        return $this->redirect(branch_route('branch-dashboard.production.recipes.index'), navigate: true);
+        return $this->redirect(branch_route('branch-dashboard.production.recipes.index', ['deptSlug' => $this->dept_slug]), navigate: true);
     }
 
     public function render()
     {
         $branchId = $this->getBranchId();
-        $departments = Department::whereHas('category', function ($q) {
-            $q->where('name', 'Production');
-        })->orderBy('name')->get();
+
+        // Filter products by department
         $products = Product::where('is_active', 1)
             ->where(function ($query) use ($branchId) {
                 $query->whereNull('branch_id')
                     ->orWhere('branch_id', $branchId);
+            })
+            ->whereHas('productType', function ($q) {
+                $q->where('department_id', $this->department->id);
             })
             ->get();
 
@@ -201,9 +225,10 @@ class Add extends Component
 
 
         return view('livewire.branch-dashboard.production.recipes.add', [
-            'departments' => $departments,
             'products' => $products,
             'items' => $items,
+            'department' => $this->department,
+            'dept_slug'=>$this->dept_slug,
         ]);
     }
 }

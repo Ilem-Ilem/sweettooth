@@ -143,21 +143,23 @@ class RequestModel extends Component
                         continue; // Skip if no recipe found
                     }
 
-                    // Use the quantity specified by the user
-                    $quantity = (int)$quantity;
+                    // Use the quantity specified by the user (batches)
+                    $batchesRequested = (int)$quantity;
+                    $recipeYield = (float) $recipe->yield_quantity; // Units per batch
+                    $actualUnitsRequested = $batchesRequested * $recipeYield; // Total units to produce
 
-                    // Create Production Request
+                    // Create Production Request (store actual units, not batches)
                     ProductionRequest::create([
                         'shift_id'                    => $shift->id,
                         'item_request_id'             => $itemRequest->id,
                         'recipe_id'                   => $recipe->id,
-                        'planned_production_quantity' => $quantity,
+                        'planned_production_quantity' => $actualUnitsRequested, // Actual units (batches × yield)
                     ]);
 
                     // Create Item Request Details for each ingredient
                     foreach ($recipe->ingredients as $ingredient) {
                         $actualQuantity = $ingredient->getActualQuantityNeeded();
-                        $totalQuantity = $actualQuantity * $quantity;
+                        $totalQuantity = $actualQuantity * $batchesRequested; // Ingredients based on batches
 
                         ItemRequestDetail::create([
                             'request_id'          => $itemRequest->id,
@@ -166,7 +168,7 @@ class RequestModel extends Component
                             'quantity_approved'   => 0,
                             'quantity_dispatched' => 0,
                             'uom'                 => $ingredient->uom,
-                            'notes'               => "For {$recipe->product_name} production (Qty: {$quantity}) - POS Request",
+                            'notes'               => "For {$recipe->product_name} production ({$batchesRequested} batches × {$recipeYield} {$recipe->uom} = {$actualUnitsRequested} {$recipe->uom}) - POS Request",
                         ]);
                     }
                 }

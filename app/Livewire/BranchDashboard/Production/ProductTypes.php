@@ -2,11 +2,12 @@
 
 namespace App\Livewire\BranchDashboard\Production;
 
-use App\Livewire\BaseComponent;
-use App\Models\ProductType;
+use App\Models\Employee;
 use App\Models\Department;
-use Livewire\Attributes\Layout;
+use App\Models\ProductType;
 use Livewire\Attributes\Url;
+use App\Livewire\BaseComponent;
+use Livewire\Attributes\Layout;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class ProductTypes extends BaseComponent
@@ -32,9 +33,24 @@ class ProductTypes extends BaseComponent
     public string $status = 'active';
     public int $sort_order = 0;
 
+    public $employees_department;
+    public $department;
+
+
     protected array $bulkActions = [
         'delete' => ['label' => 'Delete Selected', 'method' => 'bulkDelete'],
     ];
+
+
+    #[Url(keep: true)]
+    public $dept_slug;
+
+    public function mount($deptSlug){
+        $this->dept_slug = $deptSlug;
+        $this->department = Department::where('slug', $deptSlug)->first();
+        $this->employees_department =  Employee::where('id', auth('employees')->id())->first();
+
+    }
 
     protected function getModelClass(): string
     {
@@ -53,7 +69,9 @@ class ProductTypes extends BaseComponent
 
     protected function getFilteredQuery()
     {
+
         return ProductType::query()
+            ->where('department_id', $this->department->id)
             ->with(['department', 'department.category'])
             ->withCount('products')
             ->when($this->search, function ($query) {
@@ -63,9 +81,6 @@ class ProductTypes extends BaseComponent
             })
             ->when($this->filterStatus, function ($query) {
                 $query->where('status', $this->filterStatus);
-            })
-            ->when($this->filterDepartment, function ($query) {
-                $query->where('department_id', $this->filterDepartment);
             })
             ->orderBy('sort_order', 'asc')
             ->orderBy('name', 'asc');
@@ -97,7 +112,6 @@ class ProductTypes extends BaseComponent
     public function render()
     {
         $rows = $this->getFilteredQuery()->paginate($this->quantity ?? 10);
-        $departments = Department::with('category')->orderBy('name')->get();
 
         return view('livewire.branch-dashboard.production.product-types', [
             'headers' => [
@@ -111,13 +125,17 @@ class ProductTypes extends BaseComponent
                 ['index' => 'action', 'label' => 'Actions', 'display' => true],
             ],
             'rows' => $rows,
-            'departments' => $departments,
+            'department' => $this->department,
         ]);
     }
 
     public function openCreateModal()
     {
         $this->resetFields();
+        // Auto-set department_id based on dept_slug
+        if ($this->department) {
+            $this->department_id = $this->department->id;
+        }
         $this->isEditing = false;
         $this->showModal = true;
     }
