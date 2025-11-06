@@ -88,7 +88,7 @@ class MDSeeder extends Seeder
         // ===============================
 
         $user = User::firstOrCreate(
-            ['email' => 'md@foodcompany.com'],
+            ['email' => 'md@sweettooth.com'],
             [
                 'name' => 'Managing Director',
                 'password' => Hash::make('password'), // change after seeding

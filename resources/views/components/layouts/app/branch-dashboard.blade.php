@@ -87,6 +87,15 @@
                         {{ __('Stock Movements') }}
                     </flux:navlist.item>
                 </flux:navlist.group>
+
+                <flux:navlist.group :heading="__('Callbacks')" class="grid" expandable
+                    :expanded="request()->routeIs('branch-dashboard.inventory.callbacks.*')">
+                    <flux:navlist.item icon="arrow-uturn-left"
+                        :href="branch_route('branch-dashboard.inventory.callbacks.index')"
+                        :current="request()->routeIs('branch-dashboard.inventory.callbacks.index')" wire:navigate>
+                        {{ __('Production Callbacks') }}
+                    </flux:navlist.item>
+                </flux:navlist.group>
             </flux:navlist.group>
 
             <flux:navlist.group :heading="__('Analytics')" expandable
@@ -188,9 +197,25 @@
                     </div>
                 @endforelse
             </flux:navlist.group>
+
+            <flux:navlist.group :heading="__('Production Callbacks')" class="grid" expandable
+                :expanded="request()->routeIs('branch-dashboard.production.callbacks.*')">
+                <flux:navlist.item icon="arrow-uturn-left"
+                    :href="branch_route('branch-dashboard.production.callbacks.index')"
+                    :current="request()->routeIs('branch-dashboard.production.callbacks.index')" wire:navigate>
+                    {{ __('Dispatch Callbacks') }}
+                </flux:navlist.item>
+                <flux:navlist.item icon="arrow-path-rounded-square"
+                    :href="branch_route('branch-dashboard.production.callbacks.create-inventory')"
+                    :current="request()->routeIs('branch-dashboard.production.callbacks.create-inventory')" wire:navigate>
+                    {{ __('Inventory Callbacks') }}
+                </flux:navlist.item>
+            </flux:navlist.group>
             {{-- ==================== END PRODUCTION MENU ==================== --}}
 
-            <flux:navlist.group :heading="__('Sales')" class="grid">
+            {{-- ==================== SALES MENU (WITH DYNAMIC DEPARTMENTS) ==================== --}}
+            <flux:navlist.group :heading="__('Sales Management')" icon="shopping-cart">
+                {{-- Static Sales Items --}}
                 <flux:navlist.item icon="clipboard-document-check"
                     :href="branch_route('branch-dashboard.sales-dashboard.stock-opening.index')"
                     :current="request()->routeIs('branch-dashboard.sales-dashboard.stock-opening.*')" wire:navigate>
@@ -216,15 +241,69 @@
                         {{ __('Dispatch Callbacks') }}
                     </flux:navlist.item>
                 </flux:navlist.group>
-
-                <flux:navlist.group :heading="__('POS System')" class="grid" expandable>
-                    <flux:navlist.item icon="clipboard-document-check"
-                        :href="branch_route('branch-dashboard.sales-dashboard.pos.index')"
-                        :current="request()->routeIs('branch-dashboard.sales-dashboard.pos.*')" wire:navigate>
-                        {{ __('POS') }}
-                    </flux:navlist.item>
-                </flux:navlist.group>
             </flux:navlist.group>
+
+            {{-- ==================== DYNAMIC SALES DEPARTMENTS (POS) ==================== --}}
+            @php
+                $salesDepartments = collect();
+                $OPEN_SALES = false;
+                $OPEN_SALES_DEPT = null;
+
+                if ($branchId) {
+                    $salesDepartments = \App\Models\Department::where(
+                        fn($q) => $q->where('branch_id', $branchId)->orWhereNull('branch_id'),
+                    )
+                        ->with([
+                            'category',
+                            'pages' => fn($q) => $q->where('is_active', true)->orderBy('order')->orderBy('name'),
+                        ])
+                        ->get()
+                        ->filter(fn($d) => $d->category?->name === 'Sales')
+                        ->map(function ($dept) {
+                            $dept->pages = $dept->pages->reject(
+                                fn($p) => str_contains($p->route_name, 'edit') ||
+                                    str_contains($p->route_name, 'detail'),
+                            );
+                            return $dept;
+                        });
+
+                    $currentRoute = request()->route()?->getName();
+                    $OPEN_SALES_DEPT = $salesDepartments->firstWhere(
+                        fn($d) => $d->pages->pluck('route_name')->contains($currentRoute),
+                    )?->id;
+
+                    $OPEN_SALES = $salesDepartments->isNotEmpty() || $OPEN_SALES_DEPT !== null;
+                }
+            @endphp
+
+            <flux:navlist.group :heading="__('Sales Departments')" icon="building-storefront">
+                @forelse($salesDepartments as $dept)
+                    <flux:navlist.group :heading="$dept->name" :badge="$dept->category?->name" expandable
+                        :expanded="(request()->get('sales_dept_slug') == $dept->slug) ? true : false" class="grid">
+                        @forelse($dept->pages as $page)
+                            <flux:navlist.item icon="{{ $page->icon ?? 'o-shopping-bag' }}"
+                                :href="branch_route($page->route_name, [
+                                                            'salesDeptSlug' => $dept->slug,
+                                                            'sales_dept_slug'=>$dept->slug,
+                                                            'page' => $page->name . '_' . $dept->slug
+                                                        ])"
+                                :current="request()->get('page') === $page->name . '_' . $dept->slug" wire:navigate>
+                                {{ $page->name }}
+                            </flux:navlist.item>
+
+                        @empty
+                            <div class="pl-10 pr-4 py-1.5 text-xs text-gray-500 italic">
+                                {{ __('No pages configured') }}
+                            </div>
+                        @endforelse
+                    </flux:navlist.group>
+                @empty
+                    <div class="pl-10 pr-4 py-1.5 text-xs text-gray-500 italic">
+                        {{ __('No sales departments') }}
+                    </div>
+                @endforelse
+            </flux:navlist.group>
+            {{-- ==================== END SALES DEPARTMENTS MENU ==================== --}}
         </flux:navlist>
 
         <flux:spacer />

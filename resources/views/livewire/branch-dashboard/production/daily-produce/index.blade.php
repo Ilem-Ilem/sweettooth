@@ -94,7 +94,7 @@
                             <li>Then you can track production here</li>
                         </ol>
                     </div>
-                    <a href="{{ branch_route('branch-dashboard.production.request.create') }}"
+                    <a href="{{ branch_route('branch-dashboard.production.request.create', ['deptSlug' => $dept_slug]) }}"
                        class="inline-block mt-4 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-medium">
                         Create Production Request
                     </a>

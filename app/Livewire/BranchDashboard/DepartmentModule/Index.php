@@ -196,6 +196,7 @@ class Index extends BaseComponent
                 $this->dialog()->error('Danger', 'You are not in the place to delete this department!')->send();
                 return;
             }
+            $department->delete();
             $this->dialog()->success('Success', 'Department deleted successfully!')->send();
             $this->selectedDepartmentId = null;
         }

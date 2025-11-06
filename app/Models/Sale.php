@@ -11,6 +11,7 @@ class Sale extends Model
         'sales_shift_id',
         'branch_id',
         'department_id',
+        'table_id',
         'sold_by',
         'sale_number',
         'sale_time',
@@ -50,6 +51,11 @@ class Sale extends Model
     public function soldBy(): BelongsTo
     {
         return $this->belongsTo(Employee::class, 'sold_by');
+    }
+
+    public function table(): BelongsTo
+    {
+        return $this->belongsTo(Table::class);
     }
 
     public function saleItems(): HasMany

@@ -24,6 +24,26 @@ class Index extends BaseComponent
     public ?string $startDate = null;
     public ?string $endDate = null;
 
+    // Create callback modal
+    public $showCreateModal = false;
+    public $selectedProduct = null;
+    public $callbackQuantity = 0;
+    public $callbackReason = '';
+    public $callbackNotes = '';
+    public $callbackUom = 'kg';
+    public $currentSalesShiftId = null;
+
+    // Reason options
+    public array $reasonOptions = [
+        'expired' => 'Expired',
+        'damaged' => 'Damaged',
+        'quality_issue' => 'Quality Issue',
+        'customer_return' => 'Customer Return',
+        'over_stock' => 'Over Stock',
+        'wrong_item' => 'Wrong Item',
+        'other' => 'Other',
+    ];
+
     // Table headers
     public array $headers = [
         ['index' => 'callback_id', 'label' => 'Callback ID'],
@@ -74,6 +94,102 @@ class Index extends BaseComponent
     {
         $this->startDate = \Carbon\Carbon::today()->subDays(30)->format('Y-m-d');
         $this->endDate = \Carbon\Carbon::today()->format('Y-m-d');
+        $this->loadCurrentSalesShift();
+    }
+
+    protected function loadCurrentSalesShift()
+    {
+        $employee = auth('employees')->user();
+
+        // First try to find active sales shift for this employee
+        $activeShift = \App\Models\SalesShift::where('branch_id', $this->getBranchId())
+            ->where('shift_date', \Carbon\Carbon::today())
+            ->where('status', 'active')
+            ->where('employee_id', $employee->id)
+            ->first();
+
+        // If not found, try to find any active sales shift in the employee's department
+        if (!$activeShift && $employee->department_id) {
+            $activeShift = \App\Models\SalesShift::where('branch_id', $this->getBranchId())
+                ->where('shift_date', \Carbon\Carbon::today())
+                ->where('status', 'active')
+                ->where('department_id', $employee->department_id)
+                ->first();
+        }
+
+        if ($activeShift) {
+            $this->currentSalesShiftId = $activeShift->id;
+        }
+    }
+
+    public function openCreateModal()
+    {
+        if (!$this->currentSalesShiftId) {
+            $this->toast()->error('No active sales shift found. Please start a shift first.')->send();
+            return;
+        }
+
+        $this->selectedProduct = null;
+        $this->callbackQuantity = 0;
+        $this->callbackReason = '';
+        $this->callbackNotes = '';
+        $this->callbackUom = 'kg';
+        $this->showCreateModal = true;
+    }
+
+    public function closeCreateModal()
+    {
+        $this->showCreateModal = false;
+        $this->selectedProduct = null;
+        $this->callbackQuantity = 0;
+        $this->callbackReason = '';
+        $this->callbackNotes = '';
+        $this->callbackUom = 'kg';
+    }
+
+    public function createCallback()
+    {
+        $this->validate([
+            'selectedProduct' => 'required|exists:products,id',
+            'callbackQuantity' => 'required|numeric|min:0.01',
+            'callbackReason' => 'required|in:expired,damaged,quality_issue,customer_return,over_stock,wrong_item,other',
+            'callbackUom' => 'required|string',
+        ], [
+            'selectedProduct.required' => 'Please select a product',
+            'callbackQuantity.required' => 'Callback quantity is required',
+            'callbackQuantity.min' => 'Callback quantity must be greater than 0',
+            'callbackReason.required' => 'Please select a callback reason',
+        ]);
+
+        try {
+            \Illuminate\Support\Facades\DB::beginTransaction();
+
+            $employee = auth('employees')->user();
+
+            // Create callback record
+            ProductDispatchCallback::create([
+                'product_dispatch_id' => null, // Direct callback without dispatch
+                'sales_shift_id' => $this->currentSalesShiftId,
+                'product_id' => $this->selectedProduct,
+                'recorded_by' => $employee->id,
+                'quantity' => $this->callbackQuantity,
+                'uom' => $this->callbackUom,
+                'reason' => $this->callbackReason,
+                'status' => 'pending',
+                'notes' => $this->callbackNotes,
+                'callback_time' => now(),
+            ]);
+
+            \Illuminate\Support\Facades\DB::commit();
+
+            $this->toast()->success('Product callback created successfully! Awaiting production approval.')->send();
+            $this->closeCreateModal();
+            $this->resetPage();
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            $this->toast()->error('Error creating callback: ' . $e->getMessage())->send();
+        }
     }
 
     public function getRowsProperty()
@@ -150,8 +266,20 @@ class Index extends BaseComponent
 
     public function render()
     {
+        $products = \App\Models\Product::where('is_active', 1)
+            ->where(function ($query) {
+                $query->whereNull('branch_id')
+                    ->orWhere('branch_id', $this->getBranchId());
+            })
+            ->orderBy('name')
+            ->get();
+
+        $currentSalesShift = $this->currentSalesShiftId ? \App\Models\SalesShift::find($this->currentSalesShiftId) : null;
+
         return view('livewire.branch-dashboard.sales-dashboard.callbacks.index', [
             'rows' => $this->rows,
+            'products' => $products,
+            'currentSalesShift' => $currentSalesShift,
         ]);
     }
 }

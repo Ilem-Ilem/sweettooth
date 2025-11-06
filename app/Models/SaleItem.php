@@ -9,6 +9,7 @@ class SaleItem extends Model
 {
     protected $fillable = [
         'sale_id',
+        'department_id',
         'product_id',
         'quantity',
         'unit_price',
@@ -30,6 +31,11 @@ class SaleItem extends Model
     public function sale(): BelongsTo
     {
         return $this->belongsTo(Sale::class);
+    }
+
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
     }
 
     public function product(): BelongsTo

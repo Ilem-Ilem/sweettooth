@@ -191,5 +191,9 @@
     </x-table>
 
     <!-- Modal -->
-    {{-- @include('livewire.branch-dashboard.production.partials.create-recipe') --}}
+    {{-- @include('livewire.branch-dashboard.production.par
+    
+    
+    
+    tials.create-recipe') --}}
 </div>

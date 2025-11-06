@@ -27,6 +27,8 @@ class Branch extends Model
         'postal_code',
         'timezone',
         'is_active',
+        'enable_table_management',
+        'table_management_settings',
     ];
 
     /**
@@ -34,6 +36,8 @@ class Branch extends Model
      */
     protected $casts = [
         'is_active' => 'boolean',
+        'enable_table_management' => 'boolean',
+        'table_management_settings' => 'array',
     ];
 
     /**
@@ -51,5 +55,21 @@ class Branch extends Model
     public function manager()
     {
         return $this->belongsTo(User::class, 'manager_user_id');
+    }
+
+    /**
+     * Get all tables for this branch.
+     */
+    public function tables()
+    {
+        return $this->hasMany(Table::class);
+    }
+
+    /**
+     * Check if table management is enabled.
+     */
+    public function hasTableManagement(): bool
+    {
+        return $this->enable_table_management === true;
     }
 }

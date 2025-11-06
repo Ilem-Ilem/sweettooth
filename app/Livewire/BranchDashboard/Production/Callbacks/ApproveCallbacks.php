@@ -54,6 +54,22 @@ class ApproveCallbacks extends BaseComponent
         return ProductDispatchCallback::class;
     }
 
+    protected function getAllSelectableIds(): array
+    {
+        return $this->getFilteredQuery()->pluck('id')->toArray();
+    }
+
+    protected function getFilteredQuery()
+    {
+        $query = ProductDispatchCallback::query()
+            ->with(['product', 'salesShift', 'productDispatch.salesShift', 'recordedBy', 'approvedBy', 'receivedBy'])
+            ->whereHas('productDispatch.salesShift', function ($q) {
+                $q->where('branch_id', $this->getBranchId());
+            });
+
+        return $query;
+    }
+
     public function getBranchId()
     {
         return $this->b_id ?: request()->query('b_id');
@@ -70,12 +86,12 @@ class ApproveCallbacks extends BaseComponent
         $query = ProductDispatchCallback::with([
             'product',
             'salesShift',
-            'productDispatch.shift',
+            'productDispatch.salesShift',
             'recordedBy',
             'approvedBy',
             'receivedBy'
         ])
-        ->whereHas('productDispatch.shift', function ($q) {
+        ->whereHas('productDispatch.salesShift', function ($q) {
             $q->where('branch_id', $this->getBranchId());
         });
 
@@ -224,6 +240,9 @@ class ApproveCallbacks extends BaseComponent
                 return;
             }
 
+            // Handle stock impacts before completing
+            $this->handleStockImpact($callback);
+
             $callback->complete();
 
             DB::commit();
@@ -239,6 +258,56 @@ class ApproveCallbacks extends BaseComponent
         } catch (\Exception $e) {
             DB::rollBack();
             $this->toast()->error('Failed to complete callback: ' . $e->getMessage())->send();
+        }
+    }
+
+    /**
+     * Handle stock impact for Sales → Production callback completion
+     */
+    protected function handleStockImpact(ProductDispatchCallback $callback): void
+    {
+        // 1. Update ProductStock (Sales Side)
+        $productStock = \App\Models\ProductStock::where('sales_shift_id', $callback->sales_shift_id)
+            ->where('product_id', $callback->product_id)
+            ->first();
+
+        if ($productStock) {
+            // Increase callback_quantity (total_available will be auto-calculated)
+            $productStock->callback_quantity += $callback->quantity;
+            $productStock->save(); // This triggers the booted() method which updates calculated fields
+        } else {
+            throw new \Exception('Product stock record not found for sales shift ID: ' . $callback->sales_shift_id);
+        }
+
+        // 2. Update DailyProduce (Production Side)
+        // Find the production shift that created this product
+        $productDispatch = $callback->productDispatch;
+        if (!$productDispatch || !$productDispatch->shift_id) {
+            throw new \Exception('Product dispatch or production shift not found');
+        }
+
+        // Find the recipe for this product
+        $recipe = \App\Models\Recipe::where('product_id', $callback->product_id)->first();
+        if (!$recipe) {
+            throw new \Exception('Recipe not found for product ID: ' . $callback->product_id);
+        }
+
+        $dailyProduce = \App\Models\DailyProduce::where('shift_id', $productDispatch->shift_id)
+            ->where('recipe_id', $recipe->id)
+            ->first();
+
+        if ($dailyProduce) {
+            // Increase callback_quantity and closing_quantity
+            $dailyProduce->callback_quantity += $callback->quantity;
+            $dailyProduce->closing_quantity += $callback->quantity;
+            $dailyProduce->updateCalculations(); // Recalculate expected closing and variance
+        } else {
+            // Log warning but don't fail - the production might be from a different shift/system
+            \Log::warning('DailyProduce record not found for callback', [
+                'callback_id' => $callback->id,
+                'shift_id' => $productDispatch->shift_id,
+                'recipe_id' => $recipe->id
+            ]);
         }
     }
 
@@ -264,23 +333,23 @@ class ApproveCallbacks extends BaseComponent
     {
         // Get stats for the branch
         $stats = [
-            'total' => ProductDispatchCallback::whereHas('productDispatch.shift', function($q) {
+            'total' => ProductDispatchCallback::whereHas('productDispatch.salesShift', function($q) {
                 $q->where('branch_id', $this->getBranchId());
             })->count(),
 
-            'pending' => ProductDispatchCallback::whereHas('productDispatch.shift', function($q) {
+            'pending' => ProductDispatchCallback::whereHas('productDispatch.salesShift', function($q) {
                 $q->where('branch_id', $this->getBranchId());
             })->where('status', 'pending')->count(),
 
-            'approved' => ProductDispatchCallback::whereHas('productDispatch.shift', function($q) {
+            'approved' => ProductDispatchCallback::whereHas('productDispatch.salesShift', function($q) {
                 $q->where('branch_id', $this->getBranchId());
             })->where('status', 'approved_by_production')->count(),
 
-            'received' => ProductDispatchCallback::whereHas('productDispatch.shift', function($q) {
+            'received' => ProductDispatchCallback::whereHas('productDispatch.salesShift', function($q) {
                 $q->where('branch_id', $this->getBranchId());
             })->where('status', 'received_by_production')->count(),
 
-            'completed' => ProductDispatchCallback::whereHas('productDispatch.shift', function($q) {
+            'completed' => ProductDispatchCallback::whereHas('productDispatch.salesShift', function($q) {
                 $q->where('branch_id', $this->getBranchId());
             })->where('status', 'completed')->count(),
         ];

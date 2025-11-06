@@ -11,6 +11,7 @@ class Recipe extends Model
     protected $fillable = [
         'branch_id',
         'department_id',
+        'product_id',
         'product_name',
         'sku',
         'product_type',
@@ -39,6 +40,11 @@ class Recipe extends Model
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
+    }
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class, 'product_id', 'id');
     }
 
     // public function category(): BelongsTo

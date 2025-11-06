@@ -230,6 +230,7 @@ class Index extends Component
             'requests' => $requests,
             'allShifts' => $allShifts,
             'statusSummary' => $statusSummary,
+            'dept_slug'=>$this->dept_slug
         ]);
     }
 }

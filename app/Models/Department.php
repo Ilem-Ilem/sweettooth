@@ -18,6 +18,8 @@ class Department extends Model
         'name',
         'slug',
         'description',
+        'enable_table_management',
+        'table_management_settings',
     ];
 
     /**
@@ -26,6 +28,8 @@ class Department extends Model
     protected $casts = [
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'enable_table_management' => 'boolean',
+        'table_management_settings' => 'array',
     ];
 
     /**
@@ -66,5 +70,32 @@ class Department extends Model
     public function pages()
     {
         return $this->hasMany(DepartmentPage::class);
+    }
+
+    /**
+     * Get all tables for this department.
+     */
+    public function tables()
+    {
+        return $this->hasMany(Table::class);
+    }
+
+    /**
+     * Check if table management is enabled.
+     */
+    public function hasTableManagement(): bool
+    {
+        return $this->enable_table_management === true;
+    }
+
+    /**
+     * Get the products that belong to this department.
+     */
+    public function products()
+    {
+        return $this->belongsToMany(Product::class, 'department_product')
+            ->withPivot(['is_available', 'department_price', 'sort_order'])
+            ->withTimestamps()
+            ->orderByPivot('sort_order');
     }
 }

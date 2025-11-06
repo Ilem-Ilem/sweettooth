@@ -13,6 +13,14 @@ class ProductSeeder extends Seeder
      */
     public function run(): void
     {
+        // Get the first branch (or all branches)
+        $branch = \App\Models\Branch::first();
+
+        if (!$branch) {
+            $this->command->error('No branches found! Please seed branches first.');
+            return;
+        }
+
         // Get product types
         $pastries = ProductType::where('code', 'PT')->first();
         $breads = ProductType::where('code', 'BR')->first();
@@ -26,6 +34,7 @@ class ProductSeeder extends Seeder
         $products = [
             // Pastries
             [
+                'branch_id' => $branch->id,
                 'name' => 'Butter Croissant',
                 'sku' => 'PT-BUT-001',
                 'product_type_id' => $pastries->id,
@@ -44,6 +53,7 @@ class ProductSeeder extends Seeder
                 'tags' => ['breakfast', 'french', 'popular'],
             ],
             [
+                'branch_id' => $branch->id,
                 'name' => 'Almond Danish',
                 'sku' => 'PT-ALM-002',
                 'product_type_id' => $pastries->id,
@@ -64,6 +74,7 @@ class ProductSeeder extends Seeder
 
             // Breads
             [
+                'branch_id' => $branch->id,
                 'name' => 'Sourdough Loaf',
                 'sku' => 'BR-SOU-001',
                 'product_type_id' => $breads->id,
@@ -82,6 +93,7 @@ class ProductSeeder extends Seeder
                 'tags' => ['artisan', 'sourdough'],
             ],
             [
+                'branch_id' => $branch->id,
                 'name' => 'Banana Bread',
                 'sku' => 'BR-BAN-002',
                 'product_type_id' => $breads->id,
@@ -102,6 +114,7 @@ class ProductSeeder extends Seeder
 
             // Cakes
             [
+                'branch_id' => $branch->id,
                 'name' => 'Chocolate Cake Slice',
                 'sku' => 'CK-CHO-001',
                 'product_type_id' => $cakes->id,
@@ -122,6 +135,7 @@ class ProductSeeder extends Seeder
 
             // Cookies
             [
+                'branch_id' => $branch->id,
                 'name' => 'Chocolate Chip Cookie',
                 'sku' => 'CO-CHI-001',
                 'product_type_id' => $cookies->id,
@@ -140,6 +154,7 @@ class ProductSeeder extends Seeder
                 'tags' => ['cookie', 'popular'],
             ],
             [
+                'branch_id' => $branch->id,
                 'name' => 'Oatmeal Raisin Cookie',
                 'sku' => 'CO-OAT-002',
                 'product_type_id' => $cookies->id,
@@ -160,6 +175,7 @@ class ProductSeeder extends Seeder
 
             // Gelato Base
             [
+                'branch_id' => $branch->id,
                 'name' => 'Vanilla Gelato Base',
                 'sku' => 'GB-VAN-001',
                 'product_type_id' => $gelatoBase->id,
@@ -180,6 +196,7 @@ class ProductSeeder extends Seeder
 
             // Gelato Flavors
             [
+                'branch_id' => $branch->id,
                 'name' => 'Chocolate Gelato',
                 'sku' => 'GF-CHO-001',
                 'product_type_id' => $gelatoFlavors->id,
@@ -198,6 +215,7 @@ class ProductSeeder extends Seeder
                 'tags' => ['gelato', 'chocolate', 'popular'],
             ],
             [
+                'branch_id' => $branch->id,
                 'name' => 'Strawberry Gelato',
                 'sku' => 'GF-STR-002',
                 'product_type_id' => $gelatoFlavors->id,
@@ -216,6 +234,7 @@ class ProductSeeder extends Seeder
                 'tags' => ['gelato', 'fruit'],
             ],
             [
+                'branch_id' => $branch->id,
                 'name' => 'Pistachio Gelato',
                 'sku' => 'GF-PIS-003',
                 'product_type_id' => $gelatoFlavors->id,
@@ -236,6 +255,7 @@ class ProductSeeder extends Seeder
 
             // Chocolates
             [
+                'branch_id' => $branch->id,
                 'name' => 'Dark Chocolate Truffle',
                 'sku' => 'CH-DAR-001',
                 'product_type_id' => $chocolates->id,
@@ -254,6 +274,7 @@ class ProductSeeder extends Seeder
                 'tags' => ['chocolate', 'premium', 'truffle'],
             ],
             [
+                'branch_id' => $branch->id,
                 'name' => 'Salted Caramel Chocolate',
                 'sku' => 'CH-SAL-002',
                 'product_type_id' => $chocolates->id,
@@ -274,6 +295,7 @@ class ProductSeeder extends Seeder
 
             // Candies
             [
+                'branch_id' => $branch->id,
                 'name' => 'Fruit Gummies',
                 'sku' => 'CD-FRU-001',
                 'product_type_id' => $candies->id,

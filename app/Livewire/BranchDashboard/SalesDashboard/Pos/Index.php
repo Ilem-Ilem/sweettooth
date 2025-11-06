@@ -10,6 +10,9 @@ use App\Models\SaleItem;
 use App\Models\Receipt;
 use App\Models\SalesShift;
 use App\Models\Shift;
+use App\Models\Table;
+use App\Models\Branch;
+use App\Models\Department;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +21,14 @@ use Livewire\Attributes\{Layout, Url, Computed};
 #[Layout('components.layouts.app.branch-dashboard')]
 class Index extends BaseComponent
 {
+    #[Url(keep: true)]
+    public ?string $salesDeptSlug = null;
+
+    public ?string $branchId = null;
+    public ?int $departmentId = null;
+    public string $departmentName = 'POS';
+    public string $branchName = '';
+
     public string $search = '';
     public array $cart = [];
     public float $subtotal = 0.0;
@@ -33,22 +44,125 @@ class Index extends BaseComponent
     public float $paymentTotal = 0.0;
     public float $paymentRemaining = 0.0;
 
+    // Table Management
+    public ?int $selectedTableId = null;
+    public bool $showTableManagement = false;
+    public bool $showTableModal = false;
+    public string $newTableNumber = '';
+    public string $newTableName = '';
+    public int $newTableCapacity = 4;
+
     protected $rules = [
         'discount' => 'numeric|min:0',
         'cashReceived' => 'numeric|min:0',
         'orderType' => 'in:dine-in,takeaway,delivery',
         'payments.*.method' => 'required|in:cash,transfer,pos',
         'payments.*.amount' => 'numeric|min:0',
+        'newTableNumber' => 'required|string|max:10',
+        'newTableName' => 'nullable|string|max:50',
+        'newTableCapacity' => 'required|integer|min:1|max:20',
     ];
 
     public function mount(): void
     {
         // dd( auth("employees")->id());
         $this->mountBase();
+        $this->loadBranchAndDepartment();
         $this->payments = [['method' => 'cash', 'amount' => 0.0]];
         $this->recalculateTotals();
         $this->recalcPayments();
         $this->loadActiveShift();
+        $this->checkTableManagement();
+    }
+
+    protected function loadBranchAndDepartment(): void
+    {
+        // Load branch
+        $this->branchId = request('b_id');
+        if ($this->branchId) {
+            $branch = Branch::find($this->branchId);
+            $this->branchName = $branch?->name ?? 'Unknown Branch';
+        }
+
+        // Load department from slug
+        if ($this->salesDeptSlug) {
+            // First try to find branch-specific department
+            $department = Department::where('slug', $this->salesDeptSlug)
+                ->where('branch_id', $this->branchId)
+                ->first();
+
+            // If not found, try to find global department (branch_id is null)
+            if (!$department) {
+                $department = Department::where('slug', $this->salesDeptSlug)
+                    ->whereNull('branch_id')
+                    ->first();
+            }
+
+            if ($department) {
+                $this->departmentId = $department->id;
+                $this->departmentName = $department->name;
+            } else {
+                $this->toast()->error('Department not found.')->send();
+            }
+        }
+
+        // Validate branch access
+        if (!$this->branchId) {
+            $this->toast()->error('Branch not specified.')->send();
+        }
+    }
+
+    protected function checkTableManagement(): void
+    {
+        // Check if current department has table management enabled
+        if ($this->departmentId) {
+            $department = Department::find($this->departmentId);
+            $this->showTableManagement = $department?->enable_table_management ?? false;
+        } else {
+            $this->showTableManagement = false;
+        }
+    }
+
+    public function toggleTableManagement(): void
+    {
+        if (!$this->departmentId) {
+            $this->toast()->error('Department not found.')->send();
+            return;
+        }
+
+        $department = Department::find($this->departmentId);
+        if (!$department) {
+            $this->toast()->error('Department not found.')->send();
+            return;
+        }
+
+        $department->enable_table_management = !$department->enable_table_management;
+        $department->save();
+
+        $this->showTableManagement = $department->enable_table_management;
+
+        // If enabling for the first time and no tables exist, create 8 default tables
+        if ($department->enable_table_management && $department->tables()->count() === 0) {
+            for ($i = 1; $i <= 8; $i++) {
+                Table::create([
+                    'branch_id' => $this->branchId,
+                    'department_id' => $this->departmentId,
+                    'table_number' => (string) $i,
+                    'table_name' => 'Table ' . $i,
+                    'status' => 'available',
+                    'capacity' => 4,
+                    'is_active' => true,
+                ]);
+            }
+            $this->toast()->success('Table management enabled! 8 default tables created for ' . $department->name . '.')->send();
+        } else {
+            $message = $department->enable_table_management
+                ? 'Table management enabled for ' . $department->name . '.'
+                : 'Table management disabled for ' . $department->name . '.';
+            $this->toast()->success($message)->send();
+        }
+
+        unset($this->tables);
     }
 
     protected function loadActiveShift(): void
@@ -153,6 +267,26 @@ class Index extends BaseComponent
         $this->recalculateTotals();
     }
 
+    public function updateQuantity(string $lineKey, $quantity): void
+    {
+        if (!isset($this->cart[$lineKey])) return;
+
+        $qty = max(1, (float)$quantity);
+        $productId = (string)$this->cart[$lineKey]['product_id'];
+        $stock = $this->getTodayStockForProduct($productId);
+        $available = $this->availableQuantity($stock);
+
+        // Enforce stock limit
+        if ($qty > $available) {
+            $this->toast()->warning('Cannot exceed available stock (' . $available . ') for ' . $this->cart[$lineKey]['name'])->send();
+            $qty = $available;
+        }
+
+        $this->cart[$lineKey]['qty'] = $qty;
+        $this->cart[$lineKey]['available'] = $available;
+        $this->recalculateTotals();
+    }
+
     public function remove(string $lineKey): void
     {
         unset($this->cart[$lineKey]);
@@ -242,8 +376,9 @@ class Index extends BaseComponent
         DB::transaction(function () {
             $sale = Sale::create([
                 'sales_shift_id' => $this->activeShiftId,
-                'branch_id' => null,
-                'department_id' => null,
+                'branch_id' => $this->branchId,
+                'department_id' => $this->departmentId,
+                'table_id' => $this->selectedTableId,
                 'sold_by' => auth("employees")->id(),
                 'sale_number' => 'POS-' . Carbon::now()->format('Ymd-His'),
                 'sale_time' => Carbon::now(),
@@ -275,6 +410,7 @@ class Index extends BaseComponent
                 if ($actualQty > 0) {
                     SaleItem::create([
                         'sale_id' => $sale->id,
+                        'department_id' => $this->departmentId,
                         'product_id' => $productId,
                         'quantity' => $actualQty,
                         'unit_price' => $line['price'],
@@ -335,8 +471,9 @@ class Index extends BaseComponent
         // Persist as draft without affecting stock
         $sale = Sale::create([
             'sales_shift_id' => $this->activeShiftId,
-            'branch_id' => null,
-            'department_id' => null,
+            'branch_id' => $this->branchId,
+            'department_id' => $this->departmentId,
+            'table_id' => $this->selectedTableId,
             'sold_by' => auth("employees")->id(),
             'sale_number' => 'HOLD-' . Carbon::now()->format('Ymd-His'),
             'sale_time' => Carbon::now(),
@@ -351,6 +488,7 @@ class Index extends BaseComponent
         foreach ($this->cart as $line) {
             SaleItem::create([
                 'sale_id' => $sale->id,
+                'department_id' => $this->departmentId,
                 'product_id' => (string)$line['product_id'],
                 'quantity' => (float)$line['qty'],
                 'unit_price' => $line['price'],
@@ -391,10 +529,18 @@ class Index extends BaseComponent
     public function getProductsProperty(): Collection
     {
         $q = Product::query();
+
+        // Filter by branch ONLY - show ALL branch products regardless of department
+        if ($this->branchId) {
+            $q->where('branch_id', $this->branchId);
+        }
+
+        // Search filter
         if (strlen($this->search)) {
             $q->where('name', 'like', '%' . $this->search . '%');
         }
-        return $q->limit(50)->get();
+
+        return $q->orderBy('name')->limit(50)->get();
     }
 
     protected function getTodayStockForProduct(string $productId, bool $forUpdate = false): ?ProductStock
@@ -463,6 +609,263 @@ class Index extends BaseComponent
     <div class="mt-2 text-center text-xs">Thank you</div>
 </div>
 HTML;
+    }
+
+    // Table Management Methods
+    public function selectTable(int $tableId): void
+    {
+        $table = Table::find($tableId);
+        if (!$table) {
+            $this->toast()->error('Table not found.')->send();
+            return;
+        }
+
+        // Save current cart if there's anything in it and a table is selected
+        if (!empty($this->cart) && $this->selectedTableId && $this->selectedTableId !== $tableId) {
+            $this->saveTableTab();
+        }
+
+        $this->selectedTableId = $tableId;
+
+        // Load the table's active sale if exists
+        $activeSale = $table->getActiveSale();
+        if ($activeSale) {
+            $this->loadTableTab($activeSale);
+        } else {
+            $this->clearCart();
+        }
+    }
+
+    protected function loadTableTab(Sale $sale): void
+    {
+        $this->cart = [];
+        foreach ($sale->saleItems as $item) {
+            $this->cart[(string)$item->product_id] = [
+                'product_id' => $item->product_id,
+                'name' => $item->product->name ?? 'Product',
+                'price' => (float)$item->unit_price,
+                'qty' => (float)$item->quantity,
+                'low_stock' => false,
+                'available' => $this->availableQuantity($this->getTodayStockForProduct($item->product_id)),
+            ];
+        }
+        $this->discount = (float)$sale->discount;
+        $this->orderType = $sale->order_type ?? 'dine-in';
+        $this->currentSaleId = $sale->id;
+        $this->recalculateTotals();
+    }
+
+    public function saveTableTab(): void
+    {
+        if (!$this->selectedTableId) {
+            $this->toast()->warning('No table selected.')->send();
+            return;
+        }
+
+        if (empty($this->cart)) {
+            $this->toast()->warning('Cart is empty.')->send();
+            return;
+        }
+
+        if (!$this->hasActiveShift()) {
+            $this->toast()->error('No active shift.')->send();
+            return;
+        }
+
+        $table = Table::find($this->selectedTableId);
+        if (!$table) {
+            $this->toast()->error('Table not found.')->send();
+            return;
+        }
+
+        DB::transaction(function () use ($table) {
+            // Check if there's an existing hold sale for this table
+            $existingSale = $table->getActiveSale();
+
+            if ($existingSale) {
+                // Update existing sale
+                $existingSale->update([
+                    'subtotal' => $this->subtotal,
+                    'tax' => $this->tax,
+                    'discount' => $this->discount,
+                    'total' => $this->total,
+                    'order_type' => $this->orderType,
+                ]);
+
+                // Delete existing items
+                $existingSale->saleItems()->delete();
+
+                $sale = $existingSale;
+            } else {
+                // Create new sale
+                $sale = Sale::create([
+                    'sales_shift_id' => $this->activeShiftId,
+                    'branch_id' => $this->branchId,
+                    'department_id' => $this->departmentId,
+                    'table_id' => $this->selectedTableId,
+                    'sold_by' => auth("employees")->id(),
+                    'sale_number' => 'TAB-' . $table->table_number . '-' . Carbon::now()->format('Ymd-His'),
+                    'sale_time' => Carbon::now(),
+                    'subtotal' => $this->subtotal,
+                    'tax' => $this->tax,
+                    'discount' => $this->discount,
+                    'total' => $this->total,
+                    'status' => 'hold',
+                    'order_type' => $this->orderType,
+                ]);
+            }
+
+            // Add items to sale
+            foreach ($this->cart as $line) {
+                SaleItem::create([
+                    'sale_id' => $sale->id,
+                    'department_id' => $this->departmentId,
+                    'product_id' => (string)$line['product_id'],
+                    'quantity' => (float)$line['qty'],
+                    'unit_price' => $line['price'],
+                    'subtotal' => $line['qty'] * $line['price'],
+                    'discount' => 0,
+                    'total' => $line['qty'] * $line['price'],
+                ]);
+            }
+
+            $table->markAsOccupied();
+            $this->currentSaleId = $sale->id;
+        });
+
+        $this->toast()->success('Tab saved for Table ' . $table->table_number)->send();
+    }
+
+    public function completeTableSale(): void
+    {
+        if (!$this->selectedTableId) {
+            $this->toast()->warning('No table selected.')->send();
+            return;
+        }
+
+        $table = Table::find($this->selectedTableId);
+        if (!$table) {
+            $this->toast()->error('Table not found.')->send();
+            return;
+        }
+
+        // Use the existing completeSale method but update table_id
+        $this->completeSale();
+
+        // Mark table as available after payment
+        $table->markAsAvailable();
+
+        $this->selectedTableId = null;
+    }
+
+    public function clearTable(): void
+    {
+        if (!$this->selectedTableId) {
+            return;
+        }
+
+        $table = Table::find($this->selectedTableId);
+        if ($table) {
+            // Delete any hold sales for this table
+            $activeSale = $table->getActiveSale();
+            if ($activeSale) {
+                $activeSale->saleItems()->delete();
+                $activeSale->delete();
+            }
+            $table->markAsAvailable();
+        }
+
+        $this->selectedTableId = null;
+        $this->clearCart();
+        $this->toast()->success('Table cleared.')->send();
+    }
+
+    #[Computed]
+    public function tables()
+    {
+        if (!$this->departmentId || !$this->showTableManagement) {
+            return collect([]);
+        }
+
+        return Table::where('branch_id', $this->branchId)
+            ->where('department_id', $this->departmentId)
+            ->where('is_active', true)
+            ->orderBy('table_number')
+            ->get();
+    }
+
+    public function createTable(): void
+    {
+        $this->validate([
+            'newTableNumber' => 'required|string|max:10',
+            'newTableName' => 'nullable|string|max:50',
+            'newTableCapacity' => 'required|integer|min:1|max:20',
+        ]);
+
+        if (!$this->branchId || !$this->departmentId) {
+            $this->toast()->error('Branch or department not found.')->send();
+            return;
+        }
+
+        // Check if table number already exists in this department
+        $exists = Table::where('branch_id', $this->branchId)
+            ->where('department_id', $this->departmentId)
+            ->where('table_number', $this->newTableNumber)
+            ->exists();
+
+        if ($exists) {
+            $this->toast()->error('Table number already exists in this department.')->send();
+            return;
+        }
+
+        Table::create([
+            'branch_id' => $this->branchId,
+            'department_id' => $this->departmentId,
+            'table_number' => $this->newTableNumber,
+            'table_name' => $this->newTableName ?: 'Table ' . $this->newTableNumber,
+            'capacity' => $this->newTableCapacity,
+            'status' => 'available',
+            'is_active' => true,
+        ]);
+
+        $this->newTableNumber = '';
+        $this->newTableName = '';
+        $this->newTableCapacity = 4;
+        $this->showTableModal = false;
+
+        unset($this->tables);
+        $this->toast()->success('Table created successfully.')->send();
+    }
+
+    public function deleteTable(int $tableId): void
+    {
+        $table = Table::find($tableId);
+        if (!$table) {
+            $this->toast()->error('Table not found.')->send();
+            return;
+        }
+
+        if ($table->hasActiveSale()) {
+            $this->toast()->error('Cannot delete table with active orders.')->send();
+            return;
+        }
+
+        $table->delete();
+        unset($this->tables);
+        $this->toast()->success('Table deleted successfully.')->send();
+    }
+
+    public function toggleTableStatus(int $tableId): void
+    {
+        $table = Table::find($tableId);
+        if (!$table) {
+            $this->toast()->error('Table not found.')->send();
+            return;
+        }
+
+        $table->update(['is_active' => !$table->is_active]);
+        unset($this->tables);
+        $this->toast()->success('Table status updated.')->send();
     }
 
     public function render()

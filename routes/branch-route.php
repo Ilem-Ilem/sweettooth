@@ -25,13 +25,16 @@ Route::middleware(['auth:employees', 'branch'])->prefix('branch-dashboard')->nam
         Route::get('item-dispatches', \App\Livewire\BranchDashboard\Inventory\ItemDispatches::class)->name('item-dispatches');
         Route::get('stock-takes', \App\Livewire\BranchDashboard\Inventory\StockTakes::class)->name('stock-takes');
         Route::get('health-checks', \App\Livewire\BranchDashboard\Inventory\HealthChecks::class)->name('health-checks');
+
+        // Callbacks - Inventory reviewing production callbacks
+        Route::prefix('callbacks')->name('callbacks.')->group(function () {
+            Route::get('/', \App\Livewire\BranchDashboard\Inventory\Callbacks\ApproveCallbacks::class)->name('index');
+        });
     });
 
     // Production routes - Modular System
     Route::prefix('production')->name('production.')->group(function () {
-        // Main production menu (shows all departments and their pages)
-        // Route::get('/', \App\Livewire\BranchDashboard\Production\ProductionMenu::class)->name('menu');
-
+      
         // Helper function to register department routes
         $registerDepartmentRoutes = function () {
             // Products Management
@@ -64,30 +67,18 @@ Route::middleware(['auth:employees', 'branch'])->prefix('branch-dashboard')->nam
             // Raw Material Tracking
             Route::get('raw-material-tracking', \App\Livewire\BranchDashboard\Production\RawMaterialTracking::class)->name('raw-material-tracking');
 
-            // Production Requests (different from Request Management above)
         };
 
-                $registerDepartmentRoutes();
+        $registerDepartmentRoutes();
+
+        // Callbacks - Production reviewing sales callbacks and creating inventory callbacks
+        Route::prefix('callbacks')->name('callbacks.')->group(function () {
+            Route::get('/', \App\Livewire\BranchDashboard\Production\Callbacks\ApproveCallbacks::class)->name('index');
+            Route::get('/create-inventory', \App\Livewire\BranchDashboard\Production\Callbacks\CreateInventoryCallback::class)->name('create-inventory');
+        });
+
         
 
-        // OLD STATIC ROUTES - COMMENTED OUT (kept for reference)
-        /* Route::get('product-types', \App\Livewire\BranchDashboard\Production\ProductTypes::class)->name('product-types');
-        Route::get('products', \App\Livewire\BranchDashboard\Production\Products::class)->name('products');
-        Route::prefix('request')->name('request.')->group(function () {
-            Route::get('/', \App\Livewire\BranchDashboard\Production\Request\Index::class)->name('index');
-            Route::get('/create', \App\Livewire\BranchDashboard\Production\Request\Create::class)->name('create');
-        });
-        Route::prefix('daily-produce')->name('daily-produce.')->group(function () {
-            Route::get('/', \App\Livewire\BranchDashboard\Production\DailyProduce\Index::class)->name('index');
-        });
-        Route::get('recipes', App\Livewire\BranchDashboard\Production\Recipes::class)->name('recipes.index');
-        Route::get('recipes/add', App\Livewire\BranchDashboard\Production\Recipes\Add::class)->name('recipes.add');
-        Route::get('recipes/{id}', App\Livewire\BranchDashboard\Production\RecipeDetail::class)->name('recipes.detail');
-        Route::prefix('kitchen')->name('kitchen.')->group(function () {
-            Route::get('/', \App\Livewire\BranchDashboard\Production\KitchenModule\Index::class)->name('index');
-            Route::get('/stock-monitor', \App\Livewire\BranchDashboard\Production\KitchenModule\StockMonitor::class)->name('stock-monitor');
-        });
-        Route::get('raw-material-tracking', \App\Livewire\BranchDashboard\Production\RawMaterialTracking::class)->name('raw-material-tracking'); */
     });
 
     // Analytics routes
@@ -101,8 +92,17 @@ Route::middleware(['auth:employees', 'branch'])->prefix('branch-dashboard')->nam
         Route::get('stock-valuation', \App\Livewire\BranchDashboard\Analytics\StockValuation::class)->name('stock-valuation');
     });
 
-    // Sales Dashboard routes
+    // Sales Dashboard routes - Modular System
     Route::prefix('sales-dashboard')->name('sales-dashboard.')->group(function () {
+
+        // Helper function to register sales department routes
+        $registerSalesDepartmentRoutes = function () {
+            // POS Routes
+            Route::prefix('pos')->name('pos.')->group(function () {
+                Route::get('/{salesDeptSlug}', \App\Livewire\BranchDashboard\SalesDashboard\Pos\Index::class)->name('index');
+            });
+
+        };
 
         // Expiry Alerts - shown after clock-in
         Route::get('/expiry-alerts', \App\Livewire\BranchDashboard\SalesDashboard\ExpiryAlerts::class)->name('expiry-alerts');
@@ -118,9 +118,7 @@ Route::middleware(['auth:employees', 'branch'])->prefix('branch-dashboard')->nam
 
         Route::get('/stock-monitor', \App\Livewire\BranchDashboard\SalesDashboard\StockMonitor::class)->name('stock-monitor');
 
-        // POS route
-        Route::prefix('pos')->name('pos.')->group(function () {
-            Route::get('/', \App\Livewire\BranchDashboard\SalesDashboard\Pos\Index::class)->name('index');
-        });
+        // Execute dynamic sales department routes
+        $registerSalesDepartmentRoutes();
     });
 });

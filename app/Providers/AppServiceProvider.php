@@ -9,7 +9,7 @@ use App\Models\Employee;
 use App\Models\Department;
 use App\Observers\DepartmentObserver;
 use App\Helpers\RolePermission;
-
+use App\Observers\SalesPageObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -28,7 +28,8 @@ class AppServiceProvider extends ServiceProvider
     {
         // Register observers
         Department::observe(DepartmentObserver::class);
-
+        Department::observe(SalesPageObserver::class);
+        
         Auth::macro('employee', function () {
             return Auth::guard('employees')->user();
         });

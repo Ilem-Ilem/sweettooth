@@ -12,6 +12,39 @@
     @keydown.window.prevent.f9="$wire.completeSale()"
     class="p-4 space-y-4">
 
+    <!-- Branch & Department Context Bar -->
+    <div class="rounded-xl border border-blue-200 dark:border-blue-800 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 p-3">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
+                        <path d="M11.584 2.376a.75.75 0 0 1 .832 0l9 6a.75.75 0 1 1-.832 1.248L12 3.901 3.416 9.624a.75.75 0 0 1-.832-1.248l9-6Z" />
+                        <path fill-rule="evenodd" d="M20.25 10.332v9.918H21a.75.75 0 0 1 0 1.5H3a.75.75 0 0 1 0-1.5h.75v-9.918a.75.75 0 0 1 .634-.74A49.109 49.109 0 0 1 12 9c2.59 0 5.134.202 7.616.592a.75.75 0 0 1 .634.74Zm-7.5 2.418a.75.75 0 0 0-1.5 0v6.75a.75.75 0 0 0 1.5 0v-6.75Zm3-.75a.75.75 0 0 1 .75.75v6.75a.75.75 0 0 1-1.5 0v-6.75a.75.75 0 0 1 .75-.75ZM9 12.75a.75.75 0 0 0-1.5 0v6.75a.75.75 0 0 0 1.5 0v-6.75Z" clip-rule="evenodd" />
+                        <path d="M12 7.875a1.125 1.125 0 1 0 0-2.25 1.125 1.125 0 0 0 0 2.25Z" />
+                    </svg>
+                </div>
+                <div>
+                    <div class="font-semibold text-blue-900 dark:text-blue-100">
+                        {{ $branchName }}
+                        @if($departmentName)
+                            <span class="text-blue-700 dark:text-blue-300">/ {{ $departmentName }}</span>
+                        @endif
+                    </div>
+                    <div class="text-xs text-blue-700 dark:text-blue-300">
+                        Point of Sale System • All Branch Products
+                        @if($departmentId)
+                            • Sales tracked to {{ $departmentName }}
+                        @endif
+                    </div>
+                </div>
+            </div>
+            <div class="text-right">
+                <div class="text-xs text-blue-600 dark:text-blue-400 font-medium">Branch ID</div>
+                <div class="text-sm font-mono text-blue-900 dark:text-blue-100">{{ $branchId ?? 'N/A' }}</div>
+            </div>
+        </div>
+    </div>
+
     <!-- Shift Status Bar -->
     @if(!$this->hasActiveShift())
         <div class="rounded-xl border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/30 p-4">
@@ -66,6 +99,168 @@
                 New Request
             </button>
         </div>
+    </div>
+
+    <!-- Table Management Toggle & Section -->
+    <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 text-zinc-600 dark:text-zinc-400">
+                    <path fill-rule="evenodd" d="M1.5 5.625c0-1.036.84-1.875 1.875-1.875h17.25c1.035 0 1.875.84 1.875 1.875v12.75c0 1.035-.84 1.875-1.875 1.875H3.375A1.875 1.875 0 0 1 1.5 18.375V5.625ZM21 9.375A.375.375 0 0 0 20.625 9h-7.5a.375.375 0 0 0-.375.375v1.5c0 .207.168.375.375.375h7.5a.375.375 0 0 0 .375-.375v-1.5Zm0 3.75a.375.375 0 0 0-.375-.375h-7.5a.375.375 0 0 0-.375.375v1.5c0 .207.168.375.375.375h7.5a.375.375 0 0 0 .375-.375v-1.5Zm0 3.75a.375.375 0 0 0-.375-.375h-7.5a.375.375 0 0 0-.375.375v1.5c0 .207.168.375.375.375h7.5a.375.375 0 0 0 .375-.375v-1.5ZM10.875 18.75a.375.375 0 0 0 .375-.375v-1.5a.375.375 0 0 0-.375-.375h-7.5a.375.375 0 0 0-.375.375v1.5c0 .207.168.375.375.375h7.5ZM3.375 15h7.5a.375.375 0 0 0 .375-.375v-1.5a.375.375 0 0 0-.375-.375h-7.5a.375.375 0 0 0-.375.375v1.5c0 .207.168.375.375.375Zm0-3.75h7.5a.375.375 0 0 0 .375-.375v-1.5A.375.375 0 0 0 10.875 9h-7.5A.375.375 0 0 0 3 9.375v1.5c0 .207.168.375.375.375Z" clip-rule="evenodd" />
+                </svg>
+                <div>
+                    <h3 class="font-semibold text-zinc-900 dark:text-zinc-100">Table Management</h3>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                        @if($showTableManagement)
+                            Manage customer tables and tabs
+                        @else
+                            Enable to manage customer tables
+                        @endif
+                    </p>
+                </div>
+                @if($selectedTableId)
+                    @php
+                        $selectedTable = $this->tables->firstWhere('id', $selectedTableId);
+                    @endphp
+                    @if($selectedTable)
+                        <span class="px-2 py-1 text-xs rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
+                            {{ $selectedTable->table_name }} Selected
+                        </span>
+                    @endif
+                @endif
+            </div>
+            <div class="flex items-center gap-2">
+                <!-- Toggle Switch -->
+                <button
+                    type="button"
+                    wire:click="toggleTableManagement"
+                    class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2
+                        {{ $showTableManagement ? 'bg-emerald-600' : 'bg-zinc-300 dark:bg-zinc-600' }}">
+                    <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform
+                        {{ $showTableManagement ? 'translate-x-6' : 'translate-x-1' }}"></span>
+                </button>
+                <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    {{ $showTableManagement ? 'ON' : 'OFF' }}
+                </span>
+            </div>
+        </div>
+
+        @if($showTableManagement)
+            <div class="border-t border-zinc-200 dark:border-zinc-800 pt-4 mt-1">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                        @if($this->tables->count() > 0)
+                            {{ $this->tables->count() }} Table(s)
+                        @else
+                            No tables yet
+                        @endif
+                    </h4>
+                    <button type="button" wire:click="$set('showTableModal', true)" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-md bg-emerald-600 text-white hover:bg-emerald-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
+                            <path fill-rule="evenodd" d="M12 4.5a.75.75 0 0 1 .75.75v6h6a.75.75 0 0 1 0 1.5h-6v6a.75.75 0 0 1-1.5 0v-6h-6a.75.75 0 0 1 0-1.5h6v-6A.75.75 0 0 1 12 4.5Z" clip-rule="evenodd" />
+                        </svg>
+                        Add Table
+                    </button>
+                </div>
+
+            @if($this->tables->count() > 0)
+            <div class="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+                @foreach($this->tables as $table)
+                    @php
+                        $hasOrder = $table->hasActiveSale();
+                        $isSelected = $selectedTableId === $table->id;
+                        $orderTotal = $hasOrder ? $table->getTotalAmount() : 0;
+                    @endphp
+                    <button
+                        type="button"
+                        wire:click="selectTable({{ $table->id }})"
+                        class="group relative rounded-lg border-2 p-3 transition-all duration-200 hover:shadow-md
+                            @if($isSelected)
+                                border-blue-500 bg-blue-50 dark:bg-blue-950/30
+                            @elseif($hasOrder)
+                                border-orange-300 dark:border-orange-700 bg-orange-50 dark:bg-orange-950/20
+                            @else
+                                border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:border-emerald-300 dark:hover:border-emerald-700
+                            @endif
+                        ">
+                        <div class="flex flex-col items-center gap-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8
+                                @if($isSelected)
+                                    text-blue-600 dark:text-blue-400
+                                @elseif($hasOrder)
+                                    text-orange-600 dark:text-orange-400
+                                @else
+                                    text-zinc-400 dark:text-zinc-500 group-hover:text-emerald-600 dark:group-hover:text-emerald-400
+                                @endif
+                            ">
+                                <path d="M11.584 2.376a.75.75 0 0 1 .832 0l9 6a.75.75 0 1 1-.832 1.248L12 3.901 3.416 9.624a.75.75 0 0 1-.832-1.248l9-6Z" />
+                                <path fill-rule="evenodd" d="M20.25 10.332v9.918H21a.75.75 0 0 1 0 1.5H3a.75.75 0 0 1 0-1.5h.75v-9.918a.75.75 0 0 1 .634-.74A49.109 49.109 0 0 1 12 9c2.59 0 5.134.202 7.616.592a.75.75 0 0 1 .634.74Zm-7.5 2.418a.75.75 0 0 0-1.5 0v6.75a.75.75 0 0 0 1.5 0v-6.75Zm3-.75a.75.75 0 0 1 .75.75v6.75a.75.75 0 0 1-1.5 0v-6.75a.75.75 0 0 1 .75-.75ZM9 12.75a.75.75 0 0 0-1.5 0v6.75a.75.75 0 0 0 1.5 0v-6.75Z" clip-rule="evenodd" />
+                                <path d="M12 7.875a1.125 1.125 0 1 0 0-2.25 1.125 1.125 0 0 0 0 2.25Z" />
+                            </svg>
+                            <div class="text-xs font-semibold
+                                @if($isSelected)
+                                    text-blue-900 dark:text-blue-100
+                                @elseif($hasOrder)
+                                    text-orange-900 dark:text-orange-100
+                                @else
+                                    text-zinc-700 dark:text-zinc-300
+                                @endif
+                            ">{{ $table->table_number }}</div>
+                            @if($hasOrder)
+                                <div class="text-[10px] font-medium text-orange-700 dark:text-orange-400">
+                                    GHS {{ number_format($orderTotal, 2) }}
+                                </div>
+                            @endif
+                        </div>
+
+                        <!-- Delete button on hover -->
+                        @if(!$hasOrder)
+                            <button
+                                type="button"
+                                wire:click.stop="deleteTable({{ $table->id }})"
+                                class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3">
+                                    <path fill-rule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                        @endif
+                    </button>
+                @endforeach
+            </div>
+
+            @if($selectedTableId)
+                <div class="mt-3 flex items-center justify-between gap-2 pt-3 border-t border-zinc-200 dark:border-zinc-800">
+                    <button
+                        type="button"
+                        wire:click="saveTableTab"
+                        class="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
+                            <path fill-rule="evenodd" d="M6.32 2.577a49.255 49.255 0 0 1 11.36 0c1.497.174 2.57 1.46 2.57 2.93V21a.75.75 0 0 1-1.085.67L12 18.089l-7.165 3.583A.75.75 0 0 1 3.75 21V5.507c0-1.47 1.073-2.756 2.57-2.93Z" clip-rule="evenodd" />
+                        </svg>
+                        Save Tab
+                    </button>
+                    <button
+                        type="button"
+                        wire:click="clearTable"
+                        class="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
+                            <path fill-rule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clip-rule="evenodd" />
+                        </svg>
+                        Clear
+                    </button>
+                </div>
+            @endif
+            @else
+                <div class="text-center py-8 text-zinc-500 dark:text-zinc-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12 mx-auto mb-3 opacity-50">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
+                    </svg>
+                    <p class="text-sm font-medium">No tables created yet</p>
+                    <p class="text-xs mt-1">Click "Add Table" to create your first table</p>
+                </div>
+            @endif
+            </div>
+        @endif
     </div>
 
     <div class="grid grid-cols-12 gap-4">
@@ -195,7 +390,14 @@
                                 <button type="button" wire:click="decrement('{{ $key }}')" class="inline-flex items-center justify-center w-8 h-8 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700">
                                     −
                                 </button>
-                                <div class="w-10 text-center text-zinc-900 dark:text-zinc-100">{{ $line['qty'] }}</div>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="{{ $line['available'] }}"
+                                    wire:model.blur="cart.{{ $key }}.qty"
+                                    wire:change="updateQuantity('{{ $key }}', $event.target.value)"
+                                    class="w-14 text-center rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 px-1 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                />
                                 <button type="button" wire:click="increment('{{ $key }}')"
                                     @if($line['qty'] >= $line['available']) disabled @endif
                                     class="inline-flex items-center justify-center w-8 h-8 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -472,6 +674,74 @@
             </div>
         </div>
     </div>
+
+    <!-- Add Table Modal -->
+    @if($showTableModal)
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4" x-data="{ show: @entangle('showTableModal') }">
+            <div class="absolute inset-0 bg-black/50" @click="$wire.set('showTableModal', false)"></div>
+            <div class="relative w-full max-w-md bg-white dark:bg-zinc-900 rounded-xl shadow-2xl p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Add New Table</h3>
+                    <button type="button" @click="$wire.set('showTableModal', false)" class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
+                            <path fill-rule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Table Number *</label>
+                        <input
+                            type="text"
+                            wire:model="newTableNumber"
+                            placeholder="e.g., 9 or A1"
+                            class="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                        @error('newTableNumber') <span class="text-xs text-red-600 dark:text-red-400">{{ $message }}</span> @enderror
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Table Name (Optional)</label>
+                        <input
+                            type="text"
+                            wire:model="newTableName"
+                            placeholder="e.g., VIP Table, Window Table"
+                            class="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                        @error('newTableName') <span class="text-xs text-red-600 dark:text-red-400">{{ $message }}</span> @enderror
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Capacity *</label>
+                        <input
+                            type="number"
+                            wire:model="newTableCapacity"
+                            min="1"
+                            max="20"
+                            class="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                        @error('newTableCapacity') <span class="text-xs text-red-600 dark:text-red-400">{{ $message }}</span> @enderror
+                    </div>
+
+                    <div class="flex items-center gap-3 pt-4">
+                        <button
+                            type="button"
+                            @click="$wire.set('showTableModal', false)"
+                            class="flex-1 px-4 py-2 rounded-md border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800">
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            wire:click="createTable"
+                            class="flex-1 px-4 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-500">
+                            Create Table
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 
     <style>
         @media print {

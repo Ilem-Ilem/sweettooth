@@ -92,14 +92,32 @@ class CreateDispatchCallback extends BaseComponent
     {
         $employee = auth('employees')->user();
 
-        // Find active sales shift for this employee
+        // First try to find active sales shift for this employee
         $activeShift = SalesShift::where('branch_id', $this->getBranchId())
             ->where('shift_date', \Carbon\Carbon::today())
             ->where('status', 'active')
-            ->whereHas('shift', function ($q) use ($employee) {
-                $q->where('employee_id', $employee->id);
-            })
+            ->where('employee_id', $employee->id)
             ->first();
+
+        // If not found, try to find any active sales shift in the employee's department
+        if (!$activeShift && $employee->department_id) {
+            $activeShift = SalesShift::where('branch_id', $this->getBranchId())
+                ->where('shift_date', \Carbon\Carbon::today())
+                ->where('status', 'active')
+                ->where('department_id', $employee->department_id)
+                ->first();
+        }
+
+        // If still not found, try to find any active sales shift in the branch
+        if (!$activeShift) {
+            $activeShift = SalesShift::where('branch_id', $this->getBranchId())
+                ->where('shift_date', \Carbon\Carbon::today())
+                ->where('status', 'active')
+                ->whereHas('department.category', function ($q) {
+                    $q->where('name', 'Sales');
+                })
+                ->first();
+        }
 
         if ($activeShift) {
             $this->currentSalesShiftId = $activeShift->id;
@@ -109,7 +127,7 @@ class CreateDispatchCallback extends BaseComponent
     public function getRowsProperty()
     {
         if (!$this->currentSalesShiftId) {
-            return collect();
+            return ProductDispatch::query()->whereRaw('1=0')->paginate($this->quantity);
         }
 
         $query = ProductDispatch::with(['product', 'shift', 'productDispatchCallbacks'])

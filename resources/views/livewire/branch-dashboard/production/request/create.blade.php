@@ -5,7 +5,7 @@
         :items="[
             ['label' => 'Dashboard', 'url' => branch_route('branch-dashboard.index')],
             ['label' => 'Production'],
-            ['label' => 'Requests', 'url' => branch_route('branch-dashboard.production.request.index')],
+            ['label' => 'Requests', 'url' => branch_route('branch-dashboard.production.request.index', ['deptSlug' => $dept_slug])],
             ['label' => 'Create']
         ]"
         :compact="false"
@@ -183,7 +183,7 @@
 
             <!-- Form Actions -->
             <div class="flex justify-end gap-3 pt-4 border-t border-zinc-200 dark:border-zinc-700">
-                <a href="{{ branch_route('branch-dashboard.production.request.index') }}"
+                <a href="{{ branch_route('branch-dashboard.production.request.index', ['deptSlug' => $dept_slug]) }}"
                    class="px-6 py-2 border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors">
                     Cancel
                 </a>
