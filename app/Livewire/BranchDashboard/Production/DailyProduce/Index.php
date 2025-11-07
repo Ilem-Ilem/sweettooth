@@ -26,6 +26,7 @@ class Index extends Component
     public $dept_slug;
 
     public $department;
+    public $salesDepartments = []; // Available sales departments for dispatch
 
     public $selectedShiftId = null;
     public $availableShifts = [];
@@ -41,9 +42,11 @@ class Index extends Component
 
     // For batch-level dispatch management
     public $batchQuantities = []; // Stores sent_out and order quantities for each batch
+    public $batchSalesDepartments = []; // Stores sales_department_id for each batch
 
     // For recording production batches
-    public $batchQuantityProduced = 0;
+    public $batchesProduced = 1; // Number of batches made
+    public $batchQuantityProduced = 0; // Auto-calculated from batches × yield
     public $batchQuantityApproved = 0;
     public $batchQuantityRejected = 0;
     public $batchQualityStatus = 'good';
@@ -62,11 +65,31 @@ class Index extends Component
 
         $this->loadAvailableShifts();
         $this->loadCurrentShift();
+        $this->loadSalesDepartments();
     }
 
     /**
      * Load available shifts for past/future shift viewing
      */
+    /**
+     * Load sales departments (departments that can sell products)
+     */
+    public function loadSalesDepartments()
+    {
+        $branchId = $this->getBranchId();
+
+        // Load departments that are sales-related (Till, Corner Store, Confectionaries Sales, etc.)
+        // Exclude production departments (Kitchen, Gelato Production, etc.)
+        $this->salesDepartments = Department::where(function ($query) use ($branchId) {
+            $query->where('branch_id', $branchId)
+                  ->orWhereNull('branch_id');
+        })
+        ->whereIn('slug', ['till', 'corner-store', 'confectionaries-sales']) // Add your sales dept slugs
+        ->orderBy('name')
+        ->get()
+        ->toArray();
+    }
+
     public function loadAvailableShifts()
     {
         $branchId = $this->getBranchId();
@@ -270,6 +293,9 @@ class Index extends Component
                         'quantity_sent_out' => $batch['quantity_sent_out'],
                         'quantity_for_order' => $batch['quantity_for_order'],
                     ];
+
+                    // Initialize sales department selection (default to first sales dept if available)
+                    $this->batchSalesDepartments[$batch['id']] = $this->salesDepartments[0]['id'] ?? null;
                 }
             }
         }
@@ -377,12 +403,16 @@ class Index extends Component
         $this->recordingProduce = DailyProduce::with('recipe')->find($produceId);
 
         // Reset form fields
+        $this->batchesProduced = 1; // Default to 1 batch
         $this->batchQuantityProduced = 0;
         $this->batchQuantityApproved = 0;
         $this->batchQuantityRejected = 0;
         $this->batchQualityStatus = 'good';
         $this->batchRejectionReason = '';
         $this->batchNotes = '';
+
+        // Calculate initial quantity based on 1 batch
+        $this->calculateQuantityFromBatches();
 
         $this->showRecordModal = true;
     }
@@ -393,6 +423,27 @@ class Index extends Component
         $this->recordingProduce = null;
         $this->showRecordModal = false;
         $this->loadDailyProduces(); // Reload to show new production records
+    }
+
+    public function updatedBatchesProduced()
+    {
+        // Recalculate quantity when number of batches changes
+        $this->calculateQuantityFromBatches();
+    }
+
+    public function calculateQuantityFromBatches()
+    {
+        if (!$this->recordingProduce || !$this->recordingProduce->recipe) {
+            return;
+        }
+
+        $yieldPerBatch = (float) $this->recordingProduce->recipe->yield_quantity;
+        $this->batchQuantityProduced = $this->batchesProduced * $yieldPerBatch;
+
+        // Auto-set approved quantity to produced quantity by default
+        if ($this->batchQuantityProduced > 0 && $this->batchQuantityApproved == 0 && $this->batchQuantityRejected == 0) {
+            $this->batchQuantityApproved = $this->batchQuantityProduced;
+        }
     }
 
     public function updatedBatchQuantityProduced()
@@ -428,11 +479,14 @@ class Index extends Component
         }
 
         $this->validate([
+            'batchesProduced' => 'required|numeric|min:1',
             'batchQuantityProduced' => 'required|numeric|min:0.01',
             'batchQuantityApproved' => 'required|numeric|min:0',
             'batchQuantityRejected' => 'required|numeric|min:0',
             'batchQualityStatus' => 'required|in:excellent,good,acceptable,rejected',
         ], [
+            'batchesProduced.required' => 'Number of batches is required',
+            'batchesProduced.min' => 'Number of batches must be at least 1',
             'batchQuantityProduced.required' => 'Quantity produced is required',
             'batchQuantityProduced.min' => 'Quantity produced must be greater than 0',
         ]);
@@ -575,6 +629,17 @@ class Index extends Component
 
             $newValue = (float) ($this->batchQuantities[$batchId][$field] ?? 0);
 
+            // CRITICAL: Validate sales department is selected when sending out
+            if ($field === 'quantity_sent_out' && $newValue > 0) {
+                $salesDeptId = $this->batchSalesDepartments[$batchId] ?? null;
+                if (!$salesDeptId) {
+                    $this->toast()->error('Please select a sales department before dispatching!')->send();
+                    // Reset to old value
+                    $this->batchQuantities[$batchId][$field] = (float) $batch->$field;
+                    return;
+                }
+            }
+
             // Validate: sent_out + for_order cannot exceed approved quantity
             $sentOut = $field === 'quantity_sent_out' ? $newValue : (float) $batch->quantity_sent_out;
             $forOrder = $field === 'quantity_for_order' ? $newValue : (float) $batch->quantity_for_order;
@@ -592,6 +657,17 @@ class Index extends Component
             // Update the field
             $batch->$field = $newValue;
             $batch->updateQuantityRemaining();
+
+            // Create dispatch record if sending out
+            if ($field === 'quantity_sent_out' && $newValue > $batch->quantity_sent_out) {
+                $quantityToDispatch = $newValue - $batch->quantity_sent_out;
+                $salesDeptId = $this->batchSalesDepartments[$batchId] ?? null;
+
+                $dailyProduce = \App\Models\DailyProduce::find($batch->daily_produce_id);
+                if ($dailyProduce && $salesDeptId) {
+                    $this->createProductDispatch($dailyProduce, $quantityToDispatch, $salesDeptId);
+                }
+            }
 
             $this->toast()->success("Batch updated: {$batch->quantity_remaining} remaining")->send();
             $this->loadDailyProduces();
@@ -642,8 +718,12 @@ class Index extends Component
 
     /**
      * Create a product dispatch record when products are sent out to sales
+     *
+     * @param DailyProduce $produce Daily produce record
+     * @param float $quantity Quantity to dispatch
+     * @param int $salesDepartmentId Sales department receiving the dispatch
      */
-    private function createProductDispatch($produce, $quantity)
+    private function createProductDispatch($produce, $quantity, $salesDepartmentId)
     {
         if ($quantity <= 0) {
             return;
@@ -658,10 +738,15 @@ class Index extends Component
             return;
         }
 
+        // Get sales department name for notes
+        $salesDept = Department::find($salesDepartmentId);
+        $salesDeptName = $salesDept?->name ?? 'Unknown Department';
+
         ProductDispatch::create([
             'branch_id' => $this->getBranchId(),
             'daily_produce_id' => $produce->id,
             'production_shift_id' => $produce->shift_id,
+            'sales_department_id' => $salesDepartmentId,
             'product_id' => $product->id,
             'dispatched_by' => Auth::guard('employees')->id(),
             'quantity' => $quantity,
@@ -670,7 +755,7 @@ class Index extends Component
             'shift_type' => $produce->shift_type,
             'dispatch_date' => $produce->produce_date,
             'status' => 'dispatched',
-            'notes' => "Dispatched from kitchen to sales - {$produce->recipe->product_name}",
+            'notes' => "Dispatched from kitchen to {$salesDeptName} - {$produce->recipe->product_name}",
         ]);
     }
 

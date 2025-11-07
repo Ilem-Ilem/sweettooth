@@ -428,6 +428,7 @@
                                         <th class="px-3 py-2 text-center font-semibold text-blue-900 dark:text-blue-100">Produced</th>
                                         <th class="px-3 py-2 text-center font-semibold text-blue-900 dark:text-blue-100">Approved</th>
                                         <th class="px-3 py-2 text-center font-semibold text-blue-900 dark:text-blue-100">Rejected</th>
+                                        <th class="px-3 py-2 text-center font-semibold text-orange-900 dark:text-orange-100 bg-orange-50 dark:bg-orange-900/20">Sales Dept</th>
                                         <th class="px-3 py-2 text-center font-semibold text-green-900 dark:text-green-100 bg-green-50 dark:bg-green-900/20">Sent Out</th>
                                         <th class="px-3 py-2 text-center font-semibold text-purple-900 dark:text-purple-100 bg-purple-50 dark:bg-purple-900/20">For Order</th>
                                         <th class="px-3 py-2 text-center font-semibold text-blue-900 dark:text-blue-100">Remaining</th>
@@ -456,6 +457,17 @@
                                         <!-- Rejected -->
                                         <td class="px-3 py-2 text-center {{ $batch['quantity_rejected'] > 0 ? 'text-red-700 dark:text-red-300 font-semibold' : 'text-zinc-500' }}">
                                             {{ number_format($batch['quantity_rejected'], 2) }}
+                                        </td>
+
+                                        <!-- Sales Department Selection (REQUIRED for dispatch) -->
+                                        <td class="px-3 py-2 bg-orange-50 dark:bg-orange-900/10">
+                                            <select wire:model="batchSalesDepartments.{{ $batch['id'] }}"
+                                                    class="w-full px-2 py-1 text-xs border border-orange-300 dark:border-orange-600 rounded bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-orange-500">
+                                                <option value="">-- Select Dept --</option>
+                                                @foreach($salesDepartments as $dept)
+                                                    <option value="{{ $dept['id'] }}">{{ $dept['name'] }}</option>
+                                                @endforeach
+                                            </select>
                                         </td>
 
                                         <!-- Sent Out (EDITABLE) -->
@@ -521,6 +533,9 @@
                                         </td>
                                         <td class="px-3 py-2 text-center text-red-700 dark:text-red-300">
                                             {{ number_format(collect($produce['batches'])->sum('quantity_rejected'), 2) }}
+                                        </td>
+                                        <td class="px-3 py-2 text-center text-orange-700 dark:text-orange-300 bg-orange-100 dark:bg-orange-900/30">
+                                            --
                                         </td>
                                         <td class="px-3 py-2 text-center text-green-800 dark:text-green-200 bg-green-100 dark:bg-green-900/30">
                                             {{ number_format(collect($produce['batches'])->sum('quantity_sent_out'), 2) }}
@@ -892,21 +907,35 @@
                         </div>
                     </div>
 
-                    <!-- Quantity Produced -->
-                    <div>
-                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                            Quantity Produced ({{ $recordingProduce->recipe->uom ?? 'units' }}) <span class="text-red-500">*</span>
-                            <span class="text-xs font-normal text-zinc-500 dark:text-zinc-400">- Enter actual units produced, not batch number</span>
+                    <!-- Number of Batches Produced -->
+                    <div class="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-lg p-4">
+                        <label class="block text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                            Number of Batches Produced <span class="text-red-500">*</span>
                         </label>
-                        <input type="number" step="0.01" min="0.01" wire:model.live="batchQuantityProduced"
-                               placeholder="e.g., {{ $recordingProduce->recipe->yield_quantity ?? '20' }}"
-                               class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500">
-                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                            Recipe yield: {{ number_format($recordingProduce->recipe->yield_quantity ?? 0, 2) }} {{ $recordingProduce->recipe->uom ?? 'units' }} per batch
+                        <input type="number" step="1" min="1" wire:model.live="batchesProduced"
+                               placeholder="e.g., 1, 2, 3..."
+                               class="w-full px-4 py-2 border border-blue-400 dark:border-blue-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500 text-lg font-semibold">
+                        <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">
+                            📊 Recipe yield: {{ number_format($recordingProduce->recipe->yield_quantity ?? 0, 2) }} {{ $recordingProduce->recipe->uom ?? 'units' }} per batch
                         </p>
-                        @error('batchQuantityProduced')
+                        @error('batchesProduced')
                             <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                         @enderror
+
+                        <!-- Calculated Total Quantity -->
+                        @if($batchQuantityProduced > 0)
+                        <div class="mt-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-300 dark:border-green-700 rounded-lg">
+                            <p class="text-sm text-green-900 dark:text-green-100 font-semibold">
+                                📦 Total Quantity Produced:
+                            </p>
+                            <p class="text-2xl font-bold text-green-700 dark:text-green-300 mt-1">
+                                {{ number_format($batchQuantityProduced, 2) }} {{ $recordingProduce->recipe->uom ?? 'units' }}
+                            </p>
+                            <p class="text-xs text-green-600 dark:text-green-400 mt-1">
+                                ({{ $batchesProduced }} batch{{ $batchesProduced > 1 ? 'es' : '' }} × {{ number_format($recordingProduce->recipe->yield_quantity ?? 0, 2) }} {{ $recordingProduce->recipe->uom ?? 'units' }})
+                            </p>
+                        </div>
+                        @endif
                     </div>
 
                     <!-- Quality Control Section -->

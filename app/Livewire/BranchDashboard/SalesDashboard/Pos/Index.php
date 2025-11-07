@@ -528,16 +528,21 @@ class Index extends BaseComponent
 
     public function getProductsProperty(): Collection
     {
-        $q = Product::query();
+        $q = Product::query()
+            ->active()
+            ->available();
 
-        // Filter by branch ONLY - show ALL branch products regardless of department
-        if ($this->branchId) {
-            $q->where('branch_id', $this->branchId);
+        // CRITICAL: Filter by department - only show products assigned to this department
+        if ($this->departmentId) {
+            $q->forDepartment($this->departmentId);
         }
 
         // Search filter
         if (strlen($this->search)) {
-            $q->where('name', 'like', '%' . $this->search . '%');
+            $q->where(function ($query) {
+                $query->where('name', 'like', '%' . $this->search . '%')
+                      ->orWhere('sku', 'like', '%' . $this->search . '%');
+            });
         }
 
         return $q->orderBy('name')->limit(50)->get();

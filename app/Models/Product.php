@@ -24,10 +24,7 @@ class Product extends Model
         'cost',
         'shelf_life_days',
         'uom',
-        'recipe_yield',
-        'recipe_yield_weight',
         'unit_weight',
-        'yield_percentage',
         'is_active',
         'is_available',
         'image_url',
@@ -39,10 +36,7 @@ class Product extends Model
         'price' => 'decimal:2',
         'cost' => 'decimal:2',
         'shelf_life_days' => 'integer',
-        'recipe_yield' => 'decimal:2',
-        'recipe_yield_weight' => 'decimal:2',
         'unit_weight' => 'decimal:2',
-        'yield_percentage' => 'decimal:2',
         'is_active' => 'boolean',
         'is_available' => 'boolean',
         'allergens' => 'array',
@@ -71,6 +65,22 @@ class Product extends Model
     public function scopeByType($query, $typeId)
     {
         return $query->where('product_type_id', $typeId);
+    }
+
+    /**
+     * Scope to filter products that belong to a specific department
+     * Only returns products that are available in that department
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param int $departmentId Department ID to filter by
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeForDepartment($query, $departmentId)
+    {
+        return $query->whereHas('departments', function ($q) use ($departmentId) {
+            $q->where('department_id', $departmentId)
+              ->where('is_available', true);
+        });
     }
 
     /**
@@ -135,14 +145,14 @@ class Product extends Model
      */
     public function calculateBatchesNeeded(float $desiredQuantity): float
     {
-        if ($this->recipe_yield <= 0) {
+        // Get yield from primary recipe
+        $recipe = $this->recipes()->first();
+        if (!$recipe || $recipe->yield_quantity <= 0) {
             return 0;
         }
 
-        // Account for yield percentage (waste/loss)
-        $adjustedQuantity = $desiredQuantity / ($this->yield_percentage / 100);
-
-        return $adjustedQuantity / $this->recipe_yield;
+        // Simple calculation: desired quantity / yield per batch
+        return $desiredQuantity / $recipe->yield_quantity;
     }
 
     /**
@@ -197,11 +207,6 @@ class Product extends Model
             return $desiredQuantity * $this->unit_weight;
         }
 
-        if ($this->recipe_yield_weight && $this->recipe_yield > 0) {
-            $weightPerUnit = $this->recipe_yield_weight / $this->recipe_yield;
-            return $desiredQuantity * $weightPerUnit;
-        }
-
         return null;
     }
 
@@ -237,8 +242,8 @@ class Product extends Model
         }
 
         // Cost per unit = total recipe cost / recipe yield
-        if ($this->recipe_yield > 0) {
-            return $totalCost / $this->recipe_yield;
+        if ($recipe->yield_quantity > 0) {
+            return $totalCost / $recipe->yield_quantity;
         }
 
         return $totalCost;

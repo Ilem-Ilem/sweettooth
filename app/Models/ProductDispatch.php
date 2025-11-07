@@ -13,6 +13,7 @@ class ProductDispatch extends Model
         'daily_produce_id',
         'production_shift_id',
         'sales_shift_id',
+        'sales_department_id',
         'product_id',
         'dispatched_by',
         'quantity',
@@ -54,6 +55,11 @@ class ProductDispatch extends Model
     public function salesShift(): BelongsTo
     {
         return $this->belongsTo(SalesShift::class);
+    }
+
+    public function salesDepartment(): BelongsTo
+    {
+        return $this->belongsTo(Department::class, 'sales_department_id');
     }
 
     public function product(): BelongsTo
@@ -136,5 +142,10 @@ class ProductDispatch extends Model
     public function scopeReceived($query)
     {
         return $query->where('status', 'received');
+    }
+
+    public function scopeForSalesDepartment($query, $salesDepartmentId)
+    {
+        return $query->where('sales_department_id', $salesDepartmentId);
     }
 }
