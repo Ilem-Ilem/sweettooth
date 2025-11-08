@@ -99,7 +99,7 @@ Route::middleware(['auth:employees', 'branch'])->prefix('branch-dashboard')->nam
         $registerSalesDepartmentRoutes = function () {
             // POS Routes
             Route::prefix('pos')->name('pos.')->group(function () {
-                Route::get('/{salesDeptSlug}', \App\Livewire\BranchDashboard\SalesDashboard\Pos\Index::class)->name('index');
+                Route::get('/{salesDeptSlug?}', \App\Livewire\BranchDashboard\SalesDashboard\Pos\Index::class)->name('index');
             });
 
         };
@@ -108,7 +108,7 @@ Route::middleware(['auth:employees', 'branch'])->prefix('branch-dashboard')->nam
         Route::get('/expiry-alerts', \App\Livewire\BranchDashboard\SalesDashboard\ExpiryAlerts::class)->name('expiry-alerts');
 
         Route::prefix('stock-opening')->name('stock-opening.')->group(function () {
-            Route::get('/', \App\Livewire\BranchDashboard\SalesDashboard\StockOpening\Index::class)->name('index');
+            Route::get('/{salesDeptSlug?}', \App\Livewire\BranchDashboard\SalesDashboard\StockOpening\Index::class)->name('index');
         });
 
         Route::prefix('callbacks')->name('callbacks.')->group(function () {

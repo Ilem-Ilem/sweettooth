@@ -68,10 +68,27 @@ class Index extends BaseComponent
         // dd( auth("employees")->id());
         $this->mountBase();
         $this->loadBranchAndDepartment();
+        $this->loadActiveShift(); // Load shift first before checking stock verification
+
+        // Check if stock has been verified for today's shift for this department
+        if (!$this->checkStockVerification()) {
+            // Ensure we have a department slug before redirecting
+            if (!$this->salesDeptSlug) {
+                $this->toast()->error('Department not found. Please contact administrator.')->send();
+                return;
+            }
+
+            // Redirect to stock opening with department slug
+            $this->redirectRoute('branch-dashboard.sales-dashboard.stock-opening.index', [
+                'salesDeptSlug' => $this->salesDeptSlug,
+                'b_id' => $this->branchId
+            ]);
+            return;
+        }
+
         $this->payments = [['method' => 'cash', 'amount' => 0.0]];
         $this->recalculateTotals();
         $this->recalcPayments();
-        $this->loadActiveShift();
         $this->checkTableManagement();
     }
 
@@ -104,6 +121,17 @@ class Index extends BaseComponent
             } else {
                 $this->toast()->error('Department not found.')->send();
             }
+        } else {
+            // If no slug provided, get from employee's department and set the slug
+            $employee = auth('employees')->user();
+            if ($employee && $employee->department_id) {
+                $department = Department::find($employee->department_id);
+                if ($department) {
+                    $this->departmentId = $department->id;
+                    $this->departmentName = $department->name;
+                    $this->salesDeptSlug = $department->slug;
+                }
+            }
         }
 
         // Validate branch access
@@ -121,6 +149,47 @@ class Index extends BaseComponent
         } else {
             $this->showTableManagement = false;
         }
+    }
+
+    protected function checkStockVerification(): bool
+    {
+        // Check if stock opening has been saved for today's shift for this department
+        // This is department-level, not employee-level: once any employee from the department
+        // verifies stock for the shift, all other employees can access POS
+
+        if (!$this->departmentId) {
+            // No department specified, allow access
+            return true;
+        }
+
+        // Get current shift type
+        $shiftType = 'morning'; // default
+        if ($this->activeShiftId) {
+            $shift = Shift::find($this->activeShiftId);
+            $shiftType = $shift?->shift_type ?? 'morning';
+        }
+
+        // Get products from this department
+        $productIds = Product::query()
+            ->forDepartment($this->departmentId)
+            ->where(function ($q) {
+                $q->whereNull('branch_id')
+                    ->orWhere('branch_id', $this->branchId);
+            })
+            ->pluck('id');
+
+        if ($productIds->isEmpty()) {
+            // No products in this department, allow access
+            return true;
+        }
+
+        // Check if any stock has been opened for today's shift for this department
+        $stockCount = ProductStock::whereDate('stock_date', Carbon::today())
+            ->where('shift_type', $shiftType)
+            ->whereIn('product_id', $productIds)
+            ->count();
+
+        return $stockCount > 0;
     }
 
     public function toggleTableManagement(): void

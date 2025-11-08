@@ -10,6 +10,8 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Livewire\WithPagination;
 use TallStackUi\Traits\Interactions;
+use App\Models\Department;
+use App\Models\Branch;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Index extends BaseComponent
@@ -18,6 +20,14 @@ class Index extends BaseComponent
 
     #[Url(keep: true)]
     public $b_id;
+
+    #[Url(keep: true)]
+    public ?string $salesDeptSlug = null;
+
+    public ?string $branchId = null;
+    public ?int $departmentId = null;
+    public string $departmentName = 'Stock Opening';
+    public string $branchName = '';
 
     public ?int $quantity = 20;
     public ?string $search = null;
@@ -75,10 +85,57 @@ class Index extends BaseComponent
 
     public function mount()
     {
+        $this->mountBase();
+        $this->loadBranchAndDepartment();
         $this->stockDate = \Carbon\Carbon::today()->format('Y-m-d');
         $this->loadAvailableShifts();
         $this->loadCurrentShift();
         $this->loadStockOpeningData();
+    }
+
+    protected function loadBranchAndDepartment(): void
+    {
+        // Load branch
+        $this->branchId = request('b_id');
+        if ($this->branchId) {
+            $branch = Branch::find($this->branchId);
+            $this->branchName = $branch?->name ?? 'Unknown Branch';
+        }
+
+        // Load department from slug
+        if ($this->salesDeptSlug) {
+            // First try to find branch-specific department
+            $department = Department::where('slug', $this->salesDeptSlug)
+                ->where('branch_id', $this->branchId)
+                ->first();
+
+            // If not found, try to find global department (branch_id is null)
+            if (!$department) {
+                $department = Department::where('slug', $this->salesDeptSlug)
+                    ->whereNull('branch_id')
+                    ->first();
+            }
+
+            if ($department) {
+                $this->departmentId = $department->id;
+                $this->departmentName = $department->name;
+            } else {
+                $this->toast()->error('Department not found.')->send();
+            }
+        } else {
+            // If no department slug provided, use employee's department
+            $employee = auth('employees')->user();
+            if ($employee && $employee->department_id) {
+                $this->departmentId = $employee->department_id;
+                $department = Department::find($employee->department_id);
+                $this->departmentName = $department?->name ?? 'Stock Opening';
+            }
+        }
+
+        // Validate branch access
+        if (!$this->branchId) {
+            $this->toast()->error('Branch not specified.')->send();
+        }
     }
 
     /**
@@ -87,10 +144,11 @@ class Index extends BaseComponent
     protected function loadAvailableShifts()
     {
         $employee = auth('employees')->user();
+        $deptId = $this->departmentId ?? $employee->department_id;
 
         // Get shifts from last 30 days for the sales department
         $this->availableShifts = Shift::where('branch_id', $this->getBranchId())
-            ->where('department_id', $employee->department_id)
+            ->where('department_id', $deptId)
             ->where('shift_date', '>=', \Carbon\Carbon::today()->subDays(30))
             ->orderBy('shift_date', 'desc')
             ->orderBy('shift_type', 'desc')
@@ -151,25 +209,34 @@ class Index extends BaseComponent
         //     return;
         // }
 
-        $employee  = auth('employees')->user();
         $yesterday = \Carbon\Carbon::parse($this->stockDate)->subDay()->format('Y-m-d');
 
-        // Get ALL products from the sales department
-        // We'll show production data where it exists
-        $products = Product::whereHas('productType', function ($q) use ($employee) {
-            $q->where('department_id', $employee->department_id);
-        })
-            ->where(function ($q) {
-                $q->whereNull('branch_id')
-                    ->orWhere('branch_id', $this->getBranchId());
-            })
+        // Get products from the department - filter by department
+        $query = Product::query()->active(); // Only get active products
+
+        // Filter by department using the scope
+        if ($this->departmentId) {
+            $query->forDepartment($this->departmentId);
+        } else {
+            // Fallback to employee's department if no departmentId is set
+            $employee = auth('employees')->user();
+            if ($employee && $employee->department_id) {
+                // Use the same forDepartment scope for consistency
+                $query->forDepartment($employee->department_id);
+            }
+        }
+
+        $products = $query
             ->when($this->search, function ($query) {
-                $query->where('name', 'like', '%' . $this->search . '%')
-                    ->orWhere('sku', 'like', '%' . $this->search . '%');
+                $query->where(function ($q) {
+                    $q->where('name', 'like', '%' . $this->search . '%')
+                      ->orWhere('sku', 'like', '%' . $this->search . '%');
+                });
             })
             ->when($this->filterProductType, function ($query) {
                 $query->where('product_type_id', $this->filterProductType);
             })
+            ->orderBy('name')
             ->get();
 
         $stockOpenings = [];
@@ -201,15 +268,16 @@ class Index extends BaseComponent
                         'production_records.quantity_approved',
                         'production_records.quantity_produced',
                         'production_records.quantity_rejected',
-                        'recipes.batch_yield',
+                        'recipes.yield_quantity',
                         'shifts.shift_type',
                         'shifts.shift_date'
                     )
                     ->get();
 
                 foreach ($productionRecords as $record) {
-                    $todayAdditions += $record->quantity_sent_out ?? 0;
-                    if ($record->quantity_sent_out > 0) {
+                    // Use yield produced (quantity_approved) not batch
+                    $todayAdditions += $record->quantity_approved ?? 0;
+                    if ($record->quantity_approved > 0) {
                         // Calculate yield percentage
                         $yieldPercentage = 0;
                         if ($record->quantity_produced > 0) {
@@ -222,7 +290,7 @@ class Index extends BaseComponent
                             'quantity_produced' => $record->quantity_produced,
                             'quantity_approved' => $record->quantity_approved,
                             'quantity_rejected' => $record->quantity_rejected,
-                            'recipe_yield' => $record->batch_yield ?? 0,
+                            'recipe_yield' => $record->yield_quantity ?? 0,
                             'actual_yield_percentage' => round($yieldPercentage, 2),
                             'shift' => $record->shift_type,
                             'date' => $record->shift_date,
@@ -436,9 +504,11 @@ class Index extends BaseComponent
 
     public function render()
     {
-        $employee     = auth('employees')->user();
-        $productTypes = \App\Models\ProductType::whereHas('department', function ($q) use ($employee) {
-            $q->where('id', $employee->department_id);
+        $employee = auth('employees')->user();
+        $deptId = $this->departmentId ?? $employee->department_id;
+
+        $productTypes = \App\Models\ProductType::whereHas('department', function ($q) use ($deptId) {
+            $q->where('id', $deptId);
         })->active()->ordered()->get();
 
         return view('livewire.branch-dashboard.sales-dashboard.stock-opening.index', [

@@ -231,6 +231,7 @@ class Create extends Component
                 $q->where('department_id', $this->department->id);
             })
             ->orderBy('name')
+        
             ->get();
 
         return view('livewire.branch-dashboard.production.request.create', [
