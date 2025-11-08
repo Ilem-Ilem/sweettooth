@@ -58,9 +58,6 @@ class Index extends BaseComponent
         'orderType' => 'in:dine-in,takeaway,delivery',
         'payments.*.method' => 'required|in:cash,transfer,pos',
         'payments.*.amount' => 'numeric|min:0',
-        'newTableNumber' => 'required|string|max:10',
-        'newTableName' => 'nullable|string|max:50',
-        'newTableCapacity' => 'required|integer|min:1|max:20',
     ];
 
     public function mount(): void
@@ -425,29 +422,35 @@ class Index extends BaseComponent
 
     public function completeSale(): void
     {
-        // Check for active shift first
-        if (!$this->hasActiveShift()) {
-            $this->toast()->error('No active shift. Please start a shift before making sales.')->send();
-            return;
-        }
+        try {
+            // Check for active shift first
+            if (!$this->hasActiveShift()) {
+                $this->toast()->error('No active shift. Please start a shift before making sales.')->send();
+                return;
+            }
 
-        $this->validate();
-        if (empty($this->cart)) {
-            $this->toast()->warning('Cart is empty.')->send();
-            return;
-        }
-        $this->recalcPayments();
-        if ($this->paymentTotal + 0.0001 < $this->total) {
-            $this->toast()->warning('Payments do not cover the total.')->send();
-            return;
-        }
+            if (empty($this->cart)) {
+                $this->toast()->warning('Cart is empty.')->send();
+                return;
+            }
+
+            $this->recalcPayments();
+            if ($this->paymentTotal + 0.0001 < $this->total) {
+                $this->toast()->warning('Payments do not cover the total.')->send();
+                return;
+            }
+
+            // Validate payments
+            $this->validate([
+                'payments.*.method' => 'required|in:cash,transfer,pos',
+                'payments.*.amount' => 'required|numeric|min:0',
+            ]);
 
         DB::transaction(function () {
             $sale = Sale::create([
-                'sales_shift_id' => $this->activeShiftId,
+                'sales_shift_id' => null, // Nullable - using general shifts table instead
                 'branch_id' => $this->branchId,
                 'department_id' => $this->departmentId,
-                'table_id' => $this->selectedTableId,
                 'sold_by' => auth("employees")->id(),
                 'sale_number' => 'POS-' . Carbon::now()->format('Ymd-His'),
                 'sale_time' => Carbon::now(),
@@ -522,11 +525,20 @@ class Index extends BaseComponent
             }
         });
 
-        $this->clearCart();
-        $this->discount = 0;
-        $this->orderType = 'dine-in';
-        $this->payments = [['method' => 'cash', 'amount' => 0.0]];
-        $this->recalcPayments();
+            $this->clearCart();
+            $this->discount = 0;
+            $this->orderType = 'dine-in';
+            $this->payments = [['method' => 'cash', 'amount' => 0.0]];
+            $this->recalcPayments();
+        } catch (\Exception $e) {
+            \Log::error('POS Sale Error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'branch_id' => $this->branchId,
+                'department_id' => $this->departmentId,
+                'cart' => $this->cart,
+            ]);
+            $this->toast()->error('Payment failed: ' . $e->getMessage())->send();
+        }
     }
 
     public function holdSale(): void
@@ -539,10 +551,9 @@ class Index extends BaseComponent
 
         // Persist as draft without affecting stock
         $sale = Sale::create([
-            'sales_shift_id' => $this->activeShiftId,
+            'sales_shift_id' => null, // Nullable - using general shifts table instead
             'branch_id' => $this->branchId,
             'department_id' => $this->departmentId,
-            'table_id' => $this->selectedTableId,
             'sold_by' => auth("employees")->id(),
             'sale_number' => 'HOLD-' . Carbon::now()->format('Ymd-His'),
             'sale_time' => Carbon::now(),
@@ -773,10 +784,9 @@ HTML;
             } else {
                 // Create new sale
                 $sale = Sale::create([
-                    'sales_shift_id' => $this->activeShiftId,
+                    'sales_shift_id' => null, // Nullable - using general shifts table instead
                     'branch_id' => $this->branchId,
                     'department_id' => $this->departmentId,
-                    'table_id' => $this->selectedTableId,
                     'sold_by' => auth("employees")->id(),
                     'sale_number' => 'TAB-' . $table->table_number . '-' . Carbon::now()->format('Ymd-His'),
                     'sale_time' => Carbon::now(),
@@ -786,6 +796,7 @@ HTML;
                     'total' => $this->total,
                     'status' => 'hold',
                     'order_type' => $this->orderType,
+                    'notes' => 'Table: ' . $table->table_number,
                 ]);
             }
 

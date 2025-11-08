@@ -482,7 +482,7 @@
                             Hold
                         </button>
                         <button type="button" wire:click="completeSale"
-                            :disabled="!{{ $this->hasActiveShift() ? 'false' : 'true' }} || $wire.total <= 0 || $wire.paymentRemaining > 0.01"
+                            :disabled="{{ !$this->hasActiveShift() || count($cart) === 0 ? 'true' : 'false' }} || $wire.total <= 0 || $wire.paymentRemaining > 0.01"
                             @if(!$this->hasActiveShift()) title="No active shift" @endif
                             class="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-sm">
                             Pay

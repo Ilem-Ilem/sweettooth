@@ -11,7 +11,6 @@ class Sale extends Model
         'sales_shift_id',
         'branch_id',
         'department_id',
-        'table_id',
         'sold_by',
         'sale_number',
         'sale_time',

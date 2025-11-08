@@ -214,7 +214,10 @@ class Create extends Component
         });
 
         $this->toast()->success('Production request created successfully!')->send();
-        return $this->redirect(branch_route('branch-dashboard.production.request.index', ['deptSlug' => $this->dept_slug]), navigate: true);
+        return $this->redirect(branch_route('branch-dashboard.production.request.index', [
+            'deptSlug' => $this->dept_slug,
+            'b_id' => $this->getBranchId()
+        ]), navigate: true);
     }
 
     public function render()

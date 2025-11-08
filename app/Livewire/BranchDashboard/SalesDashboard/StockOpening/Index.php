@@ -314,25 +314,20 @@ class Index extends BaseComponent
             }
 
             $yesterdayClosing = $yesterdayStock ? $yesterdayStock->closing_quantity : 0;
-            $expectedOpening  = $yesterdayClosing + $todayAdditions;
-            $actualOpening = $todayStock ? $todayStock->opening_quantity : $expectedOpening;
+            // Expected opening is yesterday's closing (what we expect to find before adding today's production)
+            $expectedOpening  = $yesterdayClosing;
+            // Actual opening is what we actually count (defaults to expected if not yet verified)
+            $actualOpening = $todayStock ? $todayStock->opening_quantity : $yesterdayClosing;
+            // Variance is the difference between actual count and expected (yesterday's closing)
             $variance = $actualOpening - $expectedOpening;
+            // Total expected after additions
+            $expectedWithAdditions = $expectedOpening + $todayAdditions;
 
             // Determine variance source
             $varianceSource = 'None';
             if ($variance != 0) {
-                if ($todayAdditions > 0 && $yesterdayClosing > 0) {
-                    // Both sources contributed
-                    $varianceSource = 'Previous closing + Production';
-                } elseif ($todayAdditions > 0) {
-                    // Only production additions
-                    $varianceSource = 'Production (' . $this->shiftType . ' shift)';
-                } elseif ($yesterdayClosing > 0) {
-                    // Only previous closing
-                    $varianceSource = 'Previous closing (' . $yesterday . ')';
-                } else {
-                    $varianceSource = 'Unknown';
-                }
+                // Variance is between actual opening and expected (yesterday's closing)
+                $varianceSource = 'Stock count difference from previous closing (' . $yesterday . ')';
             }
 
             $stockOpenings[] = [

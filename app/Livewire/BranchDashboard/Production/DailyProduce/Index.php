@@ -351,6 +351,13 @@ class Index extends Component
             // Update the field from editing quantities array
             $produce->$field = $newValue;
 
+            // Auto-calculate closing quantity when any quantity field changes
+            // This prevents variance issues
+            $produce->closing_quantity = $produce->opening_quantity +
+                                        $produce->getNetAvailable() -
+                                        $produce->sent_out_quantity -
+                                        $produce->order_quantity;
+
             // Recalculate expected closing and variance
             $produce->updateCalculations();
 
@@ -377,10 +384,16 @@ class Index extends Component
                     $produce->sent_out_quantity = (float) ($quantities['sent_out_quantity'] ?? 0);
                     $produce->order_quantity = (float) ($quantities['order_quantity'] ?? 0);
                     $produce->callback_quantity = (float) ($quantities['callback_quantity'] ?? 0);
-                    $produce->closing_quantity = (float) ($quantities['closing_quantity'] ?? 0);
 
                     // Auto-update produced quantity from production records
                     $produce->produced_quantity = $produce->getTotalProducedFromRecords();
+
+                    // Auto-update closing quantity to match expected closing (prevents variance issues)
+                    // User can manually override if needed, but default to calculated value
+                    $produce->closing_quantity = $produce->opening_quantity +
+                                                $produce->getNetAvailable() -
+                                                $produce->sent_out_quantity -
+                                                $produce->order_quantity;
 
                     // Recalculate expected closing and variance
                     $produce->updateCalculations();
@@ -557,6 +570,14 @@ class Index extends Component
             // Auto-update produced quantity from all production records
             $totalProduced = $produce->getTotalProducedFromRecords();
             $produce->produced_quantity = $totalProduced;
+
+            // Auto-update closing quantity to match expected closing (prevents -100% variance)
+            // Closing = Opening + Produced - Sent Out - Orders - Callbacks
+            $produce->closing_quantity = $produce->opening_quantity +
+                                        $produce->getNetAvailable() -
+                                        $produce->sent_out_quantity -
+                                        $produce->order_quantity;
+
             $produce->updateCalculations();
 
             $this->toast()->success("Production batch recorded successfully! Total produced: {$totalProduced}")->send();
@@ -705,6 +726,13 @@ class Index extends Component
 
                 $produce->sent_out_quantity = $totalSentOut;
                 $produce->order_quantity = $totalForOrder;
+
+                // Auto-calculate closing quantity
+                $produce->closing_quantity = $produce->opening_quantity +
+                                            $produce->getNetAvailable() -
+                                            $produce->sent_out_quantity -
+                                            $produce->order_quantity;
+
                 $produce->updateCalculations();
             });
 
