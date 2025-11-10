@@ -23,6 +23,7 @@ class Index extends BaseComponent
     public ?string $filterStatus = null;
     public ?string $startDate = null;
     public ?string $endDate = null;
+    public $availableShifts = [];
 
     // Create callback modal
     public $showCreateModal = false;
@@ -94,7 +95,21 @@ class Index extends BaseComponent
     {
         $this->startDate = \Carbon\Carbon::today()->subDays(30)->format('Y-m-d');
         $this->endDate = \Carbon\Carbon::today()->format('Y-m-d');
+        $this->loadAvailableShifts();
         $this->loadCurrentSalesShift();
+    }
+
+    protected function loadAvailableShifts()
+    {
+        $branchId = $this->getBranchId();
+
+        // Get sales shifts from last 30 days
+        $this->availableShifts = \App\Models\SalesShift::where('branch_id', $branchId)
+            ->where('shift_date', '>=', now()->subDays(30))
+            ->with('department')
+            ->orderBy('shift_date', 'desc')
+            ->orderBy('shift_type', 'desc')
+            ->get();
     }
 
     protected function loadCurrentSalesShift()
@@ -280,6 +295,7 @@ class Index extends BaseComponent
             'rows' => $this->rows,
             'products' => $products,
             'currentSalesShift' => $currentSalesShift,
+            'availableShifts' => $this->availableShifts,
         ]);
     }
 }

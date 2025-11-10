@@ -25,6 +25,8 @@ class CreateDispatchCallback extends BaseComponent
     public ?string $filterStatus = null;
 
     public ?string $currentSalesShiftId = null;
+    public ?string $selectedSalesShiftId = null;
+    public $availableShifts = [];
     public $stockDate;
 
     // Callback form
@@ -68,12 +70,14 @@ class CreateDispatchCallback extends BaseComponent
 
     protected function getFilteredQuery()
     {
-        if (!$this->currentSalesShiftId) {
+        $shiftId = $this->selectedSalesShiftId ?? $this->currentSalesShiftId;
+
+        if (!$shiftId) {
             return ProductDispatch::query()->whereRaw('1=0');
         }
 
         return ProductDispatch::query()
-            ->where('sales_shift_id', $this->currentSalesShiftId)
+            ->where('sales_shift_id', $shiftId)
             ->where('status', 'received');
     }
 
@@ -85,7 +89,29 @@ class CreateDispatchCallback extends BaseComponent
     public function mount()
     {
         $this->stockDate = \Carbon\Carbon::today()->format('Y-m-d');
+        $this->loadAvailableShifts();
         $this->loadCurrentSalesShift();
+
+        // Set selected shift to current shift if available
+        if ($this->currentSalesShiftId) {
+            $this->selectedSalesShiftId = $this->currentSalesShiftId;
+        } elseif (!empty($this->availableShifts)) {
+            // If no active shift, select the most recent one
+            $this->selectedSalesShiftId = $this->availableShifts[0]->id;
+        }
+    }
+
+    protected function loadAvailableShifts()
+    {
+        $branchId = $this->getBranchId();
+
+        // Get sales shifts from last 30 days
+        $this->availableShifts = SalesShift::where('branch_id', $branchId)
+            ->where('shift_date', '>=', now()->subDays(30))
+            ->with('department')
+            ->orderBy('shift_date', 'desc')
+            ->orderBy('shift_type', 'desc')
+            ->get();
     }
 
     protected function loadCurrentSalesShift()
@@ -124,14 +150,22 @@ class CreateDispatchCallback extends BaseComponent
         }
     }
 
+    public function updatedSelectedSalesShiftId($shiftId = null)
+    {
+        // Refresh data when shift selection changes
+        $this->resetPage();
+    }
+
     public function getRowsProperty()
     {
-        if (!$this->currentSalesShiftId) {
+        $shiftId = $this->selectedSalesShiftId ?? $this->currentSalesShiftId;
+
+        if (!$shiftId) {
             return ProductDispatch::query()->whereRaw('1=0')->paginate($this->quantity);
         }
 
         $query = ProductDispatch::with(['product', 'shift', 'productDispatchCallbacks'])
-            ->where('sales_shift_id', $this->currentSalesShiftId)
+            ->where('sales_shift_id', $shiftId)
             ->where('status', 'received');
 
         // Search filter
@@ -205,10 +239,12 @@ class CreateDispatchCallback extends BaseComponent
 
             $employee = auth('employees')->user();
 
+            $shiftId = $this->selectedSalesShiftId ?? $this->currentSalesShiftId;
+
             // Create callback record
             ProductDispatchCallback::create([
                 'product_dispatch_id' => $this->selectedDispatch->id,
-                'sales_shift_id' => $this->currentSalesShiftId,
+                'sales_shift_id' => $shiftId,
                 'product_id' => $this->selectedDispatch->product_id,
                 'recorded_by' => $employee->id,
                 'quantity' => $this->callbackQuantity,
@@ -233,9 +269,12 @@ class CreateDispatchCallback extends BaseComponent
 
     public function render()
     {
+        $shiftId = $this->selectedSalesShiftId ?? $this->currentSalesShiftId;
+
         return view('livewire.branch-dashboard.sales-dashboard.callbacks.create-dispatch-callback', [
             'rows' => $this->rows,
             'currentSalesShift' => $this->currentSalesShiftId ? SalesShift::find($this->currentSalesShiftId) : null,
+            'selectedSalesShift' => $shiftId ? SalesShift::find($shiftId) : null,
         ]);
     }
 }

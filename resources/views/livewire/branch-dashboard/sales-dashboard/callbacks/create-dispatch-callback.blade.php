@@ -17,8 +17,8 @@
         </div>
     </div>
 
-    <!-- Alert if no shift -->
-    @if (!$currentSalesShiftId)
+    <!-- Shift Selector and Info -->
+    @if (count($availableShifts) === 0)
         <div class="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-4 rounded">
             <div class="flex items-center">
                 <svg class="w-5 h-5 text-yellow-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -26,9 +26,47 @@
                         d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
                 <div>
-                    <h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-200">No Active Sales Shift</h3>
-                    <p class="text-sm text-yellow-700 dark:text-yellow-300 mt-1">Please start a sales shift to create callbacks.</p>
+                    <h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-200">No Sales Shifts Found</h3>
+                    <p class="text-sm text-yellow-700 dark:text-yellow-300 mt-1">No sales shifts available in the last 30 days.</p>
                 </div>
+            </div>
+        </div>
+    @else
+        <!-- Shift Selector -->
+        <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                        Select Shift
+                    </label>
+                    <select wire:model.live="selectedSalesShiftId"
+                        class="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-orange-500">
+                        @foreach($availableShifts as $shift)
+                            <option value="{{ $shift->id }}">
+                                {{ $shift->shift_date }} - {{ ucfirst($shift->shift_type) }} - {{ $shift->department->name ?? 'N/A' }}
+                                @if($currentSalesShift && $shift->id === $currentSalesShift->id) (Active) @endif
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                @if($selectedSalesShift)
+                    <div class="flex items-end">
+                        <div class="flex-1">
+                            <h3 class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Selected Shift Info</h3>
+                            <p class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mt-1">
+                                {{ $selectedSalesShift->shift_date }} - {{ $selectedSalesShift->department->name ?? 'N/A' }}
+                            </p>
+                        </div>
+                        @if($currentSalesShift && $selectedSalesShift->id === $currentSalesShift->id)
+                            <span class="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                                <svg class="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                </svg>
+                                Active
+                            </span>
+                        @endif
+                    </div>
+                @endif
             </div>
         </div>
     @endif

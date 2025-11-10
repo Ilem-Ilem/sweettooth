@@ -66,4 +66,30 @@ class Employee extends Authenticatable
         return $this->hasMany(Employee::class, 'manager_id');
     }
 
+    // Leave Management Relationships
+    public function leaveBalances()
+    {
+        return $this->hasMany(EmployeeLeaveBalance::class);
+    }
+
+    public function leaveApplications()
+    {
+        return $this->hasMany(LeaveApplication::class);
+    }
+
+    public function approvedLeaveApplications()
+    {
+        return $this->hasMany(LeaveApplication::class, 'approved_by');
+    }
+
+    public function leaveAllocations()
+    {
+        return $this->hasMany(EmployeeLeaveAllocation::class);
+    }
+
+    public function stepouts()
+    {
+        return $this->hasMany(EmployeeStepout::class);
+    }
+
 }

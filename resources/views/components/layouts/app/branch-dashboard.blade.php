@@ -35,6 +35,35 @@
                         {{ __('Departments') }}
                     </flux:navlist.item>
                 </flux:navlist.group>
+
+                <flux:navlist.group :heading="__('Leave Management')" expandable
+                    :expanded="request()->routeIs('branch-dashboard.leave.*')" class="grid">
+                    <flux:navlist.item icon="calendar-days"
+                        :href="branch_route('branch-dashboard.leave.apply')"
+                        :current="request()->routeIs('branch-dashboard.leave.apply')" wire:navigate>
+                        {{ __('Apply Leave') }}
+                    </flux:navlist.item>
+                    <flux:navlist.item icon="clipboard-document-list"
+                        :href="branch_route('branch-dashboard.leave.my-leaves')"
+                        :current="request()->routeIs('branch-dashboard.leave.my-leaves')" wire:navigate>
+                        {{ __('My Leaves') }}
+                    </flux:navlist.item>
+                    <flux:navlist.item icon="chart-pie"
+                        :href="branch_route('branch-dashboard.leave.balance')"
+                        :current="request()->routeIs('branch-dashboard.leave.balance')" wire:navigate>
+                        {{ __('Leave Balance') }}
+                    </flux:navlist.item>
+                     <flux:navlist.item icon="clipboard-document-check"
+                        :href="branch_route('branch-dashboard.leave.approve')"
+                        :current="request()->routeIs('branch-dashboard.leave.approve')" wire:navigate>
+                        {{ __('Approve Leaves') }}
+                    </flux:navlist.item>
+                    <flux:navlist.item icon="cog-6-tooth"
+                        :href="branch_route('branch-dashboard.leave.types')"
+                        :current="request()->routeIs('branch-dashboard.leave.types')" wire:navigate>
+                        {{ __('Leave Types') }}
+                    </flux:navlist.item>
+                </flux:navlist.group>
             </flux:navlist.group>
 
             <flux:navlist.group :heading="__('Employee Management')" expandable

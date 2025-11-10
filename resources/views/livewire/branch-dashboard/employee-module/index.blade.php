@@ -268,6 +268,13 @@
     <!-- Table -->
     <x-table :$headers :$rows selectable wire:model="selectedIds" striped paginate persist
         :filter="['quantity' => 'quantity', 'search' => 'search']" :quantity="[10, 25, 50, 100]">
+        @interact('row', $row)
+            @php
+                $detailsUrl = branch_route('branch-dashboard.employee.details', ['employee_number' => $row->employee_number, 'id' => $row->id, 'b_id' => $b_id]);
+            @endphp
+            <tr wire:navigate href="{{ $detailsUrl }}" class="cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700/50 transition-colors">
+        @endinteract
+
         @interact('column_name', $row)
             <a class="flex items-center"
                 href="{{ branch_route('branch-dashboard.employee.details', ['employee_number' => $row->employee_number, 'id' => $row->id]) }}"

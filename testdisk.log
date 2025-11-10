@@ -1,0 +1,299 @@
+
+
+Sun Nov  9 08:07:15 2025
+Command line: TestDisk
+
+TestDisk 7.2, Data Recovery Utility, February 2024
+Christophe GRENIER <grenier@cgsecurity.org>
+https://www.cgsecurity.org
+OS: Linux, kernel 6.12.48+deb13-amd64 (#1 SMP PREEMPT_DYNAMIC Debian 6.12.48-1 (2025-09-20)) x86_64
+Compiler: GCC 14.2
+ext2fs lib: 1.47.2, ntfs lib: libntfs-3g, reiserfs lib: none, ewf lib: none, curses lib: ncurses 6.5
+/dev/sda: LBA, LBA48, DCO support
+/dev/sda: size       976773168 sectors
+/dev/sda: user_max   976773168 sectors
+/dev/sda: dco        976773168 sectors
+Warning: can't get size for Disk /dev/mapper/control - 0 B - 0 sectors, sector size=512
+Warning: can't get size for Disk /dev/loop11 - 0 B - 0 sectors, sector size=512
+Hard disk list
+Disk /dev/sda - 500 GB / 465 GiB - CHS 60801 255 63, sector size=512 - TOSHIBA MQ01ABF0, FW:4C
+Disk /dev/sdb - 320 GB / 298 GiB - CHS 38913 255 63, sector size=512 - External, FW:1.14
+Disk /dev/loop0 - 4096 B - 8 sectors (RO), sector size=512
+Disk /dev/loop1 - 77 MB / 73 MiB - 151368 sectors (RO), sector size=512
+Disk /dev/loop10 - 109 MB / 104 MiB - 213456 sectors (RO), sector size=512
+Disk /dev/loop2 - 58 MB / 55 MiB - 113640 sectors (RO), sector size=512
+Disk /dev/loop3 - 172 MB / 164 MiB - 337560 sectors (RO), sector size=512
+Disk /dev/loop4 - 96 MB / 91 MiB - 187776 sectors (RO), sector size=512
+Disk /dev/loop5 - 66 MB / 63 MiB - 130608 sectors (RO), sector size=512
+Disk /dev/loop6 - 53 MB / 50 MiB - 104296 sectors (RO), sector size=512
+Disk /dev/loop7 - 4096 B - 8 sectors (RO), sector size=512
+Disk /dev/loop8 - 93 MB / 89 MiB - 182368 sectors (RO), sector size=512
+Disk /dev/loop9 - 206 MB / 196 MiB - 402768 sectors (RO), sector size=512
+
+Partition table type (auto): Intel
+Disk /dev/sdb - 320 GB / 298 GiB - External
+Partition table type: Intel
+
+Analyse Disk /dev/sdb - 320 GB / 298 GiB - CHS 38913 255 63
+Geometry from i386 MBR: head=255 sector=63
+NTFS at 0/32/33
+Info: size boot_sector 625140399, partition 625141760
+Current partition structure:
+ 1 * HPFS - NTFS              0  32 33 38913 102 37  625141760
+
+search_part()
+Disk /dev/sdb - 320 GB / 298 GiB - CHS 38913 255 63
+NTFS at 0/32/33
+filesystem size           625140399
+sectors_per_cluster       8
+mft_lcn                   4
+mftmirr_lcn               39071274
+clusters_per_mft_record   -10
+clusters_per_index_record 1
+     HPFS - NTFS              0  32 33 38913  80 62  625140399
+     NTFS, blocksize=4096, 320 GB / 298 GiB
+
+Results
+   * HPFS - NTFS              0  32 33 38913 102 37  625141760
+     NTFS, blocksize=4096, 320 GB / 298 GiB
+
+Hint for advanced users: dmsetup may be used if you prefer to avoid rewriting the partition table for the moment:
+echo "0 625141760 linear /dev/sdb 2048" | dmsetup create test0
+
+interface_write()
+ 1 * HPFS - NTFS              0  32 33 38913 102 37  625141760
+
+search_part()
+Disk /dev/sdb - 320 GB / 298 GiB - CHS 38913 255 63
+NTFS at 0/32/33
+filesystem size           625140399
+sectors_per_cluster       8
+mft_lcn                   4
+mftmirr_lcn               39071274
+clusters_per_mft_record   -10
+clusters_per_index_record 1
+     HPFS - NTFS              0  32 33 38913  80 62  625140399
+     NTFS, blocksize=4096, 320 GB / 298 GiB
+NTFS at 73/239/38
+filesystem size           1185792
+sectors_per_cluster       8
+mft_lcn                   49408
+mftmirr_lcn               2
+clusters_per_mft_record   -10
+clusters_per_index_record 1
+     HPFS - NTFS              0  32 33    73 239 38    1185792
+     NTFS found using backup sector, blocksize=4096, 607 MB / 579 MiB
+NTFS at 73/239/39
+filesystem size           622523020
+sectors_per_cluster       8
+mft_lcn                   786432
+mftmirr_lcn               2
+clusters_per_mft_record   -10
+clusters_per_index_record 1
+     HPFS - NTFS             73 239 39 38824  52 24  622523020
+     NTFS, blocksize=4096, 318 GB / 296 GiB
+
+recover_EXT2: s_block_group_nr=0/1023, s_mnt_count=20/4294967295, s_blocks_per_group=32768, s_inodes_per_group=8192
+recover_EXT2: s_blocksize=4096
+recover_EXT2: s_blocks_count 33554176
+recover_EXT2: part_size 268433408
+Filesystem created: Fri Mar 26 12:54:04 2021
+Last mount time:    Wed Feb 19 16:33:11 2025
+     Linux                12729   1  1 29438  53 47  268433408
+     ext4 blocksize=4096 Large_file Sparse_SB Recover, 137 GB / 127 GiB
+
+recover_EXT2: s_block_group_nr=0/1023, s_mnt_count=20/4294967295, s_blocks_per_group=32768, s_inodes_per_group=8192
+recover_EXT2: s_blocksize=4096
+recover_EXT2: s_blocks_count 33554176
+recover_EXT2: part_size 268433408
+Filesystem created: Fri Mar 26 12:54:04 2021
+Last mount time:    Wed Feb 19 16:33:11 2025
+     Linux                12836 239 12 29546  36 58  268433408
+     ext4 blocksize=4096 Large_file Sparse_SB Recover, 137 GB / 127 GiB
+
+recover_EXT2: s_block_group_nr=0/1023, s_mnt_count=20/4294967295, s_blocks_per_group=32768, s_inodes_per_group=8192
+recover_EXT2: s_blocksize=4096
+recover_EXT2: s_blocks_count 33554176
+recover_EXT2: part_size 268433408
+Filesystem created: Fri Mar 26 12:54:04 2021
+Last mount time:    Wed Feb 19 16:33:11 2025
+     Linux                12841  36 60 29550  89 43  268433408
+     ext4 blocksize=4096 Large_file Sparse_SB Recover, 137 GB / 127 GiB
+
+recover_EXT2: s_block_group_nr=0/1023, s_mnt_count=20/4294967295, s_blocks_per_group=32768, s_inodes_per_group=8192
+recover_EXT2: s_blocksize=4096
+recover_EXT2: s_blocks_count 33554176
+recover_EXT2: part_size 268433408
+Filesystem created: Fri Mar 26 12:54:04 2021
+Last mount time:    Wed Feb 19 16:33:11 2025
+     Linux                12847  99 53 29556 152 36  268433408
+     ext4 blocksize=4096 Large_file Sparse_SB Recover, 137 GB / 127 GiB
+
+recover_EXT2: s_block_group_nr=0/1023, s_mnt_count=20/4294967295, s_blocks_per_group=32768, s_inodes_per_group=8192
+recover_EXT2: s_blocksize=4096
+recover_EXT2: s_blocks_count 33554176
+recover_EXT2: part_size 268433408
+Filesystem created: Fri Mar 26 12:54:04 2021
+Last mount time:    Wed Feb 19 16:33:11 2025
+     Linux                12850 115  2 29559 167 48  268433408
+     ext4 blocksize=4096 Large_file Sparse_SB Recover, 137 GB / 127 GiB
+
+recover_EXT2: s_block_group_nr=0/1023, s_mnt_count=20/4294967295, s_blocks_per_group=32768, s_inodes_per_group=8192
+recover_EXT2: s_blocksize=4096
+recover_EXT2: s_blocks_count 33554176
+recover_EXT2: part_size 268433408
+Filesystem created: Fri Mar 26 12:54:04 2021
+Last mount time:    Wed Feb 19 16:33:11 2025
+     Linux                12893 170 14 29602 222 60  268433408
+     ext4 blocksize=4096 Large_file Sparse_SB Recover, 137 GB / 127 GiB
+
+recover_EXT2: s_block_group_nr=0/1023, s_mnt_count=17/4294967295, s_blocks_per_group=32768, s_inodes_per_group=8192
+recover_EXT2: s_blocksize=4096
+recover_EXT2: s_blocks_count 33554176
+recover_EXT2: part_size 268433408
+Filesystem created: Fri Mar 26 12:54:04 2021
+Last mount time:    Wed Feb 19 13:28:31 2025
+     Linux                12900  75 40 29609 128 23  268433408
+     ext4 blocksize=4096 Large_file Sparse_SB Recover, 137 GB / 127 GiB
+
+recover_EXT2: s_block_group_nr=0/1023, s_mnt_count=17/4294967295, s_blocks_per_group=32768, s_inodes_per_group=8192
+recover_EXT2: s_blocksize=4096
+recover_EXT2: s_blocks_count 33554176
+recover_EXT2: part_size 268433408
+Filesystem created: Fri Mar 26 12:54:04 2021
+Last mount time:    Wed Feb 19 13:28:31 2025
+     Linux                12904  63 24 29613 116  7  268433408
+     ext4 blocksize=4096 Large_file Sparse_SB Recover, 137 GB / 127 GiB
+
+recover_EXT2: s_block_group_nr=0/1023, s_mnt_count=17/4294967295, s_blocks_per_group=32768, s_inodes_per_group=8192
+recover_EXT2: s_blocksize=4096
+recover_EXT2: s_blocks_count 33554176
+recover_EXT2: part_size 268433408
+Filesystem created: Fri Mar 26 12:54:04 2021
+Last mount time:    Wed Feb 19 13:28:31 2025
+     Linux                12907 143 37 29616 196 20  268433408
+     ext4 blocksize=4096 Large_file Sparse_SB Recover, 137 GB / 127 GiB
+
+recover_EXT2: s_block_group_nr=0/1023, s_mnt_count=9/4294967295, s_blocks_per_group=32768, s_inodes_per_group=8192
+recover_EXT2: s_blocksize=4096
+recover_EXT2: s_blocks_count 33554176
+recover_EXT2: part_size 268433408
+Filesystem created: Fri Mar 26 12:54:04 2021
+Last mount time:    Mon Nov 25 12:31:28 2024
+     Linux                14955 176  6 31664 228 52  268433408
+     ext4 blocksize=4096 Large_file Sparse_SB Recover, 137 GB / 127 GiB
+NTFS at 38758/32/59
+filesystem size           1200128
+sectors_per_cluster       8
+mft_lcn                   50005
+mftmirr_lcn               2
+clusters_per_mft_record   -10
+clusters_per_index_record 1
+     HPFS - NTFS          38758  32 59 38832 212 36    1200128
+     NTFS, blocksize=4096, 614 MB / 586 MiB
+NTFS at 38824/74/35
+filesystem size           1427456
+sectors_per_cluster       8
+mft_lcn                   59477
+mftmirr_lcn               2
+clusters_per_mft_record   -10
+clusters_per_index_record 1
+     HPFS - NTFS          38824  74 35 38913  37 36    1427456
+     NTFS, blocksize=4096, 730 MB / 697 MiB
+NTFS at 38913/37/36
+filesystem size           1427456
+sectors_per_cluster       8
+mft_lcn                   59477
+mftmirr_lcn               2
+clusters_per_mft_record   -10
+clusters_per_index_record 1
+     HPFS - NTFS          38824  74 35 38913  37 36    1427456
+     NTFS found using backup sector, blocksize=4096, 730 MB / 697 MiB
+get_geometry_from_list_part_aux head=255 nbr=1
+get_geometry_from_list_part_aux head=8 nbr=2
+get_geometry_from_list_part_aux head=255 nbr=1
+Warning: the current number of heads per cylinder is 255 but the correct value may be 8.
+
+Results
+     HPFS - NTFS              0  32 33    73 239 38    1185792
+     NTFS found using backup sector, blocksize=4096, 607 MB / 579 MiB
+     HPFS - NTFS              0  32 33 38913 102 37  625141760
+     NTFS, blocksize=4096, 320 GB / 298 GiB
+     HPFS - NTFS             73 239 39 38824  74 34  622524416
+     NTFS, blocksize=4096, 318 GB / 296 GiB
+     Linux                12729   1  1 29438 254 63  268446087
+     ext4 blocksize=4096 Large_file Sparse_SB Recover, 137 GB / 128 GiB
+     Linux                12836 239 12 29546  36 58  268433408
+     ext4 blocksize=4096 Large_file Sparse_SB Recover, 137 GB / 127 GiB
+     Linux                12841  36 60 29550  89 43  268433408
+     ext4 blocksize=4096 Large_file Sparse_SB Recover, 137 GB / 127 GiB
+     Linux                12847  99 53 29556 152 36  268433408
+     ext4 blocksize=4096 Large_file Sparse_SB Recover, 137 GB / 127 GiB
+     Linux                12850 115  2 29559 167 48  268433408
+     ext4 blocksize=4096 Large_file Sparse_SB Recover, 137 GB / 127 GiB
+     Linux                12893 170 14 29602 222 60  268433408
+     ext4 blocksize=4096 Large_file Sparse_SB Recover, 137 GB / 127 GiB
+     Linux                12900  75 40 29609 128 23  268433408
+     ext4 blocksize=4096 Large_file Sparse_SB Recover, 137 GB / 127 GiB
+     Linux                12904  63 24 29613 116  7  268433408
+     ext4 blocksize=4096 Large_file Sparse_SB Recover, 137 GB / 127 GiB
+     Linux                12907 143 37 29616 196 20  268433408
+     ext4 blocksize=4096 Large_file Sparse_SB Recover, 137 GB / 127 GiB
+     Linux                14955 176  6 31664 228 52  268433408
+     ext4 blocksize=4096 Large_file Sparse_SB Recover, 137 GB / 127 GiB
+     HPFS - NTFS          38758  32 59 38832 212 36    1200128
+     NTFS, blocksize=4096, 614 MB / 586 MiB
+     HPFS - NTFS          38824  74 35 38913  37 36    1427456
+     NTFS, blocksize=4096, 730 MB / 697 MiB
+
+Hint for advanced users: dmsetup may be used if you prefer to avoid rewriting the partition table for the moment:
+echo "0 1185792 linear /dev/sdb 2048" | dmsetup create test0
+echo "0 625141760 linear /dev/sdb 2048" | dmsetup create test1
+echo "0 622524416 linear /dev/sdb 1187840" | dmsetup create test2
+echo "0 268446087 linear /dev/sdb 204491448" | dmsetup create test3
+echo "0 268433408 linear /dev/sdb 206225408" | dmsetup create test4
+echo "0 268433408 linear /dev/sdb 206292992" | dmsetup create test5
+echo "0 268433408 linear /dev/sdb 206393344" | dmsetup create test6
+echo "0 268433408 linear /dev/sdb 206442496" | dmsetup create test7
+echo "0 268433408 linear /dev/sdb 207136768" | dmsetup create test8
+echo "0 268433408 linear /dev/sdb 207243264" | dmsetup create test9
+echo "0 268433408 linear /dev/sdb 207306752" | dmsetup create test10
+echo "0 268433408 linear /dev/sdb 207360000" | dmsetup create test11
+echo "0 268433408 linear /dev/sdb 240263168" | dmsetup create test12
+echo "0 1200128 linear /dev/sdb 622649344" | dmsetup create test13
+echo "0 1427456 linear /dev/sdb 623712256" | dmsetup create test14
+
+interface_write()
+ 
+No partition found or selected for recovery
+
+interface_write()
+ 
+No partition found or selected for recovery
+
+interface_write()
+ 
+No partition found or selected for recovery
+
+interface_write()
+ 
+No partition found or selected for recovery
+
+interface_write()
+ 
+No partition found or selected for recovery
+
+interface_write()
+ 
+No partition found or selected for recovery
+
+interface_write()
+ 
+No partition found or selected for recovery
+simulate write!
+
+write_mbr_i386: starting...
+write_all_log_i386: starting...
+No extended partition
+
+TestDisk exited normally.

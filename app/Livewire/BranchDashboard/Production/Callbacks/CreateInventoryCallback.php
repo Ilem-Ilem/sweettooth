@@ -27,6 +27,8 @@ class CreateInventoryCallback extends BaseComponent
     public ?string $search = null;
 
     public ?int $currentShiftId = null;
+    public ?int $selectedShiftId = null;
+    public $availableShifts = [];
     public $shiftDate;
 
     // Callback form
@@ -87,12 +89,14 @@ class CreateInventoryCallback extends BaseComponent
 
     protected function getFilteredQuery()
     {
-        if (!$this->currentShiftId) {
+        $shiftId = $this->selectedShiftId ?? $this->currentShiftId;
+
+        if (!$shiftId) {
             return ProductionCallback::query()->whereRaw('1=0');
         }
 
         return ProductionCallback::query()
-            ->where('shift_id', $this->currentShiftId);
+            ->where('shift_id', $shiftId);
     }
 
     public function getBranchId()
@@ -103,7 +107,32 @@ class CreateInventoryCallback extends BaseComponent
     public function mount()
     {
         $this->shiftDate = \Carbon\Carbon::today()->format('Y-m-d');
+        $this->loadAvailableShifts();
         $this->loadCurrentShift();
+
+        // Set selected shift to current shift if available
+        if ($this->currentShiftId) {
+            $this->selectedShiftId = $this->currentShiftId;
+        } elseif (!empty($this->availableShifts)) {
+            // If no active shift, select the most recent one
+            $this->selectedShiftId = $this->availableShifts[0]->id;
+        }
+    }
+
+    protected function loadAvailableShifts()
+    {
+        $branchId = $this->getBranchId();
+        $employee = auth('employees')->user();
+
+        // Get production shifts from last 30 days
+        $this->availableShifts = Shift::where('branch_id', $branchId)
+            ->where('shift_date', '>=', now()->subDays(30))
+            ->whereHas('department.category', function ($q) {
+                $q->where('name', 'Production');
+            })
+            ->orderBy('shift_date', 'desc')
+            ->orderBy('shift_type', 'desc')
+            ->get();
     }
 
     protected function loadCurrentShift()
@@ -125,17 +154,25 @@ class CreateInventoryCallback extends BaseComponent
         }
     }
 
+    public function updatedSelectedShiftId($shiftId = null)
+    {
+        // Refresh data when shift selection changes
+        $this->resetPage();
+    }
+
     /**
      * Get available raw materials dispatched to this production shift
      */
     public function getRawMaterialsProperty()
     {
-        if (!$this->currentShiftId) {
+        $shiftId = $this->selectedShiftId ?? $this->currentShiftId;
+
+        if (!$shiftId) {
             return collect([]);
         }
 
         // Get ItemRequests for this production shift through ProductionRequests
-        $itemRequestIds = \App\Models\ProductionRequest::where('shift_id', $this->currentShiftId)
+        $itemRequestIds = \App\Models\ProductionRequest::where('shift_id', $shiftId)
             ->pluck('item_request_id')
             ->unique();
 
@@ -160,12 +197,14 @@ class CreateInventoryCallback extends BaseComponent
      */
     public function getFinishedProductsProperty()
     {
-        if (!$this->currentShiftId) {
+        $shiftId = $this->selectedShiftId ?? $this->currentShiftId;
+
+        if (!$shiftId) {
             return collect([]);
         }
 
         $query = DailyProduce::with(['recipe.product'])
-            ->where('shift_id', $this->currentShiftId)
+            ->where('shift_id', $shiftId)
             ->where('produced_quantity', '>', 0);
 
         // Search filter
@@ -257,7 +296,9 @@ class CreateInventoryCallback extends BaseComponent
                 // The callback is about returning damaged/unusable items
             } else {
                 // For finished products, check daily produce
-                $dailyProduce = DailyProduce::where('shift_id', $this->currentShiftId)
+                $shiftId = $this->selectedShiftId ?? $this->currentShiftId;
+
+                $dailyProduce = DailyProduce::where('shift_id', $shiftId)
                     ->whereHas('recipe', function ($q) {
                         $q->where('product_id', $this->selectedProductId);
                     })
@@ -280,8 +321,10 @@ class CreateInventoryCallback extends BaseComponent
                 ? 'raw_material_from_stock'
                 : 'finished_product_reject';
 
+            $shiftId = $this->selectedShiftId ?? $this->currentShiftId;
+
             ProductionCallback::create([
-                'shift_id' => $this->currentShiftId,
+                'shift_id' => $shiftId,
                 'source_type' => $sourceType,
                 'item_id' => $this->selectedItemId,
                 'product_id' => $this->selectedProductId,
@@ -309,8 +352,11 @@ class CreateInventoryCallback extends BaseComponent
 
     public function render()
     {
+        $shiftId = $this->selectedShiftId ?? $this->currentShiftId;
+
         return view('livewire.branch-dashboard.production.callbacks.create-inventory-callback', [
             'currentShift' => $this->currentShiftId ? Shift::find($this->currentShiftId) : null,
+            'selectedShift' => $shiftId ? Shift::find($shiftId) : null,
             'rawMaterials' => $this->rawMaterials,
             'finishedProducts' => $this->finishedProducts,
         ]);

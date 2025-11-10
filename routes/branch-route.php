@@ -10,6 +10,16 @@ Route::middleware(['auth:employees', 'branch'])->prefix('branch-dashboard')->nam
     Route::get('/employee//{employee_number}/{id}/', \App\Livewire\BranchDashboard\EmployeeModule\Details::class)->name('employee.details');
     Route::get('/employee/{id}/edit', \App\Livewire\BranchDashboard\EmployeeModule\Edit::class)->name('employee.edit');
 
+    // Leave Management routes
+    Route::prefix('leave')->name('leave.')->group(function () {
+        Route::get('/types', \App\Livewire\BranchDashboard\EmployeeModule\LeaveManagement\LeaveTypes::class)->name('types');
+        Route::get('/apply', \App\Livewire\BranchDashboard\EmployeeModule\LeaveManagement\ApplyLeave::class)->name('apply');
+        Route::get('/my-leaves', \App\Livewire\BranchDashboard\EmployeeModule\LeaveManagement\MyLeaves::class)->name('my-leaves');
+        Route::get('/approve', \App\Livewire\BranchDashboard\EmployeeModule\LeaveManagement\ApproveLeave::class)->name('approve');
+        Route::get('/balance', \App\Livewire\BranchDashboard\EmployeeModule\LeaveManagement\LeaveBalance::class)->name('balance');
+        Route::get('/manage-allocations', \App\Livewire\BranchDashboard\EmployeeModule\LeaveManagement\ManageAllocations::class)->name('manage-allocations');
+    });
+
     Route::get('departments', App\Livewire\BranchDashboard\DepartmentModule\Index::class)->name('branch.departments.index');
     Route::get('departments/category', \App\Livewire\BranchDashboard\DepartmentModule\Category::class)->name('branch.departments.category');
 
@@ -71,10 +81,11 @@ Route::middleware(['auth:employees', 'branch'])->prefix('branch-dashboard')->nam
 
         $registerDepartmentRoutes();
 
-        // Callbacks - Production reviewing sales callbacks and creating inventory callbacks
+        // Callbacks - Production callbacks management
         Route::prefix('callbacks')->name('callbacks.')->group(function () {
-            Route::get('/', \App\Livewire\BranchDashboard\Production\Callbacks\ApproveCallbacks::class)->name('index');
+            Route::get('/', \App\Livewire\BranchDashboard\Production\Callbacks\Index::class)->name('index');
             Route::get('/create-inventory', \App\Livewire\BranchDashboard\Production\Callbacks\CreateInventoryCallback::class)->name('create-inventory');
+            Route::get('/approve-sales-callbacks', \App\Livewire\BranchDashboard\Production\Callbacks\ApproveCallbacks::class)->name('approve-sales-callbacks');
         });
 
         

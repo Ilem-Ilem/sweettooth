@@ -375,3 +375,32 @@ restaurant-management-system/
 ├── package.json
 ├── artisan
 └── README.md
+
+  Employee Management System - Todo List
+
+  ✅ Database & Models - Completed
+  - All migrations created
+  - Models with relationships ready
+
+  🔄 Leave Management - In Progress
+  - Leave types, apply, approve, track balances
+
+  ⏳ Probation Management - Pending
+  - Track reviews, extensions, performance scores
+
+  ⏳ Salary Management - Pending
+  - Salary history, increments, bonuses, deductions
+
+  ⏳ Stepout Management - Pending
+  - Request/approve temporary breaks, track frequency
+
+  ⏳ Employee Analytics - Pending
+  - Monitor patterns, attendance, performance metrics
+
+  ---
+  Current Status:
+  - ✅ Database structure complete
+  - ✅ All models created with relationships
+  - 🔄 Working on Leave Management components
+
+  Should I continue building the Leave Management system (Livewire components + views)?
