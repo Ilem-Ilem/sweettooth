@@ -16,6 +16,7 @@ Route::middleware('guest')->group(function () {
     Route::get('/staff-login', StaffLogin::class)->name('staff-login');
 });
 
+
 Route::middleware('auth')->group(function () {
     Route::get('verify-email', VerifyEmail::class)
         ->name('verification.notice');
