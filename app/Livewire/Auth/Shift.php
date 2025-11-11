@@ -191,7 +191,7 @@ class Shift extends Component
         // Assuming sales department name contains "sales" or has a specific ID
         // Adjust this logic based on your department naming convention
         return $employee->department &&
-               (stripos($employee->department->name, 'sales') !== false ||
+               (stripos($employee->department->name, 'Sales') !== false ||
                 stripos($employee->department->name, 'cashier') !== false);
     }
 

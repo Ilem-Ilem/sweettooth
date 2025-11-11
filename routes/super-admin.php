@@ -20,16 +20,21 @@ Route::middleware(['auth'])->prefix('super-admin')->name('super-admin.')->group(
     Route::get('role-assignments', \App\Livewire\SuperAdmin\EmployeeModule\RoleAssignment::class)->name('role-assignments.index');
     Route::get('employee/{employee_number}/{id}/', \App\Livewire\SuperAdmin\EmployeeModule\EmployeeDetails::class)->name('employee.detail');
 
+    //LEAVE MANAGEMENT
+    Route::get('leave-management', App\Livewire\SuperAdmin\EmployeeModule\LeaveManagement\Index::class)->name('leave.index');
+    
+
+
     // Inventory routes
     Route::prefix('inventory')->name('inventory.')->group(function () {
-    Route::get('items', \App\Livewire\SuperAdmin\Inventory\Items::class)->name('items');
-    Route::get('purchases', \App\Livewire\SuperAdmin\Inventory\Purchases::class)->name('purchases');
-    Route::get('stocks', \App\Livewire\SuperAdmin\Inventory\Stocks::class)->name('stocks');
-    Route::get('stock-movements', \App\Livewire\SuperAdmin\Inventory\StockMovements::class)->name('stock-movements');
-    Route::get('item-requests', \App\Livewire\SuperAdmin\Inventory\ItemRequests::class)->name('item-requests');
-    Route::get('item-dispatches', \App\Livewire\SuperAdmin\Inventory\ItemDispatches::class)->name('item-dispatches');
-    Route::get('stock-takes', \App\Livewire\SuperAdmin\Inventory\StockTakes::class)->name('stock-takes');
-    Route::get('health-checks', \App\Livewire\SuperAdmin\Inventory\HealthChecks::class)->name('health-checks');
+        Route::get('items', \App\Livewire\SuperAdmin\Inventory\Items::class)->name('items');
+        Route::get('purchases', \App\Livewire\SuperAdmin\Inventory\Purchases::class)->name('purchases');
+        Route::get('stocks', \App\Livewire\SuperAdmin\Inventory\Stocks::class)->name('stocks');
+        Route::get('stock-movements', \App\Livewire\SuperAdmin\Inventory\StockMovements::class)->name('stock-movements');
+        Route::get('item-requests', \App\Livewire\SuperAdmin\Inventory\ItemRequests::class)->name('item-requests');
+        Route::get('item-dispatches', \App\Livewire\SuperAdmin\Inventory\ItemDispatches::class)->name('item-dispatches');
+        Route::get('stock-takes', \App\Livewire\SuperAdmin\Inventory\StockTakes::class)->name('stock-takes');
+        Route::get('health-checks', \App\Livewire\SuperAdmin\Inventory\HealthChecks::class)->name('health-checks');
     });
 
     // Analytics routes
@@ -50,6 +55,4 @@ Route::middleware(['auth'])->prefix('super-admin')->name('super-admin.')->group(
         Route::get('/business-configuration', \App\Livewire\SuperAdmin\Settings\BusinessConfiguration::class)->name('business-configuration');
         Route::get('/backup-management', \App\Livewire\SuperAdmin\Settings\BackupManagement::class)->name('backup-management');
     });
-
-
 });

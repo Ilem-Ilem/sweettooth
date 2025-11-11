@@ -97,7 +97,8 @@ class CreateDispatchCallback extends BaseComponent
             $this->selectedSalesShiftId = $this->currentSalesShiftId;
         } elseif (!empty($this->availableShifts)) {
             // If no active shift, select the most recent one
-            $this->selectedSalesShiftId = $this->availableShifts[0]->id;
+            // dd($this->availableShifts);
+            // $this->selectedSalesShiftId = $this->availableShifts[0]->id;
         }
     }
 

@@ -44,6 +44,7 @@ class Details extends Component
             ->orderBy('created_at', 'desc')
             ->limit(10)
             ->get();
+            
 
         // Calculate leave statistics
         $this->leaveStats = [
