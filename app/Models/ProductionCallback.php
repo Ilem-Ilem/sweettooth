@@ -54,9 +54,25 @@ class ProductionCallback extends Model
     }
 
     /**
+     * Relationship: Recipe (for product callbacks)
+     */
+    public function recipe(): BelongsTo
+    {
+        return $this->belongsTo(Recipe::class, 'product_id');
+    }
+
+    /**
      * Relationship: Employee who recorded the callback
      */
     public function recordedBy(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'recorded_by');
+    }
+
+    /**
+     * Relationship: Employee who created the callback
+     */
+    public function createdBy(): BelongsTo
     {
         return $this->belongsTo(Employee::class, 'recorded_by');
     }

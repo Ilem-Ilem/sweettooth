@@ -55,4 +55,10 @@ Route::middleware(['auth'])->prefix('super-admin')->name('super-admin.')->group(
         Route::get('/business-configuration', \App\Livewire\SuperAdmin\Settings\BusinessConfiguration::class)->name('business-configuration');
         Route::get('/backup-management', \App\Livewire\SuperAdmin\Settings\BackupManagement::class)->name('backup-management');
     });
+
+    // MD Reports Dashboard Routes
+    Route::prefix('md-reports')->name('md-reports.')->group(function () {
+        Route::get('dashboard', \App\Livewire\SuperAdmin\MDReports\Dashboard\Index::class)->name('dashboard');
+        Route::get('view/{id}', \App\Livewire\SuperAdmin\MDReports\ViewReport\Index::class)->name('view');
+    });
 });

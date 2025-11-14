@@ -137,6 +137,80 @@ class DepartmentObserver
                 'icon' => 'chart-bar',
                 'order' => 9,
             ],
+
+            // Shift Closing
+            [
+                'name' => 'Shift Closing',
+                'slug' => 'shift-closing',
+                'route_name' => "branch-dashboard.production.shift-closing.index",
+                'icon' => 'clock',
+                'order' => 10,
+            ],
+
+            // Production Reports Section
+            [
+                'name' => 'Production Efficiency Report',
+                'slug' => 'report-efficiency',
+                'route_name' => "branch-dashboard.production.reports.efficiency",
+                'icon' => 'chart-bar',
+                'order' => 11,
+            ],
+            [
+                'name' => 'Quality Metrics Report',
+                'slug' => 'report-quality',
+                'route_name' => "branch-dashboard.production.reports.quality",
+                'icon' => 'shield-check',
+                'order' => 12,
+            ],
+            [
+                'name' => 'Waste Analysis Report',
+                'slug' => 'report-waste',
+                'route_name' => "branch-dashboard.production.reports.waste",
+                'icon' => 'trash',
+                'order' => 13,
+            ],
+            [
+                'name' => 'Cost Analysis Report',
+                'slug' => 'report-cost',
+                'route_name' => "branch-dashboard.production.reports.cost",
+                'icon' => 'currency-dollar',
+                'order' => 14,
+            ],
+            [
+                'name' => 'Recipe Performance Report',
+                'slug' => 'report-recipe-performance',
+                'route_name' => "branch-dashboard.production.reports.recipe-performance",
+                'icon' => 'star',
+                'order' => 15,
+            ],
+            [
+                'name' => 'Shift Summary Report',
+                'slug' => 'report-shift-summary',
+                'route_name' => "branch-dashboard.production.reports.shift-summary",
+                'icon' => 'clock',
+                'order' => 16,
+            ],
+            [
+                'name' => 'Ingredient Utilization Report',
+                'slug' => 'report-ingredient-utilization',
+                'route_name' => "branch-dashboard.production.reports.ingredient-utilization",
+                'icon' => 'beaker',
+                'order' => 17,
+            ],
+            [
+                'name' => 'Pipeline Status Report',
+                'slug' => 'report-pipeline',
+                'route_name' => "branch-dashboard.production.reports.pipeline",
+                'icon' => 'arrow-right-circle',
+                'order' => 18,
+            ],
+            [
+                'name' => 'Capacity Planning Report',
+                'slug' => 'report-capacity',
+                'route_name' => "branch-dashboard.production.reports.capacity",
+                'icon' => 'server',
+                'order' => 19,
+            ],
         ];
     }
 }

@@ -18,17 +18,25 @@ class ProductionSeeder extends Seeder
     public function run(): void
     {
         $faker = Faker::create();
-        
-        // Assumed IDs for related tables (replace with actual IDs or seed these tables first)
-        $branchIds = \App\Models\Branch::pluck('id')->toArray();
-        $departmentIds = \App\Models\Department::pluck('id')->toArray();
-        $employeeIds = \App\Models\Employee::pluck('id')->toArray();
-        // $categoryIds = \App\Models\Category::pluck('id')->toArray();
-        $itemIds = \App\Models\Item::pluck('id')->toArray();
-        $itemRequestIds = \App\Models\ItemRequest::pluck('id')->toArray();
 
+        // Assumed IDs for related tables (replace with actual IDs or seed these tables first)
+        $branchIds = \App\Models\Branch::all()->pluck('id')->toArray();
+        $departmentIds = \App\Models\Department::all()->pluck('id')->toArray();
+        $employeeIds = \App\Models\Employee::all()->pluck('id')->toArray();
+        $itemIds = \App\Models\Item::all()->pluck('id')->toArray();
+        $itemRequestIds = \App\Models\ItemRequest::all()->pluck('id')->toArray();
+
+        // dd(
+        //     [
+        //         'branch_id'=>$branchIds,
+        //         'departments'=>$departmentIds,
+        //         'employees'=>$employeeIds,
+        //         'items'=>$itemIds,
+        //         'itemRequestIds'=>$itemRequestIds
+        //     ]
+        // );
         // Ensure related tables have data
-        if (empty($branchIds) || empty($departmentIds) || empty($employeeIds) || empty($categoryIds) || empty($itemIds) || empty($itemRequestIds)) {
+        if (empty($branchIds) || empty($departmentIds) || empty($employeeIds) || empty($itemIds)) {
             throw new \Exception('Related tables (branches, departments, employees, categories, items, item_requests) must be seeded first.');
         }
 

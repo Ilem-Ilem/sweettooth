@@ -67,7 +67,6 @@ class SalesPageObserver
     protected function getDefaultSalesPages(Department $department): array
     {
         return [
-            // Products Management
             [
                 'name' => 'POS',
                 'slug' => 'pos',
@@ -75,6 +74,27 @@ class SalesPageObserver
                 'icon' => 'shopping-cart',
                 'order' => 1,
             ],
+            [
+                'name' => 'My Sales',
+                'slug' => 'my-sales',
+                'route_name' => 'branch-dashboard.sales-dashboard.my-sales.index',
+                'icon' => 'user-circle',
+                'order' => 2,
+            ],
+            [
+                'name'=> 'Sales Analytics',
+                'slug'=>'sales-analytics',
+                'route_name'=> 'branch-dashboard.sales-dashboard.analytics.index',
+                'icon'=>'chart-bar',
+                'order'=>3
+            ],
+            [
+                'name' => 'Shift Closing',
+                'slug' => 'shift-closing',
+                'route_name' => 'branch-dashboard.sales-dashboard.shift-closing.index',
+                'icon' => 'clock',
+                'order' => 4,
+            ]
         ];
     }
 }

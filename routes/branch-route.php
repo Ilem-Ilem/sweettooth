@@ -36,17 +36,29 @@ Route::middleware(['auth:employees', 'branch'])->prefix('branch-dashboard')->nam
         Route::get('stock-takes', \App\Livewire\BranchDashboard\Inventory\StockTakes::class)->name('stock-takes');
         Route::get('health-checks', \App\Livewire\BranchDashboard\Inventory\HealthChecks::class)->name('health-checks');
 
+        // Shift Closing - Inventory (not department-based)
+        Route::get('shift-closing', \App\Livewire\BranchDashboard\Inventory\ShiftClosing\Index::class)->name('shift-closing');
+
         // Callbacks - Inventory reviewing production callbacks
         Route::prefix('callbacks')->name('callbacks.')->group(function () {
             Route::get('/', \App\Livewire\BranchDashboard\Inventory\Callbacks\ApproveCallbacks::class)->name('index');
+        });
+
+        // Inventory Reports
+        Route::prefix('reports')->name('reports.')->group(function () {
+            // Route::get('/stock-levels', \App\Livewire\BranchDashboard\Inventory\Reports\StockLevels\Index::class)->name('stock-levels');
+            // Route::get('/stock-movement', \App\Livewire\BranchDashboard\Inventory\Reports\StockMovement\Index::class)->name('stock-movement');
+            // Route::get('/turnover', \App\Livewire\BranchDashboard\Inventory\Reports\Turnover\Index::class)->name('turnover');
+            // Route::get('/reorder', \App\Livewire\BranchDashboard\Inventory\Reports\Reorder\Index::class)->name('reorder');
+            // Route::get('/variance', \App\Livewire\BranchDashboard\Inventory\Reports\Variance\Index::class)->name('variance');
         });
     });
 
     // Production routes - Modular System
     Route::prefix('production')->name('production.')->group(function () {
-      
+
         // Helper function to register department routes
-        $registerDepartmentRoutes = function () {
+        $registerProductionDepartmentRoutes = function () {
             // Products Management
             Route::get('product-types/{deptSlug}', \App\Livewire\BranchDashboard\Production\ProductTypes::class)->name('product-types');
             Route::get('products/{deptSlug}', \App\Livewire\BranchDashboard\Production\Products::class)->name('products');
@@ -60,6 +72,11 @@ Route::middleware(['auth:employees', 'branch'])->prefix('branch-dashboard')->nam
             // Daily Produce
             Route::prefix('daily-produce')->name('daily-produce.')->group(function () {
                 Route::get('/{deptSlug}', \App\Livewire\BranchDashboard\Production\DailyProduce\Index::class)->name('index');
+            });
+
+            // Shift Closing - Production (department-based)
+            Route::prefix('shift-closing')->name('shift-closing.')->group(function () {
+                Route::get('/{deptSlug}', \App\Livewire\BranchDashboard\Production\ShiftClosing\Index::class)->name('index');
             });
 
             // Recipes
@@ -76,10 +93,9 @@ Route::middleware(['auth:employees', 'branch'])->prefix('branch-dashboard')->nam
 
             // Raw Material Tracking
             Route::get('raw-material-tracking', \App\Livewire\BranchDashboard\Production\RawMaterialTracking::class)->name('raw-material-tracking');
-
         };
 
-        $registerDepartmentRoutes();
+        $registerProductionDepartmentRoutes();
 
         // Callbacks - Production callbacks management
         Route::prefix('callbacks')->name('callbacks.')->group(function () {
@@ -88,8 +104,18 @@ Route::middleware(['auth:employees', 'branch'])->prefix('branch-dashboard')->nam
             Route::get('/approve-sales-callbacks', \App\Livewire\BranchDashboard\Production\Callbacks\ApproveCallbacks::class)->name('approve-sales-callbacks');
         });
 
-        
-
+        // Production Reports
+        Route::prefix('reports')->name('reports.')->group(function () {
+            Route::get('/efficiency', \App\Livewire\BranchDashboard\Production\Reports\ProductionEfficiency\Index::class)->name('efficiency');
+            Route::get('/quality', \App\Livewire\BranchDashboard\Production\Reports\QualityMetrics\Index::class)->name('quality');
+            Route::get('/waste', \App\Livewire\BranchDashboard\Production\Reports\WasteAnalysis\Index::class)->name('waste');
+            Route::get('/cost', \App\Livewire\BranchDashboard\Production\Reports\CostAnalysis\Index::class)->name('cost');
+            Route::get('/recipe-performance', \App\Livewire\BranchDashboard\Production\Reports\RecipePerformance\Index::class)->name('recipe-performance');
+            Route::get('/shift-summary', \App\Livewire\BranchDashboard\Production\Reports\ShiftSummary\Index::class)->name('shift-summary');
+            Route::get('/ingredient-utilization', \App\Livewire\BranchDashboard\Production\Reports\IngredientUtilization\Index::class)->name('ingredient-utilization');
+            Route::get('/pipeline', \App\Livewire\BranchDashboard\Production\Reports\PipelineStatus\Index::class)->name('pipeline');
+            Route::get('/capacity', \App\Livewire\BranchDashboard\Production\Reports\CapacityPlanning\Index::class)->name('capacity');
+        });
     });
 
     // Analytics routes
@@ -103,6 +129,13 @@ Route::middleware(['auth:employees', 'branch'])->prefix('branch-dashboard')->nam
         Route::get('stock-valuation', \App\Livewire\BranchDashboard\Analytics\StockValuation::class)->name('stock-valuation');
     });
 
+    // Reporting Department Routes
+    Route::prefix('reporting')->name('reporting.')->group(function () {
+        Route::get('dashboard', \App\Livewire\BranchDashboard\ReportingDepartment\Dashboard\Index::class)->name('dashboard');
+        Route::get('compile', \App\Livewire\BranchDashboard\ReportingDepartment\CompileReports\Index::class)->name('compile');
+        Route::get('send-to-md', \App\Livewire\BranchDashboard\ReportingDepartment\SendToMD\Index::class)->name('send-to-md');
+    });
+
     // Sales Dashboard routes - Modular System
     Route::prefix('sales-dashboard')->name('sales-dashboard.')->group(function () {
 
@@ -113,6 +146,19 @@ Route::middleware(['auth:employees', 'branch'])->prefix('branch-dashboard')->nam
                 Route::get('/{salesDeptSlug?}', \App\Livewire\BranchDashboard\SalesDashboard\Pos\Index::class)->name('index');
             });
 
+            Route::prefix('analytics')->name('analytics.')->group(function () {
+                Route::get('/{salesDeptSlug?}', \App\Livewire\BranchDashboard\SalesDashboard\Analytics\Index::class)->name('index');
+            });
+
+            // My Sales - Personal Sales Dashboard
+            Route::prefix('my-sales')->name('my-sales.')->group(function () {
+                Route::get('/{salesDeptSlug?}', \App\Livewire\BranchDashboard\SalesDashboard\MySales\Index::class)->name('index');
+            });
+
+            // Shift Closing - Sales (department-based)
+            Route::prefix('shift-closing')->name('shift-closing.')->group(function () {
+                Route::get('/{salesDeptSlug?}', \App\Livewire\BranchDashboard\SalesDashboard\ShiftClosing\Index::class)->name('index');
+            });
         };
 
         // Expiry Alerts - shown after clock-in
@@ -128,6 +174,15 @@ Route::middleware(['auth:employees', 'branch'])->prefix('branch-dashboard')->nam
         });
 
         Route::get('/stock-monitor', \App\Livewire\BranchDashboard\SalesDashboard\StockMonitor::class)->name('stock-monitor');
+
+        // Sales Reports
+        Route::prefix('reports')->name('reports.')->group(function ()
+        {
+            // Route::get('/performance', \App\Livewire\BranchDashboard\SalesDashboard\Reports\SalesPerformance\Index::class)->name('performance');
+            // Route::get('/employee', \App\Livewire\BranchDashboard\SalesDashboard\Reports\SalesEmployee\Index::class)->name('employee');
+            // Route::get('/customer', \App\Livewire\BranchDashboard\SalesDashboard\Reports\CustomerAnalysis\Index::class)->name('customer');
+            // Route::get('/payment', \App\Livewire\BranchDashboard\SalesDashboard\Reports\PaymentMethod\Index::class)->name('payment');
+        });
 
         // Execute dynamic sales department routes
         $registerSalesDepartmentRoutes();
