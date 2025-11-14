@@ -333,6 +333,31 @@
                 @endforelse
             </flux:navlist.group>
             {{-- ==================== END SALES DEPARTMENTS MENU ==================== --}}
+
+            {{-- ==================== REPORTING DASHBOARD ==================== --}}
+            <flux:navlist.group :heading="__('Reporting')" icon="document-text">
+                <flux:navlist.item icon="chart-bar"
+                    :href="branch_route('branch-dashboard.reporting.dashboard')"
+                    :current="request()->routeIs('branch-dashboard.reporting.dashboard')" wire:navigate>
+                    {{ __('Dashboard') }}
+                </flux:navlist.item>
+                <flux:navlist.item icon="clipboard-document-check"
+                    :href="branch_route('branch-dashboard.reporting.review')"
+                    :current="request()->routeIs('branch-dashboard.reporting.review')" wire:navigate>
+                    {{ __('Review Reports') }}
+                </flux:navlist.item>
+                <flux:navlist.item icon="document-duplicate"
+                    :href="branch_route('branch-dashboard.reporting.compile')"
+                    :current="request()->routeIs('branch-dashboard.reporting.compile')" wire:navigate>
+                    {{ __('Compile Reports') }}
+                </flux:navlist.item>
+                <flux:navlist.item icon="paper-airplane"
+                    :href="branch_route('branch-dashboard.reporting.send-to-md')"
+                    :current="request()->routeIs('branch-dashboard.reporting.send-to-md')" wire:navigate>
+                    {{ __('Send to MD') }}
+                </flux:navlist.item>
+            </flux:navlist.group>
+            {{-- ==================== END REPORTING DASHBOARD ==================== --}}
         </flux:navlist>
 
         <flux:spacer />

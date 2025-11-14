@@ -9,7 +9,7 @@ use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 
-#[Layout('layouts.branch')]
+#[Layout('components.layouts.app.branch-dashboard')]
 #[Title('Reporting Department Dashboard')]
 class Index extends Component
 {

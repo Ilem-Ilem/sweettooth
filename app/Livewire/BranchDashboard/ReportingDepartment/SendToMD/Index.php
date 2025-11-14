@@ -11,7 +11,7 @@ use Livewire\Attributes\Title;
 use Livewire\WithPagination;
 use TallStackUi\Traits\Interactions;
 
-#[Layout('layouts.branch')]
+#[Layout('components.layouts.app.branch-dashboard')]
 #[Title('Send Reports to MD')]
 class Index extends Component
 {
