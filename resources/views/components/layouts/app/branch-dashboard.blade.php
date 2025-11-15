@@ -35,52 +35,57 @@
                         {{ __('Departments') }}
                     </flux:navlist.item>
                 </flux:navlist.group>
+                <flux:navlist.group :heading="__('Employee Management')" expandable
+                    :expanded="request()->routeIs('branch-dashboard.employees.*') || request()->routeIs('branch-dashboard.assignments.*')"
+                    class="grid" icon='users'>
+                    <flux:navlist.item icon="user" :href="branch_route('branch-dashboard.employees.index')"
+                        :current="request()->routeIs('branch-dashboard.employees.index')" wire:navigate>
+                        {{ __('All Employees') }}
+                    </flux:navlist.item>
+                    <flux:navlist.item icon="user-plus" :href="branch_route('branch-dashboard.employee.create')"
+                        :current="request()->routeIs('branch-dashboard.employee.create')" wire:navigate>
+                        {{ __('Create Employee') }}
+                    </flux:navlist.item>
+
+                    <flux:navlist.item icon="user-plus" :href="branch_route('branch-dashboard.role-permission')"
+                        :current="request()->routeIs('branch-dashboard.employee.role-permission')" wire:navigate>
+                        {{ __('Roles') }}
+                    </flux:navlist.item>
+                </flux:navlist.group>
 
                 <flux:navlist.group :heading="__('Leave Management')" expandable
                     :expanded="request()->routeIs('branch-dashboard.leave.*')" class="grid">
-@if(!is_super_admin())
-                    <flux:navlist.item icon="calendar-days"
-                        :href="branch_route('branch-dashboard.leave.apply')"
-                        :current="request()->routeIs('branch-dashboard.leave.apply')" wire:navigate>
-                        {{ __('Apply Leave') }}
-                    </flux:navlist.item>
-                    <flux:navlist.item icon="clipboard-document-list"
-                        :href="branch_route('branch-dashboard.leave.my-leaves')"
-                        :current="request()->routeIs('branch-dashboard.leave.my-leaves')" wire:navigate>
-                        {{ __('My Leaves') }}
-                    </flux:navlist.item>
-                    <flux:navlist.item icon="chart-pie"
-                        :href="branch_route('branch-dashboard.leave.balance')"
-                        :current="request()->routeIs('branch-dashboard.leave.balance')" wire:navigate>
-                        {{ __('Leave Balance') }}
-                    </flux:navlist.item>
+                    @if (!is_super_admin())
+                        <flux:navlist.item icon="calendar-days" :href="branch_route('branch-dashboard.leave.apply')"
+                            :current="request()->routeIs('branch-dashboard.leave.apply')" wire:navigate>
+                            {{ __('Apply Leave') }}
+                        </flux:navlist.item>
+                        <flux:navlist.item icon="clipboard-document-list"
+                            :href="branch_route('branch-dashboard.leave.my-leaves')"
+                            :current="request()->routeIs('branch-dashboard.leave.my-leaves')" wire:navigate>
+                            {{ __('My Leaves') }}
+                        </flux:navlist.item>
+                        <flux:navlist.item icon="chart-pie" :href="branch_route('branch-dashboard.leave.balance')"
+                            :current="request()->routeIs('branch-dashboard.leave.balance')" wire:navigate>
+                            {{ __('Leave Balance') }}
+                        </flux:navlist.item>
                     @endif
 
-                     <flux:navlist.item icon="clipboard-document-check"
+                    <flux:navlist.item icon="clipboard-document-check"
                         :href="branch_route('branch-dashboard.leave.approve')"
                         :current="request()->routeIs('branch-dashboard.leave.approve')" wire:navigate>
                         {{ __('Approve Leaves') }}
                     </flux:navlist.item>
-                    <flux:navlist.item icon="cog-6-tooth"
-                        :href="branch_route('branch-dashboard.leave.types')"
+                    <flux:navlist.item icon="cog-6-tooth" :href="branch_route('branch-dashboard.leave.types')"
                         :current="request()->routeIs('branch-dashboard.leave.types')" wire:navigate>
                         {{ __('Leave Types') }}
                     </flux:navlist.item>
                 </flux:navlist.group>
+
+
             </flux:navlist.group>
 
-            <flux:navlist.group :heading="__('Employee Management')" expandable
-                :expanded="request()->routeIs('branch-dashboard.employees.*') || request()->routeIs('branch-dashboard.assignments.*')"
-                class="grid" icon='users'>
-                <flux:navlist.item icon="user" :href="branch_route('branch-dashboard.employees.index')"
-                    :current="request()->routeIs('branch-dashboard.employees.index')" wire:navigate>
-                    {{ __('All Employees') }}
-                </flux:navlist.item>
-                <flux:navlist.item icon="user-plus" :href="branch_route('branch-dashboard.employee.create')"
-                    :current="request()->routeIs('branch-dashboard.employee.create')" wire:navigate>
-                    {{ __('Create Employee') }}
-                </flux:navlist.item>
-            </flux:navlist.group>
+
 
             <flux:navlist.group :heading="__('Inventory')" icon='cube'>
                 <flux:navlist.group :heading="__('Inventory Management')" expandable
@@ -169,8 +174,7 @@
             @php
 
                 $employee = \Illuminate\Support\Facades\Auth::guard('employees')->user();
-                $branchId =request()->get('b_id') ;
-                dd($branchId);
+                $branchId = request()->get('b_id');
                 $departments = collect();
                 $OPEN_PRODUCTION = false;
                 $OPEN_DEPT = null;
@@ -209,10 +213,10 @@
                         @forelse($dept->pages as $page)
                             <flux:navlist.item icon="{{ $page->icon ?? 'o-beaker' }}"
                                 :href="branch_route($page->route_name, [
-                                                            'deptSlug' => $dept->slug,
-                                                            'dept_slug'=>$dept->slug,
-                                                            'page' => $page->name . '_' . $dept->slug
-                                                        ])"
+                                                                                            'deptSlug' => $dept->slug,
+                                                                                            'dept_slug'=>$dept->slug,
+                                                                                            'page' => $page->name . '_' . $dept->slug
+                                                                                        ])"
                                 :current="request()->get('page') === $page->name . '_' . $dept->slug" wire:navigate>
                                 {{ $page->name }}
                             </flux:navlist.item>
@@ -239,7 +243,8 @@
                 </flux:navlist.item>
                 <flux:navlist.item icon="arrow-path-rounded-square"
                     :href="branch_route('branch-dashboard.production.callbacks.create-inventory')"
-                    :current="request()->routeIs('branch-dashboard.production.callbacks.create-inventory')" wire:navigate>
+                    :current="request()->routeIs('branch-dashboard.production.callbacks.create-inventory')"
+                    wire:navigate>
                     {{ __('Inventory Callbacks') }}
                 </flux:navlist.item>
             </flux:navlist.group>
@@ -282,12 +287,14 @@
                     :expanded="request()->routeIs('branch-dashboard.sales-dashboard.callbacks.*')">
                     <flux:navlist.item icon="arrow-uturn-left"
                         :href="branch_route('branch-dashboard.sales-dashboard.callbacks.index')"
-                        :current="request()->routeIs('branch-dashboard.sales-dashboard.callbacks.index')" wire:navigate>
+                        :current="request()->routeIs('branch-dashboard.sales-dashboard.callbacks.index')"
+                        wire:navigate>
                         {{ __('Product Callbacks') }}
                     </flux:navlist.item>
                     <flux:navlist.item icon="arrow-path-rounded-square"
                         :href="branch_route('branch-dashboard.sales-dashboard.callbacks.dispatch-callbacks')"
-                        :current="request()->routeIs('branch-dashboard.sales-dashboard.callbacks.dispatch-callbacks')" wire:navigate>
+                        :current="request()->routeIs('branch-dashboard.sales-dashboard.callbacks.dispatch-callbacks')"
+                        wire:navigate>
                         {{ __('Dispatch Callbacks') }}
                     </flux:navlist.item>
                 </flux:navlist.group>
@@ -333,10 +340,10 @@
                         @forelse($dept->pages as $page)
                             <flux:navlist.item icon="{{ $page->icon ?? 'o-shopping-bag' }}"
                                 :href="branch_route($page->route_name, [
-                                                            'salesDeptSlug' => $dept->slug,
-                                                            'sales_dept_slug'=>$dept->slug,
-                                                            'page' => $page->name . '_' . $dept->slug
-                                                        ])"
+                                                                                            'salesDeptSlug' => $dept->slug,
+                                                                                            'sales_dept_slug'=>$dept->slug,
+                                                                                            'page' => $page->name . '_' . $dept->slug
+                                                                                        ])"
                                 :current="request()->get('page') === $page->name . '_' . $dept->slug" wire:navigate>
                                 {{ $page->name }}
                             </flux:navlist.item>
@@ -357,8 +364,7 @@
 
             {{-- ==================== REPORTING DASHBOARD ==================== --}}
             <flux:navlist.group :heading="__('Reporting')" icon="document-text">
-                <flux:navlist.item icon="chart-bar"
-                    :href="branch_route('branch-dashboard.reporting.dashboard')"
+                <flux:navlist.item icon="chart-bar" :href="branch_route('branch-dashboard.reporting.dashboard')"
                     :current="request()->routeIs('branch-dashboard.reporting.dashboard')" wire:navigate>
                     {{ __('Dashboard') }}
                 </flux:navlist.item>
@@ -372,8 +378,7 @@
                     :current="request()->routeIs('branch-dashboard.reporting.compile')" wire:navigate>
                     {{ __('Compile Reports') }}
                 </flux:navlist.item>
-                <flux:navlist.item icon="paper-airplane"
-                    :href="branch_route('branch-dashboard.reporting.send-to-md')"
+                <flux:navlist.item icon="paper-airplane" :href="branch_route('branch-dashboard.reporting.send-to-md')"
                     :current="request()->routeIs('branch-dashboard.reporting.send-to-md')" wire:navigate>
                     {{ __('Send to MD') }}
                 </flux:navlist.item>
@@ -465,7 +470,8 @@
 
                 <form method="POST" action="{{ branch_route('logout') }}" class="w-full">
                     @csrf
-                    <flux:menu.item as="button" type="submit" icon="arrow-right-start-on-rectangle" class="w-full">
+                    <flux:menu.item as="button" type="submit" icon="arrow-right-start-on-rectangle"
+                        class="w-full">
                         {{ __('Log Out') }}
                     </flux:menu.item>
                 </form>
@@ -480,8 +486,8 @@
 
         <!-- Navbar Left -->
         <flux:navbar class="-mb-px max-lg:hidden">
-            <flux:navbar.item icon="layout-grid" :href="route('dashboard')" :current="request()->routeIs('dashboard')"
-                wire:navigate>
+            <flux:navbar.item icon="layout-grid" :href="route('dashboard')"
+                :current="request()->routeIs('dashboard')" wire:navigate>
                 {{ __('Dashboard') }}
             </flux:navbar.item>
         </flux:navbar>
@@ -497,8 +503,8 @@
             <div x-data="{ currentTime: '' }" x-init="setInterval(() => {
                 const now = new Date();
                 currentTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            }, 1000);" class="font-mono text-base md:text-lg tracking-widest"
-                x-text="currentTime">
+            }, 1000);"
+                class="font-mono text-base md:text-lg tracking-widest" x-text="currentTime">
             </div>
         </div>
 
@@ -625,8 +631,8 @@
 
     <flux:main>
         {{-- Branch Selector for Super Admins --}}
-        @if(auth()->user() != null)
-        <livewire:components.branch-selector />
+        @if (auth()->user() != null)
+            <livewire:components.branch-selector />
         @endif
         <div wire:loading
             class="fixed top-4 right-4 z-50 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center space-x-2">
