@@ -46,11 +46,11 @@ Route::middleware(['auth:employees', 'branch'])->prefix('branch-dashboard')->nam
 
         // Inventory Reports
         Route::prefix('reports')->name('reports.')->group(function () {
-            // Route::get('/stock-levels', \App\Livewire\BranchDashboard\Inventory\Reports\StockLevels\Index::class)->name('stock-levels');
-            // Route::get('/stock-movement', \App\Livewire\BranchDashboard\Inventory\Reports\StockMovement\Index::class)->name('stock-movement');
-            // Route::get('/turnover', \App\Livewire\BranchDashboard\Inventory\Reports\Turnover\Index::class)->name('turnover');
-            // Route::get('/reorder', \App\Livewire\BranchDashboard\Inventory\Reports\Reorder\Index::class)->name('reorder');
-            // Route::get('/variance', \App\Livewire\BranchDashboard\Inventory\Reports\Variance\Index::class)->name('variance');
+            Route::get('/stock-levels', \App\Livewire\BranchDashboard\Inventory\Reports\StockLevels\Index::class)->name('stock-levels');
+            Route::get('/stock-movement', \App\Livewire\BranchDashboard\Inventory\Reports\StockMovement\Index::class)->name('stock-movement');
+            Route::get('/turnover', \App\Livewire\BranchDashboard\Inventory\Reports\StockTurnover\Index::class)->name('turnover');
+            Route::get('/reorder', \App\Livewire\BranchDashboard\Inventory\Reports\Reorder\Index::class)->name('reorder');
+            Route::get('/variance', \App\Livewire\BranchDashboard\Inventory\Reports\Variance\Index::class)->name('variance');
         });
     });
 
@@ -168,6 +168,10 @@ Route::middleware(['auth:employees', 'branch'])->prefix('branch-dashboard')->nam
 
         Route::prefix('stock-opening')->name('stock-opening.')->group(function () {
             Route::get('/{salesDeptSlug?}', \App\Livewire\BranchDashboard\SalesDashboard\StockOpening\Index::class)->name('index');
+        });
+
+        Route::prefix('dispatches')->name('dispatches.')->group(function () {
+            Route::get('/{salesDeptSlug?}', \App\Livewire\BranchDashboard\SalesDashboard\Dispatches\Index::class)->name('index');
         });
 
         Route::prefix('callbacks')->name('callbacks.')->group(function () {

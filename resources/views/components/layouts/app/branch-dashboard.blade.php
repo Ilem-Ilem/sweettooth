@@ -251,10 +251,28 @@
                     {{ __('Stock Opening') }}
                 </flux:navlist.item>
 
+                <flux:navlist.item icon="truck"
+                    :href="branch_route('branch-dashboard.sales-dashboard.dispatches.index')"
+                    :current="request()->routeIs('branch-dashboard.sales-dashboard.dispatches.*')" wire:navigate>
+                    {{ __('Kitchen Dispatches') }}
+                </flux:navlist.item>
+
                 <flux:navlist.item icon="clipboard-document-check"
                     :href="branch_route('branch-dashboard.sales-dashboard.stock-monitor')"
                     :current="request()->routeIs('branch-dashboard.sales-dashboard.stock-monitor')" wire:navigate>
                     {{ __('Monitor Product Stock') }}
+                </flux:navlist.item>
+
+                <flux:navlist.item icon="chart-bar"
+                    :href="branch_route('branch-dashboard.sales-dashboard.my-sales.index')"
+                    :current="request()->routeIs('branch-dashboard.sales-dashboard.my-sales.*')" wire:navigate>
+                    {{ __('My Sales Dashboard') }}
+                </flux:navlist.item>
+
+                <flux:navlist.item icon="clipboard-document-check"
+                    :href="branch_route('branch-dashboard.sales-dashboard.shift-closing.index')"
+                    :current="request()->routeIs('branch-dashboard.sales-dashboard.shift-closing.*')" wire:navigate>
+                    {{ __('Shift Closing') }}
                 </flux:navlist.item>
 
                 <flux:navlist.group :heading="__('Callbacks')" class="grid" expandable
