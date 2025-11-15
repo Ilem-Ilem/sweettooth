@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth:employees', 'branch'])->prefix('branch-dashboard')->name('branch-dashboard.')->group(function () {
+Route::middleware([ 'branch'])->prefix('branch-dashboard')->name('branch-dashboard.')->group(function () {
     Route::get('/', App\Livewire\BranchDashboard\Index::class)->name('index');
 
     Route::get('/employees', App\Livewire\BranchDashboard\EmployeeModule\Index::class)->name('employees.index');

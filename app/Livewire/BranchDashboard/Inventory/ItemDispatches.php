@@ -9,8 +9,7 @@ use App\Models\Stock;
 use App\Models\StockMovement;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Livewire\Attributes\Layout;
-use Livewire\Attributes\Url;
+use Livewire\Attributes\{Layout, Url, On};
 use Livewire\Component;
 use Livewire\WithPagination;
 // use TallStackUi\
@@ -48,6 +47,18 @@ class ItemDispatches extends Component
     public function getBranchId()
     {
         return $this->b_id ? $this->b_id : request()->query('b_id');
+    }
+
+    public function mount()
+    {
+        $this->b_id = current_branch_id();
+    }
+
+    #[On('branch-changed')]
+    public function handleBranchChange($branchId)
+    {
+        $this->b_id = $branchId;
+        $this->resetPage();
     }
 
     public function render()

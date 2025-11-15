@@ -9,7 +9,7 @@ use App\Models\Stock;
 use App\Models\StockMovement;
 use Livewire\Component;
 use Livewire\WithPagination;
-use Livewire\Attributes\{Layout, Url};
+use Livewire\Attributes\{Layout, Url, On};
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 
@@ -55,10 +55,18 @@ class Purchases extends Component
 
     public function mount()
     {
+        $this->b_id = current_branch_id();
         $this->purchase_date = now()->format('Y-m-d');
     }
 
-        public function getBranchId()
+    #[On('branch-changed')]
+    public function handleBranchChange($branchId)
+    {
+        $this->b_id = $branchId;
+        $this->resetPage();
+    }
+
+    public function getBranchId()
     {
         return $this->b_id ? $this->b_id : request()->query('b_id');
     }

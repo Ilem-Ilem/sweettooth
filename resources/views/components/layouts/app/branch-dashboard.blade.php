@@ -38,6 +38,7 @@
 
                 <flux:navlist.group :heading="__('Leave Management')" expandable
                     :expanded="request()->routeIs('branch-dashboard.leave.*')" class="grid">
+@if(!is_super_admin())
                     <flux:navlist.item icon="calendar-days"
                         :href="branch_route('branch-dashboard.leave.apply')"
                         :current="request()->routeIs('branch-dashboard.leave.apply')" wire:navigate>
@@ -53,6 +54,8 @@
                         :current="request()->routeIs('branch-dashboard.leave.balance')" wire:navigate>
                         {{ __('Leave Balance') }}
                     </flux:navlist.item>
+                    @endif
+
                      <flux:navlist.item icon="clipboard-document-check"
                         :href="branch_route('branch-dashboard.leave.approve')"
                         :current="request()->routeIs('branch-dashboard.leave.approve')" wire:navigate>
@@ -166,8 +169,8 @@
             @php
 
                 $employee = \Illuminate\Support\Facades\Auth::guard('employees')->user();
-                $branchId = $employee?->branch_id;
-
+                $branchId =request()->get('b_id') ;
+                dd($branchId);
                 $departments = collect();
                 $OPEN_PRODUCTION = false;
                 $OPEN_DEPT = null;
@@ -380,9 +383,10 @@
 
         <flux:spacer />
 
+
         <!-- Desktop User Menu -->
         <flux:dropdown class="hidden lg:block" position="bottom" align="start">
-            <flux:profile :name="auth()->user()->name" :initials="auth()->user()->initials()"
+            <flux:profile :name="get_user_auth()->name" :initials="get_user_auth()->initials()"
                 icon:trailing="chevrons-up-down" />
 
             <flux:menu class="w-[220px]">
@@ -392,12 +396,12 @@
                             <span class="relative flex h-8 w-8 shrink-0 overflow-hidden rounded-lg">
                                 <span
                                     class="flex h-full w-full items-center justify-center rounded-lg bg-neutral-200 text-black dark:bg-neutral-700 dark:text-white">
-                                    {{ auth()->user()->initials() }}
+                                    {{ get_user_auth()->initials() }}
                                 </span>
                             </span>
                             <div class="grid flex-1 text-start text-sm leading-tight">
-                                <span class="truncate font-semibold">{{ auth()->user()->name }}</span>
-                                <span class="truncate text-xs">{{ auth()->user()->email }}</span>
+                                <span class="truncate font-semibold">{{ get_user_auth()->name }}</span>
+                                <span class="truncate text-xs">{{ get_user_auth()->email }}</span>
                             </div>
                         </div>
                     </div>
@@ -429,7 +433,7 @@
         <flux:spacer />
 
         <flux:dropdown position="top" align="end">
-            <flux:profile :initials="auth()->user()->initials()" icon-trailing="chevron-down" />
+            <flux:profile :initials="get_user_auth()->initials()" icon-trailing="chevron-down" />
 
             <flux:menu>
                 <flux:menu.radio.group>
@@ -438,13 +442,13 @@
                             <span class="relative flex h-8 w-8 shrink-0 overflow-hidden rounded-lg">
                                 <span
                                     class="flex h-full w-full items-center justify-center rounded-lg bg-neutral-200 text-black dark:bg-neutral-700 dark:text-white">
-                                    {{ auth()->user()->initials() }}
+                                    {{ get_user_auth()->initials() }}
                                 </span>
                             </span>
 
                             <div class="grid flex-1 text-start text-sm leading-tight">
-                                <span class="truncate font-semibold">{{ auth()->user()->name }}</span>
-                                <span class="truncate text-xs">{{ auth()->user()->email }}</span>
+                                <span class="truncate font-semibold">{{ get_user_auth()->name }}</span>
+                                <span class="truncate text-xs">{{ get_user_auth()->email }}</span>
                             </div>
                         </div>
                     </div>
@@ -576,7 +580,7 @@
 
         <!-- Desktop User Menu -->
         <flux:dropdown position="top" align="end">
-            <flux:profile class="cursor-pointer" :initials="auth()->user()->initials()" />
+            <flux:profile class="cursor-pointer" :initials="get_user_auth()->initials()" />
 
             <flux:menu>
                 <flux:menu.radio.group>
@@ -585,13 +589,13 @@
                             <span class="relative flex h-8 w-8 shrink-0 overflow-hidden rounded-lg">
                                 <span
                                     class="flex h-full w-full items-center justify-center rounded-lg bg-neutral-200 text-black dark:bg-neutral-700 dark:text-white">
-                                    {{ auth()->user()->initials() }}
+                                    {{ get_user_auth()->initials() }}
                                 </span>
                             </span>
 
                             <div class="grid flex-1 text-start text-sm leading-tight">
-                                <span class="truncate font-semibold">{{ auth()->user()->name }}</span>
-                                <span class="truncate text-xs">{{ auth()->user()->email }}</span>
+                                <span class="truncate font-semibold">{{ get_user_auth()->name }}</span>
+                                <span class="truncate text-xs">{{ get_user_auth()->email }}</span>
                             </div>
                         </div>
                     </div>
@@ -620,6 +624,10 @@
     </flux:header>
 
     <flux:main>
+        {{-- Branch Selector for Super Admins --}}
+        @if(auth()->user() != null)
+        <livewire:components.branch-selector />
+        @endif
         <div wire:loading
             class="fixed top-4 right-4 z-50 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center space-x-2">
             <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

@@ -6,7 +6,7 @@ use Livewire\Component;
 use App\Models\Employee;
 use App\Models\LeaveApplication;
 use App\Models\EmployeeLeaveBalance;
-use Livewire\Attributes\{Layout, Url};
+use Livewire\Attributes\{Layout, Url, On};
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Details extends Component
@@ -20,12 +20,22 @@ class Details extends Component
     public $b_id;
 
     public function mount($employee_number, $id){
+        // Set b_id from current branch context
+        $this->b_id = current_branch_id();
+
         $employee = Employee::with(['department', 'branch', 'roles'])->
         where('id', '=',  $id)->where('employee_number', '=', $employee_number)->firstOrFail();
         $this->employee = $employee;
 
         // Load leave information
         $this->loadLeaveData();
+    }
+
+    // Listen for branch changes from BranchSelector (for super admins)
+    #[On('branch-changed')]
+    public function handleBranchChange($branchId)
+    {
+        $this->b_id = $branchId;
     }
 
     protected function loadLeaveData()

@@ -6,14 +6,21 @@ use App\Livewire\BaseComponent;
 use App\Models\{Product, Employee};
 use App\Models\ProductType;
 use App\Models\Department;
-use Livewire\Attributes\Layout;
-use Livewire\Attributes\Url;
+use Livewire\Attributes\{Layout, On, Url};
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Products extends BaseComponent
 {
     #[Url(keep:true)]
     public $b_id;
+
+    // Listen for branch changes from BranchSelector (for super admins)
+    #[On('branch-changed')]
+    public function handleBranchChange($branchId)
+    {
+        $this->b_id = $branchId;
+        $this->resetPage();
+    }
 
     public ?int $quantity = 10;
     public ?string $search = null;

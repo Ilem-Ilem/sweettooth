@@ -15,7 +15,8 @@ class BranchMiddleware
      */
       public function handle(Request $request, Closure $next): Response
     {
-        $b_id = $request->query('b_id');
+        // Try to get b_id from query parameter, fall back to session (for super admins)
+        $b_id = $request->query('b_id') ?? current_branch_id();
 
         // Validate format first
         $validator = Validator::make(['b_id' => $b_id], [

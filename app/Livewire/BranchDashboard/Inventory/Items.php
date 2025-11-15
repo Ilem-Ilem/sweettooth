@@ -8,7 +8,7 @@ use App\Models\Stock;
 use App\Models\StockMovement;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Livewire\Attributes\{Layout, Url};
+use Livewire\Attributes\{Layout, Url, On};
 
 
 #[Layout('components.layouts.app.branch-dashboard')]
@@ -16,6 +16,21 @@ class Items extends BaseComponent
 {
     #[Url(keep:true)]
     public $b_id;
+
+    public function mount()
+    {
+        // Set b_id from current branch context (works for both employees and super admins)
+        $this->b_id = current_branch_id();
+    }
+
+    // Listen for branch changes from BranchSelector (for super admins)
+    #[On('branch-changed')]
+    public function handleBranchChange($branchId)
+    {
+        $this->b_id = $branchId;
+        $this->resetPage();
+        $this->resetFilters();
+    }
     public ?int $quantity = 10;
     public ?string $search = null;
     public ?string $advancedSearch = null;

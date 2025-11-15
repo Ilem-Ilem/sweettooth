@@ -16,7 +16,7 @@ if (!function_exists('current_branch_id')) {
      *
      * @return int|null
      */
-    function current_branch_id(): ?int
+    function current_branch_id(): ?string
     {
         // First check session (for super admins who can switch branches)
         if (session()->has('selected_branch_id')) {
@@ -30,6 +30,13 @@ if (!function_exists('current_branch_id')) {
 
         // Fallback to null if no branch context available
         return null;
+    }
+}
+
+if (!function_exists('get_user_auth')) {
+    function get_user_auth()
+    {
+        return auth("employees")->user() ?? auth()->user();
     }
 }
 
@@ -89,7 +96,7 @@ if (!function_exists('get_accessible_branches')) {
     function get_accessible_branches(): \Illuminate\Support\Collection
     {
         if (can_access_all_branches()) {
-            return \App\Models\Branch::where('status', 'active')
+            return \App\Models\Branch::where('is_active', 1)
                 ->orderBy('name')
                 ->get();
         }
@@ -114,7 +121,7 @@ if (!function_exists('set_current_branch')) {
      * @param bool $updateUserPreference
      * @return void
      */
-    function set_current_branch(int $branchId, bool $updateUserPreference = true): void
+    function set_current_branch(string $branchId, bool $updateUserPreference = true): void
     {
         session(['selected_branch_id' => $branchId]);
 
@@ -149,7 +156,7 @@ if (!function_exists('validate_branch_access')) {
      * @param int $branchId
      * @return bool
      */
-    function validate_branch_access(int $branchId): bool
+    function validate_branch_access(string $branchId): bool
     {
         // Super admins can access all branches
         if (can_access_all_branches()) {

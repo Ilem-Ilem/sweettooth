@@ -4,8 +4,7 @@ namespace App\Livewire\BranchDashboard\SalesDashboard;
 
 use App\Services\CheckExpiredProducts;
 use Livewire\Component;
-use Livewire\Attributes\Layout;
-use Livewire\Attributes\Url;
+use Livewire\Attributes\{Layout, On, Url};
 use TallStackUi\Traits\Interactions;
 use Illuminate\Support\Facades\Auth;
 
@@ -16,6 +15,14 @@ class ExpiryAlerts extends Component
 
     #[Url(keep: true)]
     public $b_id;
+
+    // Listen for branch changes from BranchSelector (for super admins)
+    #[On('branch-changed')]
+    public function handleBranchChange($branchId)
+    {
+        $this->b_id = $branchId;
+        $this->loadExpiryData();
+    }
 
     public $salesShiftId;
     public $expiredProducts = [];

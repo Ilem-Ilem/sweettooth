@@ -7,8 +7,7 @@ use App\Models\CompiledReport;
 use App\Services\Reports\ReportCompilationService;
 use Carbon\Carbon;
 use Livewire\Component;
-use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
+use Livewire\Attributes\{Layout, On, Title, Url};
 use Livewire\WithPagination;
 use TallStackUi\Traits\Interactions;
 
@@ -17,6 +16,9 @@ use TallStackUi\Traits\Interactions;
 class Index extends Component
 {
     use Interactions, WithPagination;
+
+    #[Url(keep: true)]
+    public $b_id;
 
     public $selectedReports = [];
     public $compilationTitle = '';
@@ -31,8 +33,16 @@ class Index extends Component
 
     public function mount()
     {
+        $this->b_id = $this->b_id ?? current_branch_id();
         $this->periodFrom = Carbon::now()->startOfMonth()->toDateString();
         $this->periodTo = Carbon::now()->endOfMonth()->toDateString();
+    }
+
+    // Listen for branch changes from BranchSelector (for super admins)
+    #[On('branch-changed')]
+    public function handleBranchChange($branchId)
+    {
+        $this->b_id = $branchId;
     }
 
     public function toggleReport($reportId)
@@ -94,7 +104,7 @@ class Index extends Component
                 $this->selectedReports,
                 $this->compilationTitle,
                 $this->compilationDescription,
-                auth('employees')->user()->branch_id,
+                $this->b_id ?? current_branch_id(),
                 auth('employees')->id(),
                 $this->periodFrom,
                 $this->periodTo
@@ -118,7 +128,7 @@ class Index extends Component
     {
         $query = DepartmentReport::query()
             ->with(['department', 'generatedBy'])
-            ->forBranch(auth('employees')->user()->branch_id)
+            ->forBranch($this->b_id ?? current_branch_id())
             ->whereBetween('report_date', [$this->periodFrom, $this->periodTo]);
 
         if ($this->filterCategory !== 'all') {

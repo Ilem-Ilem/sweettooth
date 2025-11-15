@@ -6,8 +6,7 @@ use App\Models\DepartmentReport;
 use App\Services\Reports\ReorderReportService;
 use Carbon\Carbon;
 use Livewire\Component;
-use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
+use Livewire\Attributes\{Layout, Title, On};
 use TallStackUi\Traits\Interactions;
 
 #[Layout('components.layouts.app.branch-dashboard')]
@@ -16,6 +15,7 @@ class Index extends Component
 {
     use Interactions;
 
+    public $branchId;
     public $periodFilter = 'today';
     public $customDateFrom;
     public $customDateTo;
@@ -29,9 +29,17 @@ class Index extends Component
 
     public function mount()
     {
+        $this->branchId = current_branch_id();
         $this->departmentId = session('selected_department_id');
         $this->setDateRange();
         $this->generatePreview(); // Auto-generate on load
+    }
+
+    #[On('branch-changed')]
+    public function handleBranchChange($branchId)
+    {
+        $this->branchId = $branchId;
+        $this->generatePreview(); // Regenerate report for new branch
     }
 
     public function setDateRange()
@@ -47,7 +55,7 @@ class Index extends Component
         try {
             $service = new ReorderReportService();
 
-            $service->forBranch(auth('employees')->user()->branch_id)
+            $service->forBranch($this->branchId)
                 ->forDepartment($this->departmentId)
                 ->forPeriod($this->customDateFrom, $this->customDateTo);
 
@@ -69,7 +77,7 @@ class Index extends Component
             $service = new ReorderReportService();
 
             $this->generatedReport = $service
-                ->forBranch(auth('employees')->user()->branch_id)
+                ->forBranch($this->branchId)
                 ->forDepartment($this->departmentId)
                 ->forPeriod($this->customDateFrom, $this->customDateTo)
                 ->generate(auth('employees')->id());

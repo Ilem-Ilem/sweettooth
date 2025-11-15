@@ -7,8 +7,7 @@ use App\Models\ProductStock;
 use App\Models\Product;
 use App\Models\Shift;
 use Illuminate\Support\Facades\DB;
-use Livewire\Attributes\Layout;
-use Livewire\Attributes\Url;
+use Livewire\Attributes\{Layout, On, Url};
 use Livewire\WithPagination;
 use TallStackUi\Traits\Interactions;
 
@@ -19,6 +18,15 @@ class StockMonitor extends BaseComponent
 
     #[Url(keep: true)]
     public $b_id;
+
+    // Listen for branch changes from BranchSelector (for super admins)
+    #[On('branch-changed')]
+    public function handleBranchChange($branchId)
+    {
+        $this->b_id = $branchId;
+        $this->resetPage();
+        $this->calculateStats();
+    }
 
     public ?int $quantity = 20;
     public ?string $search = null;

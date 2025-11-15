@@ -10,9 +10,7 @@ use App\Models\Branch;
 use App\Models\Department;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
-use Livewire\Attributes\Layout;
-use Livewire\Attributes\Url;
-use Livewire\Attributes\Computed;
+use Livewire\Attributes\{Layout, Url, Computed, On};
 use Carbon\Carbon;
 use TallStackUi\Traits\Interactions;
 
@@ -59,15 +57,26 @@ class Index extends BaseComponent
     public function mount()
     {
         $this->mountBase();
+        $this->b_id = current_branch_id();
         $this->loadBranchAndDepartment();
         $this->employeeId = auth('employees')->id();
         $this->setDateRange('today');
     }
 
+    #[On('branch-changed')]
+    public function handleBranchChange($branchId)
+    {
+        $this->b_id = $branchId;
+        $this->branchId = $branchId;
+        $this->loadBranchAndDepartment();
+    }
+
     protected function loadBranchAndDepartment(): void
     {
-        // Load branch
-        $this->branchId = request('b_id');
+        // Load branch - use helper for super admin support
+        if (!$this->branchId) {
+            $this->branchId = current_branch_id();
+        }
         if ($this->branchId) {
             $branch = Branch::find($this->branchId);
             $this->branchName = $branch?->name ?? 'Unknown Branch';

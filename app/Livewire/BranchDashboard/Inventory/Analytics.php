@@ -9,8 +9,7 @@ use App\Models\Purchase;
 use App\Models\ItemRequest;
 use App\Models\Item;
 use Illuminate\Support\Facades\DB;
-use Livewire\Attributes\Layout;
-use Livewire\Attributes\Url;
+use Livewire\Attributes\{Layout, On, Url};
 use Carbon\Carbon;
 use TallStackUi\Traits\Interactions;
 
@@ -21,6 +20,14 @@ class Analytics extends BaseComponent
 
     #[Url(keep: true)]
     public $b_id;
+
+    // Listen for branch changes from BranchSelector (for super admins)
+    #[On('branch-changed')]
+    public function handleBranchChange($branchId)
+    {
+        $this->b_id = $branchId;
+        $this->loadAnalytics();
+    }
 
     // Filters
     public $dateFrom;

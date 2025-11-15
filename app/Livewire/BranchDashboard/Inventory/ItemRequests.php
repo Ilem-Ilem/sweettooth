@@ -9,7 +9,7 @@ use App\Models\ItemRequestDetail;
 use App\Models\Stock;
 use Livewire\Component;
 use Livewire\WithPagination;
-use Livewire\Attributes\{Layout, Url};
+use Livewire\Attributes\{Layout, Url, On};
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -64,7 +64,16 @@ class ItemRequests extends Component
 
     public function mount()
     {
+        $this->b_id = current_branch_id();
         $this->request_date = now()->addDays(1)->format('Y-m-d');
+    }
+
+    #[On('branch-changed')]
+    public function handleBranchChange($branchId)
+    {
+        $this->b_id = $branchId;
+        $this->resetPage();
+        $this->resetFilters();
     }
 
     public function render()

@@ -10,8 +10,7 @@ use App\Models\Recipe;
 use App\Models\RecipeIngredient;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Livewire\Attributes\Layout;
-use Livewire\Attributes\Url;
+use Livewire\Attributes\{Layout, On, Url};
 use App\Models\Employee;
 
 #[Layout('components.layouts.app.branch-dashboard')]
@@ -19,6 +18,14 @@ class Recipes extends BaseComponent
 {
     #[Url(keep: true)]
     public $b_id;
+
+    // Listen for branch changes from BranchSelector (for super admins)
+    #[On('branch-changed')]
+    public function handleBranchChange($branchId)
+    {
+        $this->b_id = $branchId;
+        $this->resetPage();
+    }
 
     public ?int $quantity = 10;
 

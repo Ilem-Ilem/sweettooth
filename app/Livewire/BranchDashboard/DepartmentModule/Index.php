@@ -6,7 +6,7 @@ use App\Livewire\BaseComponent;
 use App\Models\Department;
 use App\Models\Branch;
 use App\Models\DepartmentCategory;
-use Livewire\Attributes\{Layout, Url};
+use Livewire\Attributes\{Layout, On, Url};
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Index extends BaseComponent
@@ -19,6 +19,14 @@ class Index extends BaseComponent
 
     #[Url(keep: true)]
     public $b_id;
+
+    // Listen for branch changes from BranchSelector (for super admins)
+    #[On('branch-changed')]
+    public function handleBranchChange($branchId)
+    {
+        $this->b_id = $branchId;
+        $this->resetPage();
+    }
 
     // Filter fields
     public ?string $filterCategory = null;

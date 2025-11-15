@@ -8,7 +8,7 @@ use App\Models\Branch;
 use App\Models\Department;
 use Livewire\WithFileUploads;
 use Spatie\Permission\Models\Role;
-use Livewire\Attributes\{Layout, Url};
+use Livewire\Attributes\{Layout, Url, On};
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Edit extends BaseComponent
@@ -71,6 +71,9 @@ class Edit extends BaseComponent
 
     public function mount($id)
     {
+        // Set b_id from current branch context
+        $this->b_id = current_branch_id();
+
         $employee = Employee::findOrFail($id);
 
         $this->employeeId = $employee->id;
@@ -100,6 +103,15 @@ class Edit extends BaseComponent
         $this->last_performance_review_date = $employee->last_performance_review_date;
         $this->performance_rating = $employee->performance_rating;
         $this->selectedRoles = $employee->roles->pluck('name')->toArray();
+    }
+
+    // Listen for branch changes from BranchSelector (for super admins)
+    #[On('branch-changed')]
+    public function handleBranchChange($branchId)
+    {
+        $this->b_id = $branchId;
+        // Note: We don't reload employee data on branch change when editing
+        // as we're editing a specific employee regardless of current branch context
     }
 
     public function updatedBranchId($value)

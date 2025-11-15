@@ -6,8 +6,7 @@ use App\Models\DepartmentReport;
 use App\Models\CompiledReport;
 use Carbon\Carbon;
 use Livewire\Component;
-use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
+use Livewire\Attributes\{Layout, On, Title, Url};
 
 #[Layout('components.layouts.app.branch-dashboard')]
 #[Title('Reporting Department Dashboard')]
@@ -15,14 +14,27 @@ class Index extends Component
 {
     public $stats = [];
 
+    #[Url(keep: true)]
+    public $b_id;
+
     public function mount()
     {
+        $this->b_id = $this->b_id ?? current_branch_id();
+        $this->loadStats();
+    }
+
+    // Listen for branch changes from BranchSelector (for super admins)
+    #[On('branch-changed')]
+    public function handleBranchChange($branchId)
+    {
+        $this->b_id = $branchId;
         $this->loadStats();
     }
 
     public function loadStats()
     {
-        $branchId = auth('employees')->user()->branch_id;
+        // Support both super admin (b_id) and employee (current_branch_id)
+        $branchId = $this->b_id ?? current_branch_id();
 
         $this->stats = [
             'pending_review' => DepartmentReport::forBranch($branchId)

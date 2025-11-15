@@ -6,7 +6,7 @@ use App\Models\Stock;
 use App\Models\StockMovement;
 use Livewire\Component;
 use Livewire\WithPagination;
-use Livewire\Attributes\{Layout, Url};
+use Livewire\Attributes\{Layout, Url, On};
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -19,6 +19,18 @@ class Stocks extends Component
     public $quantity = 15;
     #[Url(keep: true)]
     public $b_id;
+
+    public function mount()
+    {
+        $this->b_id = current_branch_id();
+    }
+
+    #[On('branch-changed')]
+    public function handleBranchChange($branchId)
+    {
+        $this->b_id = $branchId;
+        $this->resetPage();
+    }
     // Filters
     public $search = '';
 

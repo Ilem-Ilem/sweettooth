@@ -4,20 +4,30 @@ namespace App\Livewire\BranchDashboard\ReportingDepartment\ViewCompiled;
 
 use App\Models\CompiledReport;
 use Livewire\Component;
-use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
+use Livewire\Attributes\{Layout, On, Title, Url};
 
 #[Layout('components.layouts.app.branch-dashboard')]
 #[Title('View Compiled Report')]
 class Index extends Component
 {
+    #[Url(keep: true)]
+    public $b_id;
+
     public $compiledReport;
     public $reportId;
 
     public function mount($id)
     {
+        $this->b_id = $this->b_id ?? current_branch_id();
         $this->reportId = $id;
         $this->loadReport();
+    }
+
+    // Listen for branch changes from BranchSelector (for super admins)
+    #[On('branch-changed')]
+    public function handleBranchChange($branchId)
+    {
+        $this->b_id = $branchId;
     }
 
     public function loadReport()
@@ -30,7 +40,7 @@ class Index extends Component
             'departmentReports.department',
             'departmentReports.generatedBy'
         ])
-            ->where('branch_id', auth('employees')->user()->branch_id)
+            ->where('branch_id', $this->b_id ?? current_branch_id())
             ->findOrFail($this->reportId);
     }
 

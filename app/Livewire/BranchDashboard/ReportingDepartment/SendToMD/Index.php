@@ -6,8 +6,7 @@ use App\Models\CompiledReport;
 use App\Models\User;
 use App\Services\Reports\ReportCompilationService;
 use Livewire\Component;
-use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
+use Livewire\Attributes\{Layout, On, Title, Url};
 use Livewire\WithPagination;
 use TallStackUi\Traits\Interactions;
 
@@ -17,9 +16,24 @@ class Index extends Component
 {
     use Interactions, WithPagination;
 
+    #[Url(keep: true)]
+    public $b_id;
+
     public $selectedMdUser;
     public $showSendModal = false;
     public $reportToSend;
+
+    public function mount()
+    {
+        $this->b_id = $this->b_id ?? current_branch_id();
+    }
+
+    // Listen for branch changes from BranchSelector (for super admins)
+    #[On('branch-changed')]
+    public function handleBranchChange($branchId)
+    {
+        $this->b_id = $branchId;
+    }
 
     public function sendToMD($reportId)
     {
@@ -94,7 +108,7 @@ class Index extends Component
     {
         $compiledReports = CompiledReport::query()
             ->with(['compiledBy', 'approvedBy', 'mdUser'])
-            ->forBranch(auth('employees')->user()->branch_id)
+            ->forBranch($this->b_id ?? current_branch_id())
             ->orderBy('compilation_date', 'desc')
             ->paginate(10);
 

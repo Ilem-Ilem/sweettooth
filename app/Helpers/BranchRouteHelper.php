@@ -7,11 +7,15 @@ use Illuminate\Support\Facades\Log;
 if (! function_exists('branch_route')) {
     /**
      * Generate a route URL that automatically includes and validates the current b_id query parameter.
+     * Falls back to session value if not in URL.
      */
     function branch_route(string $name, array $params = [], bool $absolute = true): string
     {
-        // Try to get the current b_id from request if not manually passed
-        $b_id = $params['b_id'] ?? Request::query('b_id');
+        // Try to get the current b_id from:
+        // 1. Manually passed params
+        // 2. Request query parameter
+        // 3. Session (for super admins)
+        $b_id = $params['b_id'] ?? Request::query('b_id') ?? current_branch_id();
 
         // Validate that it's a proper UUID
         $validator = Validator::make(['b_id' => $b_id], [

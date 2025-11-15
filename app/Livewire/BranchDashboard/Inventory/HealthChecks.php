@@ -6,7 +6,7 @@ use App\Models\HealthCheck;
 use App\Models\Stock;
 use Livewire\Component;
 use Livewire\WithPagination;
-use Livewire\Attributes\{Layout,Url};
+use Livewire\Attributes\{Layout, On, Url};
 use Illuminate\Support\Facades\Auth;
 
 #[Layout('components.layouts.app.branch-dashboard')]
@@ -15,6 +15,15 @@ class HealthChecks extends Component
     use WithPagination;
     #[Url(keep:true)]
     public $b_id;
+
+    // Listen for branch changes from BranchSelector (for super admins)
+    #[On('branch-changed')]
+    public function handleBranchChange($branchId)
+    {
+        $this->b_id = $branchId;
+        $this->resetPage();
+    }
+
     public $search = '';
     public $filterCondition = '';
     public $filterDateFrom = '';

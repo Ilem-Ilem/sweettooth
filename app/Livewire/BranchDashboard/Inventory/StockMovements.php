@@ -7,7 +7,7 @@ use App\Models\Department;
 use App\Models\Employee;
 use Livewire\Component;
 use Livewire\WithPagination;
-use Livewire\Attributes\{Layout, Url};
+use Livewire\Attributes\{Layout, Url, On};
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
@@ -18,6 +18,18 @@ class StockMovements extends Component
 
     #[Url(keep: true)]
     public $b_id;
+
+    public function mount()
+    {
+        $this->b_id = current_branch_id();
+    }
+
+    #[On('branch-changed')]
+    public function handleBranchChange($branchId)
+    {
+        $this->b_id = $branchId;
+        $this->resetPage();
+    }
 
     public $quantity = 15;
     public $search = '';

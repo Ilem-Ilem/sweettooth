@@ -4,8 +4,7 @@ namespace App\Livewire\BranchDashboard\Production;
 
 use App\Models\Recipe;
 use App\Models\Department;
-use Livewire\Attributes\Layout;
-use Livewire\Attributes\Url;
+use Livewire\Attributes\{Layout, On, Url};
 use Livewire\Component;
 
 #[Layout('components.layouts.app.branch-dashboard')]
@@ -13,6 +12,14 @@ class RecipeDetail extends Component
 {
     #[Url(keep: true)]
     public $b_id;
+
+    // Listen for branch changes from BranchSelector (for super admins)
+    #[On('branch-changed')]
+    public function handleBranchChange($branchId)
+    {
+        $this->b_id = $branchId;
+        $this->loadRecipe();
+    }
 
     public $recipeId;
     public $recipe;

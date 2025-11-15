@@ -9,7 +9,7 @@ use App\Models\Department;
 use Illuminate\Support\Facades\Hash;
 use Livewire\WithFileUploads;
 use Spatie\Permission\Models\Role;
-use Livewire\Attributes\{Layout, Url};
+use Livewire\Attributes\{Layout, Url, On};
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Create extends BaseComponent
@@ -72,12 +72,23 @@ class Create extends BaseComponent
 
     public function mount()
     {
+        // Set b_id from current branch context (works for both employees and super admins)
+        $this->b_id = current_branch_id();
+
         $this->hire_date = date('Y-m-d');
 
-         // Generate employee number based on selected branch
+        // Generate employee number based on selected branch
+        $this->employee_number = $this->generateEmployeeNumber();
+    }
 
-            $this->employee_number = $this->generateEmployeeNumber();
-
+    // Listen for branch changes from BranchSelector (for super admins)
+    #[On('branch-changed')]
+    public function handleBranchChange($branchId)
+    {
+        $this->b_id = $branchId;
+        // Regenerate employee number for new branch
+        $this->employee_number = $this->generateEmployeeNumber();
+        $this->department_id = null; // Reset department when branch changes
     }
 
     // public function updatedname($value)

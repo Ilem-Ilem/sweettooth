@@ -4,8 +4,7 @@ namespace App\Livewire\BranchDashboard\ReportingDepartment\ReviewReports;
 
 use App\Models\DepartmentReport;
 use Livewire\Component;
-use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
+use Livewire\Attributes\{Layout, On, Title, Url};
 use Livewire\WithPagination;
 use TallStackUi\Traits\Interactions;
 
@@ -15,11 +14,26 @@ class Index extends Component
 {
     use Interactions, WithPagination;
 
+    #[Url(keep: true)]
+    public $b_id;
+
     public $selectedReport;
     public $showReviewModal = false;
     public $reviewNotes = '';
     public $filterCategory = 'all';
     public $filterDepartment = 'all';
+
+    public function mount()
+    {
+        $this->b_id = $this->b_id ?? current_branch_id();
+    }
+
+    // Listen for branch changes from BranchSelector (for super admins)
+    #[On('branch-changed')]
+    public function handleBranchChange($branchId)
+    {
+        $this->b_id = $branchId;
+    }
 
     public function openReviewModal($reportId)
     {
@@ -93,7 +107,7 @@ class Index extends Component
 
     public function render()
     {
-        $branchId = auth('employees')->user()->branch_id;
+        $branchId = $this->b_id ?? current_branch_id();
 
         $query = DepartmentReport::query()
             ->with(['department', 'generatedBy', 'reviewedBy'])

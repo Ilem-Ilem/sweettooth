@@ -6,16 +6,26 @@ use App\Models\Stock;
 use App\Models\ItemRequest;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
-use Livewire\Attributes\Layout;
+use Livewire\Attributes\{Layout, On, Url};
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class AlertsDashboard extends Component
 {
     public $alertType = '';
 
+    #[Url(keep:true)]
+    public $b_id;
+
+    // Listen for branch changes from BranchSelector (for super admins)
+    #[On('branch-changed')]
+    public function handleBranchChange($branchId)
+    {
+        $this->b_id = $branchId;
+    }
+
     public function getAllAlerts()
     {
-        $branchId = Auth::guard('employees')->user()->branch_id;
+        $branchId = $this->b_id ?? request()->get('b_id');
         $stocks = Stock::with('item')->where('branch_id', $branchId)->get();
         $alerts = collect();
 

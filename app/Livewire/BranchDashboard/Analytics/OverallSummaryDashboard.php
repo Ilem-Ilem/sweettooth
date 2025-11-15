@@ -10,7 +10,7 @@ use App\Models\Item;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
-use Livewire\Attributes\Layout;
+use Livewire\Attributes\{Layout, On, Url};
 use Carbon\Carbon;
 use TallStackUi\Traits\Interactions;
 
@@ -24,6 +24,16 @@ class OverallSummaryDashboard extends Component
     public $departmentFilter = null;
     public $categoryFilter = null;
     public $autoRefresh = false;
+
+    #[Url(keep:true)]
+    public $b_id;
+
+    // Listen for branch changes from BranchSelector (for super admins)
+    #[On('branch-changed')]
+    public function handleBranchChange($branchId)
+    {
+        $this->b_id = $branchId;
+    }
 
     // Previous period metrics for comparison
     public $previousStockValue = 0;
@@ -54,7 +64,7 @@ class OverallSummaryDashboard extends Component
 
     public function getOverallSummary()
     {
-        $branchId = Auth::guard('employees')->user()->branch_id;
+        $branchId = $this->b_id;
         $dateFrom = Carbon::parse($this->dateFrom);
         $dateTo = Carbon::parse($this->dateTo);
 
@@ -114,7 +124,7 @@ class OverallSummaryDashboard extends Component
 
     public function getStockHealthOverview()
     {
-        $branchId = Auth::guard('employees')->user()->branch_id;
+        $branchId = $this->b_id ?? request()->get('b_id');
 
         $distribution = Stock::where('branch_id', $branchId)
             ->selectRaw('health_status, COUNT(*) as count')
@@ -129,7 +139,8 @@ class OverallSummaryDashboard extends Component
 
     public function getRecentActivity()
     {
-        $branchId = Auth::guard('employees')->user()->branch_id;
+        $branchId = $this->b_id ?? request()->get('b_id');
+
 
         return StockMovement::with(['stock.item', 'mover'])
             ->whereHas('stock', fn($q) => $q->where('branch_id', $branchId))
@@ -141,7 +152,7 @@ class OverallSummaryDashboard extends Component
 
     public function getTopAlerts()
     {
-        $branchId = Auth::guard('employees')->user()->branch_id;
+        $branchId = $this->b_id ?? request()->get('b_id');
 
         $stocks = Stock::with('item')->where('branch_id', $branchId)->get();
 
@@ -198,7 +209,8 @@ class OverallSummaryDashboard extends Component
 
     public function getInsights()
     {
-        $branchId = Auth::guard('employees')->user()->branch_id;
+        $branchId = $this->b_id ?? request()->get('b_id');
+
         $summary = $this->getOverallSummary();
         $insights = [];
 
@@ -277,7 +289,8 @@ class OverallSummaryDashboard extends Component
 
     public function getStockHealthTable()
     {
-        $branchId = Auth::guard('employees')->user()->branch_id;
+       $branchId = $this->b_id ?? request()->get('b_id');
+
 
         return Stock::where('branch_id', $branchId)
             ->with('item')
@@ -334,7 +347,8 @@ class OverallSummaryDashboard extends Component
 
     public function getDepartmentBreakdown()
     {
-        $branchId = Auth::guard('employees')->user()->branch_id;
+        $branchId = $this->b_id ?? request()->get('b_id');
+
 
         return Stock::where('branch_id', $branchId)
             ->with('item')
@@ -379,7 +393,8 @@ class OverallSummaryDashboard extends Component
 
     public function getPerformanceMetrics()
     {
-        $branchId = Auth::guard('employees')->user()->branch_id;
+       $branchId = $this->b_id ?? request()->get('b_id');
+
         $summary = $this->getOverallSummary();
         $days = max(1, Carbon::parse($this->dateTo)->diffInDays(Carbon::parse($this->dateFrom)));
 

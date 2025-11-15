@@ -8,8 +8,7 @@ use App\Models\Recipe;
 use App\Models\Item;
 use App\Models\Department;
 use Illuminate\Support\Facades\Auth;
-use Livewire\Attributes\Layout;
-use Livewire\Attributes\Url;
+use Livewire\Attributes\{Layout, On, Url};
 use Livewire\Component;
 use Livewire\WithPagination;
 use TallStackUi\Traits\Interactions;
@@ -21,6 +20,15 @@ class RawMaterialTracking extends Component
 
     #[Url(keep: true)]
     public $b_id;
+
+    // Listen for branch changes from BranchSelector (for super admins)
+    #[On('branch-changed')]
+    public function handleBranchChange($branchId)
+    {
+        $this->b_id = $branchId;
+        $this->resetPage();
+        $this->loadCurrentShift();
+    }
 
     public $selectedShiftId = null;
     public $filterRecipe = '';

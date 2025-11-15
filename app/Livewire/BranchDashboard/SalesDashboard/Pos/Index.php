@@ -16,7 +16,7 @@ use App\Models\Department;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
-use Livewire\Attributes\{Layout, Url, Computed};
+use Livewire\Attributes\{Layout, Url, Computed, On};
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Index extends BaseComponent
@@ -89,10 +89,21 @@ class Index extends BaseComponent
         $this->checkTableManagement();
     }
 
+    #[On('branch-changed')]
+    public function handleBranchChange($branchId)
+    {
+        $this->branchId = $branchId;
+        $this->loadBranchAndDepartment();
+        $this->loadActiveShift();
+        $this->resetCart();
+    }
+
     protected function loadBranchAndDepartment(): void
     {
-        // Load branch
-        $this->branchId = request('b_id');
+        // Load branch - use helper for super admin support
+        if (!$this->branchId) {
+            $this->branchId = current_branch_id();
+        }
         if ($this->branchId) {
             $branch = Branch::find($this->branchId);
             $this->branchName = $branch?->name ?? 'Unknown Branch';
