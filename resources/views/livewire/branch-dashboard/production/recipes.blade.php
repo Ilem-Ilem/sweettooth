@@ -160,7 +160,7 @@
 
         @interact('column_action', $row)
             <div class="flex items-center space-x-2">
-                <a href="{{ branch_route('branch-dashboard.production.recipes.detail', ['id' => $row->id]) }}"
+                <a href="{{ branch_route('branch-dashboard.production.recipes.detail', ['id' => $row->id, 'deptSlug'=>$dept_slug]) }}"
                     class="p-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                     title="View Details">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

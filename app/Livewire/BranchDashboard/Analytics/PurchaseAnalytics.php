@@ -102,7 +102,7 @@ class PurchaseAnalytics extends Component
 
     public function getPurchaseTrendData()
     {
-        $branchId = Auth::guard('employees')->user()->branch_id;
+        $branchId = @Auth::guard('employees')->user()->branch_id ??  request()->get('b_id');
 
         $purchases = Purchase::where('branch_id', $branchId)
             ->when($this->supplierFilter, fn($q) => $q->where('supplier_name', 'like', '%' . $this->supplierFilter . '%'))
@@ -124,7 +124,7 @@ class PurchaseAnalytics extends Component
 
     public function getSupplierAnalysis()
     {
-        $branchId = Auth::guard('employees')->user()->branch_id;
+        $branchId = @Auth::guard('employees')->user()->branch_id ??  request()->get('b_id');
 
         $suppliers = Purchase::where('branch_id', $branchId)
             ->when($this->supplierFilter, fn($q) => $q->where('supplier_name', 'like', '%' . $this->supplierFilter . '%'))
@@ -146,7 +146,7 @@ class PurchaseAnalytics extends Component
 
     public function getCostBreakdown()
     {
-        $branchId = Auth::guard('employees')->user()->branch_id;
+        $branchId = @Auth::guard('employees')->user()->branch_id ??  request()->get('b_id');
 
         $breakdown = Purchase::where('branch_id', $branchId)
             ->when($this->supplierFilter, fn($q) => $q->where('supplier_name', 'like', '%' . $this->supplierFilter . '%'))
@@ -171,7 +171,7 @@ class PurchaseAnalytics extends Component
 
     public function getTopPurchasedItems()
     {
-        $branchId = Auth::guard('employees')->user()->branch_id;
+        $branchId = @Auth::guard('employees')->user()->branch_id ??  request()->get('b_id');  
 
         return PurchaseItem::with(['item', 'purchase'])
             ->whereHas('purchase', function ($query) use ($branchId) {
@@ -189,7 +189,7 @@ class PurchaseAnalytics extends Component
 
     public function getSummary()
     {
-        $branchId = Auth::guard('employees')->user()->branch_id;
+        $branchId = @Auth::guard('employees')->user()->branch_id ??  request()->get('b_id');
 
         $purchases = Purchase::where('branch_id', $branchId)
             ->whereBetween('purchase_date', [$this->dateFrom, $this->dateTo])
@@ -207,7 +207,7 @@ class PurchaseAnalytics extends Component
 
     public function render()
     {
-        $branchId = Auth::guard('employees')->user()->branch_id;
+        $branchId = @Auth::guard('employees')->user()->branch_id ??  request()->get('b_id');
 
         $purchases = Purchase::with('recorder')
             ->where('branch_id', $branchId)

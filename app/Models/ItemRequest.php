@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 class ItemRequest extends Model
 {
     use HasFactory;
@@ -71,28 +71,24 @@ class ItemRequest extends Model
         return $this->belongsTo(Department::class);
     }
 
-    /**
-     * Get the employee who made the request
-     */
-    public function requester(): BelongsTo
+   public function creator(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'requested_by');
+        return $this->morphTo('requested_by');
     }
 
-    /**
-     * Get the employee who made the request (alias for requester)
-     */
-    public function requestedBy(): BelongsTo
+    public function approver(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'requested_by');
+        return $this->morphTo('approved_by');
     }
 
-    /**
-     * Get the employee who approved the request
-     */
-    public function approver(): BelongsTo
+    public function canceller(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'approved_by');
+        return $this->morphTo('cancelled_by');
+    }
+
+    public function dispatcher(): MorphTo
+    {
+        return $this->morphTo('dispatched_by');
     }
 
     /**

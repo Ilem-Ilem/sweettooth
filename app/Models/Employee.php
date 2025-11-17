@@ -21,6 +21,11 @@ class Employee extends Authenticatable
         'salary', 'hourly_rate', 'tax_id', 'bank_account', 'allergies', 'profile_photo',
         'last_performance_review_date', 'performance_rating', 'password'
     ];
+    
+    public function getMorphClass()
+{
+    return 'employee';
+}
 
 
     protected $hidden = [

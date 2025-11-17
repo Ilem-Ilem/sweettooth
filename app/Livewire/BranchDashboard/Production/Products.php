@@ -52,15 +52,14 @@ class Products extends BaseComponent
     public string $image_url = '';
     public array $allergens = [];
     public array $tags = [];
-    public $department;
+    public $employee;
 
     #[Url(keep: true)]
     public $dept_slug;
 
     public function mount($deptSlug){
         $this->dept_slug = $deptSlug;
-
-        $this->department =  Employee::where('id', auth('employees')->id())->first();
+        $this->employee =  Employee::where('id', auth('employees')->id())->first();
     }
 
     protected array $bulkActions = [
@@ -82,46 +81,38 @@ class Products extends BaseComponent
         return $this->b_id ? $this->b_id : request()->query('b_id');
     }
 
-    protected function getFilteredQuery()
-    {
-        $department = Department::where('slug', $this->dept_slug)->first()->id;
+protected function getFilteredQuery()
+{
+    $departmentId = Department::where('slug', $this->dept_slug)->firstOrFail()->id;
 
-        // if($department !== $department_from_route){
-        //     abort(403, "Wrong Departmental Access");
-        // }
-
-        return Product::query()
-            ->with(['productType.department'])
-            ->when($this->search, function ($query) {
-                $query->where('name', 'like', '%' . $this->search . '%')
-                      ->orWhere('sku', 'like', '%' . $this->search . '%')
-                      ->orWhere('description', 'like', '%' . $this->search . '%');
-            })
-            ->when($this->filterProductType, function ($query) {
-                $query->where('product_type_id', $this->filterProductType);
-            })
-            ->when($this->filterDepartment, function ($query) {
-                $query->whereHas('productType', function ($q) {
-                    $q->where('department_id', $this->filterDepartment);
-                });
-            })
-            ->when($this->filterStatus !== null, function ($query) {
-                if ($this->filterStatus === 'active') {
-                    $query->where('is_active', true);
-                } elseif ($this->filterStatus === 'inactive') {
-                    $query->where('is_active', false);
-                } elseif ($this->filterStatus === 'available') {
-                    $query->where('is_available', true);
-                } elseif ($this->filterStatus === 'unavailable') {
-                    $query->where('is_available', false);
-                }
-            })
-            ->whereHas('productType', function ($q) use ($department){
-                $q->where('department_id', $department);
-            })
-            ->where("branch_id", null)->orWhere("branch_id", $this->getBranchId(), )
-            ->orderBy('created_at', 'desc');
-    }
+    return Product::query()
+        ->with(['productType.department'])
+        ->when($this->search, function ($query) {
+            $query->where('name', 'like', '%' . $this->search . '%')
+                  ->orWhere('sku', 'like', '%' . $this->search . '%')
+                  ->orWhere('description', 'like', '%' . $this->search . '%');
+        })
+        ->when($this->filterProductType, function ($query) {
+            $query->where('product_type_id', $this->filterProductType);
+        })
+        ->whereHas('productType', function ($q) use ($departmentId) {
+            $q->where('department_id', $departmentId);
+        })
+        ->when($this->filterStatus !== null, function ($query) {
+            match ($this->filterStatus) {
+                'active'      => $query->where('is_active', true),
+                'inactive'    => $query->where('is_active', false),
+                'available'   => $query->where('is_available', true),
+                'unavailable' => $query->where('is_available', false),
+                default       => null,
+            };
+        })
+        ->where(function ($query) {
+            $query->whereNull('branch_id')
+                  ->orWhere('branch_id', $this->getBranchId());
+        })
+        ->orderBy('created_at', 'desc');
+}
 
     public function updatedSearch()
     {
@@ -182,7 +173,7 @@ class Products extends BaseComponent
         $departments = Department::whereHas('category', function ($q) {
             $q->where('name', 'Production');
         })->orderBy('name')->get();
-
+        
         return view('livewire.branch-dashboard.production.products', [
             'headers' => [
                 ['index' => 'id', 'label' => '#'],
@@ -200,7 +191,8 @@ class Products extends BaseComponent
             'rows' => $rows,
             'productTypes' => $productTypes,
             'departments' => $departments,
-            'employees_department'=> Department::where('id', $this->department->department_id)->first()
+            'employees_department'=> is_super_admin() ? Department::where('slug', $this->dept_slug)->first() :
+            Department::where('id',$this->employee->department_id)->first()
         ]);
     }
 

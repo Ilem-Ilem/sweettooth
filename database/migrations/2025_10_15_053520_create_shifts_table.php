@@ -17,7 +17,7 @@ return new class extends Migration
             $table->foreign('branch_id')->references('id')->on('branches')->onDelete('cascade');
             $table->unsignedBigInteger('department_id');
             $table->foreign('department_id')->references('id')->on('departments')->onDelete('cascade');
-            $table->uuid('employee_id');
+            $table->uuid('employee_id')->nullable()->index();
             $table->foreign('employee_id')->references('id')->on('employees')->onDelete('cascade');
             $table->string('shift_number')->unique();
             $table->date('shift_date');

@@ -2,14 +2,15 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::middleware([ 'branch'])->prefix('branch-dashboard')->name('branch-dashboard.')->group(function () {
+Route::middleware([ 'setBranchContext','branch'])->prefix('branch-dashboard')->name('branch-dashboard.')->group(function () {
     Route::get('/', App\Livewire\BranchDashboard\Index::class)->name('index');
 
     Route::get('/employees', App\Livewire\BranchDashboard\EmployeeModule\Index::class)->name('employees.index');
     Route::get('employee/create', App\Livewire\BranchDashboard\EmployeeModule\Create::class)->name('employee.create');
     Route::get('/employee//{employee_number}/{id}/', \App\Livewire\BranchDashboard\EmployeeModule\Details::class)->name('employee.details');
     Route::get('/employee/{id}/edit', \App\Livewire\BranchDashboard\EmployeeModule\Edit::class)->name('employee.edit');
-    
+    //ROLE ASSIGNMENT 
+    Route::get('role-assignments', \App\Livewire\BranchDashboard\EmployeeModule\RolePermission\AssignRole::class)->name('role-assignments.index');
     Route::get('/role-permisssion', \App\Livewire\BranchDashboard\EmployeeModule\RolePermission\Index::class)->name('role-permission');
     
     // Leave Management routes

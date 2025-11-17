@@ -7,7 +7,9 @@ use Livewire\WithPagination;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
 use TallStackUi\Traits\Interactions;
+use Livewire\Attributes\Layout;
 
+#[Layout('components.layouts.app.branch-dashboard')]
 class Index extends BaseComponent
 {
     use Interactions, WithPagination;
@@ -332,7 +334,7 @@ class Index extends BaseComponent
         // Filter permissions by the selected guard
         $allPermissions = Permission::where('guard_name', $this->roleGuard)->get();
 
-        return view('livewire.super-admin.roles.index', [
+        return view('livewire.branch-dashboard.employee-module.role-permission.index', [
             'headers' => [
                 ['index' => 'id', 'label' => '#'],
                 ['index' => 'name', 'label' => 'Role Name'],

@@ -11,20 +11,18 @@ class SetBranchContext
 {
     /**
      * Handle an incoming request.
-     *
-     * Set branch context based on user type:
-     * - Super Admin (auth()->user() but NOT auth('employees')): Use session or last accessed branch
-     * - Regular Employee (auth('employees')): Use their assigned branch
-     *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Check if user is a super admin (not an employee)
+        // 1. Super-admin (regular auth, NOT employee guard)
         if (auth()->check() && !auth('employees')->check()) {
-            $this->setSuperAdminBranchContext();
+            $this->setSuperAdminBranchContext();           // <-- **keeps session logic**
+            $redirect = $this->ensureBranchSlugInUrl($request);
+            if ($redirect) {
+                return $redirect;
+            }
         }
-        // Regular employee - use their branch
+        // 2. Regular employee – unchanged
         elseif (auth('employees')->check()) {
             $this->setEmployeeBranchContext();
         }
@@ -32,9 +30,9 @@ class SetBranchContext
         return $next($request);
     }
 
-    /**
-     * Set branch context for super admin users.
-     */
+    /* --------------------------------------------------------------------- *
+     *  ORIGINAL SESSION-BASED LOGIC (unchanged – you asked to keep it)
+     * --------------------------------------------------------------------- */
     protected function setSuperAdminBranchContext(): void
     {
         // If no branch selected in session, set default
@@ -67,7 +65,7 @@ class SetBranchContext
 
             // If branch no longer exists or is inactive, reset to first available
             if (!$branchExists) {
-                $firstBranch = Branch::where('status', 'active')
+                $firstBranch = Branch::where('is_active', 1)
                     ->orderBy('name')
                     ->first();
 
@@ -76,9 +74,77 @@ class SetBranchContext
         }
     }
 
-    /**
-     * Set branch context for regular employee users.
-     */
+    /* --------------------------------------------------------------------- *
+     *  NEW: Redirect to URL with branch slug if missing
+     * --------------------------------------------------------------------- */
+    protected function ensureBranchSlugInUrl(Request $request): ?Response
+    {
+        $branchId = session('selected_branch_id');
+
+        // No branch selected yet – nothing to redirect to
+        if (!$branchId) {
+            return null;
+        }
+
+        $branch = Branch::select('id')
+            ->where('id', $branchId)
+            ->where('is_active', 1)
+            ->first();
+
+        // Fallback if the stored branch disappeared
+        if (!$branch) {
+            $branch = Branch::where('is_active', 1)
+                ->orderBy('name')
+                ->first();
+
+            if ($branch) {
+                session(['selected_branch_id' => $branch->id]);
+            } else {
+                return null;
+            }
+        }
+
+        // Check if the current route already contains the correct slug
+        $currentSlug = $request->route('branch_slug'); // <-- adjust to your route param name
+
+        if ($currentSlug === $branch->slug) {
+            return null; // URL already correct
+        }
+
+        // Build URL with the correct slug
+        $newUrl = $this->buildUrlWithBranchSlug($request, $branch->slug);
+
+        return redirect($newUrl, 302);
+    }
+
+    /* --------------------------------------------------------------------- *
+     *  Helper: rebuild URL with branch slug
+     * --------------------------------------------------------------------- */
+    protected function buildUrlWithBranchSlug(Request $request, string $slug): string
+    {
+        $routeName = $request->route()?->getName();
+
+        if ($routeName) {
+            // Preserve all existing route parameters
+            $params = $request->route()->parameters();
+            $params['branch_slug'] = $slug;
+
+            return route($routeName, $params);
+        }
+
+        // Fallback for non-named routes – replace first segment
+        $uri    = $request->getPathInfo();
+        $query  = $request->server('QUERY_STRING');
+        $segments = explode('/', trim($uri, '/'));
+        $segments[0] = $slug;
+        $newPath = '/' . implode('/', $segments);
+
+        return $query ? $newPath . '?' . $query : $newPath;
+    }
+
+    /* --------------------------------------------------------------------- *
+     *  EMPLOYEE (unchanged)
+     * --------------------------------------------------------------------- */
     protected function setEmployeeBranchContext(): void
     {
         $employee = auth('employees')->user();
@@ -86,7 +152,6 @@ class SetBranchContext
         if ($employee && $employee->branch_id) {
             session(['selected_branch_id' => $employee->branch_id]);
 
-            // Also set the selected department if exists
             if ($employee->department_id) {
                 session(['selected_department_id' => $employee->department_id]);
             }

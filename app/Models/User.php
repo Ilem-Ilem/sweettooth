@@ -47,7 +47,10 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
-
+public function getMorphClass()
+{
+    return 'user';
+}
     /**
      * Get the user's initials
      */

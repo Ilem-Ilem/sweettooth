@@ -140,12 +140,13 @@ class Create extends Component
             'selectedProducts.*.quantity.required'   => 'Please enter quantity.',
         ]);
 
-        $employee     = Auth::guard('employees')->user();
+        $employee     = is_super_admin() ? auth()->user : Auth::guard('employees')->user();
         $branchId     = $this->getBranchId();
 
         DB::transaction(function () use ($employee, $branchId) {
             // Get or create shift for today
-            $shift = Shift::firstOrCreate([
+            if(!is_super_admin()){
+                  $shift = Shift::firstOrCreate([
                 'branch_id'     => $branchId,
                 'department_id' => $this->department->id,
                 'shift_date'    => today(),
@@ -155,7 +156,8 @@ class Create extends Component
                 'shift_number' => Shift::where('shift_date', today())->count() + 1,
                 'status'       => 'active',
             ]);
-
+            }
+          
             // Create Item Request
             $deptCode      = strtoupper(substr($this->department->name ?? 'DEPT', 0, 4));
             $requestNumber = ItemRequest::generateRequestNumber(
@@ -169,7 +171,7 @@ class Create extends Component
                 'requested_by'   => $employee->id,
                 'request_number' => $requestNumber,
                 'request_date'   => today(),
-                'shift'          => $this->currentShift,
+                'shift'          => is_super_admin() ? null : $this->currentShift,
                 'status'         => 'pending',
                 'notes'          => $this->notes,
             ]);
@@ -189,7 +191,7 @@ class Create extends Component
 
                 // Create Production Request (store actual units, not batches)
                 ProductionRequest::create([
-                    'shift_id'                    => $shift->id,
+                    'shift_id'                    => is_super_admin() ? null : $shift->id,
                     'item_request_id'             => $itemRequest->id,
                     'recipe_id'                   => $recipe->id,
                     'planned_production_quantity' => $actualUnitsRequested, // Actual units (batches × yield)

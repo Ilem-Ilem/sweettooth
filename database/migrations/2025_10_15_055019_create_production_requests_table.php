@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('production_requests', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('shift_id');
-            $table->foreign('shift_id')->references('id')->on('shifts')->onDelete('cascade');
+            $table->foreign('shift_id')->nullable()->references('id')->on('shifts')->onDelete('cascade');
             $table->unsignedBigInteger('item_request_id');
             $table->foreign('item_request_id')->references('id')->on('item_requests')->onDelete('cascade');
             $table->unsignedBigInteger('recipe_id')->nullable();

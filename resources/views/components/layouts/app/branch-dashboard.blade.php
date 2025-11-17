@@ -51,6 +51,11 @@
                         :current="request()->routeIs('branch-dashboard.employee.role-permission')" wire:navigate>
                         {{ __('Roles') }}
                     </flux:navlist.item>
+                      <flux:navlist.item icon="user-plus" :href="branch_route('branch-dashboard.role-assignments.index')"
+                        :current="request()->routeIs('branch-dashboard.role-assignments.index')" wire:navigate>
+                        {{ __('Assign Roles') }}
+                    </flux:navlist.item>
+                    {{-- //role-assignments.index --}}
                 </flux:navlist.group>
 
                 <flux:navlist.group :heading="__('Leave Management')" expandable
