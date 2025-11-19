@@ -19,7 +19,8 @@ class StockMovement extends Model
         'quantity_after',
         'reference_type',
         'reference_id',
-        'moved_by',
+        'moved_by_type',
+        'moved_by_id',
         'movement_date',
         'notes',
     ];
@@ -31,52 +32,61 @@ class StockMovement extends Model
         'movement_date' => 'datetime',
     ];
 
-    /**
-     * Scope to filter by movement type
-     */
-    public function scopeOfType($query, string $type)
-    {
-        return $query->where('type', $type);
-    }
+    // Automatically include department_name in all collections/JSON
+    protected $appends = ['department_name'];
 
-    /**
-     * Get the stock record
-     */
     public function stock(): BelongsTo
     {
         return $this->belongsTo(Stock::class);
     }
 
-    /**
-     * Get the employee who moved the stock
-     */
-    public function mover(): BelongsTo
+    public function mover(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'moved_by');
+        return $this->morphTo(__FUNCTION__, 'moved_by_type', 'moved_by_id');
     }
 
-    /**
-     * Get the reference (polymorphic relationship)
-     * Handle cases where reference_type is not a valid class
-     */
     public function reference(): MorphTo
     {
         return $this->morphTo(__FUNCTION__, 'reference_type', 'reference_id');
     }
 
-    /**
-     * Check if movement is inbound
-     */
     public function isInbound(): bool
     {
         return in_array($this->type, ['in', 'return']);
     }
 
-    /**
-     * Check if movement is outbound
-     */
     public function isOutbound(): bool
     {
         return in_array($this->type, ['out', 'damaged', 'transfer']);
+    }
+
+    /**
+     * Smart accessor: returns correct department name for ALL reference types
+     */
+    public function getDepartmentNameAttribute(): ?string
+    {
+        if (! $this->reference) {
+            return null;
+        }
+
+        // 1. Purchase → show "Purchases"
+        if (is_a($this->reference, \App\Models\Purchase::class, true)) {
+            return 'Purchases';
+        }
+
+        // 2. ItemRequest, Issue, Transfer, etc. → try common relations
+        $relations = ['department', 'fromDepartment', 'toDepartment', 'from_department', 'to_department'];
+
+        foreach ($relations as $relation) {
+            if (method_exists($this->reference, $relation)) {
+                $dept = $this->reference->{$relation};
+                if ($dept) {
+                    return $dept->name ?? $dept;
+                }
+            }
+        }
+
+        // 3. Fallback: show model name
+        return class_basename($this->reference);
     }
 }

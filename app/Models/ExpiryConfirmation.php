@@ -49,7 +49,7 @@ class ExpiryConfirmation extends Model
 
     public function getActionLabel(): string
     {
-        return match($this->action) {
+        return match ($this->action) {
             'confirmed_good' => 'Confirmed Still Good',
             'marked_callback' => 'Marked as Callback',
             default => ucfirst(str_replace('_', ' ', $this->action)),
@@ -58,7 +58,7 @@ class ExpiryConfirmation extends Model
 
     public function getActionBadgeColor(): string
     {
-        return match($this->action) {
+        return match ($this->action) {
             'confirmed_good' => 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
             'marked_callback' => 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
             default => 'bg-zinc-100 text-zinc-800 dark:bg-zinc-900/30 dark:text-zinc-400',

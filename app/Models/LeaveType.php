@@ -47,6 +47,6 @@ class LeaveType extends Model
     // Helpers
     public function getFormattedNameAttribute()
     {
-        return $this->name . ($this->is_paid ? ' (Paid)' : ' (Unpaid)');
+        return $this->name.($this->is_paid ? ' (Paid)' : ' (Unpaid)');
     }
 }

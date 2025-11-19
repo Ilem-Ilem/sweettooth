@@ -21,6 +21,3 @@
 <tallstackui:script />
 @vite(['resources/css/app.css', 'resources/js/app.js'])
 @fluxAppearance
-
-<!-- PWA Script -->
-<script src="/js/pwa.js" defer></script>

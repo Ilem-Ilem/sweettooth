@@ -17,8 +17,9 @@ class ProductTypeSeeder extends Seeder
         // Get production category
         $productionCategory = DepartmentCategory::where('name', 'Production')->first();
 
-        if (!$productionCategory) {
+        if (! $productionCategory) {
             $this->command->error('❌ Production category not found. Please run DepartmentCategorySeeder first.');
+
             return;
         }
 
@@ -27,8 +28,9 @@ class ProductTypeSeeder extends Seeder
         $gelatoProduction = Department::where('name', 'Gelato Production')->where('category_id', $productionCategory->id)->first();
         $confectionariesProduction = Department::where('name', 'Confectionaries Production')->where('category_id', $productionCategory->id)->first();
 
-        if (!$kitchen || !$gelatoProduction || !$confectionariesProduction) {
+        if (! $kitchen || ! $gelatoProduction || ! $confectionariesProduction) {
             $this->command->error('❌ Production departments not found. Please run DepartmentSeeder first.');
+
             return;
         }
 
@@ -204,9 +206,9 @@ class ProductTypeSeeder extends Seeder
             ProductType::create($type);
         }
 
-        $this->command->info("✅ " . count($productTypes) . " product types created successfully.");
-        $this->command->info("   - Kitchen: 8 types");
-        $this->command->info("   - Gelato Production: 6 types");
-        $this->command->info("   - Confectionaries Production: 6 types");
+        $this->command->info('✅ '.count($productTypes).' product types created successfully.');
+        $this->command->info('   - Kitchen: 8 types');
+        $this->command->info('   - Gelato Production: 6 types');
+        $this->command->info('   - Confectionaries Production: 6 types');
     }
 }

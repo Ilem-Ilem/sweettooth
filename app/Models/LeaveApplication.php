@@ -2,8 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class LeaveApplication extends Model
 {
@@ -18,13 +19,16 @@ class LeaveApplication extends Model
         'emergency_contact',
         'supporting_document',
         'status',
-        'approved_by',
+        'approved_by_id',
+        'approved_by_type',
         'approved_at',
         'approval_notes',
-        'rejected_by',
+        'rejected_by_id',
+        'rejected_by_type',
         'rejected_at',
         'rejection_reason',
-        'cancelled_by',
+        'cancelled_by_id',
+        'cancelled_by_type',
         'cancelled_at',
         'cancellation_reason',
     ];
@@ -49,19 +53,31 @@ class LeaveApplication extends Model
         return $this->belongsTo(LeaveType::class);
     }
 
-    public function approvedBy()
+    public function approvedBy(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'approved_by');
+        return $this->morphTo(
+            'approved_by',
+            'approved_by_type',
+            'approved_by_id'
+        );
     }
 
-    public function rejectedBy()
+    public function rejectedBy(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'rejected_by');
+        return $this->morphTo(
+            'rejected_by',
+            'rejected_by_type',
+            'rejected_by_id'
+        );
     }
 
-    public function cancelledBy()
+    public function cancelledBy(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'cancelled_by');
+        return $this->morphTo(
+            'cancelled_by',
+            'cancelled_by_type',
+            'cancelled_by_id'
+        );
     }
 
     // Scopes
@@ -88,7 +104,7 @@ class LeaveApplication extends Model
             ->orderBy('id', 'desc')
             ->first();
 
-        if (!$lastApplication) {
+        if (! $lastApplication) {
             return "LA-{$year}-001";
         }
 
@@ -116,10 +132,11 @@ class LeaveApplication extends Model
         return $workingDays;
     }
 
-    public function approve($approverId, $notes = null)
+    public function approve($approverId, $approverType, $notes = null)
     {
         $this->status = 'approved';
-        $this->approved_by = $approverId;
+        $this->approved_by_id = $approverId;
+        $this->approved_by_type = $approverType;
         $this->approved_at = now();
         $this->approval_notes = $notes;
         $this->save();
@@ -128,10 +145,11 @@ class LeaveApplication extends Model
         $this->updateLeaveBalance('approve');
     }
 
-    public function reject($rejecterId, $reason)
+    public function reject($rejecterId, $rejecterType, $reason)
     {
         $this->status = 'rejected';
-        $this->rejected_by = $rejecterId;
+        $this->rejected_by_id = $rejecterId;
+        $this->rejected_by_type = $rejecterType;
         $this->rejected_at = now();
         $this->rejection_reason = $reason;
         $this->save();
@@ -140,10 +158,10 @@ class LeaveApplication extends Model
         $this->updateLeaveBalance('reject');
     }
 
-    public function cancel($cancellerId, $reason)
+    public function cancel($cancellerId, $cancellerType, $reason)
     {
         $this->status = 'cancelled';
-        $this->cancelled_by = $cancellerId;
+        $this->cancelled_by_type = $cancellerType;
         $this->cancelled_at = now();
         $this->cancellation_reason = $reason;
         $this->save();
@@ -159,7 +177,7 @@ class LeaveApplication extends Model
             ->where('year', Carbon::parse($this->start_date)->year)
             ->first();
 
-        if (!$balance) {
+        if (! $balance) {
             return;
         }
 

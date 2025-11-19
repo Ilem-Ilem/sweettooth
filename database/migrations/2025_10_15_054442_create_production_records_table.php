@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-         Schema::create('production_records', function (Blueprint $table) {
+        Schema::create('production_records', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('daily_produce_id');
             $table->foreign('daily_produce_id')->references('id')->on('daily_produces')->onDelete('cascade');

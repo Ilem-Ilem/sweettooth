@@ -2,16 +2,15 @@
 
 namespace App\Services\Reports;
 
-use App\Models\Stock;
 use App\Models\Item;
+use App\Models\Stock;
 use App\Models\StockMovement;
-use App\Models\PurchaseOrder;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
 
 class ReorderReportService extends ReportService
 {
     protected string $reportCategory = 'inventory';
+
     protected string $reportType = 'reorder';
 
     /**
@@ -92,6 +91,7 @@ class ReorderReportService extends ReportService
         // Sort by priority
         usort($reorderData, function ($a, $b) {
             $priorityOrder = ['critical' => 1, 'urgent' => 2, 'normal' => 3];
+
             return $priorityOrder[$a['priority']] <=> $priorityOrder[$b['priority']];
         });
 
@@ -129,6 +129,7 @@ class ReorderReportService extends ReportService
         // Otherwise, calculate to reach max stock level
         if ($maxStock > 0) {
             $shortage = $maxStock - $currentStock;
+
             return max($shortage, $minStock);
         }
 
@@ -253,7 +254,7 @@ class ReorderReportService extends ReportService
         foreach ($reorderData as $item) {
             $supplier = $item['supplier'];
 
-            if (!isset($suppliers[$supplier])) {
+            if (! isset($suppliers[$supplier])) {
                 $suppliers[$supplier] = [
                     'supplier' => $supplier,
                     'supplier_id' => $item['supplier_id'],
@@ -291,7 +292,7 @@ class ReorderReportService extends ReportService
         foreach ($reorderData as $item) {
             $category = $item['category'];
 
-            if (!isset($categories[$category])) {
+            if (! isset($categories[$category])) {
                 $categories[$category] = [
                     'category' => $category,
                     'item_count' => 0,
@@ -313,6 +314,7 @@ class ReorderReportService extends ReportService
             if ($a['critical_count'] !== $b['critical_count']) {
                 return $b['critical_count'] <=> $a['critical_count'];
             }
+
             return $b['total_cost'] <=> $a['total_cost'];
         });
 

@@ -71,15 +71,15 @@ class Product extends Model
      * Scope to filter products that belong to a specific department
      * Only returns products that are available in that department
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
-     * @param int $departmentId Department ID to filter by
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @param  int  $departmentId  Department ID to filter by
      * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopeForDepartment($query, $departmentId)
     {
         return $query->whereHas('departments', function ($q) use ($departmentId) {
             $q->where('department_id', $departmentId)
-              ->where('is_available', true);
+                ->where('is_available', true);
         });
     }
 
@@ -114,7 +114,7 @@ class Product extends Model
      */
     public function getProfitMarginAttribute(): ?float
     {
-        if (!$this->cost || $this->cost == 0) {
+        if (! $this->cost || $this->cost == 0) {
             return null;
         }
 
@@ -126,7 +126,7 @@ class Product extends Model
      */
     public function hasAllergens(): bool
     {
-        return !empty($this->allergens);
+        return ! empty($this->allergens);
     }
 
     /**
@@ -134,20 +134,20 @@ class Product extends Model
      */
     public function getFormattedPriceAttribute(): string
     {
-        return '$' . number_format($this->price, 2);
+        return '$'.number_format($this->price, 2);
     }
 
     /**
      * Calculate how many batches needed to produce desired quantity
      *
-     * @param float $desiredQuantity Number of units to produce
+     * @param  float  $desiredQuantity  Number of units to produce
      * @return float Number of recipe batches needed
      */
     public function calculateBatchesNeeded(float $desiredQuantity): float
     {
         // Get yield from primary recipe
         $recipe = $this->recipes()->first();
-        if (!$recipe || $recipe->yield_quantity <= 0) {
+        if (! $recipe || $recipe->yield_quantity <= 0) {
             return 0;
         }
 
@@ -158,21 +158,21 @@ class Product extends Model
     /**
      * Calculate raw material requirements for desired quantity
      *
-     * @param float $desiredQuantity Number of units to produce
+     * @param  float  $desiredQuantity  Number of units to produce
      * @return array Array of ingredients with scaled quantities
      */
     public function calculateRawMaterialRequirements(float $desiredQuantity): array
     {
         $batchesNeeded = $this->calculateBatchesNeeded($desiredQuantity);
 
-        if (!$this->recipes()->exists()) {
+        if (! $this->recipes()->exists()) {
             return [];
         }
 
         // Get the primary recipe (or first recipe)
         $recipe = $this->recipes()->with('ingredients.item')->first();
 
-        if (!$recipe) {
+        if (! $recipe) {
             return [];
         }
 
@@ -198,7 +198,7 @@ class Product extends Model
     /**
      * Calculate total weight of desired quantity
      *
-     * @param float $desiredQuantity Number of units
+     * @param  float  $desiredQuantity  Number of units
      * @return float|null Total weight in grams/ml
      */
     public function calculateTotalWeight(float $desiredQuantity): ?float
@@ -217,13 +217,13 @@ class Product extends Model
      */
     public function getEstimatedCostAttribute(): ?float
     {
-        if (!$this->recipes()->exists()) {
+        if (! $this->recipes()->exists()) {
             return $this->cost;
         }
 
         $recipe = $this->recipes()->with('ingredients.item.purchaseItems')->first();
 
-        if (!$recipe) {
+        if (! $recipe) {
             return $this->cost;
         }
 

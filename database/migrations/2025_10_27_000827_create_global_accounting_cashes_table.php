@@ -22,10 +22,10 @@ return new class extends Migration
 
         Schema::create('branch_accounting_cashes', function (Blueprint $table) {
             $table->id();
-           $table->string('local_expenses', 50)->nullable(); // 'add'
-           $table->uuid('branch_id')->nullable();
-           $table->foreign('branch_id')->references('id')->on('branches')->onDelete('cascade');
-           $table->string('cash_transactions', 50)->nullable(); // 'track'
+            $table->string('local_expenses', 50)->nullable(); // 'add'
+            $table->uuid('branch_id')->nullable();
+            $table->foreign('branch_id')->references('id')->on('branches')->onDelete('cascade');
+            $table->string('cash_transactions', 50)->nullable(); // 'track'
             $table->boolean('is_overridden')->default(false);
             $table->timestamps();
         });

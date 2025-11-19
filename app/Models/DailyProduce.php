@@ -71,6 +71,7 @@ class DailyProduce extends Model
     public function calculateExpectedClosing(): float
     {
         $netAvailable = $this->getNetAvailable();
+
         return $this->opening_quantity +
                $netAvailable -
                $this->sent_out_quantity -
@@ -84,6 +85,7 @@ class DailyProduce extends Model
     public function calculateVariance(): float
     {
         $expectedClosing = $this->calculateExpectedClosing();
+
         return $this->closing_quantity - $expectedClosing;
     }
 
@@ -109,21 +111,21 @@ class DailyProduce extends Model
             // If current is afternoon, previous is morning of same day
             $previousShift = static::whereHas('shift', function ($q) use ($branchId, $currentShiftDate) {
                 $q->where('branch_id', $branchId)
-                  ->where('shift_date', $currentShiftDate)
-                  ->where('shift_type', 'morning');
+                    ->where('shift_date', $currentShiftDate)
+                    ->where('shift_type', 'morning');
             })
-            ->where('recipe_id', $recipeId)
-            ->first();
+                ->where('recipe_id', $recipeId)
+                ->first();
         } else {
             // If current is morning, previous is afternoon of previous day
             $previousDate = \Carbon\Carbon::parse($currentShiftDate)->subDay();
             $previousShift = static::whereHas('shift', function ($q) use ($branchId, $previousDate) {
                 $q->where('branch_id', $branchId)
-                  ->where('shift_date', $previousDate)
-                  ->where('shift_type', 'afternoon');
+                    ->where('shift_date', $previousDate)
+                    ->where('shift_type', 'afternoon');
             })
-            ->where('recipe_id', $recipeId)
-            ->first();
+                ->where('recipe_id', $recipeId)
+                ->first();
         }
 
         return $previousShift ? (float) $previousShift->closing_quantity : 0;
@@ -141,7 +143,7 @@ class DailyProduce extends Model
         $created = [];
 
         foreach ($productionRequests as $request) {
-            if (!$request->recipe) {
+            if (! $request->recipe) {
                 continue;
             }
 
@@ -204,6 +206,7 @@ class DailyProduce extends Model
             if ($this->closing_quantity == 0) {
                 return 0;
             }
+
             // If expected is 0 but actual closing exists, it's 100% variance
             return $this->variance > 0 ? 100 : -100;
         }
@@ -227,7 +230,7 @@ class DailyProduce extends Model
             ->with('itemRequest.requestDetails')
             ->first();
 
-        if (!$productionRequest || !$productionRequest->itemRequest) {
+        if (! $productionRequest || ! $productionRequest->itemRequest) {
             return 'no_request';
         }
 
@@ -293,7 +296,7 @@ class DailyProduce extends Model
     {
         $status = $this->getComputedProductionStatus();
 
-        return match($status) {
+        return match ($status) {
             'completed' => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
             'production_complete' => 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
             'producing' => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
@@ -313,6 +316,7 @@ class DailyProduce extends Model
     public function canStartProduction(): bool
     {
         $status = $this->getComputedProductionStatus();
+
         return in_array($status, ['ready_to_produce', 'producing', 'production_complete']);
     }
 
@@ -335,11 +339,11 @@ class DailyProduce extends Model
             ->where('recipe_id', $this->recipe_id)
             ->with([
                 'recipe.ingredients.item',
-                'itemRequest.requestDetails.item'
+                'itemRequest.requestDetails.item',
             ])
             ->first();
 
-        if (!$productionRequest || !$productionRequest->recipe) {
+        if (! $productionRequest || ! $productionRequest->recipe) {
             return [
                 'producable_quantity' => 0,
                 'requested_quantity' => $this->requested_quantity,
@@ -355,7 +359,7 @@ class DailyProduce extends Model
         $requestedQty = (float) $this->requested_quantity;
         $itemRequest = $productionRequest->itemRequest;
 
-        if (!$itemRequest) {
+        if (! $itemRequest) {
             return [
                 'producable_quantity' => 0,
                 'requested_quantity' => $requestedQty,

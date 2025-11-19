@@ -2,9 +2,9 @@
 
 namespace App\Providers;
 
-use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\Blade;
 use App\Helpers\RolePermission;
+use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\ServiceProvider;
 
 class RolePermissionServiceProvider extends ServiceProvider
 {
@@ -140,7 +140,7 @@ class RolePermissionServiceProvider extends ServiceProvider
          * Usage: @unlessrole('Admin') ... @endunlessrole
          */
         Blade::if('unlessrole', function (string $role, ?string $guard = null) {
-            return !RolePermission::hasRole($role, $guard);
+            return ! RolePermission::hasRole($role, $guard);
         });
 
         /**
@@ -148,7 +148,7 @@ class RolePermissionServiceProvider extends ServiceProvider
          * Usage: @unlesspermission('edit-employees') ... @endunlesspermission
          */
         Blade::if('unlesspermission', function (string $permission, ?string $guard = null) {
-            return !RolePermission::hasPermission($permission, $guard);
+            return ! RolePermission::hasPermission($permission, $guard);
         });
     }
 }

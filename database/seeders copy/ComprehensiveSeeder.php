@@ -2,57 +2,47 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
+use App\Models\ApprovalRequest;
+use App\Models\AuditLog;
 use App\Models\Branch;
+use App\Models\ClockIn;
+use App\Models\DailyProduce;
 use App\Models\Department;
 use App\Models\DepartmentCategory;
 use App\Models\Employee;
-use App\Models\Item;
-use App\Models\Stock;
-use App\Models\Product;
-use App\Models\ProductType;
-use App\Models\Recipe;
-use App\Models\RecipeIngredient;
-use App\Models\Shift;
-use App\Models\DailyProduce;
-use App\Models\ProductionRecord;
-use App\Models\ProductionRequest;
-use App\Models\RawMaterialUtilization;
-use App\Models\Sale;
-use App\Models\SaleItem;
-use App\Models\Payment;
-use App\Models\Purchase;
-use App\Models\PurchaseItem;
-use App\Models\ProductDispatch;
-use App\Models\ProductStock;
-use App\Models\SalesShift;
-use App\Models\Table as DiningTable;
-use App\Models\ClockIn;
-use App\Models\StockMovement;
-use App\Models\StockTake;
-use App\Models\StockTakeDetail;
-use App\Models\ItemRequest;
-use App\Models\ItemRequestDetail;
-use App\Models\ItemDispatch;
-use App\Models\ApprovedItem;
+use App\Models\EmployeeLeaveBalance;
 use App\Models\ExpiryConfirmation;
-use App\Models\Receipt;
-use App\Models\AuditLog;
-use App\Models\ApprovalRequest;
+use App\Models\HealthCheck;
+use App\Models\Item;
+use App\Models\ItemRequest;
 use App\Models\LeaveApplication;
 use App\Models\LeaveType;
-use App\Models\EmployeeLeaveBalance;
-use App\Models\EmployeeLeaveAllocation;
-use App\Models\SalaryHistory;
+use App\Models\Payment;
 use App\Models\ProbationReview;
-use App\Models\EmployeeStepout;
-use App\Models\HealthCheck;
+use App\Models\Product;
+use App\Models\ProductionRecord;
+use App\Models\ProductStock;
+use App\Models\ProductType;
+use App\Models\Purchase;
+use App\Models\PurchaseItem;
+use App\Models\RawMaterialUtilization;
+use App\Models\Receipt;
+use App\Models\Recipe;
+use App\Models\RecipeIngredient;
+use App\Models\SalaryHistory;
+use App\Models\Sale;
+use App\Models\SaleItem;
+use App\Models\Shift;
+use App\Models\Stock;
+use App\Models\StockMovement;
+use App\Models\StockTake;
 use App\Models\User;
-use Spatie\Permission\Models\Role;
-use Spatie\Permission\Models\Permission;
-use Illuminate\Support\Facades\Hash;
 use Faker\Factory as Faker;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class ComprehensiveSeeder extends Seeder
 {
@@ -127,7 +117,7 @@ class ComprehensiveSeeder extends Seeder
         $this->command->info("   - Branches: {$branches->count()}");
         $this->command->info("   - Departments: {$departments->count()}");
         $this->command->info("   - Employees: {$employees->count()}");
-        $this->command->info("   - Items: " . count($items));
+        $this->command->info('   - Items: '.count($items));
         $this->command->info("   - Products: {$products->count()}");
         $this->command->info("   - Recipes: {$recipes->count()}");
     }
@@ -209,10 +199,10 @@ class ComprehensiveSeeder extends Seeder
             $city = $faker->randomElement($cities);
             $branches[] = Branch::create([
                 'name' => "SweetTooth {$city} Branch {$i}",
-                'code' => strtoupper(substr($city, 0, 3)) . '-' . str_pad($i, 3, '0', STR_PAD_LEFT),
-                'location' => $faker->streetAddress() . ', ' . $city,
-                'phone' => '+234-' . $faker->numberBetween(800, 909) . '-' . $faker->numberBetween(100, 999) . '-' . $faker->numberBetween(1000, 9999),
-                'email' => strtolower($city) . $i . '@sweettooth.com',
+                'code' => strtoupper(substr($city, 0, 3)).'-'.str_pad($i, 3, '0', STR_PAD_LEFT),
+                'location' => $faker->streetAddress().', '.$city,
+                'phone' => '+234-'.$faker->numberBetween(800, 909).'-'.$faker->numberBetween(100, 999).'-'.$faker->numberBetween(1000, 9999),
+                'email' => strtolower($city).$i.'@sweettooth.com',
                 'description' => "SweetTooth branch in {$city}",
                 'country' => 'Nigeria',
                 'state' => $city,
@@ -258,7 +248,7 @@ class ComprehensiveSeeder extends Seeder
         $createdDepartments = [];
         foreach ($departments as $dept) {
             $createdDepartments[] = Department::create(array_merge($dept, [
-                'description' => ucfirst($dept['name']) . ' department',
+                'description' => ucfirst($dept['name']).' department',
                 'branch_id' => null, // Global departments
             ]));
         }
@@ -275,7 +265,7 @@ class ComprehensiveSeeder extends Seeder
 
         $nigerianNames = [
             'male' => ['Chukwuemeka', 'Oluwaseun', 'Abubakar', 'Emeka', 'Tunde', 'Chigozie', 'Ibrahim', 'Kunle', 'Obinna', 'Yusuf'],
-            'female' => ['Ngozi', 'Amina', 'Chioma', 'Folake', 'Kemi', 'Blessing', 'Hauwa', 'Ada', 'Fatima', 'Nneka']
+            'female' => ['Ngozi', 'Amina', 'Chioma', 'Folake', 'Kemi', 'Blessing', 'Hauwa', 'Ada', 'Fatima', 'Nneka'],
         ];
         $surnames = ['Okafor', 'Adebayo', 'Mohammed', 'Nwankwo', 'Ogunleye', 'Chukwu', 'Bello', 'Okoro', 'Aliyu', 'Eze'];
 
@@ -290,16 +280,16 @@ class ComprehensiveSeeder extends Seeder
                 'id' => $faker->uuid(),
                 'branch_id' => $branch->id,
                 'department_id' => $department->id,
-                'employee_number' => 'EMP-' . str_replace(['-', ' '], '', strtoupper($branch->code)) . '-' . str_pad($i + 1, 4, '0', STR_PAD_LEFT),
-                'name' => $firstName . ' ' . $lastName,
-                'email' => strtolower($firstName . '.' . $lastName . $i) . '@sweettooth.com',
-                'phone' => '+234-' . $faker->numberBetween(800, 909) . '-' . $faker->numberBetween(100, 999) . '-' . $faker->numberBetween(1000, 9999),
-                'address' => $faker->streetAddress() . ', ' . $branch->city,
+                'employee_number' => 'EMP-'.str_replace(['-', ' '], '', strtoupper($branch->code)).'-'.str_pad($i + 1, 4, '0', STR_PAD_LEFT),
+                'name' => $firstName.' '.$lastName,
+                'email' => strtolower($firstName.'.'.$lastName.$i).'@sweettooth.com',
+                'phone' => '+234-'.$faker->numberBetween(800, 909).'-'.$faker->numberBetween(100, 999).'-'.$faker->numberBetween(1000, 9999),
+                'address' => $faker->streetAddress().', '.$branch->city,
                 'date_of_birth' => $faker->dateTimeBetween('-45 years', '-22 years')->format('Y-m-d'),
                 'gender' => $gender,
                 'nationality' => 'Nigerian',
-                'emergency_contact_name' => $faker->randomElement($nigerianNames[$gender === 'male' ? 'female' : 'male']) . ' ' . $faker->randomElement($surnames),
-                'emergency_contact_phone' => '+234-' . $faker->numberBetween(800, 909) . '-' . $faker->numberBetween(100, 999) . '-' . $faker->numberBetween(1000, 9999),
+                'emergency_contact_name' => $faker->randomElement($nigerianNames[$gender === 'male' ? 'female' : 'male']).' '.$faker->randomElement($surnames),
+                'emergency_contact_phone' => '+234-'.$faker->numberBetween(800, 909).'-'.$faker->numberBetween(100, 999).'-'.$faker->numberBetween(1000, 9999),
                 'hire_date' => $faker->dateTimeBetween('-3 years', '-1 month')->format('Y-m-d'),
                 'termination_date' => null,
                 'status' => $faker->randomElement(['active', 'active', 'active', 'on_probation']),
@@ -307,7 +297,7 @@ class ComprehensiveSeeder extends Seeder
                 'shift_preference' => $faker->randomElement(['morning', 'afternoon', 'rotating', 'flexible']),
                 'salary' => $faker->randomFloat(2, 80000, 350000),
                 'hourly_rate' => null,
-                'tax_id' => 'TIN-' . $faker->numberBetween(10000000, 99999999),
+                'tax_id' => 'TIN-'.$faker->numberBetween(10000000, 99999999),
                 'bank_account' => $faker->numerify('##########'),
                 'allergies' => $faker->boolean(15) ? $faker->randomElement(['None', 'Peanuts', 'Shellfish', 'Lactose']) : null,
                 'profile_photo' => null,
@@ -364,7 +354,7 @@ class ComprehensiveSeeder extends Seeder
 
                 $item = Item::create([
                     'branch_id' => $branch->id,
-                    'name' => $template['name'] . ' - ' . $faker->randomElement(['Premium', 'Standard', 'Bulk', 'Organic']),
+                    'name' => $template['name'].' - '.$faker->randomElement(['Premium', 'Standard', 'Bulk', 'Organic']),
                     'sku' => $sku,
                     'category' => $template['category'],
                     'uom' => $template['uom'],
@@ -376,10 +366,10 @@ class ComprehensiveSeeder extends Seeder
 
                 // Create stock
                 $quantityAvailable = rand(50, 400);
-                $quantityReserved = rand(0, (int)($quantityAvailable * 0.1));
-                $quantityDamaged = rand(0, (int)($quantityAvailable * 0.05));
+                $quantityReserved = rand(0, (int) ($quantityAvailable * 0.1));
+                $quantityDamaged = rand(0, (int) ($quantityAvailable * 0.05));
 
-                $averageCost = match($item->category) {
+                $averageCost = match ($item->category) {
                     'raw_material' => rand(500, 5000) / 10,
                     'packaging' => rand(50, 500) / 10,
                     'consumable' => rand(300, 3000) / 10,
@@ -391,7 +381,7 @@ class ComprehensiveSeeder extends Seeder
 
                 $expiryDate = null;
                 if (in_array($item->category, ['raw_material', 'consumable'])) {
-                    $daysToExpiry = match($healthStatus) {
+                    $daysToExpiry = match ($healthStatus) {
                         'good' => rand(90, 365),
                         'warning' => rand(30, 89),
                         'critical' => rand(7, 29),
@@ -447,8 +437,8 @@ class ComprehensiveSeeder extends Seeder
 
             $productTypes[] = ProductType::create([
                 'department_id' => $dept->id,
-                'name' => $template['name'] . ' ' . $faker->randomElement(['Premium', 'Standard', 'Mini', 'Large']),
-                'code' => $template['code'] . $i,
+                'name' => $template['name'].' '.$faker->randomElement(['Premium', 'Standard', 'Mini', 'Large']),
+                'code' => $template['code'].$i,
                 'description' => $faker->sentence,
                 'status' => 'active',
                 'sort_order' => $i + 1,
@@ -469,8 +459,8 @@ class ComprehensiveSeeder extends Seeder
 
             $products[] = Product::create([
                 'branch_id' => $branch->id,
-                'name' => $faker->randomElement(['Chocolate Cake', 'Vanilla Ice Cream', 'Strawberry Pastry', 'Blueberry Muffin', 'Dark Chocolate Truffle']) . ' ' . $faker->randomElement(['Slice', 'Scoop', 'Piece', 'Box']),
-                'sku' => 'PRD-' . strtoupper(substr($branch->code, 0, 3)) . '-' . str_pad($i + 1, 4, '0', STR_PAD_LEFT),
+                'name' => $faker->randomElement(['Chocolate Cake', 'Vanilla Ice Cream', 'Strawberry Pastry', 'Blueberry Muffin', 'Dark Chocolate Truffle']).' '.$faker->randomElement(['Slice', 'Scoop', 'Piece', 'Box']),
+                'sku' => 'PRD-'.strtoupper(substr($branch->code, 0, 3)).'-'.str_pad($i + 1, 4, '0', STR_PAD_LEFT),
                 'product_type_id' => $productType->id,
                 'description' => $faker->sentence,
                 'price' => $faker->randomFloat(2, 2.50, 25.00),
@@ -501,7 +491,7 @@ class ComprehensiveSeeder extends Seeder
                 'branch_id' => $branch->id,
                 'department_id' => $department->id,
                 'product_name' => $faker->randomElement(['Chocolate Cake', 'Vanilla Gelato', 'Butter Croissant', 'Strawberry Ice Cream', 'Blueberry Muffin']),
-                'sku' => 'REC-' . strtoupper(substr($branch->code, 0, 3)) . '-' . str_pad($i + 1, 4, '0', STR_PAD_LEFT),
+                'sku' => 'REC-'.strtoupper(substr($branch->code, 0, 3)).'-'.str_pad($i + 1, 4, '0', STR_PAD_LEFT),
                 'product_type' => $faker->randomElement(['gelato_base', 'gelato_flavor', 'pastry', 'hot_kitchen', 'beverage']),
                 'cost_per_unit' => $faker->randomFloat(4, 0.5, 50),
                 'uom' => $faker->randomElement(['grams', 'kg', 'liters', 'ml', 'pcs', 'units']),
@@ -546,7 +536,7 @@ class ComprehensiveSeeder extends Seeder
                 'branch_id' => $branch->id,
                 'department_id' => $department->id,
                 'employee_id' => $employee->id,
-                'shift_number' => 'SHIFT-' . Str::random(6),
+                'shift_number' => 'SHIFT-'.Str::random(6),
                 'shift_date' => $faker->dateTimeBetween('-30 days', 'now')->format('Y-m-d'),
                 'shift_type' => $faker->randomElement(['morning', 'afternoon', 'night']),
                 'clock_in' => $faker->dateTimeBetween('-1 day', 'now'),
@@ -619,7 +609,7 @@ class ComprehensiveSeeder extends Seeder
             $sale = Sale::create([
                 'branch_id' => $branch->id,
                 'employee_id' => $employee->id,
-                'sale_number' => 'SALE-' . strtoupper(substr($branch->code, 0, 3)) . '-' . str_pad($i + 1, 6, '0', STR_PAD_LEFT),
+                'sale_number' => 'SALE-'.strtoupper(substr($branch->code, 0, 3)).'-'.str_pad($i + 1, 6, '0', STR_PAD_LEFT),
                 'sale_date' => $faker->dateTimeBetween('-30 days', 'now'),
                 'total_amount' => 0, // Will be calculated
                 'discount_amount' => $faker->randomFloat(2, 0, 100),
@@ -693,7 +683,7 @@ class ComprehensiveSeeder extends Seeder
                 'branch_id' => $branch->id,
                 'supplier_name' => $faker->company,
                 'supplier_contact' => $faker->phoneNumber,
-                'purchase_order_number' => 'PO-' . strtoupper(substr($branch->code, 0, 3)) . '-' . str_pad($i + 1, 6, '0', STR_PAD_LEFT),
+                'purchase_order_number' => 'PO-'.strtoupper(substr($branch->code, 0, 3)).'-'.str_pad($i + 1, 6, '0', STR_PAD_LEFT),
                 'purchase_date' => $faker->dateTimeBetween('-30 days', 'now'),
                 'expected_delivery_date' => $faker->dateTimeBetween('now', '+7 days'),
                 'total_amount' => 0, // Will be calculated
@@ -906,7 +896,7 @@ class ComprehensiveSeeder extends Seeder
             // Receipt
             Receipt::create([
                 'sale_id' => $faker->numberBetween(1, 100), // Assuming sales exist
-                'receipt_number' => 'RCP-' . strtoupper(substr($branch->code, 0, 3)) . '-' . str_pad($i + 1, 6, '0', STR_PAD_LEFT),
+                'receipt_number' => 'RCP-'.strtoupper(substr($branch->code, 0, 3)).'-'.str_pad($i + 1, 6, '0', STR_PAD_LEFT),
                 'printed_at' => $faker->dateTimeBetween('-30 days', 'now'),
                 'printed_by' => $employee->id,
                 'receipt_data' => json_encode(['total' => $faker->randomFloat(2, 10, 500)]),

@@ -38,7 +38,8 @@ class ApplyLeave extends BaseComponent
         return LeaveApplication::class;
     }
 
-    public function getAllSelectableIds():array{
+    public function getAllSelectableIds(): array
+    {
         return [];
     }
 
@@ -155,7 +156,7 @@ class ApplyLeave extends BaseComponent
                 $end = Carbon::parse($this->end_date);
                 $consecutiveDays = $start->diffInDays($end) + 1; // +1 to include both start and end date
 
-                if ($consecutiveDays > $this->selected_leave_type->max_consecutive_days) {
+                if ($this->calculateTotalDays() > $consecutiveDays) {
                     $this->toast()->error("Maximum consecutive calendar days for this leave type is {$this->selected_leave_type->max_consecutive_days} days. Your request spans {$consecutiveDays} calendar days.")->send();
                     return;
                 }
@@ -163,9 +164,13 @@ class ApplyLeave extends BaseComponent
 
             // Check minimum notice period
             if ($this->selected_leave_type && $this->selected_leave_type->min_notice_days > 0) {
-                $noticeGiven = Carbon::parse($this->start_date)->diffInDays(now());
+
+                $startDate = Carbon::parse($this->start_date)->startOfDay();
+                $today     = now()->startOfDay();
+                $noticeGiven = $today->diffInDays($startDate, false); // false = allow negative
+
                 if ($noticeGiven < $this->selected_leave_type->min_notice_days) {
-                    $this->toast()->error("Minimum notice period is {$this->selected_leave_type->min_notice_days} days.")->send();
+                    $this->toast()->error("Minimum notice period of {$this->selected_leave_type->min_notice_days} days required. You applied only $noticeGiven days in advance.")->send();
                     return;
                 }
             }
@@ -210,7 +215,6 @@ class ApplyLeave extends BaseComponent
             $this->toast()->success("Leave application {$leaveApplication->application_number} submitted successfully!")->send();
             $this->resetForm();
             $this->redirect(branch_route('branch-dashboard.leave.my-leaves', ['b_id' => $this->getBranchId()]));
-
         } catch (\Exception $e) {
             $this->toast()->error('Error submitting leave application: ' . $e->getMessage())->send();
         }

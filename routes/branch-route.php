@@ -2,17 +2,17 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::middleware([ 'setBranchContext','branch'])->prefix('branch-dashboard')->name('branch-dashboard.')->group(function () {
+Route::middleware(['setBranchContext', 'branch'])->prefix('branch-dashboard')->name('branch-dashboard.')->group(function () {
     Route::get('/', App\Livewire\BranchDashboard\Index::class)->name('index');
 
     Route::get('/employees', App\Livewire\BranchDashboard\EmployeeModule\Index::class)->name('employees.index');
     Route::get('employee/create', App\Livewire\BranchDashboard\EmployeeModule\Create::class)->name('employee.create');
     Route::get('/employee//{employee_number}/{id}/', \App\Livewire\BranchDashboard\EmployeeModule\Details::class)->name('employee.details');
     Route::get('/employee/{id}/edit', \App\Livewire\BranchDashboard\EmployeeModule\Edit::class)->name('employee.edit');
-    //ROLE ASSIGNMENT 
+    // ROLE ASSIGNMENT
     Route::get('role-assignments', \App\Livewire\BranchDashboard\EmployeeModule\RolePermission\AssignRole::class)->name('role-assignments.index');
     Route::get('/role-permisssion', \App\Livewire\BranchDashboard\EmployeeModule\RolePermission\Index::class)->name('role-permission');
-    
+
     // Leave Management routes
     Route::prefix('leave')->name('leave.')->group(function () {
         Route::get('/types', \App\Livewire\BranchDashboard\EmployeeModule\LeaveManagement\LeaveTypes::class)->name('types');
@@ -23,10 +23,12 @@ Route::middleware([ 'setBranchContext','branch'])->prefix('branch-dashboard')->n
         Route::get('/manage-allocations', \App\Livewire\BranchDashboard\EmployeeModule\LeaveManagement\ManageAllocations::class)->name('manage-allocations');
     });
 
+    // DEPARTMENT / DEPARTMENT CATEGORY SECTION 
     Route::get('departments', App\Livewire\BranchDashboard\DepartmentModule\Index::class)->name('branch.departments.index');
     Route::get('departments/category', \App\Livewire\BranchDashboard\DepartmentModule\Category::class)->name('branch.departments.category');
-
-    //Shift Selection functionality
+    Route::get('/department/category/create', \App\Livewire\BranchDashboard\DepartmentModule\Cartegory\Create::class)->name('department.category.create');
+    // Shift Selection functionality
+  
     Route::get('auth/shift', \App\Livewire\Auth\Shift::class)->name('select_shift');
     // Inventory routes
     Route::prefix('inventory')->name('inventory.')->group(function () {
@@ -185,8 +187,7 @@ Route::middleware([ 'setBranchContext','branch'])->prefix('branch-dashboard')->n
         Route::get('/stock-monitor', \App\Livewire\BranchDashboard\SalesDashboard\StockMonitor::class)->name('stock-monitor');
 
         // Sales Reports
-        Route::prefix('reports')->name('reports.')->group(function ()
-        {
+        Route::prefix('reports')->name('reports.')->group(function () {
             // Route::get('/performance', \App\Livewire\BranchDashboard\SalesDashboard\Reports\SalesPerformance\Index::class)->name('performance');
             // Route::get('/employee', \App\Livewire\BranchDashboard\SalesDashboard\Reports\SalesEmployee\Index::class)->name('employee');
             // Route::get('/customer', \App\Livewire\BranchDashboard\SalesDashboard\Reports\CustomerAnalysis\Index::class)->name('customer');

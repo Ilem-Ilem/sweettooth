@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Carbon\Carbon;
 
 class ClockIn extends Model
 {
@@ -11,15 +10,13 @@ class ClockIn extends Model
         'employee_id',
         'clock_in_time',
         'clock_out_time',
-        'date', 'shift'
+        'date', 'shift',
     ];
 
-
-    public function employee(){
+    public function employee()
+    {
         return $this->belongsTo(Employee::class);
     }
 
-    public function getShift(){
-        
-    }
+    public function getShift() {}
 }

@@ -7,11 +7,10 @@ use Illuminate\Database\Eloquent\Model;
 class ApprovedItem extends Model
 {
     public $fillable = [
-        'request_id', 'item_id', 'approved_by', 
-        'branch_id', 'quantity', 'uom', 'approved_time', 
-        'status', 'shift',  'note'
+        'request_id', 'item_id', 'approved_by',
+        'branch_id', 'quantity', 'uom', 'approved_time',
+        'status', 'shift',  'note',
     ];
-    
 
     /**
      * Scope to filter by shift
@@ -20,7 +19,7 @@ class ApprovedItem extends Model
     {
         return $query->where('shift', $shift);
     }
-    
+
     /**
      * Get the item request
      */
@@ -28,7 +27,7 @@ class ApprovedItem extends Model
     {
         return $this->belongsTo(ItemRequest::class, 'request_id');
     }
-    
+
     /**
      * Get the item
      */
@@ -36,7 +35,7 @@ class ApprovedItem extends Model
     {
         return $this->belongsTo(Item::class);
     }
-    
+
     /**
      * Mark as received
      */

@@ -2,16 +2,15 @@
 
 namespace App\Services\Reports;
 
-use App\Models\Stock;
 use App\Models\Item;
+use App\Models\Stock;
 use App\Models\StockMovement;
-use App\Models\PurchaseOrder;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class StockTurnoverReportService extends ReportService
 {
     protected string $reportCategory = 'inventory';
+
     protected string $reportType = 'stock_turnover';
 
     /**
@@ -239,7 +238,7 @@ class StockTurnoverReportService extends ReportService
         foreach ($turnoverData as $item) {
             $category = $item['category'];
 
-            if (!isset($categories[$category])) {
+            if (! isset($categories[$category])) {
                 $categories[$category] = [
                     'category' => $category,
                     'item_count' => 0,

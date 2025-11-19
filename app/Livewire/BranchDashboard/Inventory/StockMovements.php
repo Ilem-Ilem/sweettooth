@@ -112,28 +112,28 @@ class StockMovements extends Component
         $query->when($this->search, function ($q) {
             $q->where(function ($query) {
                 $query->whereHas('stock.item', function ($subQuery) {
-                    $subQuery->where('name', 'like', '%'.$this->search.'%')
-                        ->orWhere('sku', 'like', '%'.$this->search.'%');
+                    $subQuery->where('name', 'like', '%' . $this->search . '%')
+                        ->orWhere('sku', 'like', '%' . $this->search . '%');
                 })
-                ->orWhereHas('mover', function ($subQuery) {
-                    $subQuery->where('name', 'like', '%'.$this->search.'%');
-                })
-                ->orWhere('notes', 'like', '%'.$this->search.'%');
+                    ->orWhereHas('mover', function ($subQuery) {
+                        $subQuery->where('name', 'like', '%' . $this->search . '%');
+                    })
+                    ->orWhere('notes', 'like', '%' . $this->search . '%');
             });
         })
-        ->when($this->filterType, fn ($q) => $q->where('type', $this->filterType))
-        ->when($this->filterDateFrom, fn ($q) => $q->whereDate('movement_date', '>=', $this->filterDateFrom))
-        ->when($this->filterDateTo, fn ($q) => $q->whereDate('movement_date', '<=', $this->filterDateTo))
-        ->when($this->filterShift, function ($q) {
-            $q->whereHasMorph('reference', ['App\Models\ItemRequest'], function ($subQuery) {
-                $subQuery->where('shift', $this->filterShift);
+            ->when($this->filterType, fn ($q) => $q->where('type', $this->filterType))
+            ->when($this->filterDateFrom, fn ($q) => $q->whereDate('movement_date', '>=', $this->filterDateFrom))
+            ->when($this->filterDateTo, fn ($q) => $q->whereDate('movement_date', '<=', $this->filterDateTo))
+            ->when($this->filterShift, function ($q) {
+                $q->whereHasMorph('reference', ['App\Models\ItemRequest'], function ($subQuery) {
+                    $subQuery->where('shift', $this->filterShift);
+                });
+            })
+            ->when($this->filterDepartment, function ($q) {
+                $q->whereHasMorph('reference', ['App\Models\ItemRequest'], function ($subQuery) {
+                    $subQuery->where('department_id', $this->filterDepartment);
+                });
             });
-        })
-        ->when($this->filterDepartment, function ($q) {
-            $q->whereHasMorph('reference', ['App\Models\ItemRequest'], function ($subQuery) {
-                $subQuery->where('department_id', $this->filterDepartment);
-            });
-        });
     }
 
     /**
@@ -162,17 +162,27 @@ class StockMovements extends Component
     {
         $dateRange = $this->getAnalyticsDateRange();
 
-        return StockMovement::query()
-            ->select('moved_by', DB::raw('COUNT(*) as operation_count'))
-            ->whereHas('stock', function ($q) use ($branchId) {
-                $q->where('branch_id', $branchId);
-            })
-            ->whereNotNull('moved_by')
+        // return StockMovement::query()
+        //     ->select('moved_by', DB::raw('COUNT(*) as operation_count'))
+        //     ->whereHas('stock', function ($q) use ($branchId) {
+        //         $q->where('branch_id', $branchId);
+        //     })
+        //     ->whereNotNull('moved_by')
+        //     ->whereBetween('movement_date', $dateRange)
+        //     ->groupBy('moved_by')
+        //     ->orderByDesc('operation_count')
+        //     ->with('mover')
+        //     ->first();
+
+        $topMover = StockMovement::query()
+            ->select('moved_by_id', 'moved_by_type', DB::raw('COUNT(*) as operation_count'))
             ->whereBetween('movement_date', $dateRange)
-            ->groupBy('moved_by')
+            ->groupBy('moved_by_id', 'moved_by_type')
             ->orderByDesc('operation_count')
             ->with('mover')
             ->first();
+
+        return $topMover?->mover;
     }
 
     /**
@@ -228,12 +238,12 @@ class StockMovements extends Component
             'mover',
             'reference'
         ])
-        ->whereHas('stock', function ($q) use ($branchId) {
-            $q->where('branch_id', $branchId);
-        })
-        ->orderBy('movement_date', 'desc')
-        ->limit($limit)
-        ->get();
+            ->whereHas('stock', function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            })
+            ->orderBy('movement_date', 'desc')
+            ->limit($limit)
+            ->get();
     }
 
     public function render()
@@ -287,9 +297,9 @@ class StockMovements extends Component
             'mover',
             'reference'
         ])
-        ->whereHas('stock', function ($q) use ($branchId) {
-            $q->where('branch_id', $branchId);
-        });
+            ->whereHas('stock', function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            });
 
         $this->applyFilters($query);
 
@@ -347,7 +357,7 @@ class StockMovements extends Component
         $csv = stream_get_contents($handle);
         fclose($handle);
 
-        return response()->streamDownload(function() use ($csv) {
+        return response()->streamDownload(function () use ($csv) {
             echo $csv;
         }, $filename, [
             'Content-Type' => 'text/csv',

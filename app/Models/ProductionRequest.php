@@ -35,7 +35,7 @@ class ProductionRequest extends Model
      */
     public function scopeForBranch($query, $branchId)
     {
-        return $query->whereHas('itemRequest', function($q) use ($branchId) {
+        return $query->whereHas('itemRequest', function ($q) use ($branchId) {
             $q->where('branch_id', $branchId);
         });
     }
@@ -69,7 +69,7 @@ class ProductionRequest extends Model
      */
     public function hasRecipe(): bool
     {
-        return !is_null($this->recipe_id);
+        return ! is_null($this->recipe_id);
     }
 
     /**
@@ -87,7 +87,7 @@ class ProductionRequest extends Model
      */
     public function getComputedStatus(): string
     {
-        if (!$this->itemRequest) {
+        if (! $this->itemRequest) {
             return 'unknown';
         }
 
@@ -120,7 +120,7 @@ class ProductionRequest extends Model
             }
 
             // Check if this item is completed (requested = approved = dispatched AND not 0)
-            if (!($requested == $approved && $approved == $dispatched && $requested > 0)) {
+            if (! ($requested == $approved && $approved == $dispatched && $requested > 0)) {
                 $allCompleted = false;
             }
 
@@ -163,7 +163,7 @@ class ProductionRequest extends Model
     {
         $status = $this->getComputedStatus();
 
-        return match($status) {
+        return match ($status) {
             'completed' => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
             'partially_dispatched' => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
             'partially_approved' => 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',

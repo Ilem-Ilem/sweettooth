@@ -148,7 +148,7 @@ class ProductDispatchCallback extends Model
      */
     public function approve($employeeId): bool
     {
-        if (!$this->canBeApproved()) {
+        if (! $this->canBeApproved()) {
             return false;
         }
 
@@ -166,7 +166,7 @@ class ProductDispatchCallback extends Model
      */
     public function markAsReceived($employeeId): bool
     {
-        if (!$this->canBeReceived()) {
+        if (! $this->canBeReceived()) {
             return false;
         }
 

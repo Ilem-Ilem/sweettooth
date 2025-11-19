@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+
 class ItemRequest extends Model
 {
     use HasFactory;
@@ -71,7 +72,7 @@ class ItemRequest extends Model
         return $this->belongsTo(Department::class);
     }
 
-   public function creator(): MorphTo
+    public function creator(): MorphTo
     {
         return $this->morphTo('requested_by');
     }

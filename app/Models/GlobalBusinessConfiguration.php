@@ -10,7 +10,7 @@ class GlobalBusinessConfiguration extends Model
 
     protected $casts = [
         'contact_details' => 'array',
-        'auto_backup'=>'boolean',
+        'auto_backup' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

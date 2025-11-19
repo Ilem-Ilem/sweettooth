@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->uuid('branch_id')->nullable();
             $table->foreign('branch_id')->references('id')->on('branches')->onDelete('cascade');
-             $table->string('setting_type', 50); // e.g., 'stock_adjustment'
+            $table->string('setting_type', 50); // e.g., 'stock_adjustment'
             $table->string('proposed_value', 255);
             $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
             $table->uuid('super_admin_id')->nullable();

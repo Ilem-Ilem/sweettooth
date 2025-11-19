@@ -34,5 +34,4 @@ Route::middleware(['auth'])->group(function () {
 
 require __DIR__.'/auth.php';
 require __DIR__.'/super-admin.php';
-require __DIR__ .'/branch-route.php';
-
+require __DIR__.'/branch-route.php';

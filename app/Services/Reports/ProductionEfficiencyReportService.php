@@ -4,11 +4,11 @@ namespace App\Services\Reports;
 
 use App\Models\DailyProduce;
 use App\Models\ProductionRecord;
-use Illuminate\Support\Facades\DB;
 
 class ProductionEfficiencyReportService extends ReportService
 {
     protected string $reportCategory = 'production';
+
     protected string $reportType = 'production_efficiency';
 
     /**

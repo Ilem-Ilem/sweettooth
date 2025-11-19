@@ -1,6 +1,5 @@
 <?php
 
-
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -15,15 +14,15 @@ return new class extends Migration
             // Foreign relations
             $table->uuid('branch_id');
             $table->foreign('branch_id')
-                  ->references('id')
-                  ->on('branches')
-                  ->onDelete('cascade');
+                ->references('id')
+                ->on('branches')
+                ->onDelete('cascade');
 
             $table->unsignedBigInteger('department_id');
             $table->foreign('department_id')
-                  ->references('id')
-                  ->on('departments')
-                  ->onDelete('cascade');
+                ->references('id')
+                ->on('departments')
+                ->onDelete('cascade');
 
             // Actor Pattern – Who created/requested the item request
             // Can be User (e.g. frontend staff) OR Employee (internal staff)
@@ -49,7 +48,7 @@ return new class extends Migration
                 'approved',
                 'partially_dispatched',
                 'completed',
-                'cancelled'
+                'cancelled',
             ])->default('pending');
 
             $table->text('notes')->nullable();

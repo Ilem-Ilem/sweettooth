@@ -30,8 +30,9 @@ class InventorySeeder extends Seeder
         $employee = Employee::first();
         $department = Department::first();
 
-        if (!$branch || !$employee || !$department) {
+        if (! $branch || ! $employee || ! $department) {
             $this->command->error('Please ensure you have at least one branch, employee, and department in the database.');
+
             return;
         }
 
@@ -39,35 +40,35 @@ class InventorySeeder extends Seeder
 
         // Create 25 diverse items
         $items = $this->createItems($branch);
-        $this->command->info('Created ' . count($items) . ' items');
+        $this->command->info('Created '.count($items).' items');
 
         // Create stocks for all items
         $stocks = $this->createStocks($items, $branch);
-        $this->command->info('Created ' . count($stocks) . ' stock records');
+        $this->command->info('Created '.count($stocks).' stock records');
 
         // Create purchases
         $purchases = $this->createPurchases($items, $branch, $employee);
-        $this->command->info('Created ' . count($purchases) . ' purchases');
+        $this->command->info('Created '.count($purchases).' purchases');
 
         // Create stock movements
         $stockMovements = $this->createStockMovements($stocks, $employee);
-        $this->command->info('Created ' . count($stockMovements) . ' stock movements');
+        $this->command->info('Created '.count($stockMovements).' stock movements');
 
         // Create item requests
         $itemRequests = $this->createItemRequests($items, $branch, $department, $employee);
-        $this->command->info('Created ' . count($itemRequests) . ' item requests');
+        $this->command->info('Created '.count($itemRequests).' item requests');
 
         // Create item dispatches
         $itemDispatches = $this->createItemDispatches($itemRequests, $items, $employee);
-        $this->command->info('Created ' . count($itemDispatches) . ' item dispatches');
+        $this->command->info('Created '.count($itemDispatches).' item dispatches');
 
         // Create stock takes
         $stockTakes = $this->createStockTakes($items, $branch, $employee);
-        $this->command->info('Created ' . count($stockTakes) . ' stock takes');
+        $this->command->info('Created '.count($stockTakes).' stock takes');
 
         // Create health checks
         $healthChecks = $this->createHealthChecks($stocks, $employee);
-        $this->command->info('Created ' . count($healthChecks) . ' health checks');
+        $this->command->info('Created '.count($healthChecks).' health checks');
 
         $this->command->info('Inventory seeding completed successfully!');
     }
@@ -117,7 +118,7 @@ class InventorySeeder extends Seeder
             $items[] = Item::create([
                 'branch_id' => $branch->id,
                 'name' => $itemData['name'],
-                'sku' => 'SKU-' . str_pad($index + 1, 5, '0', STR_PAD_LEFT),
+                'sku' => 'SKU-'.str_pad($index + 1, 5, '0', STR_PAD_LEFT),
                 'category' => $itemData['category'],
                 'uom' => $itemData['uom'],
                 'reorder_level' => $itemData['reorder_level'],
@@ -173,10 +174,10 @@ class InventorySeeder extends Seeder
             $purchase = Purchase::create([
                 'branch_id' => $branch->id,
                 'recorded_by' => $employee->id,
-                'purchase_number' => 'PUR-' . $branchCode . '-' . $purchaseDate->format('Ymd') . '-' . str_pad($i + 1, 4, '0', STR_PAD_LEFT),
+                'purchase_number' => 'PUR-'.$branchCode.'-'.$purchaseDate->format('Ymd').'-'.str_pad($i + 1, 4, '0', STR_PAD_LEFT),
                 'purchase_date' => $purchaseDate,
                 'supplier_name' => collect(['Global Supplies Ltd', 'Premium Ingredients Co', 'Quality Foods Inc', 'Industrial Distributors', 'Fresh Market Suppliers'])->random(),
-                'supplier_contact' => '+234' . rand(8000000000, 8999999999),
+                'supplier_contact' => '+234'.rand(8000000000, 8999999999),
                 'total_fob_fc' => $fobFc = rand(5000, 50000) / 10,
                 'total_fob_ngn' => $fobFc * $exchangeRate,
                 'other_costs' => $otherCosts = rand(1000, 10000) / 10,
@@ -184,7 +185,7 @@ class InventorySeeder extends Seeder
                 'currency' => $currency,
                 'exchange_rate' => $exchangeRate,
                 'payment_status' => collect(['pending', 'partial', 'paid'])->random(),
-                'notes' => 'Purchase order #' . ($i + 1),
+                'notes' => 'Purchase order #'.($i + 1),
             ]);
 
             // Create purchase items
@@ -247,7 +248,7 @@ class InventorySeeder extends Seeder
                     'reference_id' => null,
                     'moved_by' => $employee->id,
                     'movement_date' => now()->subDays(rand(1, 45)),
-                    'notes' => 'Stock ' . $type . ' movement',
+                    'notes' => 'Stock '.$type.' movement',
                 ]);
             }
         }
@@ -273,14 +274,14 @@ class InventorySeeder extends Seeder
             $request = ItemRequest::create([
                 'branch_id' => $branch->id,
                 'department_id' => $department->id,
-                'request_number' => 'REQ-' . $branchCode . '-' . $departmentCode . '-' . $requestDate->format('Ymd') . '-' . str_pad($i + 1, 4, '0', STR_PAD_LEFT),
+                'request_number' => 'REQ-'.$branchCode.'-'.$departmentCode.'-'.$requestDate->format('Ymd').'-'.str_pad($i + 1, 4, '0', STR_PAD_LEFT),
                 'requested_by' => $employee->id,
                 'request_date' => $requestDate,
                 'shift' => collect($shifts)->random(),
                 'status' => $status,
                 'approved_by' => in_array($status, ['approved', 'partially_dispatched', 'completed']) ? $employee->id : null,
                 'approved_at' => in_array($status, ['approved', 'partially_dispatched', 'completed']) ? $requestDate->copy()->addHours(rand(2, 48)) : null,
-                'notes' => 'Request for ' . $department->name ?? 'department',
+                'notes' => 'Request for '.$department->name ?? 'department',
             ]);
 
             // Create request details
@@ -301,7 +302,7 @@ class InventorySeeder extends Seeder
                     'quantity_approved' => $quantityApproved,
                     'quantity_dispatched' => $quantityDispatched,
                     'uom' => $item->uom,
-                    'notes' => 'Request for ' . $item->name,
+                    'notes' => 'Request for '.$item->name,
                 ]);
             }
 
@@ -333,14 +334,14 @@ class InventorySeeder extends Seeder
                         'request_id' => $request->id,
                         'item_id' => $detail->item_id,
                         'dispatched_by' => $employee->id,
-                        'branch_id'=>$request->branch_id,
+                        'branch_id' => $request->branch_id,
                         'received_by' => $employee->id,
                         'quantity' => $detail->quantity_dispatched,
                         'uom' => $detail->uom,
                         'dispatch_time' => $dispatchTime,
                         'received_time' => $receivedTime,
                         'shift' => collect($shifts)->random(),
-                        'notes' => 'Dispatch for request ' . $request->request_number,
+                        'notes' => 'Dispatch for request '.$request->request_number,
                     ]);
                 }
             }
@@ -365,14 +366,14 @@ class InventorySeeder extends Seeder
 
             $stockTake = StockTake::create([
                 'branch_id' => $branch->id,
-                'stock_take_number' => 'ST-' . $branchCode . '-' . $stockTakeDate->format('Ymd') . '-' . str_pad($i + 1, 4, '0', STR_PAD_LEFT),
+                'stock_take_number' => 'ST-'.$branchCode.'-'.$stockTakeDate->format('Ymd').'-'.str_pad($i + 1, 4, '0', STR_PAD_LEFT),
                 'stock_take_date' => $stockTakeDate,
                 'type' => collect($types)->random(),
                 'conducted_by' => $employee->id,
                 'status' => $status,
                 'verified_by' => $status === 'verified' ? $employee->id : null,
                 'verified_at' => $status === 'verified' ? $stockTakeDate->copy()->addDays(rand(1, 3)) : null,
-                'notes' => 'Stock take #' . ($i + 1),
+                'notes' => 'Stock take #'.($i + 1),
             ]);
 
             // Create stock take details
@@ -391,7 +392,7 @@ class InventorySeeder extends Seeder
                     'physical_quantity' => $physicalQuantity,
                     'variance' => abs($variance),
                     'variance_type' => $varianceType,
-                    'notes' => $varianceType !== 'match' ? 'Variance found: ' . $variance : 'Quantities match',
+                    'notes' => $varianceType !== 'match' ? 'Variance found: '.$variance : 'Quantities match',
                 ]);
             }
 
@@ -428,7 +429,7 @@ class InventorySeeder extends Seeder
                     'check_date' => now()->subDays(rand(1, 35)),
                     'condition' => $condition,
                     'quantity_affected' => $quantityAffected,
-                    'observations' => 'Routine health check - condition: ' . $condition,
+                    'observations' => 'Routine health check - condition: '.$condition,
                     'action_taken' => $actions[$condition],
                 ]);
             }

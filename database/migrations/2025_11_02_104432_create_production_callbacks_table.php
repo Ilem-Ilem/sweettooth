@@ -21,7 +21,7 @@ return new class extends Migration
             // Source type: raw material or finished product
             $table->enum('source_type', [
                 'raw_material_from_stock',
-                'finished_product_reject'
+                'finished_product_reject',
             ]);
 
             // Raw material item (if applicable)
@@ -47,7 +47,7 @@ return new class extends Migration
                 'quality_issue',
                 'wrong_batch',
                 'contamination',
-                'other'
+                'other',
             ]);
 
             // Status of the callback
@@ -55,7 +55,7 @@ return new class extends Migration
                 'pending',
                 'approved_by_inventory',
                 'completed',
-                'rejected'
+                'rejected',
             ])->default('pending');
 
             // Inventory employee who approved

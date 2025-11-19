@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
-use App\Models\ProductStock;
 use App\Models\ExpiryConfirmation;
 use App\Models\Product;
+use App\Models\ProductStock;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -12,11 +12,6 @@ class CheckExpiredProducts
 {
     /**
      * Get expired or expiring products for a specific shift
-     *
-     * @param int $salesShiftId
-     * @param int $branchId
-     * @param int $departmentId
-     * @return Collection
      */
     public function getExpiredProductsForShift(int $salesShiftId, int $branchId, int $departmentId): Collection
     {
@@ -38,7 +33,7 @@ class CheckExpiredProducts
 
         // Filter out products that already have confirmations
         $expiredStocks = $expiredStocks->filter(function ($stock) use ($salesShiftId) {
-            return !$this->hasConfirmation($stock->id, $salesShiftId);
+            return ! $this->hasConfirmation($stock->id, $salesShiftId);
         });
 
         // Map to a more usable format
@@ -65,11 +60,6 @@ class CheckExpiredProducts
 
     /**
      * Get products that are approaching expiry (warning/critical)
-     *
-     * @param int $salesShiftId
-     * @param int $branchId
-     * @param int $departmentId
-     * @return Collection
      */
     public function getExpiringProductsForShift(int $salesShiftId, int $branchId, int $departmentId): Collection
     {
@@ -102,10 +92,6 @@ class CheckExpiredProducts
 
     /**
      * Check if a product stock already has a confirmation for the shift
-     *
-     * @param int $productStockId
-     * @param int $salesShiftId
-     * @return bool
      */
     public function hasConfirmation(int $productStockId, int $salesShiftId): bool
     {
@@ -117,7 +103,7 @@ class CheckExpiredProducts
     /**
      * Auto-mark expired products as callbacks if not confirmed within time limit
      *
-     * @param int $hoursLimit Number of hours before auto-marking
+     * @param  int  $hoursLimit  Number of hours before auto-marking
      * @return int Number of products auto-marked
      */
     public function autoMarkExpiredProducts(int $hoursLimit = 2): int
@@ -140,14 +126,14 @@ class CheckExpiredProducts
         foreach ($expiredStocks as $stock) {
             // Check if shift started more than X hours ago and no confirmation exists
             if ($stock->salesShift->clock_in <= $cutoffTime &&
-                !$this->hasConfirmation($stock->id, $stock->sales_shift_id)) {
+                ! $this->hasConfirmation($stock->id, $stock->sales_shift_id)) {
 
                 // Auto-mark as callback
                 $this->markAsCallback(
                     $stock->id,
                     $stock->sales_shift_id,
                     $stock->salesShift->employee_id,
-                    'Auto-marked as callback: Product expired and not confirmed within ' . $hoursLimit . ' hours',
+                    'Auto-marked as callback: Product expired and not confirmed within '.$hoursLimit.' hours',
                     $stock->opening_quantity
                 );
 
@@ -160,12 +146,6 @@ class CheckExpiredProducts
 
     /**
      * Confirm a product is still good despite expiry date
-     *
-     * @param int $productStockId
-     * @param int $salesShiftId
-     * @param int $employeeId
-     * @param string|null $notes
-     * @return ExpiryConfirmation
      */
     public function confirmStillGood(int $productStockId, int $salesShiftId, int $employeeId, ?string $notes = null): ExpiryConfirmation
     {
@@ -181,13 +161,6 @@ class CheckExpiredProducts
 
     /**
      * Mark a product as callback and update the stock
-     *
-     * @param int $productStockId
-     * @param int $salesShiftId
-     * @param int $employeeId
-     * @param string|null $notes
-     * @param float $quantity
-     * @return ExpiryConfirmation
      */
     public function markAsCallback(int $productStockId, int $salesShiftId, int $employeeId, ?string $notes = null, float $quantity = 0): ExpiryConfirmation
     {

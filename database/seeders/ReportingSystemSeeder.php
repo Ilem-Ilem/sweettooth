@@ -4,10 +4,10 @@ namespace Database\Seeders;
 
 use App\Models\Branch;
 use App\Models\Department;
-use App\Models\Employee;
 use App\Models\DepartmentReport;
-use Illuminate\Database\Seeder;
+use App\Models\Employee;
 use Carbon\Carbon;
+use Illuminate\Database\Seeder;
 
 class ReportingSystemSeeder extends Seeder
 {
@@ -26,28 +26,29 @@ class ReportingSystemSeeder extends Seeder
             $branch = Branch::first();
         }
 
-        if (!$branch) {
+        if (! $branch) {
             $this->command->error('No branch found. Please create a branch first.');
+
             return;
         }
 
         $this->command->info("Using branch: {$branch->branch_name} (ID: {$branch->id})");
 
         // Get production departments (include NULL branch_id as they might be global)
-        $productionDepartments = Department::where(function($q) use ($branch) {
-                $q->where('branch_id', $branch->id)
-                  ->orWhereNull('branch_id');
-            })
-            ->whereHas('category', fn($q) => $q->where('name', 'Production'))
+        $productionDepartments = Department::where(function ($q) use ($branch) {
+            $q->where('branch_id', $branch->id)
+                ->orWhereNull('branch_id');
+        })
+            ->whereHas('category', fn ($q) => $q->where('name', 'Production'))
             ->get();
 
         // If no production departments, use any departments
         if ($productionDepartments->isEmpty()) {
             $this->command->warn('No production departments found. Using all departments...');
-            $productionDepartments = Department::where(function($q) use ($branch) {
-                    $q->where('branch_id', $branch->id)
-                      ->orWhereNull('branch_id');
-                })
+            $productionDepartments = Department::where(function ($q) use ($branch) {
+                $q->where('branch_id', $branch->id)
+                    ->orWhereNull('branch_id');
+            })
                 ->get();
         }
 
@@ -58,6 +59,7 @@ class ReportingSystemSeeder extends Seeder
 
         if ($productionDepartments->isEmpty()) {
             $this->command->error('No departments found at all. Please create departments first.');
+
             return;
         }
 
@@ -65,8 +67,9 @@ class ReportingSystemSeeder extends Seeder
 
         // Get an employee to use as report generator
         $employee = Employee::where('branch_id', $branch->id)->first();
-        if (!$employee) {
+        if (! $employee) {
             $this->command->error('No employee found for this branch. Please create employees first.');
+
             return;
         }
 
@@ -208,6 +211,7 @@ class ReportingSystemSeeder extends Seeder
 
         if ($departments->isEmpty()) {
             $this->command->warn('No departments available for creating reviewed reports.');
+
             return;
         }
 
@@ -227,7 +231,7 @@ class ReportingSystemSeeder extends Seeder
                 'generated_by' => $employee->id,
                 'report_type' => $reportType,
                 'report_category' => 'production',
-                'report_name' => ucfirst(str_replace('_', ' ', $reportType)) . " - {$department->name}",
+                'report_name' => ucfirst(str_replace('_', ' ', $reportType))." - {$department->name}",
                 'report_date' => $reportDate,
                 'period_from' => $reportDate->copy()->startOfWeek(),
                 'period_to' => $reportDate->copy()->endOfWeek(),

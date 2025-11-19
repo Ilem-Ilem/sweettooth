@@ -2,15 +2,15 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use App\Models\Recipe;
-use App\Models\RecipeIngredient;
-use App\Models\Shift;
 use App\Models\DailyProduce;
 use App\Models\ProductionRecord;
 use App\Models\ProductionRequest;
 use App\Models\RawMaterialUtilization;
+use App\Models\Recipe;
+use App\Models\RecipeIngredient;
+use App\Models\Shift;
 use Faker\Factory as Faker;
+use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
 class ProductionSeeder extends Seeder
@@ -46,8 +46,8 @@ class ProductionSeeder extends Seeder
             $recipes[] = Recipe::create([
                 'branch_id' => $faker->randomElement($branchIds),
                 'department_id' => $faker->randomElement($departmentIds),
-                'product_name' => $faker->word . ' ' . $faker->randomElement(['Gelato', 'Pastry', 'Beverage']),
-                'sku' => 'SKU-' . Str::random(8),
+                'product_name' => $faker->word.' '.$faker->randomElement(['Gelato', 'Pastry', 'Beverage']),
+                'sku' => 'SKU-'.Str::random(8),
                 // 'category_id' => $faker->randomElement($categoryIds),
                 'product_type' => $faker->randomElement(['gelato_base', 'gelato_flavor', 'pastry', 'hot_kitchen', 'beverage']),
                 'cost_per_unit' => $faker->randomFloat(4, 0.5, 50),
@@ -81,7 +81,7 @@ class ProductionSeeder extends Seeder
                 'branch_id' => $faker->randomElement($branchIds),
                 'department_id' => $faker->randomElement($departmentIds),
                 'employee_id' => $faker->randomElement($employeeIds),
-                'shift_number' => 'SHIFT-' . Str::random(6),
+                'shift_number' => 'SHIFT-'.Str::random(6),
                 'shift_date' => $faker->dateTimeBetween('-1 month', 'now')->format('Y-m-d'),
                 'shift_type' => $faker->randomElement(['morning', 'afternoon', 'night']),
                 'clock_in' => $faker->dateTimeBetween('-1 day', 'now'),

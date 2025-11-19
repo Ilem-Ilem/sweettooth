@@ -2,14 +2,13 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
-use App\Models\Employee;
 use App\Models\Branch;
 use App\Models\Department;
-use Spatie\Permission\Models\Role;
-use Illuminate\Support\Facades\Hash;
+use App\Models\Employee;
 use Faker\Factory as Faker;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Models\Role;
 
 class EmployeeSeeder extends Seeder
 {
@@ -27,16 +26,19 @@ class EmployeeSeeder extends Seeder
 
         if ($branches->isEmpty()) {
             $this->command->warn('No branches found. Please seed branches first.');
+
             return;
         }
 
         if ($departments->isEmpty()) {
             $this->command->warn('No departments found. Please seed departments first.');
+
             return;
         }
 
         if ($roles->isEmpty()) {
             $this->command->warn('No roles found. Please seed roles first.');
+
             return;
         }
 
@@ -45,7 +47,7 @@ class EmployeeSeeder extends Seeder
         $hashedPassword = Hash::make('password');
         $nigerianNames = [
             'male' => ['Chukwuemeka', 'Oluwaseun', 'Abubakar', 'Emeka', 'Tunde', 'Chigozie', 'Ibrahim', 'Kunle', 'Obinna', 'Yusuf'],
-            'female' => ['Ngozi', 'Amina', 'Chioma', 'Folake', 'Kemi', 'Blessing', 'Hauwa', 'Ada', 'Fatima', 'Nneka']
+            'female' => ['Ngozi', 'Amina', 'Chioma', 'Folake', 'Kemi', 'Blessing', 'Hauwa', 'Ada', 'Fatima', 'Nneka'],
         ];
         $surnames = ['Okafor', 'Adebayo', 'Mohammed', 'Nwankwo', 'Ogunleye', 'Chukwu', 'Bello', 'Okoro', 'Aliyu', 'Eze', 'Williams', 'Johnson'];
 
@@ -170,11 +172,11 @@ class EmployeeSeeder extends Seeder
         $gender = $faker->randomElement(['male', 'female']);
         $firstName = $faker->randomElement($nigerianNames[$gender]);
         $lastName = $faker->randomElement($surnames);
-        $name = $firstName . ' ' . $lastName;
-        $employeeNumber = 'EMP-' . str_replace(['-', ' '], '', strtoupper($branch->code)) . '-' . str_pad($count, 4, '0', STR_PAD_LEFT);
+        $name = $firstName.' '.$lastName;
+        $employeeNumber = 'EMP-'.str_replace(['-', ' '], '', strtoupper($branch->code)).'-'.str_pad($count, 4, '0', STR_PAD_LEFT);
 
         // Create unique email using employee number to avoid duplicates
-        $emailPrefix = strtolower(str_replace(' ', '.', $name)) . '.' . $count;
+        $emailPrefix = strtolower(str_replace(' ', '.', $name)).'.'.$count;
 
         $hireDate = $faker->dateTimeBetween('-3 years', '-1 month')->format('Y-m-d');
         $status = $faker->randomElement(['active', 'active', 'active', 'on_probation']);
@@ -191,14 +193,14 @@ class EmployeeSeeder extends Seeder
             'manager_id' => null, // Will be set later if needed
             'employee_number' => $employeeNumber,
             'name' => $name,
-            'email' => $emailPrefix . '@sweettooth.com',
-            'phone' => '+234-' . $faker->numberBetween(800, 909) . '-' . $faker->numberBetween(100, 999) . '-' . $faker->numberBetween(1000, 9999),
-            'address' => $faker->streetAddress() . ', ' . $branch->city . ', ' . $branch->state . ' State, Nigeria',
+            'email' => $emailPrefix.'@sweettooth.com',
+            'phone' => '+234-'.$faker->numberBetween(800, 909).'-'.$faker->numberBetween(100, 999).'-'.$faker->numberBetween(1000, 9999),
+            'address' => $faker->streetAddress().', '.$branch->city.', '.$branch->state.' State, Nigeria',
             'date_of_birth' => $faker->dateTimeBetween('-45 years', '-22 years')->format('Y-m-d'),
             'gender' => $gender,
             'nationality' => 'Nigerian',
-            'emergency_contact_name' => $faker->randomElement($nigerianNames[$gender === 'male' ? 'female' : 'male']) . ' ' . $faker->randomElement($surnames),
-            'emergency_contact_phone' => '+234-' . $faker->numberBetween(800, 909) . '-' . $faker->numberBetween(100, 999) . '-' . $faker->numberBetween(1000, 9999),
+            'emergency_contact_name' => $faker->randomElement($nigerianNames[$gender === 'male' ? 'female' : 'male']).' '.$faker->randomElement($surnames),
+            'emergency_contact_phone' => '+234-'.$faker->numberBetween(800, 909).'-'.$faker->numberBetween(100, 999).'-'.$faker->numberBetween(1000, 9999),
             'hire_date' => $hireDate,
             'termination_date' => null,
             'status' => $status,
@@ -206,7 +208,7 @@ class EmployeeSeeder extends Seeder
             'shift_preference' => $faker->randomElement(['morning', 'afternoon', 'rotating', 'flexible']),
             'salary' => $faker->randomFloat(2, 80000, 350000),
             'hourly_rate' => null,
-            'tax_id' => 'TIN-' . $faker->numberBetween(10000000, 99999999),
+            'tax_id' => 'TIN-'.$faker->numberBetween(10000000, 99999999),
             'bank_account' => $faker->numerify('##########'),
             'allergies' => $faker->boolean(15) ? $faker->randomElement(['None', 'Peanuts', 'Shellfish', 'Lactose']) : null,
             'profile_photo' => null,

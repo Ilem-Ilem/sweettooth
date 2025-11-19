@@ -5,12 +5,11 @@ namespace App\Livewire\BranchDashboard\Analytics;
 use App\Models\StockMovement;
 use App\Models\Stock;
 use App\Models\Department;
-use App\Models\Employee;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
-use Livewire\Attributes\Layout;
+use Livewire\Attributes\{Layout, Url};
 use Carbon\Carbon;
 
 #[Layout('components.layouts.app.branch-dashboard')]
@@ -26,9 +25,13 @@ class StockMovementAnalytics extends Component
     public $itemSearch = '';
     public $filterShift = '';
     public $filterDepartment = '';
-
-    // View mode: 'table', 'feed'
+    #[Url(keep: true)]
     public $viewMode = 'table';
+
+    #[Url(keep: true)]
+    public $b_id;
+
+    protected $listeners = ['refresh' => '$refresh'];
 
     protected $queryString = [
         'dateFrom',
@@ -46,72 +49,42 @@ class StockMovementAnalytics extends Component
     public function setViewMode($mode)
     {
         $this->viewMode = $mode;
+
+        return redirect()->route('branch-dashboard.analytics.stock-movement', [
+            'b_id' => $this->b_id ?? request()->get('b_id'),
+            'movementType' => $this->movementType,
+            'viewMode' => $this->viewMode
+        ]);
     }
 
-    public function updatedSelectedItem()
+    public function updated($property)
     {
-        $this->resetPage();
+        if (in_array($property, ['selectedItem', 'movementType', 'dateFrom', 'dateTo', 'filterShift', 'filterDepartment', 'searchTerm'])) {
+            $this->resetPage();
+        }
     }
 
-    public function updatedMovementType()
-    {
-        $this->resetPage();
-    }
-
-    public function updatedDateFrom()
-    {
-        $this->resetPage();
-    }
-
-    public function updatedDateTo()
-    {
-        $this->resetPage();
-    }
-
-    public function updatedFilterShift()
-    {
-        $this->resetPage();
-    }
-
-    public function updatedFilterDepartment()
-    {
-        $this->resetPage();
-    }
-
-    /**
-     * Get comprehensive analytics summary
-     */
     private function getAnalyticsSummary($branchId)
     {
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
         $baseQuery = StockMovement::query()
-            ->whereHas('stock', function ($q) use ($branchId) {
-                $q->where('branch_id', $branchId);
-            })
+            ->whereHas('stock', fn ($q) => $q->where('branch_id', $branchId))
             ->whereBetween('movement_date', [$dateFrom, $dateTo]);
 
-        // Apply filters
         $filteredQuery = clone $baseQuery;
         $this->applyFiltersToQuery($filteredQuery);
 
-        // Today's movements
         $todayQuery = StockMovement::query()
-            ->whereHas('stock', function ($q) use ($branchId) {
-                $q->where('branch_id', $branchId);
-            })
+            ->whereHas('stock', fn ($q) => $q->where('branch_id', $branchId))
             ->whereDate('movement_date', today());
 
-        // Compare with previous period
         $daysDiff = $dateFrom->diffInDays($dateTo);
-
         $previousPeriodQuery = StockMovement::query()
-            ->whereHas('stock', function ($q) use ($branchId) {
-                $q->where('branch_id', $branchId);
-            })
+            ->whereHas('stock', fn ($q) => $q->where('branch_id', $branchId))
             ->whereBetween('movement_date', [
-                $dateFrom->copy()->subDays($daysDiff)->startOfDay(),
+                $dateFrom->copy()->subDays($daysDiff + 1),
                 $dateFrom->copy()->subDay()->endOfDay()
             ]);
 
@@ -141,49 +114,29 @@ class StockMovementAnalytics extends Component
         ];
     }
 
-    /**
-     * Apply filters to query
-     */
     private function applyFiltersToQuery($query)
     {
         $query->when($this->selectedItem, fn ($q) => $q->where('stock_id', $this->selectedItem))
             ->when($this->movementType, fn ($q) => $q->where('type', $this->movementType))
             ->when($this->searchTerm, function ($q) {
-                $q->where(function ($query) {
-                    $query->whereHas('stock.item', function ($subQuery) {
-                        $subQuery->where('name', 'like', '%'.$this->searchTerm.'%')
-                            ->orWhere('sku', 'like', '%'.$this->searchTerm.'%');
-                    })
-                    ->orWhereHas('mover', function ($subQuery) {
-                        $subQuery->where('name', 'like', '%'.$this->searchTerm.'%');
-                    })
-                    ->orWhere('notes', 'like', '%'.$this->searchTerm.'%');
+                $q->where(function ($sq) {
+                    $sq->whereHas('stock.item', fn ($ssq) => $ssq->where('name', 'like', "%{$this->searchTerm}%")
+                        ->orWhere('sku', 'like', "%{$this->searchTerm}%"))
+                        ->orWhereHas('mover', fn ($ssq) => $ssq->where('name', 'like', "%{$this->searchTerm}%"))
+                        ->orWhere('notes', 'like', "%{$this->searchTerm}%");
                 });
             })
-            ->when($this->filterShift, function ($q) {
-                $q->whereHasMorph('reference', ['App\Models\ItemRequest'], function ($subQuery) {
-                    $subQuery->where('shift', $this->filterShift);
-                });
-            })
-            ->when($this->filterDepartment, function ($q) {
-                $q->whereHasMorph('reference', ['App\Models\ItemRequest'], function ($subQuery) {
-                    $subQuery->where('department_id', $this->filterDepartment);
-                });
-            });
+            ->when($this->filterShift, fn ($q) => $q->whereHasMorph('reference', ['App\Models\ItemRequest'], fn ($sq) => $sq->where('shift', $this->filterShift)))
+            ->when($this->filterDepartment, fn ($q) => $q->whereHasMorph('reference', ['App\Models\ItemRequest'], fn ($sq) => $sq->where('department_id', $this->filterDepartment)));
     }
 
-    /**
-     * Get daily breakdown of movements
-     */
     private function getDailyBreakdown($branchId)
     {
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
         return StockMovement::query()
-            ->whereHas('stock', function ($q) use ($branchId) {
-                $q->where('branch_id', $branchId);
-            })
+            ->whereHas('stock', fn ($q) => $q->where('branch_id', $branchId))
             ->whereBetween('movement_date', [$dateFrom, $dateTo])
             ->selectRaw('DATE(movement_date) as date')
             ->selectRaw('SUM(CASE WHEN type IN ("in", "return") THEN quantity ELSE 0 END) as stock_in')
@@ -195,9 +148,6 @@ class StockMovementAnalytics extends Component
             ->get();
     }
 
-    /**
-     * Get most moved item
-     */
     private function getMostMovedItem($branchId)
     {
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
@@ -205,9 +155,7 @@ class StockMovementAnalytics extends Component
 
         return StockMovement::query()
             ->select('stock_id', DB::raw('COUNT(*) as movement_count'))
-            ->whereHas('stock', function ($q) use ($branchId) {
-                $q->where('branch_id', $branchId);
-            })
+            ->whereHas('stock', fn ($q) => $q->where('branch_id', $branchId))
             ->whereBetween('movement_date', [$dateFrom, $dateTo])
             ->groupBy('stock_id')
             ->orderByDesc('movement_count')
@@ -215,205 +163,143 @@ class StockMovementAnalytics extends Component
             ->first();
     }
 
-    /**
-     * Get most active user
-     */
     private function getMostActiveUser($branchId)
     {
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
         return StockMovement::query()
-            ->select('moved_by', DB::raw('COUNT(*) as operation_count'))
-            ->whereHas('stock', function ($q) use ($branchId) {
-                $q->where('branch_id', $branchId);
-            })
-            ->whereNotNull('moved_by')
+            ->select('moved_by_id', 'moved_by_type', DB::raw('COUNT(*) as operation_count'))
+            ->whereHas('stock', fn ($q) => $q->where('branch_id', $branchId))
+            ->whereNotNull('moved_by_id')
+            ->whereNotNull('moved_by_type')
             ->whereBetween('movement_date', [$dateFrom, $dateTo])
-            ->groupBy('moved_by')
+            ->groupBy('moved_by_id', 'moved_by_type')
             ->orderByDesc('operation_count')
             ->with('mover')
             ->first();
     }
 
-    /**
-     * Get peak activity hours
-     */
     private function getPeakActivityHours($branchId)
     {
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
-        $hourlyActivity = StockMovement::query()
+        return StockMovement::query()
             ->select(DB::raw('HOUR(movement_date) as hour'), DB::raw('COUNT(*) as count'))
-            ->whereHas('stock', function ($q) use ($branchId) {
-                $q->where('branch_id', $branchId);
-            })
+            ->whereHas('stock', fn ($q) => $q->where('branch_id', $branchId))
             ->whereBetween('movement_date', [$dateFrom, $dateTo])
             ->groupBy('hour')
             ->orderByDesc('count')
             ->limit(3)
-            ->get();
-
-        return $hourlyActivity->map(function ($item) {
-            return [
+            ->get()
+            ->map(fn ($item) => [
                 'hour' => $item->hour,
                 'count' => $item->count,
                 'formatted' => str_pad($item->hour, 2, '0', STR_PAD_LEFT) . ':00',
-            ];
-        });
+            ]);
     }
 
-    /**
-     * Get activity feed
-     */
+    // FIXED: Activity Feed now shows latest 20 movements (ignores filters)
     private function getActivityFeed($branchId, $limit = 20)
     {
-        $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
-        $dateTo = Carbon::parse($this->dateTo)->endOfDay();
-
-        return StockMovement::with([
-            'stock.item',
-            'mover',
-            'reference',
-            'reference.department'
-        ])
-        ->whereHas('stock', function ($q) use ($branchId) {
-            $q->where('branch_id', $branchId);
-        })
-        ->whereBetween('movement_date', [$dateFrom, $dateTo])
-        ->orderBy('movement_date', 'desc')
-        ->limit($limit)
-        ->get();
+        return StockMovement::with(['stock.item', 'mover', 'reference'])
+            ->whereHas('stock', fn ($q) => $q->where('branch_id', $branchId))
+            ->orderBy('movement_date', 'desc')
+            ->limit($limit)
+            ->get()
+            ->append('department_name');
     }
 
     public function getAvailableItems()
     {
-        $branchId = Auth::guard('employees')->user()?->branch_id ??  request()->get('b_id');
+        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
 
         return Stock::with('item')
             ->where('branch_id', $branchId)
-            ->when($this->itemSearch, function ($query) {
-                $query->whereHas('item', function ($q) {
-                    $q->where('name', 'like', '%' . $this->itemSearch . '%')
-                      ->orWhere('sku', 'like', '%' . $this->itemSearch . '%');
-                });
-            })
+            ->when($this->itemSearch, fn ($q) => $q->whereHas('item', fn ($sq) => $sq->where('name', 'like', "%{$this->itemSearch}%")->orWhere('sku', 'like', "%{$this->itemSearch}%")))
             ->limit(50)
             ->get()
-            ->map(function ($stock) {
-                return [
-                    'id' => $stock->id,
-                    'name' => $stock->item->name,
-                    'sku' => $stock->item->sku,
-                    'uom' => $stock->item->uom,
-                ];
-            });
+            ->map(fn ($s) => [
+                'id' => $s->id,
+                'name' => $s->item->name,
+                'sku' => $s->item->sku,
+                'uom' => $s->item->uom,
+            ]);
     }
 
-    /**
-     * Export to CSV
-     */
+    // FIXED: CSV export — safe, no more crashes
     public function exportCsv()
     {
-        $branchId = Auth::guard('employees')->user()?->branch_id ??  request()->get('b_id');
+        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
-        $dateTo = Carbon::parse($this->dateTo)->endOfDay();
+        $dateTo   = Carbon::parse($this->dateTo)->endOfDay();
 
-        $query = StockMovement::with([
-            'stock.item',
-            'mover',
-            'reference',
-            'reference.department'
-        ])
-        ->whereHas('stock', function ($q) use ($branchId) {
-            $q->where('branch_id', $branchId);
-        })
-        ->whereBetween('movement_date', [$dateFrom, $dateTo]);
+        $movements = StockMovement::with(['stock.item', 'mover', 'reference'])
+            ->whereHas('stock', fn ($q) => $q->where('branch_id', $branchId))
+            ->whereBetween('movement_date', [$dateFrom, $dateTo])
+            ->orderBy('movement_date', 'desc')
+            ->get()
+            ->append('department_name');
 
-        $this->applyFiltersToQuery($query);
+        // Apply filters manually
+        $movements = $movements->filter(function ($m) {
+            if ($this->selectedItem && $m->stock_id != $this->selectedItem) return false;
+            if ($this->movementType && $m->type != $this->movementType) return false;
+            if ($this->searchTerm) {
+                $haystack = strtolower("{$m->stock->item->name} {$m->stock->item->sku} {$m->mover?->name} {$m->notes}");
+                if (!str_contains($haystack, strtolower($this->searchTerm))) return false;
+            }
+            return true;
+        });
 
-        $movements = $query->orderBy('movement_date', 'desc')->get();
+        $csvData = [[
+            'Date', 'Time', 'Item Name', 'SKU', 'Type', 'Quantity Change',
+            'Qty Before', 'Qty After', 'UOM', 'Moved By', 'Department', 'Shift', 'Reference', 'Notes'
+        ]];
 
-        $csvData = [];
-        $csvData[] = [
-            'Date',
-            'Time',
-            'Item Name',
-            'SKU',
-            'Type',
-            'Quantity Change',
-            'Qty Before',
-            'Qty After',
-            'UOM',
-            'Moved By',
-            'Department',
-            'Shift',
-            'Reference',
-            'Notes'
-        ];
-
-        foreach ($movements as $movement) {
-            $request = ($movement->reference && $movement->reference instanceof \App\Models\ItemRequest)
-                ? $movement->reference
-                : null;
+        foreach ($movements as $m) {
+            $ref = $m->reference;
+            $isRequest = $ref instanceof \App\Models\ItemRequest;
 
             $csvData[] = [
-                $movement->movement_date->format('Y-m-d'),
-                $movement->movement_date->format('H:i:s'),
-                $movement->stock->item->name ?? 'N/A',
-                $movement->stock->item->sku ?? 'N/A',
-                ucfirst($movement->type),
-                ($movement->isInbound() ? '+' : '-') . number_format(abs($movement->quantity), 2),
-                number_format($movement->quantity_before, 2),
-                number_format($movement->quantity_after, 2),
-                $movement->stock->item->uom ?? '',
-                $movement->mover->name ?? 'N/A',
-                $request?->department->name ?? 'N/A',
-                $request ? ucfirst($request->shift) : 'N/A',
-                $request ? $request->request_number : ($movement->reference_id ? '#' . $movement->reference_id : 'N/A'),
-                $movement->notes ?? ''
+                $m->movement_date->format('Y-m-d'),
+                $m->movement_date->format('H:i:s'),
+                $m->stock->item->name ?? 'N/A',
+                $m->stock->item->sku ?? 'N/A',
+                ucfirst($m->type),
+                ($m->isInbound() ? '+' : '-') . number_format(abs($m->quantity), 2),
+                number_format($m->quantity_before, 2),
+                number_format($m->quantity_after, 2),
+                $m->stock->item->uom ?? '',
+                $m->mover?->name ?? 'System',
+                $m->department_name ?? 'N/A',
+                $isRequest ? ucfirst($ref->shift ?? '') : 'N/A',
+                $ref ? ($ref->request_number ?? $ref->reference_number ?? "#{$m->reference_id}") : 'N/A',
+                $m->notes ?? '',
             ];
         }
 
-        $filename = 'stock-movement-analytics-' . now()->format('Y-m-d-His') . '.csv';
+        $filename = 'stock-movements-' . now()->format('Y-m-d-His') . '.csv';
         $handle = fopen('php://temp', 'r+');
-
-        foreach ($csvData as $row) {
-            fputcsv($handle, $row);
-        }
-
+        foreach ($csvData as $row) fputcsv($handle, $row);
         rewind($handle);
         $csv = stream_get_contents($handle);
         fclose($handle);
 
-        return response()->streamDownload(function() use ($csv) {
-            echo $csv;
-        }, $filename, [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-        ]);
+        return response()->streamDownload(fn () => print $csv, $filename, ['Content-Type' => 'text/csv']);
     }
 
-    /**
-     * Get top moved items (text-based, no chart)
-     */
     public function getTopMovedItems()
     {
-        $branchId = @Auth::guard('employees')->user()->branch_id ??  request()->get('b_id'); 
+        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
         return StockMovement::with(['stock.item'])
-            ->whereHas('stock', function ($query) use ($branchId) {
-                $query->where('branch_id', $branchId);
-            })
-            ->when($this->selectedItem, function ($query) {
-                $query->where('stock_id', $this->selectedItem);
-            })
-            ->when($this->movementType, function ($query) {
-                $query->where('type', $this->movementType);
-            })
+            ->whereHas('stock', fn ($q) => $q->where('branch_id', $branchId))
+            ->when($this->selectedItem, fn ($q) => $q->where('stock_id', $this->selectedItem))
+            ->when($this->movementType, fn ($q) => $q->where('type', $this->movementType))
             ->whereBetween('movement_date', [$dateFrom, $dateTo])
             ->selectRaw('stock_id, COUNT(*) as movement_count, SUM(ABS(quantity)) as total_moved')
             ->groupBy('stock_id')
@@ -422,24 +308,15 @@ class StockMovementAnalytics extends Component
             ->get();
     }
 
-    /**
-     * Get movement type distribution (text-based, no chart)
-     */
     public function getMovementTypeDistribution()
     {
-        $branchId = @Auth::guard('employees')->user()->branch_id ??  request()->get('b_id');
+        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
-        return StockMovement::whereHas('stock', function ($query) use ($branchId) {
-                $query->where('branch_id', $branchId);
-            })
-            ->when($this->selectedItem, function ($query) {
-                $query->where('stock_id', $this->selectedItem);
-            })
-            ->when($this->movementType, function ($query) {
-                $query->where('type', $this->movementType);
-            })
+        return StockMovement::whereHas('stock', fn ($q) => $q->where('branch_id', $branchId))
+            ->when($this->selectedItem, fn ($q) => $q->where('stock_id', $this->selectedItem))
+            ->when($this->movementType, fn ($q) => $q->where('type', $this->movementType))
             ->whereBetween('movement_date', [$dateFrom, $dateTo])
             ->selectRaw('type, COUNT(*) as count, SUM(ABS(quantity)) as total_quantity')
             ->groupBy('type')
@@ -447,25 +324,16 @@ class StockMovementAnalytics extends Component
             ->get();
     }
 
-    /**
-     * Get velocity analysis (fastest moving items)
-     */
     public function getVelocityAnalysis()
     {
-        $branchId = @Auth::guard('employees')->user()->branch_id ??  request()->get('b_id');
+        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
         return StockMovement::with(['stock.item'])
-            ->whereHas('stock', function ($query) use ($branchId) {
-                $query->where('branch_id', $branchId);
-            })
-            ->when($this->selectedItem, function ($query) {
-                $query->where('stock_id', $this->selectedItem);
-            })
-            ->when($this->movementType, function ($query) {
-                $query->where('type', $this->movementType);
-            })
+            ->whereHas('stock', fn ($q) => $q->where('branch_id', $branchId))
+            ->when($this->selectedItem, fn ($q) => $q->where('stock_id', $this->selectedItem))
+            ->when($this->movementType, fn ($q) => $q->where('type', $this->movementType))
             ->whereBetween('movement_date', [$dateFrom, $dateTo])
             ->whereIn('type', ['out', 'transfer'])
             ->selectRaw('stock_id, COUNT(*) as movement_count, SUM(ABS(quantity)) as total_quantity')
@@ -477,45 +345,35 @@ class StockMovementAnalytics extends Component
 
     public function render()
     {
-        $branchId = @Auth::guard('employees')->user()->branch_id ??  request()->get('b_id');
+        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
-        $dateTo = Carbon::parse($this->dateTo)->endOfDay();
+        $dateTo   = Carbon::parse($this->dateTo)->endOfDay();
 
-        $query = StockMovement::with(['stock.item', 'mover', 'reference', 'reference.department'])
-            ->whereHas('stock', function ($query) use ($branchId) {
-                $query->where('branch_id', $branchId);
-            })
-            ->whereBetween('movement_date', [$dateFrom, $dateTo]);
+        // Main table with filters + pagination
+        $query = StockMovement::with(['stock.item', 'mover', 'reference'])
+            ->whereHas('stock', fn ($q) => $q->where('branch_id', $branchId))
+            ->whereBetween('movement_date', [$dateFrom, $dateTo])
+            ->orderBy('movement_date', 'desc');
 
-        // Apply filters
         $this->applyFiltersToQuery($query);
 
-        $movements = $query->latest('movement_date')->paginate(15);
+        $movements = $query->paginate(15);
+        $movements->through(fn ($m) => $m->append('department_name'));
 
-        $movementTypes = ['in', 'out', 'adjustment', 'transfer', 'damaged', 'return'];
-
-        // Get all analytics data
-        $analytics = $this->getAnalyticsSummary($branchId);
-        $typeDistribution = $this->getMovementTypeDistribution();
-        $topMovedItems = $this->getTopMovedItems();
-        $velocityAnalysis = $this->getVelocityAnalysis();
-
-        // Get activity feed for feed view
-        $activityFeed = $this->viewMode === 'feed' ? $this->getActivityFeed($branchId) : collect();
-
-        // Get departments for filters
-        $departments = Department::orderBy('name')->get();
+        $activityFeed = $this->viewMode === 'feed'
+            ? $this->getActivityFeed($branchId)
+            : collect();
 
         return view('livewire.branch-dashboard.analytics.stock-movement-analytics', [
-            'movements' => $movements,
-            'movementTypes' => $movementTypes,
-            'availableItems' => $this->getAvailableItems(),
-            'analytics' => $analytics,
-            'typeDistribution' => $typeDistribution,
-            'topMovedItems' => $topMovedItems,
-            'velocityAnalysis' => $velocityAnalysis,
-            'activityFeed' => $activityFeed,
-            'departments' => $departments,
+            'movements'        => $movements,
+            'movementTypes'    => ['in', 'out', 'adjustment', 'transfer', 'damaged', 'return'],
+            'availableItems'   => $this->getAvailableItems(),
+            'analytics'        => $this->getAnalyticsSummary($branchId),
+            'typeDistribution' => $this->getMovementTypeDistribution(),
+            'topMovedItems'    => $this->getTopMovedItems(),
+            'velocityAnalysis' => $this->getVelocityAnalysis(),
+            'activityFeed'     => $activityFeed,
+            'departments'      => Department::orderBy('name')->get(),
         ]);
     }
 }

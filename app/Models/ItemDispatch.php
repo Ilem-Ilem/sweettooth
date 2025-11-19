@@ -83,7 +83,7 @@ class ItemDispatch extends Model
      */
     public function isReceived(): bool
     {
-        return !is_null($this->received_time);
+        return ! is_null($this->received_time);
     }
 
     /**

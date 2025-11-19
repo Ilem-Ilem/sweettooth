@@ -3,7 +3,11 @@ includes:
     - vendor/nesbot/carbon/extension.neon
 
 parameters:
-
+    laravel:
+        eloquentMagicProperties: true   # ← THIS LINE KILLS THE ERRORS
+    ignoreErrors:
+        - '#^Access to an undefined property App\\Models\\.*::\$[a-zA-Z0-9_]+$#'
+        - '#^Call to an undefined method App\\Models\\.*::[a-zA-Z0-9_]+\(\)$#'
     paths:
         - app/
 

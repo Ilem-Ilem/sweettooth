@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class GlobalCustomerSupplierManagement extends Model
 {
     public $table = 'global_customer_supplier_managements';
-    
+
     protected $fillable = ['customers', 'suppliers', 'party_import'];
 
     protected $casts = [

@@ -14,7 +14,8 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, TwoFactorAuthenticatable, HasUuids, HasRoles;
+    use HasFactory, HasRoles, HasUuids, Notifiable, TwoFactorAuthenticatable;
+
     /*
      * @var list<string>
      */
@@ -22,7 +23,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        'role'
+        'role',
     ];
 
     /**
@@ -47,10 +48,12 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
-public function getMorphClass()
-{
-    return 'user';
-}
+
+    public function getMorphClass()
+    {
+        return 'user';
+    }
+
     /**
      * Get the user's initials
      */

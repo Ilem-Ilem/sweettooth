@@ -18,13 +18,12 @@ return new class extends Migration
             $table->integer('year');
             $table->decimal('allocated_days', 8, 2); // Custom allocation for this employee
             $table->text('notes')->nullable(); // Admin notes for this allocation
-            $table->uuid('allocated_by')->nullable(); // Who allocated this
+            // $table->uuid('allocated_by')->nullable(); // Who allocated this
+            $table->uuid('allocated_by_id');
+            $table->string('allocated_by_type');
             $table->timestamp('allocated_at')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();
-
-            $table->foreign('employee_id')->references('id')->on('employees')->onDelete('cascade');
-            $table->foreign('allocated_by')->references('id')->on('employees')->onDelete('set null');
 
             // Ensure one allocation per employee per leave type per year
             $table->unique(['employee_id', 'leave_type_id', 'year']);

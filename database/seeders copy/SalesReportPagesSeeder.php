@@ -38,7 +38,7 @@ class SalesReportPagesSeeder extends Seeder
             }
         }
 
-        $this->command->info('Sales report pages seeded successfully for ' . $salesDepartments->count() . ' sales departments.');
+        $this->command->info('Sales report pages seeded successfully for '.$salesDepartments->count().' sales departments.');
     }
 
     /**

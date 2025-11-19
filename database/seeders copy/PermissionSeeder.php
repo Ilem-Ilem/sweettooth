@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -96,7 +95,7 @@ class PermissionSeeder extends Seeder
         foreach ($employeePermissions as $permission) {
             Permission::create([
                 'name' => $permission,
-                'guard_name' => 'employees'
+                'guard_name' => 'employees',
             ]);
         }
 
@@ -133,14 +132,14 @@ class PermissionSeeder extends Seeder
         foreach ($webPermissions as $permission) {
             Permission::create([
                 'name' => $permission,
-                'guard_name' => 'web'
+                'guard_name' => 'web',
             ]);
         }
 
         // Create default web guard roles
         $admin = Role::create([
             'name' => 'Admin',
-            'guard_name' => 'web'
+            'guard_name' => 'web',
         ]);
         $admin->givePermissionTo([
             'view-employees',
@@ -155,11 +154,11 @@ class PermissionSeeder extends Seeder
 
         $superAdmin = Role::create([
             'name' => 'Super Admin',
-            'guard_name' => 'web'
+            'guard_name' => 'web',
         ]);
         $superAdmin->givePermissionTo(Permission::where('guard_name', 'web')->pluck('name'));
 
-        $this->command->info("✅ " . Permission::count() . " permissions created successfully.");
-        $this->command->info("✅ " . Role::where('guard_name', 'web')->count() . " web roles created successfully.");
+        $this->command->info('✅ '.Permission::count().' permissions created successfully.');
+        $this->command->info('✅ '.Role::where('guard_name', 'web')->count().' web roles created successfully.');
     }
 }

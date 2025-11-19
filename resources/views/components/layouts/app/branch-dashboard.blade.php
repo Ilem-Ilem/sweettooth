@@ -51,7 +51,7 @@
                         :current="request()->routeIs('branch-dashboard.employee.role-permission')" wire:navigate>
                         {{ __('Roles') }}
                     </flux:navlist.item>
-                      <flux:navlist.item icon="user-plus" :href="branch_route('branch-dashboard.role-assignments.index')"
+                    <flux:navlist.item icon="user-plus" :href="branch_route('branch-dashboard.role-assignments.index')"
                         :current="request()->routeIs('branch-dashboard.role-assignments.index')" wire:navigate>
                         {{ __('Assign Roles') }}
                     </flux:navlist.item>
@@ -75,16 +75,17 @@
                             {{ __('Leave Balance') }}
                         </flux:navlist.item>
                     @endif
+                        <flux:navlist.item icon="clipboard-document-check"
+                            :href="branch_route('branch-dashboard.leave.approve')"
+                            :current="request()->routeIs('branch-dashboard.leave.approve')" wire:navigate>
+                            {{ __('Approve Leaves') }}
+                        </flux:navlist.item>
+                        <flux:navlist.item icon="cog-6-tooth" :href="branch_route('branch-dashboard.leave.types')"
+                            :current="request()->routeIs('branch-dashboard.leave.types')" wire:navigate>
+                            {{ __('Leave Types') }}
+                        </flux:navlist.item>
 
-                    <flux:navlist.item icon="clipboard-document-check"
-                        :href="branch_route('branch-dashboard.leave.approve')"
-                        :current="request()->routeIs('branch-dashboard.leave.approve')" wire:navigate>
-                        {{ __('Approve Leaves') }}
-                    </flux:navlist.item>
-                    <flux:navlist.item icon="cog-6-tooth" :href="branch_route('branch-dashboard.leave.types')"
-                        :current="request()->routeIs('branch-dashboard.leave.types')" wire:navigate>
-                        {{ __('Leave Types') }}
-                    </flux:navlist.item>
+
                 </flux:navlist.group>
 
 
@@ -218,10 +219,10 @@
                         @forelse($dept->pages as $page)
                             <flux:navlist.item icon="{{ $page->icon ?? 'o-beaker' }}"
                                 :href="branch_route($page->route_name, [
-                                                                                            'deptSlug' => $dept->slug,
-                                                                                            'dept_slug'=>$dept->slug,
-                                                                                            'page' => $page->name . '_' . $dept->slug
-                                                                                        ])"
+                                                                                                                            'deptSlug' => $dept->slug,
+                                                                                                                            'dept_slug'=>$dept->slug,
+                                                                                                                            'page' => $page->name . '_' . $dept->slug
+                                                                                                                        ])"
                                 :current="request()->get('page') === $page->name . '_' . $dept->slug" wire:navigate>
                                 {{ $page->name }}
                             </flux:navlist.item>
@@ -345,10 +346,10 @@
                         @forelse($dept->pages as $page)
                             <flux:navlist.item icon="{{ $page->icon ?? 'o-shopping-bag' }}"
                                 :href="branch_route($page->route_name, [
-                                                                                            'salesDeptSlug' => $dept->slug,
-                                                                                            'sales_dept_slug'=>$dept->slug,
-                                                                                            'page' => $page->name . '_' . $dept->slug
-                                                                                        ])"
+                                                                                                                            'salesDeptSlug' => $dept->slug,
+                                                                                                                            'sales_dept_slug'=>$dept->slug,
+                                                                                                                            'page' => $page->name . '_' . $dept->slug
+                                                                                                                        ])"
                                 :current="request()->get('page') === $page->name . '_' . $dept->slug" wire:navigate>
                                 {{ $page->name }}
                             </flux:navlist.item>

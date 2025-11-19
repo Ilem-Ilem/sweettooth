@@ -15,8 +15,9 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('stock_id');
             $table->foreign('stock_id')->references('id')->on('stocks')->onDelete('cascade');
-            $table->uuid('checked_by');
-            $table->foreign('checked_by')->references('id')->on('employees')->onDelete('restrict');
+            $table->uuid('checked_by_id');
+            $table->string('checked_by_type');
+            // $table->foreign('checked_by')->references('id')->on('employees')->onDelete('restrict');
             $table->date('check_date');
             $table->enum('condition', ['excellent', 'good', 'fair', 'poor', 'damaged', 'expired']);
             $table->decimal('quantity_affected', 12, 2)->nullable();

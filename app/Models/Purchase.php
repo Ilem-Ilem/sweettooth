@@ -13,7 +13,8 @@ class Purchase extends Model
 
     protected $fillable = [
         'branch_id',
-        'recorded_by',
+        'recorded_by_id',
+        'recorded_by_type',
         'purchase_number',
         'purchase_date',
         'supplier_name',
@@ -58,7 +59,11 @@ class Purchase extends Model
      */
     public function recorder(): BelongsTo
     {
-        return $this->belongsTo(Employee::class, 'recorded_by');
+        return $this->morphTo(
+            'recorded_by',
+            'recorded_by_type',
+            'recorded_by_id'
+        );
     }
 
     /**

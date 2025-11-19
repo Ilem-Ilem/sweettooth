@@ -10,6 +10,4 @@ class DepartmentCategory extends Model
     use HasUuids;
 
     public $fillable = ['name', 'description'];
-
-    
 }

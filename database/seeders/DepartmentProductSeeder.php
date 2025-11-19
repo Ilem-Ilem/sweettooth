@@ -22,6 +22,7 @@ class DepartmentProductSeeder extends Seeder
 
         if ($salesDepartments->isEmpty()) {
             $this->command->error('No sales departments found! Please seed departments first.');
+
             return;
         }
 
@@ -30,6 +31,7 @@ class DepartmentProductSeeder extends Seeder
 
         if ($products->isEmpty()) {
             $this->command->error('No products found! Please seed products first.');
+
             return;
         }
 

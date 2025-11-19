@@ -88,7 +88,7 @@ class ReportSchedule extends Model
         return $query->where('is_active', true)
             ->where(function ($q) {
                 $q->whereNull('next_generation_at')
-                  ->orWhere('next_generation_at', '<=', now());
+                    ->orWhere('next_generation_at', '<=', now());
             });
     }
 

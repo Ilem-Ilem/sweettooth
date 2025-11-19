@@ -3,10 +3,9 @@
 namespace App\Services;
 
 use App\Helpers\Settings;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class DatabaseBackupService
 {
@@ -65,7 +64,7 @@ class DatabaseBackupService
 
             return $result;
         } catch (\Exception $e) {
-            Log::error('Database backup failed: ' . $e->getMessage());
+            Log::error('Database backup failed: '.$e->getMessage());
 
             return [
                 'success' => false,
@@ -101,14 +100,14 @@ class DatabaseBackupService
 
             // Count records in each table
             foreach ($tables as $table) {
-                $tableName = $dbDriver === 'sqlite' ? $table->name : array_values((array)$table)[0];
+                $tableName = $dbDriver === 'sqlite' ? $table->name : array_values((array) $table)[0];
 
                 try {
                     $count = DB::table($tableName)->count();
                     $metadata['tables'][$tableName] = $count;
                     $metadata['total_records'] += $count;
                 } catch (\Exception $e) {
-                    $metadata['tables'][$tableName] = 'Error: ' . $e->getMessage();
+                    $metadata['tables'][$tableName] = 'Error: '.$e->getMessage();
                 }
             }
 
@@ -116,7 +115,8 @@ class DatabaseBackupService
 
             return $metadata;
         } catch (\Exception $e) {
-            Log::error('Failed to get database metadata: ' . $e->getMessage());
+            Log::error('Failed to get database metadata: '.$e->getMessage());
+
             return [
                 'timestamp' => Carbon::now()->toDateTimeString(),
                 'error' => $e->getMessage(),
@@ -135,7 +135,7 @@ class DatabaseBackupService
 
             file_put_contents($metadataPath, json_encode($metadata, JSON_PRETTY_PRINT));
         } catch (\Exception $e) {
-            Log::error('Failed to save backup metadata: ' . $e->getMessage());
+            Log::error('Failed to save backup metadata: '.$e->getMessage());
         }
     }
 
@@ -150,12 +150,14 @@ class DatabaseBackupService
 
             if (file_exists($metadataPath)) {
                 $content = file_get_contents($metadataPath);
+
                 return json_decode($content, true);
             }
 
             return null;
         } catch (\Exception $e) {
-            Log::error('Failed to load backup metadata: ' . $e->getMessage());
+            Log::error('Failed to load backup metadata: '.$e->getMessage());
+
             return null;
         }
     }
@@ -167,7 +169,7 @@ class DatabaseBackupService
     {
         $dbPath = config('database.connections.sqlite.database');
 
-        if (!file_exists($dbPath)) {
+        if (! file_exists($dbPath)) {
             return [
                 'success' => false,
                 'message' => 'Database file not found',
@@ -240,7 +242,7 @@ class DatabaseBackupService
 
         return [
             'success' => false,
-            'message' => 'MySQL backup failed: ' . implode("\n", $output),
+            'message' => 'MySQL backup failed: '.implode("\n", $output),
         ];
     }
 
@@ -250,7 +252,7 @@ class DatabaseBackupService
     protected function generateBackupFileName(string $extension): string
     {
         $timestamp = Carbon::now()->format('Y-m-d_His');
-        $dbName = config('database.connections.' . config('database.default') . '.database');
+        $dbName = config('database.connections.'.config('database.default').'.database');
         $dbName = basename($dbName, '.sqlite'); // Remove extension if SQLite
 
         return "backup_{$dbName}_{$timestamp}.{$extension}";
@@ -263,7 +265,7 @@ class DatabaseBackupService
     {
         try {
             $backupDir = storage_path('app/backups');
-            $files = glob($backupDir . '/backup_*');
+            $files = glob($backupDir.'/backup_*');
 
             if (empty($files)) {
                 return;
@@ -282,12 +284,12 @@ class DatabaseBackupService
                 foreach ($filesToDelete as $file) {
                     if (file_exists($file)) {
                         unlink($file);
-                        Log::info("Deleted old backup: " . basename($file));
+                        Log::info('Deleted old backup: '.basename($file));
                     }
                 }
             }
         } catch (\Exception $e) {
-            Log::error('Failed to cleanup old backups: ' . $e->getMessage());
+            Log::error('Failed to cleanup old backups: '.$e->getMessage());
         }
     }
 
@@ -297,7 +299,7 @@ class DatabaseBackupService
     public function listBackups(): array
     {
         $backupDir = storage_path('app/backups');
-        $files = glob($backupDir . '/backup_*.{sqlite,sql}', GLOB_BRACE);
+        $files = glob($backupDir.'/backup_*.{sqlite,sql}', GLOB_BRACE);
 
         if (empty($files)) {
             return [];
@@ -336,7 +338,7 @@ class DatabaseBackupService
         $metadata1 = $this->loadBackupMetadata($filename1);
         $metadata2 = $this->loadBackupMetadata($filename2);
 
-        if (!$metadata1 || !$metadata2) {
+        if (! $metadata1 || ! $metadata2) {
             return [
                 'success' => false,
                 'message' => 'Metadata not available for one or both backups',
@@ -412,7 +414,7 @@ class DatabaseBackupService
         try {
             $backupPath = storage_path("app/backups/{$filename}");
 
-            if (!file_exists($backupPath)) {
+            if (! file_exists($backupPath)) {
                 return [
                     'success' => false,
                     'message' => 'Backup file not found',
@@ -433,7 +435,7 @@ class DatabaseBackupService
                 'message' => "Unsupported database driver: {$dbDriver}",
             ];
         } catch (\Exception $e) {
-            Log::error('Database restore failed: ' . $e->getMessage());
+            Log::error('Database restore failed: '.$e->getMessage());
 
             return [
                 'success' => false,
@@ -450,7 +452,7 @@ class DatabaseBackupService
         $dbPath = config('database.connections.sqlite.database');
 
         // Create backup of current database before restoring
-        $currentBackup = $dbPath . '.before_restore_' . Carbon::now()->format('YmdHis');
+        $currentBackup = $dbPath.'.before_restore_'.Carbon::now()->format('YmdHis');
         copy($dbPath, $currentBackup);
 
         // Restore from backup
@@ -501,7 +503,7 @@ class DatabaseBackupService
 
         return [
             'success' => false,
-            'message' => 'MySQL restore failed: ' . implode("\n", $output),
+            'message' => 'MySQL restore failed: '.implode("\n", $output),
         ];
     }
 
@@ -516,7 +518,7 @@ class DatabaseBackupService
             $bytes /= 1024;
         }
 
-        return round($bytes, $precision) . ' ' . $units[$i];
+        return round($bytes, $precision).' '.$units[$i];
     }
 
     /**
@@ -524,7 +526,7 @@ class DatabaseBackupService
      */
     public function getNextBackupTime(): ?Carbon
     {
-        if (!$this->isAutoBackupEnabled()) {
+        if (! $this->isAutoBackupEnabled()) {
             return null;
         }
 
@@ -533,7 +535,7 @@ class DatabaseBackupService
 
         $lastBackup = $this->getLastBackupTime();
 
-        if (!$lastBackup) {
+        if (! $lastBackup) {
             return Carbon::now();
         }
 
@@ -568,13 +570,13 @@ class DatabaseBackupService
      */
     public function isBackupDue(): bool
     {
-        if (!$this->isAutoBackupEnabled()) {
+        if (! $this->isAutoBackupEnabled()) {
             return false;
         }
 
         $nextBackup = $this->getNextBackupTime();
 
-        if (!$nextBackup) {
+        if (! $nextBackup) {
             return true;
         }
 

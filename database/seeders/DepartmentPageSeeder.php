@@ -2,10 +2,10 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Department;
-use App\Models\DepartmentPage;
 use App\Models\DepartmentCategory;
+use App\Models\DepartmentPage;
+use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
 class DepartmentPageSeeder extends Seeder
@@ -18,8 +18,9 @@ class DepartmentPageSeeder extends Seeder
         // Get the Production category
         $productionCategory = DepartmentCategory::where('name', '=', 'Production')->first();
 
-        if (!$productionCategory) {
+        if (! $productionCategory) {
             $this->command->warn('Production category not found. Please create a Production category first.');
+
             return;
         }
 
@@ -29,6 +30,7 @@ class DepartmentPageSeeder extends Seeder
 
         if ($departments->isEmpty()) {
             $this->command->warn('No production departments found. Please create production departments first.');
+
             return;
         }
 
@@ -57,20 +59,20 @@ class DepartmentPageSeeder extends Seeder
     protected function seedDepartmentPages(Department $department): void
     {
         $deptSlug = $department->slug;
-    
+
         $pages = [
             // Products Management
             [
                 'name' => 'Products',
                 'slug' => 'products',
-                'route_name' => "branch-dashboard.production.products",
+                'route_name' => 'branch-dashboard.production.products',
                 'icon' => 'cube',
                 'order' => 1,
             ],
             [
                 'name' => 'Product Types',
                 'slug' => 'product-types',
-                'route_name' => "branch-dashboard.production.product-types",
+                'route_name' => 'branch-dashboard.production.product-types',
                 'icon' => 'tag',
                 'order' => 2,
             ],
@@ -79,28 +81,28 @@ class DepartmentPageSeeder extends Seeder
             [
                 'name' => 'Recipes',
                 'slug' => 'recipes',
-                'route_name' => "branch-dashboard.production.recipes.index",
+                'route_name' => 'branch-dashboard.production.recipes.index',
                 'icon' => 'book-open',
                 'order' => 3,
             ],
             [
                 'name' => 'Add Recipe',
                 'slug' => 'recipes-add',
-                'route_name' => "branch-dashboard.production.recipes.add",
+                'route_name' => 'branch-dashboard.production.recipes.add',
                 'icon' => 'plus-circle',
                 'order' => 4,
             ],
             [
                 'name' => 'Edit Recipe',
                 'slug' => 'recipes-edit',
-                'route_name' => "branch-dashboard.production.recipes.edit",
+                'route_name' => 'branch-dashboard.production.recipes.edit',
                 'icon' => 'pencil',
                 'order' => 5,
             ],
             [
                 'name' => 'Recipe Detail',
                 'slug' => 'recipes-detail',
-                'route_name' => "branch-dashboard.production.recipes.detail",
+                'route_name' => 'branch-dashboard.production.recipes.detail',
                 'icon' => 'document-text',
                 'order' => 6,
             ],
@@ -109,14 +111,14 @@ class DepartmentPageSeeder extends Seeder
             [
                 'name' => 'Production Requests',
                 'slug' => 'production-requests',
-                'route_name' => "branch-dashboard.production.request.index",
+                'route_name' => 'branch-dashboard.production.request.index',
                 'icon' => 'clipboard',
                 'order' => 7,
             ],
             [
                 'name' => 'Daily Produce',
                 'slug' => 'daily-produce',
-                'route_name' => "branch-dashboard.production.daily-produce.index",
+                'route_name' => 'branch-dashboard.production.daily-produce.index',
                 'icon' => 'calendar',
                 'order' => 8,
             ],
@@ -125,7 +127,7 @@ class DepartmentPageSeeder extends Seeder
             [
                 'name' => 'Raw Material Tracking',
                 'slug' => 'raw-material-tracking',
-                'route_name' => "branch-dashboard.production.raw-material-tracking",
+                'route_name' => 'branch-dashboard.production.raw-material-tracking',
                 'icon' => 'chart-bar',
                 'order' => 9,
             ],
@@ -162,8 +164,6 @@ class DepartmentPageSeeder extends Seeder
             //     'order' => 13,
             // ],
         ];
-
-        
 
         foreach ($pages as $pageData) {
             DepartmentPage::updateOrCreate(

@@ -3,15 +3,13 @@
 namespace Database\Seeders;
 
 use App\Models\Department;
-use Illuminate\Support\Str;
+use App\Models\DepartmentCategory;
 use App\Models\DepartmentPage;
 use Illuminate\Database\Seeder;
-use App\Models\DepartmentCategory;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Illuminate\Support\Str;
 
 class SalesPagesSeeder extends Seeder
 {
-    
     /**
      * Run the database seeder.
      */
@@ -20,8 +18,9 @@ class SalesPagesSeeder extends Seeder
         // Get the Production category
         $salesCategory = DepartmentCategory::where('name', '=', 'Sales')->first();
 
-        if (!$salesCategory) {
+        if (! $salesCategory) {
             $this->command->warn('Sales category not found. Please create a category with name Sales first.');
+
             return;
         }
 
@@ -31,6 +30,7 @@ class SalesPagesSeeder extends Seeder
 
         if ($departments->isEmpty()) {
             $this->command->warn('No sales departments found. Please create sales departments first.');
+
             return;
         }
 
@@ -59,12 +59,12 @@ class SalesPagesSeeder extends Seeder
     protected function seedDepartmentPages(Department $department): void
     {
         $deptSlug = $department->slug;
-    
+
         $pages = [
             [
                 'name' => 'POS',
                 'slug' => 'pos',
-                'route_name' => "branch-dashboard.sales-dashboard.pos.index",
+                'route_name' => 'branch-dashboard.sales-dashboard.pos.index',
                 'icon' => 'shopping-cart',
                 'order' => 1,
             ],
@@ -76,11 +76,11 @@ class SalesPagesSeeder extends Seeder
                 'order' => 2,
             ],
             [
-                'name'=> 'Sales Analytics',
-                'slug'=>'sales-analytics',
-                'route_name'=> 'branch-dashboard.sales-dashboard.analytics.index',
-                'icon'=>'chart-bar',
-                'order'=>3
+                'name' => 'Sales Analytics',
+                'slug' => 'sales-analytics',
+                'route_name' => 'branch-dashboard.sales-dashboard.analytics.index',
+                'icon' => 'chart-bar',
+                'order' => 3,
             ],
             [
                 'name' => 'Shift Closing',
@@ -88,10 +88,8 @@ class SalesPagesSeeder extends Seeder
                 'route_name' => 'branch-dashboard.sales-dashboard.shift-closing.index',
                 'icon' => 'clock',
                 'order' => 4,
-            ]
+            ],
         ];
-
-        
 
         foreach ($pages as $pageData) {
             DepartmentPage::updateOrCreate(

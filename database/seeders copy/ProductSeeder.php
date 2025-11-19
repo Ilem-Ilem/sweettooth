@@ -16,8 +16,9 @@ class ProductSeeder extends Seeder
         // Get the first branch (or all branches)
         $branch = \App\Models\Branch::first();
 
-        if (!$branch) {
+        if (! $branch) {
             $this->command->error('No branches found! Please seed branches first.');
+
             return;
         }
 
@@ -59,7 +60,7 @@ class ProductSeeder extends Seeder
                 'cost' => 1.50,
                 'shelf_life_days' => 2,
                 'uom' => 'pcs',
-               
+
                 'unit_weight' => 150,
                 'is_active' => true,
                 'is_available' => true,
@@ -78,7 +79,7 @@ class ProductSeeder extends Seeder
                 'cost' => 2.00,
                 'shelf_life_days' => 4,
                 'uom' => 'pcs',
-             
+
                 'unit_weight' => 800,
                 'is_active' => true,
                 'is_available' => true,
@@ -95,7 +96,7 @@ class ProductSeeder extends Seeder
                 'cost' => 2.50,
                 'shelf_life_days' => 7,
                 'uom' => 'pcs',
-               
+
                 'unit_weight' => 900,
                 'is_active' => true,
                 'is_available' => true,
@@ -114,7 +115,7 @@ class ProductSeeder extends Seeder
                 'cost' => 2.80,
                 'shelf_life_days' => 5,
                 'uom' => 'pcs',
-             
+
                 'unit_weight' => 200,
                 'is_active' => true,
                 'is_available' => true,
@@ -133,7 +134,7 @@ class ProductSeeder extends Seeder
                 'cost' => 0.80,
                 'shelf_life_days' => 10,
                 'uom' => 'pcs',
-               
+
                 'unit_weight' => 50,
                 'is_active' => true,
                 'is_available' => true,
@@ -150,7 +151,7 @@ class ProductSeeder extends Seeder
                 'cost' => 0.75,
                 'shelf_life_days' => 10,
                 'uom' => 'pcs',
-              
+
                 'unit_weight' => 50,
                 'is_active' => true,
                 'is_available' => true,
@@ -169,7 +170,7 @@ class ProductSeeder extends Seeder
                 'cost' => 8.50,
                 'shelf_life_days' => 3,
                 'uom' => 'kg',
-            
+
                 'unit_weight' => 1000,
                 'is_active' => true,
                 'is_available' => true,
@@ -188,7 +189,7 @@ class ProductSeeder extends Seeder
                 'cost' => 1.80,
                 'shelf_life_days' => 30,
                 'uom' => 'grams',
-          
+
                 'unit_weight' => 100,
                 'is_active' => true,
                 'is_available' => true,
@@ -205,7 +206,7 @@ class ProductSeeder extends Seeder
                 'cost' => 1.90,
                 'shelf_life_days' => 30,
                 'uom' => 'grams',
-               
+
                 'unit_weight' => 100,
                 'is_active' => true,
                 'is_available' => true,
@@ -222,7 +223,7 @@ class ProductSeeder extends Seeder
                 'cost' => 2.50,
                 'shelf_life_days' => 30,
                 'uom' => 'grams',
-             
+
                 'unit_weight' => 100,
                 'is_active' => true,
                 'is_available' => true,
@@ -241,7 +242,7 @@ class ProductSeeder extends Seeder
                 'cost' => 0.90,
                 'shelf_life_days' => 21,
                 'uom' => 'pcs',
-                
+
                 'unit_weight' => 20,
                 'is_active' => true,
                 'is_available' => true,
@@ -258,7 +259,7 @@ class ProductSeeder extends Seeder
                 'cost' => 1.00,
                 'shelf_life_days' => 21,
                 'uom' => 'pcs',
-                
+
                 'unit_weight' => 25,
                 'is_active' => true,
                 'is_available' => true,
@@ -277,7 +278,7 @@ class ProductSeeder extends Seeder
                 'cost' => 0.40,
                 'shelf_life_days' => 180,
                 'uom' => 'grams',
-                
+
                 'unit_weight' => 100,
                 'is_active' => true,
                 'is_available' => true,
@@ -290,6 +291,6 @@ class ProductSeeder extends Seeder
             Product::create($product);
         }
 
-        $this->command->info("✅ " . count($products) . " products created successfully with recipe yield data.");
+        $this->command->info('✅ '.count($products).' products created successfully with recipe yield data.');
     }
 }

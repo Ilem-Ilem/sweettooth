@@ -40,6 +40,22 @@ if (!function_exists('get_user_auth')) {
     }
 }
 
+if (!function_exists('current_actor')) {
+    function current_actor()
+    {
+        if (auth()->check()) {
+            return auth()->user();
+        }
+
+        if (auth('employees')->check()) {
+            return auth('employees')->user();
+        }
+
+        return null;
+    }
+}
+
+
 if (!function_exists('is_super_admin')) {
     /**
      * Check if the current user is a super admin.

@@ -23,7 +23,7 @@ return new class extends Migration
             $table->id();
             $table->uuid('branch_id')->nullable();
             $table->foreign('branch_id')->references('id')->on('branches')->onDelete('cascade');
-             $table->string('local_logs', 50)->nullable(); // 'view'
+            $table->string('local_logs', 50)->nullable(); // 'view'
             $table->boolean('is_overridden')->default(false);
             $table->timestamps();
         });

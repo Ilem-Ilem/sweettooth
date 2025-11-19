@@ -2,10 +2,9 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
 use App\Models\Department;
 use App\Models\DepartmentCategory;
+use Illuminate\Database\Seeder;
 
 class DepartmentSeeder extends Seeder
 {
@@ -24,46 +23,46 @@ class DepartmentSeeder extends Seeder
             [
                 'name' => 'Kitchen',
                 'category_id' => $production->id,
-                'description' => 'Prepares food for Till, Confectionaries, Corner Store'
+                'description' => 'Prepares food for Till, Confectionaries, Corner Store',
             ],
             [
                 'name' => 'Gelato Production',
                 'category_id' => $production->id,
-                'description' => 'Makes gelato/ice cream'
+                'description' => 'Makes gelato/ice cream',
             ],
             [
                 'name' => 'Confectionaries Production',
                 'category_id' => $production->id,
-                'description' => 'Makes confectionery items'
+                'description' => 'Makes confectionery items',
             ],
 
             // SALES (sells products)
             [
                 'name' => 'Till',
                 'category_id' => $sales->id,
-                'description' => 'Sells ready-made snacks'
+                'description' => 'Sells ready-made snacks',
             ],
             [
                 'name' => 'Corner Store',
                 'category_id' => $sales->id,
-                'description' => 'On-demand food sales'
+                'description' => 'On-demand food sales',
             ],
             [
                 'name' => 'Confectionaries Sales',
                 'category_id' => $sales->id,
-                'description' => 'Sells confectionery items'
+                'description' => 'Sells confectionery items',
             ],
 
             // SUPPORT
             [
                 'name' => 'Inventory/Store',
                 'category_id' => $support->id,
-                'description' => 'Manages all stock'
+                'description' => 'Manages all stock',
             ],
             [
                 'name' => 'HR',
                 'category_id' => $support->id,
-                'description' => 'Human resources (corporate level)'
+                'description' => 'Human resources (corporate level)',
             ],
         ];
 
@@ -76,6 +75,6 @@ class DepartmentSeeder extends Seeder
             ]);
         }
 
-        $this->command->info("✅ " . count($departments) . " departments created successfully.");
+        $this->command->info('✅ '.count($departments).' departments created successfully.');
     }
 }

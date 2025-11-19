@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class HealthCheck extends Model
 {
@@ -12,7 +13,8 @@ class HealthCheck extends Model
 
     protected $fillable = [
         'stock_id',
-        'checked_by',
+        'checked_by_id',
+        'checked_by_type',
         'check_date',
         'condition',
         'quantity_affected',
@@ -52,9 +54,12 @@ class HealthCheck extends Model
     /**
      * Get the employee who checked
      */
-    public function checker(): BelongsTo
+    public function checker(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'checked_by');
+        return $this->morphTo(
+            'checked_by',
+            'checked_by_type',
+            'checked_by_id', );
     }
 
     /**
@@ -70,6 +75,6 @@ class HealthCheck extends Model
      */
     public function hasActionTaken(): bool
     {
-        return !is_null($this->action_taken) && trim($this->action_taken) !== '';
+        return ! is_null($this->action_taken) && trim($this->action_taken) !== '';
     }
 }

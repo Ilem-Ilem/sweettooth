@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -10,23 +11,22 @@ use Spatie\Permission\Traits\HasRoles;
 
 class Employee extends Authenticatable
 {
-    use HasUuids, SoftDeletes, Notifiable, TwoFactorAuthenticatable, HasRoles;
-    
+    use HasRoles, HasUuids, Notifiable, SoftDeletes, TwoFactorAuthenticatable;
+
     protected $guard = 'employees';
-    
+
     protected $fillable = [
         'id', 'branch_id', 'department_id', 'manager_id', 'employee_number', 'name', 'email', 'phone', 'address',
         'date_of_birth', 'gender', 'nationality', 'emergency_contact_name', 'emergency_contact_phone',
         'hire_date', 'termination_date', 'status', 'probation_end_date', 'shift_preference',
         'salary', 'hourly_rate', 'tax_id', 'bank_account', 'allergies', 'profile_photo',
-        'last_performance_review_date', 'performance_rating', 'password'
+        'last_performance_review_date', 'performance_rating', 'password',
     ];
-    
-    public function getMorphClass()
-{
-    return 'employee';
-}
 
+    public function getMorphClass()
+    {
+        return 'employee';
+    }
 
     protected $hidden = [
         'password',
@@ -38,7 +38,7 @@ class Employee extends Authenticatable
         'password' => 'hashed', // Laravel 10+
         'is_active' => 'boolean',
     ];
-    
+
     public function initials(): string
     {
         $firstName = $this->name ?? ''; // Adjust field name if different (e.g., $this->name)
@@ -49,7 +49,6 @@ class Employee extends Authenticatable
 
         return $initials ?: '??'; // Fallback if no names
     }
-
 
     public function branch()
     {
@@ -96,5 +95,4 @@ class Employee extends Authenticatable
     {
         return $this->hasMany(EmployeeStepout::class);
     }
-
 }

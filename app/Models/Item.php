@@ -100,7 +100,7 @@ class Item extends Model
      */
     public function isBelowReorderLevel($branchId = null): bool
     {
-        if (!$this->reorder_level) {
+        if (! $this->reorder_level) {
             return false;
         }
 

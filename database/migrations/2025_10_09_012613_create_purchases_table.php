@@ -15,8 +15,10 @@ return new class extends Migration
             $table->id();
             $table->uuid('branch_id');
             $table->foreign('branch_id')->references('id')->on('branches')->onDelete('cascade');
-            $table->uuid('recorded_by');
-            $table->foreign('recorded_by')->references('id')->on('employees')->onDelete('restrict');
+            $table->uuid('recorded_by_id');
+            $table->string('recorded_by_type');
+            // $table->morphs('recorded_by');
+            // $table->foreign('recorded_by')->references('id')->on('employees')->onDelete('restrict');
             $table->string('purchase_number')->unique();
             $table->date('purchase_date');
             $table->string('supplier_name');

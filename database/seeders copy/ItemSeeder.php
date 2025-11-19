@@ -20,6 +20,7 @@ class ItemSeeder extends Seeder
 
         if ($branches->isEmpty()) {
             $this->command->error('No branches found! Please seed branches first.');
+
             return;
         }
 
@@ -43,7 +44,7 @@ class ItemSeeder extends Seeder
             $this->command->info("Created {$stockCount} stock records for {$branch->name}");
         }
 
-        $this->command->info("✓ Seeding completed!");
+        $this->command->info('✓ Seeding completed!');
         $this->command->info("✓ Total items created: {$totalItemsCreated}");
         $this->command->info("✓ Total stock records created: {$totalStocksCreated}");
         $this->command->info("✓ Branches processed: {$branches->count()}");
@@ -65,7 +66,7 @@ class ItemSeeder extends Seeder
                 'uom' => 'kg',
                 'reorder_level' => 50,
                 'max_stock_level' => 500,
-                'description' => 'Premium white granulated sugar for baking and cooking'
+                'description' => 'Premium white granulated sugar for baking and cooking',
             ],
             [
                 'name' => 'Flour - All Purpose',
@@ -73,7 +74,7 @@ class ItemSeeder extends Seeder
                 'uom' => 'kg',
                 'reorder_level' => 100,
                 'max_stock_level' => 1000,
-                'description' => 'High-quality all-purpose flour for general baking'
+                'description' => 'High-quality all-purpose flour for general baking',
             ],
             [
                 'name' => 'Cocoa Powder - Premium Dark',
@@ -81,7 +82,7 @@ class ItemSeeder extends Seeder
                 'uom' => 'kg',
                 'reorder_level' => 20,
                 'max_stock_level' => 200,
-                'description' => 'Premium Dutch-processed cocoa powder'
+                'description' => 'Premium Dutch-processed cocoa powder',
             ],
             [
                 'name' => 'Butter - Salted',
@@ -89,7 +90,7 @@ class ItemSeeder extends Seeder
                 'uom' => 'kg',
                 'reorder_level' => 30,
                 'max_stock_level' => 300,
-                'description' => 'Fresh salted butter for baking and cooking'
+                'description' => 'Fresh salted butter for baking and cooking',
             ],
             [
                 'name' => 'Eggs - Large Grade A',
@@ -97,7 +98,7 @@ class ItemSeeder extends Seeder
                 'uom' => 'cartons',
                 'reorder_level' => 10,
                 'max_stock_level' => 50,
-                'description' => 'Fresh large Grade A eggs (30 pieces per carton)'
+                'description' => 'Fresh large Grade A eggs (30 pieces per carton)',
             ],
             [
                 'name' => 'Vanilla Extract - Pure',
@@ -105,7 +106,7 @@ class ItemSeeder extends Seeder
                 'uom' => 'liters',
                 'reorder_level' => 5,
                 'max_stock_level' => 30,
-                'description' => 'Pure vanilla extract for flavoring'
+                'description' => 'Pure vanilla extract for flavoring',
             ],
             [
                 'name' => 'Chocolate Chips - Dark',
@@ -113,7 +114,7 @@ class ItemSeeder extends Seeder
                 'uom' => 'kg',
                 'reorder_level' => 15,
                 'max_stock_level' => 150,
-                'description' => '70% dark chocolate chips for baking'
+                'description' => '70% dark chocolate chips for baking',
             ],
             [
                 'name' => 'Milk - Fresh Whole',
@@ -121,7 +122,7 @@ class ItemSeeder extends Seeder
                 'uom' => 'liters',
                 'reorder_level' => 20,
                 'max_stock_level' => 100,
-                'description' => 'Fresh whole milk, refrigerated'
+                'description' => 'Fresh whole milk, refrigerated',
             ],
             [
                 'name' => 'Cream - Heavy Whipping',
@@ -129,7 +130,7 @@ class ItemSeeder extends Seeder
                 'uom' => 'liters',
                 'reorder_level' => 10,
                 'max_stock_level' => 50,
-                'description' => 'Heavy whipping cream, 35% fat content'
+                'description' => 'Heavy whipping cream, 35% fat content',
             ],
             [
                 'name' => 'Yeast - Active Dry',
@@ -137,7 +138,7 @@ class ItemSeeder extends Seeder
                 'uom' => 'kg',
                 'reorder_level' => 5,
                 'max_stock_level' => 25,
-                'description' => 'Active dry yeast for bread making'
+                'description' => 'Active dry yeast for bread making',
             ],
             [
                 'name' => 'Vegetable Oil - Cooking',
@@ -145,7 +146,7 @@ class ItemSeeder extends Seeder
                 'uom' => 'liters',
                 'reorder_level' => 25,
                 'max_stock_level' => 200,
-                'description' => 'Refined vegetable oil for cooking and frying'
+                'description' => 'Refined vegetable oil for cooking and frying',
             ],
             [
                 'name' => 'Salt - Table Salt',
@@ -153,7 +154,7 @@ class ItemSeeder extends Seeder
                 'uom' => 'kg',
                 'reorder_level' => 10,
                 'max_stock_level' => 100,
-                'description' => 'Iodized table salt for cooking and seasoning'
+                'description' => 'Iodized table salt for cooking and seasoning',
             ],
 
             // PACKAGING (4 items)
@@ -163,7 +164,7 @@ class ItemSeeder extends Seeder
                 'uom' => 'pcs',
                 'reorder_level' => 100,
                 'max_stock_level' => 1000,
-                'description' => 'White cardboard boxes for 10-inch cakes'
+                'description' => 'White cardboard boxes for 10-inch cakes',
             ],
             [
                 'name' => 'Pastry Boxes - Small',
@@ -171,7 +172,7 @@ class ItemSeeder extends Seeder
                 'uom' => 'pcs',
                 'reorder_level' => 200,
                 'max_stock_level' => 2000,
-                'description' => 'Small boxes for pastries and individual servings'
+                'description' => 'Small boxes for pastries and individual servings',
             ],
             [
                 'name' => 'Paper Bags - Brown',
@@ -179,7 +180,7 @@ class ItemSeeder extends Seeder
                 'uom' => 'pcs',
                 'reorder_level' => 500,
                 'max_stock_level' => 5000,
-                'description' => 'Eco-friendly brown paper bags'
+                'description' => 'Eco-friendly brown paper bags',
             ],
             [
                 'name' => 'Plastic Food Containers',
@@ -187,7 +188,7 @@ class ItemSeeder extends Seeder
                 'uom' => 'pcs',
                 'reorder_level' => 150,
                 'max_stock_level' => 1500,
-                'description' => 'Clear plastic containers with lids for takeaway'
+                'description' => 'Clear plastic containers with lids for takeaway',
             ],
 
             // CONSUMABLES (3 items)
@@ -197,7 +198,7 @@ class ItemSeeder extends Seeder
                 'uom' => 'liters',
                 'reorder_level' => 20,
                 'max_stock_level' => 100,
-                'description' => 'Heavy-duty dishwashing liquid for commercial use'
+                'description' => 'Heavy-duty dishwashing liquid for commercial use',
             ],
             [
                 'name' => 'Paper Towels - Kitchen Roll',
@@ -205,7 +206,7 @@ class ItemSeeder extends Seeder
                 'uom' => 'units',
                 'reorder_level' => 50,
                 'max_stock_level' => 200,
-                'description' => 'Absorbent paper towels for kitchen use'
+                'description' => 'Absorbent paper towels for kitchen use',
             ],
             [
                 'name' => 'Garbage Bags - Large',
@@ -213,7 +214,7 @@ class ItemSeeder extends Seeder
                 'uom' => 'pcs',
                 'reorder_level' => 100,
                 'max_stock_level' => 500,
-                'description' => 'Heavy-duty large garbage bags'
+                'description' => 'Heavy-duty large garbage bags',
             ],
 
             // EQUIPMENT (1 item)
@@ -223,7 +224,7 @@ class ItemSeeder extends Seeder
                 'uom' => 'pcs',
                 'reorder_level' => 5,
                 'max_stock_level' => 30,
-                'description' => 'Professional stainless steel mixing bowls, various sizes'
+                'description' => 'Professional stainless steel mixing bowls, various sizes',
             ],
         ];
 
@@ -261,7 +262,7 @@ class ItemSeeder extends Seeder
 
         foreach ($items as $item) {
             // Generate realistic stock quantities based on category
-            $quantityAvailable = match($item->category) {
+            $quantityAvailable = match ($item->category) {
                 'raw_material' => rand(50, 400),
                 'packaging' => rand(100, 800),
                 'consumable' => rand(20, 150),
@@ -269,11 +270,11 @@ class ItemSeeder extends Seeder
                 default => rand(50, 200)
             };
 
-            $quantityReserved = rand(0, (int)($quantityAvailable * 0.1)); // Max 10% reserved
-            $quantityDamaged = rand(0, (int)($quantityAvailable * 0.05)); // Max 5% damaged
+            $quantityReserved = rand(0, (int) ($quantityAvailable * 0.1)); // Max 10% reserved
+            $quantityDamaged = rand(0, (int) ($quantityAvailable * 0.05)); // Max 5% damaged
 
             // Calculate average cost based on category
-            $averageCost = match($item->category) {
+            $averageCost = match ($item->category) {
                 'raw_material' => rand(500, 5000) / 10,
                 'packaging' => rand(50, 500) / 10,
                 'consumable' => rand(300, 3000) / 10,
@@ -288,7 +289,7 @@ class ItemSeeder extends Seeder
             // Set expiry date for perishable items
             $expiryDate = null;
             if (in_array($item->category, ['raw_material', 'consumable'])) {
-                $daysToExpiry = match($healthStatus) {
+                $daysToExpiry = match ($healthStatus) {
                     'good' => rand(90, 365),
                     'warning' => rand(30, 89),
                     'critical' => rand(7, 29),

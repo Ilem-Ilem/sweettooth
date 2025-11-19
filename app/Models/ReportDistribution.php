@@ -58,6 +58,7 @@ class ReportDistribution extends Model
         } elseif ($this->recipient_type === 'user') {
             return User::find($this->recipient_id);
         }
+
         return null;
     }
 

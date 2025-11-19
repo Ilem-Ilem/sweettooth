@@ -26,7 +26,7 @@ return new class extends Migration
             $table->id();
             $table->uuid('branch_id')->nullable();
             $table->foreign('branch_id')->references('id')->on('branches')->onDelete('cascade');
-             $table->json('branch_staff')->nullable(); // 'add,edit'
+            $table->json('branch_staff')->nullable(); // 'add,edit'
             $table->json('permissions_local')->nullable(); // 'pos,local_reports'
             $table->string('pin_assign', 50)->nullable(); // 'enabled'
             $table->boolean('is_overridden')->default(false);

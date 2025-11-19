@@ -21,8 +21,15 @@ return new class extends Migration
             $table->decimal('quantity_after', 12, 2);
             $table->string('reference_type')->nullable(); // 'purchase', 'dispatch', 'adjustment'
             $table->unsignedBigInteger('reference_id')->nullable();
-            $table->uuid('moved_by')->nullable();
-            $table->foreign('moved_by')->references('id')->on('employees')->onDelete('restrict');
+            // $table->uuid('moved_by')->nullable();
+            // $table->foreign('moved_by')->references('id')->on('employees')->onDelete('restrict');
+            // $table->morphs('moved_by');
+            // Custom UUID polymorphic columns
+            $table->string('moved_by_type')->nullable();
+            $table->uuid('moved_by_id')->nullable();
+
+            // Index for performance
+            $table->index(['moved_by_type', 'moved_by_id']);
             $table->text('notes')->nullable();
             $table->timestamp('movement_date');
             $table->timestamps();

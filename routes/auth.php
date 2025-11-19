@@ -3,9 +3,9 @@
 use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Livewire\Actions\Logout;
 use App\Livewire\Auth\ForgotPassword;
-use App\Livewire\Auth\{Login, StaffLogin};
-use App\Livewire\Auth\Register;
+use App\Livewire\Auth\Login;
 use App\Livewire\Auth\ResetPassword;
+use App\Livewire\Auth\StaffLogin;
 use App\Livewire\Auth\VerifyEmail;
 use Illuminate\Support\Facades\Route;
 
@@ -15,7 +15,6 @@ Route::middleware('guest')->group(function () {
     Route::get('reset-password/{token}', ResetPassword::class)->name('password.reset');
     Route::get('/staff-login', StaffLogin::class)->name('staff-login');
 });
-
 
 Route::middleware('auth')->group(function () {
     Route::get('verify-email', VerifyEmail::class)

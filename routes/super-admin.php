@@ -1,7 +1,6 @@
 <?php
 
 use App\Livewire\SuperAdmin\Roles\Index;
-use App\Livewire\SuperAdmin\Roles\Permissions;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth'])->prefix('super-admin')->name('super-admin.')->group(function () {
@@ -13,17 +12,15 @@ Route::middleware(['auth'])->prefix('super-admin')->name('super-admin.')->group(
     Route::get('department-categories', \App\Livewire\SuperAdmin\DepartmentCategories\Index::class)->name('department-categories.index');
     Route::get('departments', \App\Livewire\SuperAdmin\Departments\Index::class)->name('departments.index');
 
-    //EMPLOYEE ROUTES
+    // EMPLOYEE ROUTES
     Route::get('employees', App\Livewire\SuperAdmin\EmployeeModule\Index::class)->name('employee.index');
     Route::get('create-employee', App\Livewire\SuperAdmin\EmployeeModule\CreateEmployee::class)->name('employee.create');
     Route::get('employees/{id}/edit', App\Livewire\SuperAdmin\EmployeeModule\EditEmployee::class)->name('employee.edit');
     Route::get('role-assignments', \App\Livewire\SuperAdmin\EmployeeModule\RoleAssignment::class)->name('role-assignments.index');
     Route::get('employee/{employee_number}/{id}/', \App\Livewire\SuperAdmin\EmployeeModule\EmployeeDetails::class)->name('employee.detail');
 
-    //LEAVE MANAGEMENT
+    // LEAVE MANAGEMENT
     Route::get('leave-management', App\Livewire\SuperAdmin\EmployeeModule\LeaveManagement\Index::class)->name('leave.index');
-    
-
 
     // Inventory routes
     Route::prefix('inventory')->name('inventory.')->group(function () {

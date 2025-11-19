@@ -2,11 +2,10 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Str;
-use Carbon\Carbon;
 
 class Receipt extends Model
 {
@@ -22,7 +21,7 @@ class Receipt extends Model
         'total',
         'payments',
         'change_due',
-        'meta'
+        'meta',
     ];
 
     protected $casts = [
@@ -73,7 +72,7 @@ class Receipt extends Model
     public function scopeThisMonth($query)
     {
         return $query->whereMonth('created_at', Carbon::now()->month)
-                     ->whereYear('created_at', Carbon::now()->year);
+            ->whereYear('created_at', Carbon::now()->year);
     }
 
     /**
@@ -155,7 +154,7 @@ class Receipt extends Model
 
         return collect($this->payments)
             ->groupBy('method')
-            ->map(fn($group) => $group->sum('amount'))
+            ->map(fn ($group) => $group->sum('amount'))
             ->toArray();
     }
 
@@ -231,7 +230,7 @@ class Receipt extends Model
         $content .= "TOTAL: \${$this->formatted_total}\n";
         $content .= "-------------------\n";
 
-        if (!empty($this->payments)) {
+        if (! empty($this->payments)) {
             $content .= "Payments:\n";
             foreach ($this->payments as $payment) {
                 $method = ucfirst($payment['method'] ?? 'Unknown');

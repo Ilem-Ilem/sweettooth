@@ -170,7 +170,7 @@ class ProductionCallback extends Model
      */
     public function approve($employeeId): bool
     {
-        if (!$this->canBeApproved()) {
+        if (! $this->canBeApproved()) {
             return false;
         }
 
@@ -188,13 +188,13 @@ class ProductionCallback extends Model
      */
     public function reject($employeeId, $reason = null): bool
     {
-        if (!$this->canBeApproved()) {
+        if (! $this->canBeApproved()) {
             return false;
         }
 
         $notes = $this->notes;
         if ($reason) {
-            $notes .= "\n\nRejected: " . $reason;
+            $notes .= "\n\nRejected: ".$reason;
         }
 
         $this->update([

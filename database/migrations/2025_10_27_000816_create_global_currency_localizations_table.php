@@ -35,7 +35,7 @@ return new class extends Migration
             $table->json('units_of_measure')->default(json_encode(['piece', 'kg', 'liter']));
             $table->timestamps();
         });
-        
+
     }
 
     /**

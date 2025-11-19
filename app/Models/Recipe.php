@@ -152,6 +152,7 @@ class Recipe extends Model
         }
 
         $decoded = json_decode($this->instructions, true);
+
         return is_array($decoded) ? $decoded : [];
     }
 

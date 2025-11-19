@@ -17,7 +17,7 @@ return new class extends Migration
             $table->integer('backup_interval')->default(2);
             $table->string('backup_period')->default('months');
             $table->boolean('auto_backup')->default(true);
-        
+
         });
     }
 

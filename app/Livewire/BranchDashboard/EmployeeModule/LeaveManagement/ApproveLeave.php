@@ -140,8 +140,9 @@ class ApproveLeave extends BaseComponent
                 return;
             }
 
-            $approver = auth('employees')->user();
-            $leave->approve($approver->id, $this->approval_notes);
+            // $approver = auth('employees')->user();
+            $approver =  current_actor();
+            $leave->approve($approver->id, get_class($approver), $this->approval_notes);
 
             $this->toast()->success("Leave application {$leave->application_number} approved successfully.")->send();
             $this->closeApprovalModal();
@@ -187,8 +188,10 @@ class ApproveLeave extends BaseComponent
                 return;
             }
 
-            $rejecter = auth('employees')->user();
-            $leave->reject($rejecter->id, $this->rejection_reason);
+            // $rejecter = auth('employees')->user();
+            $rejecter = current_actor();
+
+            $leave->reject($rejecter->id, get_class($rejecter) ,$this->rejection_reason);
 
             $this->toast()->success("Leave application {$leave->application_number} rejected.")->send();
             $this->closeRejectionModal();

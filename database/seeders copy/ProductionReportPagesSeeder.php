@@ -38,7 +38,7 @@ class ProductionReportPagesSeeder extends Seeder
             }
         }
 
-        $this->command->info('Production report pages seeded successfully for ' . $productionDepartments->count() . ' production departments.');
+        $this->command->info('Production report pages seeded successfully for '.$productionDepartments->count().' production departments.');
     }
 
     /**

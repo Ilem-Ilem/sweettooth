@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Carbon\Carbon;
 
 class ProductStock extends Model
 {
@@ -59,7 +59,7 @@ class ProductStock extends Model
     // Helper Methods
     public function isExpired(): bool
     {
-        if (!$this->expiry_date) {
+        if (! $this->expiry_date) {
             return false;
         }
 
@@ -68,7 +68,7 @@ class ProductStock extends Model
 
     public function calculateExpiry(): ?Carbon
     {
-        if (!$this->production_date || !$this->product) {
+        if (! $this->production_date || ! $this->product) {
             return null;
         }
 
@@ -83,7 +83,7 @@ class ProductStock extends Model
 
     public function getShelfLifeStatus(): string
     {
-        if (!$this->expiry_date) {
+        if (! $this->expiry_date) {
             return 'unknown';
         }
 
@@ -94,7 +94,7 @@ class ProductStock extends Model
             return 'expired'; // 🔴
         }
 
-        if (!$this->production_date) {
+        if (! $this->production_date) {
             return 'unknown';
         }
 
@@ -121,7 +121,7 @@ class ProductStock extends Model
     {
         $status = $this->getShelfLifeStatus();
 
-        return match($status) {
+        return match ($status) {
             'fresh' => 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
             'warning' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
             'critical' => 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
@@ -132,7 +132,7 @@ class ProductStock extends Model
 
     public function getDaysRemaining(): ?int
     {
-        if (!$this->expiry_date) {
+        if (! $this->expiry_date) {
             return null;
         }
 
@@ -169,7 +169,7 @@ class ProductStock extends Model
         $this->closing_quantity = $this->calculateClosing();
 
         // Auto-calculate expiry if production date is set
-        if ($this->production_date && !$this->expiry_date) {
+        if ($this->production_date && ! $this->expiry_date) {
             $this->expiry_date = $this->calculateExpiry();
         }
     }

@@ -117,9 +117,12 @@ class HealthChecks extends Component
             return;
         }
 
+        $actor = current_actor();
+
         HealthCheck::create([
             'stock_id' => $this->stock_id,
-            'checked_by' => Auth::guard('employees')->id(),
+            'checked_by_id' => $actor->id,
+            'checked_by_type'=>get_class($actor),
             'check_date' => $this->check_date,
             'condition' => $this->condition,
             'quantity_affected' => $this->quantity_affected,

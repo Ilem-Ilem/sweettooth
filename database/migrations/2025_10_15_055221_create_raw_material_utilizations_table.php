@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-         Schema::create('raw_material_utilizations', function (Blueprint $table) {
+        Schema::create('raw_material_utilizations', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('shift_id');
             $table->foreign('shift_id')->references('id')->on('shifts')->onDelete('cascade');

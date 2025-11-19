@@ -23,21 +23,21 @@ return new class extends Migration
             $table->text('emergency_contact')->nullable();
             $table->string('supporting_document')->nullable(); // File path
             $table->enum('status', ['pending', 'approved', 'rejected', 'cancelled'])->default('pending');
-            $table->uuid('approved_by')->nullable();
+            $table->uuid('approved_by_id')->nullable();
+            $table->uuid('approved_by_type')->nullable();
             $table->timestamp('approved_at')->nullable();
             $table->text('approval_notes')->nullable();
-            $table->uuid('rejected_by')->nullable();
+            $table->uuid('rejected_by_id')->nullable();
+            $table->uuid('rejected_by_type')->nullable();
             $table->timestamp('rejected_at')->nullable();
             $table->text('rejection_reason')->nullable();
-            $table->uuid('cancelled_by')->nullable();
+            $table->uuid('cancelled_by_id')->nullable();
+            $table->uuid('cancelled_by_type')->nullable();
             $table->timestamp('cancelled_at')->nullable();
             $table->text('cancellation_reason')->nullable();
             $table->timestamps();
 
             $table->foreign('employee_id')->references('id')->on('employees')->onDelete('cascade');
-            $table->foreign('approved_by')->references('id')->on('employees')->onDelete('set null');
-            $table->foreign('rejected_by')->references('id')->on('employees')->onDelete('set null');
-            $table->foreign('cancelled_by')->references('id')->on('employees')->onDelete('set null');
         });
     }
 

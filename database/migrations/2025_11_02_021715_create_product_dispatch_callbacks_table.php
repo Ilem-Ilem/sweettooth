@@ -42,7 +42,7 @@ return new class extends Migration
                 'customer_return',
                 'over_received',
                 'wrong_item',
-                'other'
+                'other',
             ]);
 
             // Status of the callback
@@ -50,7 +50,7 @@ return new class extends Migration
                 'pending',
                 'approved_by_production',
                 'received_by_production',
-                'completed'
+                'completed',
             ])->default('pending');
 
             // Production employee who approved/received

@@ -57,12 +57,14 @@ class Payment extends Model
     public function markAsCompleted(): bool
     {
         $this->status = 'completed';
+
         return $this->save();
     }
 
     public function markAsFailed(): bool
     {
         $this->status = 'failed';
+
         return $this->save();
     }
 

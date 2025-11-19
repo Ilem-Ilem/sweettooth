@@ -3,7 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany};
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SalesShift extends Model
 {
@@ -95,7 +96,7 @@ class SalesShift extends Model
             ->where('status', 'completed')
             ->whereHas('payments', function ($query) {
                 $query->where('payment_method', 'cash')
-                      ->where('status', 'completed');
+                    ->where('status', 'completed');
             })
             ->with('payments')
             ->get()

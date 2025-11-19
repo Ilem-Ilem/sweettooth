@@ -2,8 +2,8 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -21,9 +21,9 @@ return new class extends Migration
 
             // Re-add the foreign key constraint
             $table->foreign('product_dispatch_id')
-                  ->references('id')
-                  ->on('product_dispatches')
-                  ->onDelete('cascade');
+                ->references('id')
+                ->on('product_dispatches')
+                ->onDelete('cascade');
         });
 
         // Update the reason enum to include 'over_stock'
@@ -44,9 +44,9 @@ return new class extends Migration
 
             // Re-add the foreign key constraint
             $table->foreign('product_dispatch_id')
-                  ->references('id')
-                  ->on('product_dispatches')
-                  ->onDelete('cascade');
+                ->references('id')
+                ->on('product_dispatches')
+                ->onDelete('cascade');
         });
 
         // Revert the reason enum

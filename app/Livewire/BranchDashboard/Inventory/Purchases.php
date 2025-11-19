@@ -2,22 +2,23 @@
 
 namespace App\Livewire\BranchDashboard\Inventory;
 
-use App\Models\Purchase;
-use App\Models\PurchaseItem;
 use App\Models\Item;
 use App\Models\Stock;
-use App\Models\StockMovement;
+use App\Models\Branch;
 use Livewire\Component;
+use App\Models\Purchase;
+use App\Models\PurchaseItem;
 use Livewire\WithPagination;
-use Livewire\Attributes\{Layout, Url, On};
+use App\Models\StockMovement;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\{Layout, Url, On};
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Purchases extends Component
 {
     use WithPagination;
-#[Url(keep:true)]
+    #[Url(keep: true)]
     public $b_id;
     public $purchaseId;
     public $purchase_date;
@@ -28,6 +29,8 @@ class Purchases extends Component
     public $other_costs = 0;
     public $payment_status = 'pending';
     public $notes;
+
+    public $quantity = [];
 
     public $purchaseItems = [];
     public $itemIndex = 0;
@@ -83,8 +86,10 @@ class Purchases extends Component
                         ->orWhere('supplier_name', 'like', '%' . $this->search . '%');
                 });
             })
-            ->when($this->filterPaymentStatus, fn($q) => $q->where('payment_status', $this->filterPaymentStatus))
+            ->when($this->filterPaymentStatus, fn ($q) => $q->where('payment_status', $this->filterPaymentStatus))
             ->orderBy('purchase_date', 'desc');
+
+        
 
         $purchases = $query->paginate(15);
         $items = Item::where('branch_id', $branchId)
@@ -137,8 +142,17 @@ class Purchases extends Component
 
         DB::beginTransaction();
         try {
+            $actor = current_actor();
+
+            if (!$actor) {
+                abort(403, "No Authenticated User Found");
+            }
+
+
             $branchId = $this->getBranchId();
-            $branch = Auth::guard('employees')->user()->employee->branch;
+            $branch = is_super_admin() ? Branch::where('id', $branchId)->First() :
+                Auth::guard('employees')->user()->branch;
+
             $purchaseNumber = Purchase::generatePurchaseNumber($branch->code);
 
             $totalFobFc = 0;
@@ -153,7 +167,8 @@ class Purchases extends Component
 
             $purchase = Purchase::create([
                 'branch_id' => $branchId,
-                'recorded_by' => Auth::guard('employees')->id(),
+                'recorded_by_id' => $actor->id,
+                'recorded_by_type' => get_class($actor),
                 'purchase_number' => $purchaseNumber,
                 'purchase_date' => $this->purchase_date,
                 'supplier_name' => $this->supplier_name,
@@ -185,11 +200,9 @@ class Purchases extends Component
                     'item_id' => $item['item_id'],
                     'quantity' => $quantity,
                     'uom' => $item['uom'],
-                    'unit_fob_fc' => $unitFobFc,
-                    'unit_fob_ngn' => $unitFobNgn,
-                    'total_fob_fc' => $totalFobItemFc,
-                    'total_fob_ngn' => $totalFobItemNgn,
-                    'allocated_other_costs' => $allocatedOtherCosts,
+                    'fob_fc' => $unitFobFc,
+                    'fob_ngn' => $unitFobNgn,
+                    'other_costs' => $allocatedOtherCosts,
                     'total_cost' => $totalCost,
                     'cost_per_unit' => $costPerUnit,
                 ]);
@@ -200,19 +213,16 @@ class Purchases extends Component
                         'item_id' => $item['item_id'],
                     ],
                     [
-                        'available_quantity' => 0,
-                        'reserved_quantity' => 0,
-                        'total_quantity' => 0,
-                        'last_purchase_price' => 0,
+                        'quantity_available' => 0,
+                        'quantity_reserved' => 0,
                         'average_cost' => 0,
                     ]
                 );
 
                 $stock->updateAverageCost($quantity, $costPerUnit);
-                $stock->available_quantity += $quantity;
-                $stock->total_quantity += $quantity;
-                $stock->last_purchase_price = $costPerUnit;
-                $stock->last_stock_date = now();
+                $quantity_before = $stock->quantity_available;
+                $stock->quantity_available += $quantity;
+                $stock->last_stock_take_date = now();
                 $stock->save();
 
                 StockMovement::create([
@@ -220,10 +230,13 @@ class Purchases extends Component
                     'item_id' => $item['item_id'],
                     'branch_id' => $branchId,
                     'movement_type' => 'in',
+                    'quantity_before'=>$quantity_before,
+                    'quantity_after'=>$stock->quantity_available,
                     'quantity' => $quantity,
                     'reference_type' => 'App\Models\Purchase',
                     'reference_id' => $purchase->id,
-                    'recorded_by' => Auth::guard('employees')->id(),
+                    'moved_by_type'   => get_class($actor),
+                    'moved_by_id'     => $actor->id,
                     'movement_date' => $this->purchase_date,
                     'notes' => 'Purchase: ' . $purchaseNumber,
                 ]);
@@ -235,6 +248,7 @@ class Purchases extends Component
             $this->resetFields();
         } catch (\Exception $e) {
             DB::rollBack();
+            throw new \Exception($e->getMessage());
             session()->flash('error', 'Error creating purchase: ' . $e->getMessage());
         }
     }

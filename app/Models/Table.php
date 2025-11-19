@@ -3,7 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany};
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Table extends Model
 {
@@ -70,7 +71,7 @@ class Table extends Model
 
     public function markAsAvailable(): void
     {
-        if (!$this->hasActiveSale() && $this->status !== 'available') {
+        if (! $this->hasActiveSale() && $this->status !== 'available') {
             $this->update(['status' => 'available']);
         }
     }

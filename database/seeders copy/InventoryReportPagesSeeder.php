@@ -38,7 +38,7 @@ class InventoryReportPagesSeeder extends Seeder
             }
         }
 
-        $this->command->info('Inventory report pages seeded successfully for ' . $inventoryDepartments->count() . ' inventory departments.');
+        $this->command->info('Inventory report pages seeded successfully for '.$inventoryDepartments->count().' inventory departments.');
     }
 
     /**

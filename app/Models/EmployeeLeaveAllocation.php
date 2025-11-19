@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class EmployeeLeaveAllocation extends Model
 {
@@ -12,7 +13,8 @@ class EmployeeLeaveAllocation extends Model
         'year',
         'allocated_days',
         'notes',
-        'allocated_by',
+        'allocated_by_id',
+        'allocated_by_type',
         'allocated_at',
         'is_active',
     ];
@@ -34,9 +36,13 @@ class EmployeeLeaveAllocation extends Model
         return $this->belongsTo(LeaveType::class);
     }
 
-    public function allocatedBy()
+    public function allocatedBy(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'allocated_by');
+        return $this->morphTo(
+            'allocated_by',
+            'allocated_by_type',
+            'allocated_by_id'
+        );
     }
 
     // Scopes

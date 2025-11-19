@@ -17,9 +17,9 @@ return new class extends Migration
 
             // Foreign key constraint
             $table->foreign('sales_department_id')
-                  ->references('id')
-                  ->on('departments')
-                  ->onDelete('set null');
+                ->references('id')
+                ->on('departments')
+                ->onDelete('set null');
 
             // Index for faster queries
             $table->index('sales_department_id');

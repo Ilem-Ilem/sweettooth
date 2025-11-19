@@ -18,8 +18,6 @@ return [
         'passwords' => env('AUTH_PASSWORD_BROKER', 'users'),
     ],
 
-    
-
     /*
     |--------------------------------------------------------------------------
     | Authentication Guards
@@ -73,7 +71,7 @@ return [
         'employees' => [
             'driver' => 'eloquent',
             'model' => App\Models\Employee::class,
-            'table' => 'employees'
+            'table' => 'employees',
         ],
         // 'users' => [
         //     'driver' => 'database',

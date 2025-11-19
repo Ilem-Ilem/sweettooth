@@ -10,7 +10,6 @@ use App\Models\Product;
 use App\Models\Recipe;
 use App\Models\RecipeIngredient;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 
 class ProductRecipeSeeder extends Seeder
 {
@@ -28,8 +27,9 @@ class ProductRecipeSeeder extends Seeder
         })->first();
         $employee = Employee::first();
 
-        if (!$branch || !$productionDept || !$employee) {
+        if (! $branch || ! $productionDept || ! $employee) {
             $this->command->error('Missing dependencies! Please seed branches, departments, and employees first.');
+
             return;
         }
 
@@ -37,6 +37,7 @@ class ProductRecipeSeeder extends Seeder
         $items = Item::where('branch_id', $branch->id)->get();
         if ($items->isEmpty()) {
             $this->command->error('No items found! Please seed items first.');
+
             return;
         }
 
@@ -50,6 +51,7 @@ class ProductRecipeSeeder extends Seeder
         $products = Product::where('branch_id', $branch->id)->get();
         if ($products->isEmpty()) {
             $this->command->error('No products found! Please seed products first.');
+
             return;
         }
 
@@ -71,7 +73,7 @@ class ProductRecipeSeeder extends Seeder
                     'Cut into triangles and roll into croissant shape',
                     'Proof for 1-2 hours until doubled',
                     'Brush with egg wash',
-                    'Bake at 200°C for 15-18 minutes until golden'
+                    'Bake at 200°C for 15-18 minutes until golden',
                 ]),
                 'ingredients' => [
                     ['item' => 'Flour - All Purpose', 'quantity' => 500, 'uom' => 'grams', 'cost_per_unit' => 0.002, 'waste_percentage' => 5],
@@ -94,7 +96,7 @@ class ProductRecipeSeeder extends Seeder
                     'Fold in chocolate chips',
                     'Scoop dough onto baking sheets',
                     'Bake at 180°C for 10-12 minutes',
-                    'Cool on baking sheet for 5 minutes before transferring'
+                    'Cool on baking sheet for 5 minutes before transferring',
                 ]),
                 'ingredients' => [
                     ['item' => 'Flour - All Purpose', 'quantity' => 280, 'uom' => 'grams', 'cost_per_unit' => 0.002, 'waste_percentage' => 5],
@@ -117,7 +119,7 @@ class ProductRecipeSeeder extends Seeder
                     'Pour into greased cake pans',
                     'Bake for 30-35 minutes',
                     'Cool completely before frosting',
-                    'Prepare chocolate ganache and frost the cake'
+                    'Prepare chocolate ganache and frost the cake',
                 ]),
                 'ingredients' => [
                     ['item' => 'Flour - All Purpose', 'quantity' => 250, 'uom' => 'grams', 'cost_per_unit' => 0.002, 'waste_percentage' => 5],
@@ -142,7 +144,7 @@ class ProductRecipeSeeder extends Seeder
                     'Add cocoa mixture and mix well',
                     'Cool to 4°C',
                     'Process in gelato machine for 25 minutes',
-                    'Store at -18°C'
+                    'Store at -18°C',
                 ]),
                 'ingredients' => [
                     ['item' => 'Milk - Fresh Whole', 'quantity' => 2, 'uom' => 'liters', 'cost_per_unit' => 3, 'waste_percentage' => 2],
@@ -163,7 +165,7 @@ class ProductRecipeSeeder extends Seeder
                     'Cool completely',
                     'Add strawberry puree',
                     'Process in gelato machine for 25 minutes',
-                    'Store at -18°C'
+                    'Store at -18°C',
                 ]),
                 'ingredients' => [
                     ['item' => 'Milk - Fresh Whole', 'quantity' => 1.8, 'uom' => 'liters', 'cost_per_unit' => 3, 'waste_percentage' => 2],
@@ -184,7 +186,7 @@ class ProductRecipeSeeder extends Seeder
                     'Add pistachio paste and mix well',
                     'Cool to 4°C',
                     'Process in gelato machine for 25 minutes',
-                    'Store at -18°C'
+                    'Store at -18°C',
                 ]),
                 'ingredients' => [
                     ['item' => 'Milk - Fresh Whole', 'quantity' => 1.8, 'uom' => 'liters', 'cost_per_unit' => 3, 'waste_percentage' => 2],
@@ -205,7 +207,7 @@ class ProductRecipeSeeder extends Seeder
                     'Top with sliced almonds',
                     'Proof for 1 hour',
                     'Brush with egg wash',
-                    'Bake at 200°C for 15-18 minutes'
+                    'Bake at 200°C for 15-18 minutes',
                 ]),
                 'ingredients' => [
                     ['item' => 'Flour - All Purpose', 'quantity' => 450, 'uom' => 'grams', 'cost_per_unit' => 0.002, 'waste_percentage' => 5],
@@ -227,7 +229,7 @@ class ProductRecipeSeeder extends Seeder
                     'Fold in raisins',
                     'Scoop dough onto baking sheets',
                     'Bake at 180°C for 12-14 minutes',
-                    'Cool before serving'
+                    'Cool before serving',
                 ]),
                 'ingredients' => [
                     ['item' => 'Flour - All Purpose', 'quantity' => 220, 'uom' => 'grams', 'cost_per_unit' => 0.002, 'waste_percentage' => 5],
@@ -249,7 +251,7 @@ class ProductRecipeSeeder extends Seeder
                     'Bulk ferment for 4-6 hours',
                     'Shape into loaves',
                     'Cold ferment overnight (12 hours)',
-                    'Score and bake at 230°C for 35-40 minutes'
+                    'Score and bake at 230°C for 35-40 minutes',
                 ]),
                 'ingredients' => [
                     ['item' => 'Flour - All Purpose', 'quantity' => 1000, 'uom' => 'grams', 'cost_per_unit' => 0.002, 'waste_percentage' => 5],
@@ -269,7 +271,7 @@ class ProductRecipeSeeder extends Seeder
                     'Mix in flour, baking soda, and salt',
                     'Pour into greased loaf pans',
                     'Bake for 55-60 minutes',
-                    'Cool before slicing'
+                    'Cool before slicing',
                 ]),
                 'ingredients' => [
                     ['item' => 'Flour - All Purpose', 'quantity' => 280, 'uom' => 'grams', 'cost_per_unit' => 0.002, 'waste_percentage' => 5],
@@ -292,7 +294,7 @@ class ProductRecipeSeeder extends Seeder
                     'Cool and refrigerate for 2 hours',
                     'Roll into balls',
                     'Coat with cocoa powder',
-                    'Store in refrigerator'
+                    'Store in refrigerator',
                 ]),
                 'ingredients' => [
                     ['item' => 'Chocolate Chips - Dark', 'quantity' => 500, 'uom' => 'grams', 'cost_per_unit' => 0.015, 'waste_percentage' => 2],
@@ -314,7 +316,7 @@ class ProductRecipeSeeder extends Seeder
                     'Add caramel filling',
                     'Top with more chocolate',
                     'Cool and unmold',
-                    'Store in cool place'
+                    'Store in cool place',
                 ]),
                 'ingredients' => [
                     ['item' => 'Chocolate Chips - Dark', 'quantity' => 600, 'uom' => 'grams', 'cost_per_unit' => 0.015, 'waste_percentage' => 2],
@@ -329,8 +331,9 @@ class ProductRecipeSeeder extends Seeder
         // Create recipes for products
         foreach ($recipesData as $productName => $recipeData) {
             $product = $products->firstWhere('name', $productName);
-            if (!$product) {
+            if (! $product) {
                 $this->command->warn("Product '{$productName}' not found, skipping...");
+
                 continue;
             }
 
@@ -340,7 +343,7 @@ class ProductRecipeSeeder extends Seeder
                 'department_id' => $productionDept->id,
                 'product_id' => $product->id,
                 'product_name' => $product->name,
-                'sku' => $product->sku . '-RCP',
+                'sku' => $product->sku.'-RCP',
                 'product_type' => $recipeData['product_type'],
                 'cost_per_unit' => 0, // Will be calculated
                 'uom' => $product->uom,
@@ -357,8 +360,9 @@ class ProductRecipeSeeder extends Seeder
             $sortOrder = 0;
             foreach ($recipeData['ingredients'] as $ingredientData) {
                 $item = $itemMap[$ingredientData['item']] ?? null;
-                if (!$item) {
+                if (! $item) {
                     $this->command->warn("Item '{$ingredientData['item']}' not found, skipping ingredient...");
+
                     continue;
                 }
 
@@ -371,7 +375,7 @@ class ProductRecipeSeeder extends Seeder
                     'waste_percentage' => $ingredientData['waste_percentage'],
                     'sort_order' => $sortOrder++,
                     'notes' => "Required for {$product->name}",
-                    'preparation_notes' => "Standard preparation",
+                    'preparation_notes' => 'Standard preparation',
                 ]);
 
                 $totalIngredients++;
@@ -381,7 +385,7 @@ class ProductRecipeSeeder extends Seeder
             $recipe->cost_per_unit = $recipe->calculateCostPerUnit();
             $recipe->save();
 
-            $this->command->info("✓ Created recipe for {$product->name} with " . count($recipeData['ingredients']) . " ingredients");
+            $this->command->info("✓ Created recipe for {$product->name} with ".count($recipeData['ingredients']).' ingredients');
         }
 
         $this->command->info("✅ Total recipes created: {$totalRecipes}");
