@@ -6,12 +6,13 @@ use Livewire\Component;
 use Livewire\Attributes\{Layout, Title};
 use App\Models\DepartmentCategory;
 use App\Livewire\Concerns\CachesDepartmentCategories;
+use TallStackUi\Traits\Interactions;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 #[Title('Edit Category')]
 class Edit extends Component
 {
-    use CachesDepartmentCategories;
+    use CachesDepartmentCategories, Interactions;
 
     public $categoryId;
     public string $name = '';
@@ -33,7 +34,7 @@ class Edit extends Component
         ];
     }
 
-    public function updateCategory()
+    public function editCategory()
     {
         $this->validate();
 

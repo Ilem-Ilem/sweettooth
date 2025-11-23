@@ -5,6 +5,7 @@ namespace App\Livewire\BranchDashboard\DepartmentModule;
 use App\Livewire\BaseComponent;
 use App\Models\DepartmentCategory;
 use App\Livewire\Concerns\CachesDepartmentCategories;
+use App\Models\Department;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Livewire\Attributes\{Layout};
@@ -20,6 +21,9 @@ class Category extends BaseComponent
     public ?string $dateFrom = null;
     public ?string $dateTo = null;
 
+    //selected category delete modal functionality
+    public $selectedCategoryDeprtament;
+    public $selectedCategoryId;
     // Modal states
     public bool $showCategoryModal = false;
     public ?string $selectedId = null;
@@ -40,11 +44,6 @@ class Category extends BaseComponent
         return DepartmentCategory::query()
             ->when($this->search, fn ($q) => $q->where('name', 'like', "%{$this->search}%")
                 ->orWhere('description', 'like', "%{$this->search}%"))
-            ->when($this->advancedSearch, fn ($q) => $q->where(fn ($sq) => $sq
-                ->where('name', 'like', "%{$this->advancedSearch}%")
-                ->orWhere('description', 'like', "%{$this->advancedSearch}%")))
-            ->when($this->dateFrom, fn ($q) => $q->whereDate('created_at', '>=', $this->dateFrom))
-            ->when($this->dateTo, fn ($q) => $q->whereDate('created_at', '<=', $this->dateTo))
             ->orderBy('created_at', 'desc');
     }
 
@@ -103,6 +102,21 @@ class Category extends BaseComponent
         ]));
     }
 
+    public function getSelectedData($id)
+    {
+        $this->selectedCategoryId = $id;
+        $departments = Department::with('category')
+            ->whereHas('category', function($q) use ($id) {
+                $q->where('department_categories.id', $id);
+            })
+            ->get();
+        
+        $this->selectedCategoryDeprtament = $departments;
+    }
+    
+
+
+
     public function render()
     {
         $cacheKey = $this->getCacheKey();
@@ -113,13 +127,18 @@ class Category extends BaseComponent
                 ->withQueryString();
         });
 
+        $headers = [
+            ['index' => 'id', 'label' => '#'],
+            ['index' => 'name', 'label' => 'Category Name'],
+            ['index' => 'description', 'label' => 'Description'],
+            ['index' => 'created_at', 'label' => 'Created At'],
+        ];
+
+        if (is_super_admin()) {
+            array_push($headers, ['label' => 'Action', 'index' => 'action']);
+        }
         return view('livewire.branch-dashboard.department-module.category', [
-            'headers' => [
-                ['index' => 'id', 'label' => '#'],
-                ['index' => 'name', 'label' => 'Category Name'],
-                ['index' => 'description', 'label' => 'Description'],
-                ['index' => 'created_at', 'label' => 'Created At'],
-            ],
+            'headers' => $headers,
             'rows' => $rows,
         ]);
     }

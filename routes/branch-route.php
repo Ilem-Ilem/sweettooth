@@ -25,8 +25,10 @@ Route::middleware(['setBranchContext', 'branch'])->prefix('branch-dashboard')->n
 
     // DEPARTMENT / DEPARTMENT CATEGORY SECTION 
     Route::get('departments', App\Livewire\BranchDashboard\DepartmentModule\Index::class)->name('branch.departments.index');
+    Route::get('department/create', \App\Livewire\BranchDashboard\DepartmentModule\Department\CreateOrUpdate::class)->name('department.create');
     Route::get('departments/category', \App\Livewire\BranchDashboard\DepartmentModule\Category::class)->name('branch.departments.category');
     Route::get('/department/category/create', \App\Livewire\BranchDashboard\DepartmentModule\Cartegory\Create::class)->name('department.category.create');
+    Route::get('department/category/{id}/edit', \App\Livewire\BranchDashboard\DepartmentModule\Cartegory\Edit::class)->name('department.category.edit');
     // Shift Selection functionality
   
     Route::get('auth/shift', \App\Livewire\Auth\Shift::class)->name('select_shift');

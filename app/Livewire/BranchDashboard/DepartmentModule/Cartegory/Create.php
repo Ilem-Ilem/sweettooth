@@ -6,12 +6,14 @@ use Livewire\Component;
 use Livewire\Attributes\{Layout, Title};
 use App\Models\DepartmentCategory;
 use App\Livewire\Concerns\CachesDepartmentCategories;
+use TallStackUi\Traits\Interactions;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 #[Title('Create New Category')]
 class Create extends Component
 {
     use CachesDepartmentCategories;
+    use Interactions;
 
     public string $name = '';
     public string $description = '';

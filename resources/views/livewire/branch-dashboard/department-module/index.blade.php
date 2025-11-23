@@ -27,13 +27,13 @@
 
     <!-- Header with Add Button -->
     <div class="flex justify-between items-center">
-        <button wire:click="openDepartmentModal"
+        <a href="{{ route('branch-dashboard.department.create', request()->query()) }}"
             class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center shadow-sm">
             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
             </svg>
             Add New Department
-        </button>
+        </a>
     </div>
 
     <!-- Export Buttons -->
@@ -167,7 +167,9 @@
                 <!-- Category Filter -->
                 <div>
                     <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Category</label>
-                    <x-select.styled wire:model.live="filterCategory" :options="$categories->map(fn($cat) => ['label' => $cat->name, 'value' => $cat->id])->toArray()"
+                    <x-select.styled wire:model.live="filterCategory" :options="$this->getDepartmentCategories()
+                        ->map(fn($cat) => ['label' => $cat->name, 'value' => $cat->id])
+                        ->toArray()"
                         select="label:label|value:value" placeholder="All Categories" searchable />
                 </div>
 
@@ -218,7 +220,24 @@
         @interact('column_action', $row)
             <div class="flex items-center space-x-2">
 
-                @if ($row->branch_id == null)
+                @if (is_super_admin())
+                    <button wire:click="editDepartment({{ $row->id }})"
+                        class="p-2 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors"
+                        title="Edit Department">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                    </button>
+                    <button wire:click="deleteDepartment({{ $row->id }})"
+                        class="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors cursor-pointer"
+                        title="Delete Department">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </button>
+                @elseif ($row->branch_id == null && !is_super_admin())
                     <span class="p-2 text-red-600 bg-gray-900 text-white">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -246,96 +265,4 @@
             </div>
         @endinteract
     </x-table>
-
-    <!-- Add/Edit Department Modal (Slide-in) -->
-    <div x-data="{ show: @entangle('showDepartmentModal') }" x-show="show" x-cloak class="fixed inset-0 z-50 overflow-hidden"
-        @keydown.escape.window="show = false">
-        <!-- Backdrop -->
-        <div x-show="show" x-transition:enter="transition-opacity ease-linear duration-300"
-            x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
-            x-transition:leave="transition-opacity ease-linear duration-300" x-transition:leave-start="opacity-100"
-            x-transition:leave-end="opacity-0" class="fixed inset-0 bg-black bg-opacity-50"
-            @click="$wire.closeDepartmentModal()">
-        </div>
-
-        <!-- Slide-in Panel -->
-        <div x-show="show" x-transition:enter="transform transition ease-in-out duration-300"
-            x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
-            x-transition:leave="transform transition ease-in-out duration-300"
-            x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full"
-            class="fixed inset-y-0 right-0 w-full md:w-1/2 lg:w-1/3 bg-white dark:bg-zinc-900 shadow-xl flex flex-col">
-
-            <!-- Header -->
-            <div class="px-6 py-4 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
-                <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-                    {{ $isEditing ? 'Edit Department' : 'Add New Department' }}</h2>
-                <button wire:click="closeDepartmentModal"
-                    class="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
-            </div>
-
-            <!-- Scrollable Form Content -->
-            <div
-                class="flex-1 overflow-y-auto px-6 py-4 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent">
-                <form wire:submit.prevent="saveDepartment" class="space-y-6">
-                    <!-- Department Name -->
-                    <div>
-                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Department Name
-                            *</label>
-                        <input type="text" wire:model="name"
-                            class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500"
-                            placeholder="Enter department name" required>
-                        @error('name')
-                            <span class="text-red-500 text-sm">{{ $message }}</span>
-                        @enderror
-                    </div>
-
-                    <!-- Category Selection -->
-                    <div>
-                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Category
-                            *</label>
-                        <x-select.styled wire:model="category_id" :options="$categories
-                            ->map(fn($cat) => ['label' => $cat->name, 'value' => $cat->id])
-                            ->toArray()" select="label:label|value:value"
-                            placeholder="Select Category" searchable required />
-                        @error('category_id')
-                            <span class="text-red-500 text-sm">{{ $message }}</span>
-                        @enderror
-                    </div>
-
-
-
-                    <!-- Description -->
-                    <div>
-                        <label
-                            class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Description</label>
-                        <textarea wire:model="description" rows="4"
-                            class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500"
-                            placeholder="Department description (optional)"></textarea>
-                        @error('description')
-                            <span class="text-red-500 text-sm">{{ $message }}</span>
-                        @enderror
-                    </div>
-                </form>
-            </div>
-
-            <!-- Footer -->
-            <div
-                class="px-6 py-4 border-t border-zinc-200 dark:border-zinc-700 flex items-center justify-end space-x-3">
-                <button wire:click="closeDepartmentModal"
-                    class="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors">
-                    Cancel
-                </button>
-                <button wire:click="saveDepartment"
-                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors">
-                    {{ $isEditing ? 'Update Department' : 'Create Department' }}
-                </button>
-            </div>
-        </div>
-    </div>
-
 </div>

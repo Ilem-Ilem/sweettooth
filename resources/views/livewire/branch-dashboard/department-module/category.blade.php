@@ -1,4 +1,7 @@
-<div class="p-6 space-y-6">
+<div x-data="{ showDeleteModal: false, loading: false }">
+    {{-- TODO:: use a dispatch to close the delet emodel when done --}}
+
+
 
     <style>
         /* Custom scrollbar styles */
@@ -23,28 +26,22 @@
         }
     </style>
 
-    <x-breadcrumb
-        title="Department Category Management"
-        :items="[
-            ['label' => 'Dashboard', 'url' => route('dashboard')],
-            ['label' => 'Department Category Management']
-        ]"
-        :compact="false"
-        :with-icons="true"
-    />
+    <x-breadcrumb title="Department Category Management" :items="[['label' => 'Dashboard', 'url' => route('dashboard')], ['label' => 'Department Category Management']]" :compact="false" :with-icons="true" />
 
-    <div class="flex justify-between items-center">
-        <a href="{{ route('branch-dashboard.department.category.create', request()->query()) }}" wire:navigate="true"
-            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center shadow-sm">
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-            Add New Category
-        </a>
-    </div>
+    @if (is_super_admin())
+        <div class="flex justify-between items-center mt-7">
+            <a href="{{ route('branch-dashboard.department.category.create', request()->query()) }}" wire:navigate="true"
+                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center shadow-sm">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Add New Category
+            </a>
+        </div>
+    @endif
 
     <!-- Export Buttons -->
-    <div class="flex justify-end items-center space-x-2">
+    <div class="flex justify-end items-center space-x-2 mt-7">
         <button wire:click="exportExcel"
             class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center">
             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -89,109 +86,9 @@
         </div>
     </div>
 
-    <!-- Filters Section -->
-    <div x-data="{ open: false, advanced: false }"
-        class="bg-white dark:bg-zinc-800 rounded-2xl shadow-md border border-zinc-200 dark:border-zinc-700 transition-all duration-300">
-        <!-- Header / Toggle Button -->
-        <div class="flex justify-between items-center p-4 border-b border-zinc-200 dark:border-zinc-700">
-            <h2 class="text-lg font-semibold text-zinc-800 dark:text-zinc-100 flex items-center">
-                <svg class="w-5 h-5 mr-2 text-zinc-600 dark:text-zinc-400" fill="none" stroke="currentColor"
-                    viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707L14.293 13H10v5l-4-4v-3.586L3.293 7.293A1 1 0 013 6.586V4z" />
-                </svg>
-                Filters
-            </h2>
-
-            <button @click="open = !open"
-                class="flex items-center px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white transition-all duration-200">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path x-show="!open" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M4 8h16M4 16h16" />
-                    <path x-show="open" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                <span x-text="open ? 'Close' : 'Show Filters'"></span>
-            </button>
-        </div>
-
-        <!-- Filter Body -->
-        <div x-show="open" x-collapse class="p-4 space-y-6">
-            <!-- Basic Filters -->
-            <div class="">
-                <!-- Advanced Search Toggle -->
-                <div>
-                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Advanced
-                        Search</label>
-                    <button @click="advanced = !advanced"
-                        class="flex items-center w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-zinc-50 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors duration-200">
-                        <svg class="w-5 h-5 mr-2 text-zinc-500" fill="none" stroke="currentColor"
-                            viewBox="0 0 24 24">
-                            <path x-show="!advanced" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M5 12h14M12 5l7 7-7 7" />
-                            <path x-show="advanced" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M19 12H5m7 7l-7-7 7-7" />
-                        </svg>
-                        <span x-text="advanced ? 'Hide Advanced' : 'Show Advanced'"></span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Advanced Search Dropdown -->
-            <div x-show="advanced" x-collapse
-                class="p-4 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-zinc-50 dark:bg-zinc-900/50 mt-4">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <!-- Search -->
-                    <div class="md:col-span-1">
-                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Search</label>
-                        <div class="relative">
-                            <input type="text" wire:model.live="advancedSearch" placeholder="Search keyword..."
-                                class="w-full pl-10 pr-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
-                            <svg class="absolute left-3 top-2.5 w-5 h-5 text-zinc-400" fill="none"
-                                stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
-                        </div>
-                    </div>
-
-                    <!-- Date Range -->
-                    <div class="md:col-span-2">
-                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Date
-                            Range</label>
-                        <div class="flex space-x-2">
-                            <input type="date" wire:model.live="dateFrom"
-                                class="w-1/2 px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
-                            <input type="date" wire:model.live="dateTo"
-                                class="w-1/2 px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Filter Buttons -->
-            <div class="flex flex-wrap gap-3 justify-end pt-4 border-t border-zinc-200 dark:border-zinc-700">
-                <button wire:click="applyFilters"
-                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center shadow-sm">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
-                    </svg>
-                    Apply
-                </button>
-                <button wire:click="resetFilters"
-                    class="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors duration-200 flex items-center">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                    Reset
-                </button>
-            </div>
-        </div>
-    </div>
 
     <!-- Table -->
-    <x-table :$headers :$rows selectable wire:model="selectedIds" striped paginate persist :filter="['quantity' => 'quantity', 'search' => 'search']"
+    <x-table :$headers :$rows  striped paginate persist :filter="['quantity' => 'quantity', 'search' => 'search']"
         :quantity="[10, 25, 50, 100]">
         @interact('column_description', $row)
             <span class="text-zinc-600 dark:text-zinc-400 text-sm">
@@ -205,7 +102,81 @@
             </span>
         @endinteract
 
-      
+        @interact('column_action', $row)
+            <a href="{{ route('branch-dashboard.department.category.edit', ['id' => $row->id]) }}"
+                class="ml-2 bg-green-700 text-white rounded-md px-2 py-1">
+                Edit
+            </a>
+            <button class="ml-2 bg-red-700 text-white rounded-md px-2 py-1" <button
+                class="ml-2 bg-red-700 text-white rounded-md px-2 py-1"
+                @click="
+                showDeleteModal = true;
+                loading = true;
+                $wire.getSelectedData('{{ $row->id }}').then(() => {
+                    loading = false;
+                });
+            ">
+                Delete
+            </button>
+        @endinteract
+
+
     </x-table>
+
+    <div class="fixed inset-0 z-[999999] flex items-center justify-center" x-cloak x-show="showDeleteModal"
+        @keydown.escape.window="showDeleteModal = false">
+        <!-- Dark backdrop -->
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
+            @click="showDeleteModal = false"></div>
+
+        <!-- Modal box -->
+        <div
+            class="relative bg-white dark:bg-gray-900 rounded-xl shadow-2xl p-8 w-full max-w-md mx-4
+                transform transition-all duration-300">
+
+            <!-- Loading spinner -->
+            <template x-if="loading">
+                <div class="flex flex-col items-center justify-center py-8">
+                    <div
+                        class="animate-spin w-10 h-10 border-4 border-gray-300 border-t-transparent rounded-full mb-4">
+                    </div>
+                    <p class="text-lg font-medium text-gray-700 dark:text-gray-200">Loading...</p>
+                </div>
+            </template>
+
+            <!-- Content -->
+            <div x-show="!loading">
+                <p class="text-xl font-semibold text-gray-800 dark:text-gray-100">Are you sure?</p>
+                <p class="text-gray-600 dark:text-gray-300">
+                    This action <span class="font-semibold text-red-600">cannot be undone</span>.
+                </p>
+
+                @if ($selectedCategoryDeprtament && $selectedCategoryDeprtament->count())
+                    <p>The following departments will be deleted:</p>
+                    <ul class="space-y-2">
+                        @foreach ($selectedCategoryDeprtament as $item)
+                            <li
+                                class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 transition duration-200">
+                                {{ $item->name }}
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+
+                <div class="flex items-center justify-center space-x-4 mt-6">
+                    <button
+                        class="px-4 py-2 rounded-md bg-gray-200 dark:bg-gray-700 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+                        @click="showDeleteModal = false">Cancel</button>
+                    <button class="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition shadow-sm"
+                       wire:click="delete('{{ $selectedCategoryId }}')">
+                        <span wire:loading.remove> Confirm Delete</span>
+                        <span wire:loading wire:loading.target="delete">Deleting</span>
+                       
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
 
 </div>

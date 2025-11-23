@@ -2,13 +2,15 @@
 
 namespace App\Livewire\BranchDashboard\DepartmentModule;
 
-use App\Livewire\BaseComponent;
-use App\Models\Department;
 use App\Models\Branch;
+use App\Models\Department;
+use App\Livewire\BaseComponent;
+use Livewire\Attributes\Computed;
 use App\Models\DepartmentCategory;
-use Livewire\Attributes\{Layout, On, Url};
+use Livewire\Attributes\{Layout, On, Title, Url};
 
 #[Layout('components.layouts.app.branch-dashboard')]
+#[Title("Manage Departments")]
 class Index extends BaseComponent
 {
     public ?int $quantity = 10;
@@ -32,16 +34,16 @@ class Index extends BaseComponent
     public ?string $filterCategory = null;
     public ?string $filterBranch = null;
 
-    // Modal states
-    public bool $showDepartmentModal = false;
+    // // Modal states
+    // public bool $showDepartmentModal = false;
     public ?int $selectedDepartmentId = null;
-    public bool $isEditing = false;
+    // public bool $isEditing = false;
 
-    // Department form fields
-    public string $name = '';
-    public ?string $branch_id = null;
-    public ?string $category_id = null;
-    public string $description = '';
+    // // Department form fields
+    // public string $name = '';
+    // public ?string $branch_id = null;
+    // public ?string $category_id = null;
+    // public string $description = '';
 
     protected array $bulkActions = [
         'delete' => ['label' => 'Delete Selected', 'method' => 'bulkDelete'],
@@ -57,6 +59,14 @@ class Index extends BaseComponent
     {
         return $this->getFilteredQuery()->pluck('id')->toArray();
     }
+
+
+    #[Computed(seconds: 4200)]
+    public function getDepartmentCategories()
+    {
+        return DepartmentCategory::all();
+    }
+
 
     protected function getFilteredQuery()
     {
@@ -122,67 +132,67 @@ class Index extends BaseComponent
         $this->toast()->success('PDF export feature coming soon!')->send();
     }
 
-    // Modal methods
-    public function openDepartmentModal()
-    {
-        $this->isEditing = false;
-        $this->resetDepartmentForm();
-        $this->showDepartmentModal = true;
-    }
+    // // Modal methods
+    // public function openDepartmentModal()
+    // {
+    //     $this->isEditing = false;
+    //     $this->resetDepartmentForm();
+    //     $this->showDepartmentModal = true;
+    // }
 
-    public function editDepartment($departmentId)
-    {
-        $department = Department::findOrFail($departmentId);
-        $this->isEditing = true;
-        $this->selectedDepartmentId = $departmentId;
-        $this->name = $department->name;
-        $this->branch_id = $department->branch_id;
-        $this->category_id = $department->category_id;
-        $this->description = $department->description ?? '';
-        $this->showDepartmentModal = true;
-    }
+    // public function editDepartment($departmentId)
+    // {
+    //     $department = Department::findOrFail($departmentId);
+    //     $this->isEditing = true;
+    //     $this->selectedDepartmentId = $departmentId;
+    //     $this->name = $department->name;
+    //     $this->branch_id = $department->branch_id;
+    //     $this->category_id = $department->category_id;
+    //     $this->description = $department->description ?? '';
+    //     $this->showDepartmentModal = true;
+    // }
 
-    public function closeDepartmentModal()
-    {
-        $this->showDepartmentModal = false;
-        $this->resetDepartmentForm();
-    }
+    // public function closeDepartmentModal()
+    // {
+    //     $this->showDepartmentModal = false;
+    //     $this->resetDepartmentForm();
+    // }
 
-    public function resetDepartmentForm()
-    {
-        $this->name = '';
-        $this->category_id = null;
-        $this->description = '';
-        $this->selectedDepartmentId = null;
-        $this->isEditing = false;
-    }
+    // public function resetDepartmentForm()
+    // {
+    //     $this->name = '';
+    //     $this->category_id = null;
+    //     $this->description = '';
+    //     $this->selectedDepartmentId = null;
+    //     $this->isEditing = false;
+    // }
 
-    public function saveDepartment()
-    {
-        $this->validate([
-            'name' => 'required|string|max:255|unique:departments,name,' . $this->selectedDepartmentId,
-            'category_id' => 'required|exists:department_categories,id',
-            'description' => 'nullable|string',
-        ]);
+    // public function saveDepartment()
+    // {
+    //     $this->validate([
+    //         'name' => 'required|string|max:255|unique:departments,name,' . $this->selectedDepartmentId,
+    //         'category_id' => 'required|exists:department_categories,id',
+    //         'description' => 'nullable|string',
+    //     ]);
 
-        $data = [
-            'name' => $this->name,
-            'branch_id' => $this->b_id,
-            'category_id' => $this->category_id,
-            'description' => $this->description,
-        ];
+    //     $data = [
+    //         'name' => $this->name,
+    //         'branch_id' => $this->b_id,
+    //         'category_id' => $this->category_id,
+    //         'description' => $this->description,
+    //     ];
 
-        if ($this->isEditing && $this->selectedDepartmentId) {
-            Department::findOrFail($this->selectedDepartmentId)->update($data);
-            $message = 'Department updated successfully!';
-        } else {
-            Department::create($data);
-            $message = 'Department created successfully!';
-        }
+    //     if ($this->isEditing && $this->selectedDepartmentId) {
+    //         Department::findOrFail($this->selectedDepartmentId)->update($data);
+    //         $message = 'Department updated successfully!';
+    //     } else {
+    //         Department::create($data);
+    //         $message = 'Department created successfully!';
+    //     }
 
-        $this->toast()->success($message)->send();
-        $this->closeDepartmentModal();
-    }
+    //     $this->toast()->success($message)->send();
+    //     $this->closeDepartmentModal();
+    // }
 
     // Delete methods
     public function deleteDepartment($departmentId): void
@@ -241,7 +251,7 @@ class Index extends BaseComponent
     public function render()
     {
         $rows = $this->getFilteredQuery()->paginate($this->quantity ?? 10);
-        $categories = DepartmentCategory::all();
+        // $categories = DepartmentCategory::all();
 
         return view('livewire.branch-dashboard.department-module.index', [
             'headers' => [
@@ -254,7 +264,7 @@ class Index extends BaseComponent
                 ['index' => 'action', 'label' => 'Actions', 'display' => true],
             ],
             'rows' => $rows,
-            'categories' => $categories,
+            // 'categories' => $categories,
             'b_id'=>$this->b_id,
         ]);
     }

@@ -3,15 +3,12 @@
     <div class="bg-white dark:bg-zinc-900 rounded-2xl shadow-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden">
         <div class="px-8 py-6 bg-gradient-to-r from-blue-600 to-blue-700">
             <h2 class="text-2xl font-bold text-white">
-               Create New Category
+              Edit Category: <small><i>{{$name}}</i></small> 
             </h2>
-            <p class="text-blue-100 mt-1">
-               Add a new department category
-            </p>
         </div>
 
         <div class="p-8">
-            <form wire:submit.prevent="saveCategory" class="space-y-8">
+            <form wire:submit.prevent="editCategory" class="space-y-8">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <!-- Category Name -->
                     <div class="md:col-span-2">
@@ -57,8 +54,8 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                                M12 4v16m8-8H4" />
                         </svg>
-                        <span wire:loading.remove>Create Category</span>
-                        <span wire:loading  wire:loading.target="saveCategory">Creating...</span>
+                        <span wire:loading.remove>Edit Category</span>
+                        <span wire:loading  wire:loading.target="saveCategory">Editing...</span>
                     </button>
                 </div>
             </form>
