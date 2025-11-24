@@ -870,15 +870,20 @@ class ComprehensiveSeeder extends Seeder
 
             // Audit Log
             AuditLog::create([
-                'user_id' => $employee->id,
+                'branch_id' => $branch->id,
+                'causer_type' => \App\Models\Employee::class,
+                'causer_id' => $employee->id,
+                'auditable_type' => $faker->randomElement(['App\Models\Employee', 'App\Models\Product', 'App\Models\Sale', 'App\Models\Purchase']),
+                'auditable_id' => $faker->numberBetween(1, 1000),
                 'action' => $faker->randomElement(['create', 'update', 'delete', 'view']),
-                'model_type' => $faker->randomElement(['Employee', 'Product', 'Sale', 'Purchase', 'Item']),
-                'model_id' => $faker->numberBetween(1, 1000),
-                'old_values' => json_encode(['field' => 'old_value']),
-                'new_values' => json_encode(['field' => 'new_value']),
+                'description' => $faker->sentence,
+                'old_values' => ['field' => 'old_value'],
+                'new_values' => ['field' => 'new_value'],
                 'ip_address' => $faker->ipv4,
                 'user_agent' => $faker->userAgent,
-                'performed_at' => $faker->dateTimeBetween('-30 days', 'now'),
+                'status' => $faker->randomElement(['completed', 'pending']),
+                'logged_at' => $faker->dateTimeBetween('-30 days', 'now'),
+                'details' => ['seeded' => true],
             ]);
 
             // Approval Request

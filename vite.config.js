@@ -14,11 +14,9 @@ export default defineConfig({
 
   server: {
     cors: true,
-    https: {
-      key: fs.readFileSync('./certs/localhost-key.pem'),
-      cert: fs.readFileSync('./certs/localhost.pem'),
-    },
+    https: false,   // disable HTTPS for dev
     host: 'localhost',
     port: 5173,
   },
 })
+

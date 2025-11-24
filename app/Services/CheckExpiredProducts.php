@@ -13,7 +13,7 @@ class CheckExpiredProducts
     /**
      * Get expired or expiring products for a specific shift
      */
-    public function getExpiredProductsForShift(int $salesShiftId, int $branchId, int $departmentId): Collection
+    public function getExpiredProductsForShift(int $salesShiftId, int|string $branchId, int $departmentId): Collection
     {
         $today = Carbon::today();
 

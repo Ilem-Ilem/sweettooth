@@ -29,8 +29,8 @@ return new class extends Migration
             $table->decimal('expected_cash', 10, 2)->default(0);
             $table->decimal('cash_variance', 10, 2)->default(0);
             $table->enum('status', ['active', 'closed', 'submitted', 'verified'])->default('active');
-            $table->uuid('verified_by')->nullable();
-            $table->foreign('verified_by')->references('id')->on('employees')->onDelete('set null');
+            $table->uuid('verified_by_id')->nullable();
+            $table->string('verified_by_type')->nullable();
             $table->text('notes')->nullable();
             $table->timestamps();
         });

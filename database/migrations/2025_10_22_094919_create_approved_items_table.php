@@ -17,7 +17,8 @@ return new class extends Migration
             $table->foreign('request_id')->references('id')->on('item_requests')->onDelete('cascade');
             $table->unsignedBigInteger('item_id');
             $table->foreign('item_id')->references('id')->on('items')->onDelete('restrict');
-            $table->uuid('approved_by');
+            $table->uuid('approved_by_id');
+            $table->string('approved_by_type');
             $table->uuid('branch_id');
             $table->foreign('branch_id')->references('id')->on('branches')->onDelete('cascade');
             $table->decimal('quantity', 12, 2);

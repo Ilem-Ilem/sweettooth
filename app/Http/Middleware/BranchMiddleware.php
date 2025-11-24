@@ -12,13 +12,36 @@ class BranchMiddleware
 {
     /**
      * Handle an incoming request.
+     * 
+     * Validates that:
+     * 1. The b_id parameter is a valid UUID that exists in the database
+     * 2. The current user is authorized to access this branch
+     *    - Super admins can access any branch
+     *    - Employees can ONLY access their assigned branch
      */
-      public function handle(Request $request, Closure $next): Response
+    public function handle(Request $request, Closure $next): Response
     {
-        // Try to get b_id from query parameter, fall back to session (for super admins)
-        $b_id = $request->query('b_id') ?? current_branch_id();
+        // CRITICAL: Different rules for super admins vs employees
+        
+        // EMPLOYEES: MUST have b_id in URL query parameter, NO session fallback
+        if (auth('employees')->check()) {
+            $b_id = $request->query('b_id');
+            
+            // Employees MUST provide b_id parameter - no exceptions
+            if (empty($b_id)) {
+                Log::warning('Employee attempted to access branch route without b_id parameter', [
+                    'ip' => $request->ip(),
+                    'employee_id' => auth('employees')->id(),
+                    'url' => $request->fullUrl(),
+                ]);
+                abort(403, 'Branch parameter required.');
+            }
+        } else {
+            // SUPER ADMINS: Can use URL parameter or fall back to session
+            $b_id = $request->query('b_id') ?? current_branch_id();
+        }
 
-        // Validate format first
+        // Validate format and existence
         $validator = Validator::make(['b_id' => $b_id], [
             'b_id' => ['required', 'uuid', 'exists:branches,id'],
         ]);
@@ -27,20 +50,29 @@ class BranchMiddleware
             Log::warning('Blocked request with invalid or missing b_id', [
                 'ip' => $request->ip(),
                 'b_id' => $b_id,
+                'user_type' => auth('employees')->check() ? 'employee' : 'super_admin',
                 'url' => $request->fullUrl(),
             ]);
 
-            abort(403, 'Invalid or unauthorized branch access.');
+            abort(403, 'Invalid branch access.');
         }
 
-        // Optionally, you can set the branch globally
+        // Validate that the user is authorized to access this branch
+        if (!validate_branch_access($b_id)) {
+            Log::warning('Blocked unauthorized branch access attempt', [
+                'ip' => $request->ip(),
+                'user_id' => auth()->id() ?? auth('employees')->id(),
+                'user_type' => auth('employees')->check() ? 'employee' : 'super_admin',
+                'requested_branch' => $b_id,
+                'url' => $request->fullUrl(),
+            ]);
+
+            abort(403, 'You are not authorized to access this branch.');
+        }
+
+        // Set the branch globally for the request
         $branch = Branch::find($b_id);
         app()->instance('currentBranch', $branch);
-
-        // If your app uses multi-branch access control:
-        // if (!auth()->user()->branches->contains($branch)) {
-        //     abort(403, 'You are not authorized for this branch.');
-        // }
 
         return $next($request);
     }

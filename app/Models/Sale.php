@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Sale extends Model
 {
@@ -12,7 +13,8 @@ class Sale extends Model
         'sales_shift_id',
         'branch_id',
         'department_id',
-        'sold_by',
+        'sold_by_id',
+        'sold_by_type',
         'sale_number',
         'sale_time',
         'subtotal',
@@ -48,9 +50,9 @@ class Sale extends Model
         return $this->belongsTo(Department::class);
     }
 
-    public function soldBy(): BelongsTo
+    public function soldBy(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'sold_by');
+        return $this->morphTo('sold_by', 'sold_by_type', 'sold_by_id');
     }
 
     public function table(): BelongsTo

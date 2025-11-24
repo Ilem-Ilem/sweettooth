@@ -24,15 +24,15 @@ return new class extends Migration
             $table->string('supporting_document')->nullable(); // File path
             $table->enum('status', ['pending', 'approved', 'rejected', 'cancelled'])->default('pending');
             $table->uuid('approved_by_id')->nullable();
-            $table->uuid('approved_by_type')->nullable();
+            $table->string('approved_by_type')->nullable();
             $table->timestamp('approved_at')->nullable();
             $table->text('approval_notes')->nullable();
             $table->uuid('rejected_by_id')->nullable();
-            $table->uuid('rejected_by_type')->nullable();
+            $table->string('rejected_by_type')->nullable();
             $table->timestamp('rejected_at')->nullable();
             $table->text('rejection_reason')->nullable();
             $table->uuid('cancelled_by_id')->nullable();
-            $table->uuid('cancelled_by_type')->nullable();
+            $table->string('cancelled_by_type')->nullable();
             $table->timestamp('cancelled_at')->nullable();
             $table->text('cancellation_reason')->nullable();
             $table->timestamps();

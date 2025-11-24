@@ -1,11 +1,45 @@
 <?php
 
+use App\Models\Branch;
+use App\Models\AuditLog;
+use App\Models\Employee;
+use App\Models\User;
+
 /**
  * Branch Helper Functions
  *
  * These helper functions provide utilities for managing branch context
  * in a multi-branch application with super admin capabilities.
  */
+/**
+ * Audit Helper - Delegates to AuditService
+ *
+ * Provides a convenient function-based API for audit logging.
+ * For more advanced features, use AuditService directly.
+ *
+ * @see App\Services\AuditService
+ */
+if (!function_exists('audit')) {
+    function audit(
+        $causer,
+        $action,
+        $auditable = null,
+        $description = null,
+        $status = 'completed',
+        $approvalRequest = null,
+        array $metadata = []
+    ) {
+        return \App\Services\AuditService::log(
+            $causer,
+            $action,
+            $auditable,
+            $description,
+            $status,
+            $approvalRequest,
+            $metadata
+        );
+    }
+}
 
 if (!function_exists('current_branch_id')) {
     /**
@@ -41,7 +75,7 @@ if (!function_exists('get_user_auth')) {
 }
 
 if (!function_exists('current_actor')) {
-    function current_actor()
+    function current_actor(): User|Employee|null
     {
         if (auth()->check()) {
             return auth()->user();
@@ -75,18 +109,28 @@ if (!function_exists('can_access_all_branches')) {
     /**
      * Check if the current user can access all branches.
      *
-     * This checks if the user is a super admin or has specific roles
-     * that grant multi-branch access.
+     * Returns true for:
+     * - Super admins (users table, NOT employees guard)
+     * - Users with multi-branch roles (super-admin, md, director, admin)
+     *
+     * Returns false for:
+     * - Regular employees (employees guard users)
+     * - Unauthenticated users
      *
      * @return bool
      */
     function can_access_all_branches(): bool
     {
+        // Employees can NEVER access all branches
+        if (auth('employees')->check()) {
+            return false;
+        }
+
         if (!auth()->check()) {
             return false;
         }
 
-        // Check if user is super admin (not an employee)
+        // Check if user is super admin (in users table, not employees guard)
         if (is_super_admin()) {
             return true;
         }

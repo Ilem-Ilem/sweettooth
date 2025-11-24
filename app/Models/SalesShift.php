@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class SalesShift extends Model
 {
@@ -24,7 +25,8 @@ class SalesShift extends Model
         'expected_cash',
         'cash_variance',
         'status',
-        'verified_by',
+        'verified_by_id',
+        'verified_by_type',
         'notes',
     ];
 
@@ -54,9 +56,9 @@ class SalesShift extends Model
         return $this->belongsTo(Employee::class);
     }
 
-    public function verifiedBy(): BelongsTo
+    public function verifiedBy(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'verified_by');
+        return $this->morphTo('verified_by', 'verified_by_type', 'verified_by_id');
     }
 
     public function sales(): HasMany

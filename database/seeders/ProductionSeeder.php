@@ -56,7 +56,8 @@ class ProductionSeeder extends Seeder
                 'preparation_time' => $faker->numberBetween(5, 120),
                 'instructions' => $faker->paragraph,
                 'status' => $faker->randomElement(['active', 'inactive', 'testing']),
-                'created_by' => $faker->randomElement($employeeIds),
+                'created_by_id' => $faker->randomElement($employeeIds),
+                'created_by_type' => Employee::class,
             ]);
         }
 

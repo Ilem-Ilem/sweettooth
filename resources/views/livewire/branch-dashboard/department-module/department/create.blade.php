@@ -1,4 +1,54 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Modal for Creation Reason (Non-Super Admins) -->
+    @if(!is_super_admin())
+    {{-- Show modal if open OR if there are validation errors for creationReason --}}
+    <div class="fixed inset-0 z-40 bg-black bg-opacity-50 transition-opacity {{ ($showReasonModal || $errors->has('creationReason')) ? 'opacity-100 visible' : 'opacity-0 invisible' }}"
+        wire:click="closeReasonModal">
+    </div>
+    <div class="fixed inset-0 z-50 flex items-center justify-center {{ ($showReasonModal || $errors->has('creationReason')) ? 'pointer-events-auto' : 'pointer-events-none' }}">
+        <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-xl max-w-md w-full mx-4 transform transition-all {{ ($showReasonModal || $errors->has('creationReason')) ? 'scale-100 opacity-100' : 'scale-95 opacity-0' }}"
+            @click.stop>
+            <!-- Modal Header -->
+            <div class="px-6 py-4 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
+                <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">Create Department Request</h3>
+                <button type="button" wire:click="closeReasonModal"
+                    class="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Modal Body -->
+            <div class="px-6 py-4" @click.stop>
+                <p class="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
+                    Please provide a reason for creating this department. This will be reviewed by an administrator.
+                </p>
+                <textarea wire:model="creationReason" rows="4"
+                    class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                    placeholder="Explain why this department is needed..."
+                    @click.stop @keydown.enter.prevent></textarea>
+                @error('creationReason')
+                    <span class="text-red-500 text-sm mt-2 block">{{ $message }}</span>
+                @enderror
+            </div>
+            
+            <!-- Modal Footer -->
+            <div class="px-6 py-4 border-t border-zinc-200 dark:border-zinc-700 flex gap-3 justify-end">
+                <button type="button" wire:click="closeReasonModal"
+                    class="px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-600 rounded-lg transition-colors">
+                    Cancel
+                </button>
+                <button type="button" wire:click="saveDepartment"
+                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
+                    <span wire:loading.remove wire:loading.target="saveDepartment">Continue</span>
+                    <span wire:loading wire:loading.target="saveDepartment">Processing...</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    @endif
+
     <div class="px-6 py-4 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
         <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-100">
             {{ $isEditing ? 'Edit Department' : 'Add New Department' }}</h2>
@@ -8,7 +58,7 @@
     <!-- Scrollable Form Content -->
     <div
         class="flex-1 overflow-y-auto px-6 py-4 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent">
-        <form wire:submit.prevent="saveDepartment" class="space-y-6">
+        <form class="space-y-6" @keydown.enter.prevent>
             <!-- Department Name -->
             <div>
                 <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Department Name
@@ -59,15 +109,19 @@
             </div>
 
 
-            <button wire:click="saveDepartment"
+            <button type="button"
+                @if(!$isEditing && !is_super_admin())
+                    wire:click="initiateCreate"
+                @else
+                    wire:click="saveDepartment"
+                @endif
                 class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors">
-                <span wire:loading.remove wire:loading.target="saveDepartment">
+                <span wire:loading.remove>
                     {{ $isEditing ? 'Update Department' : 'Create Department' }}
                 </span>
-                <span wire:loading wire:loading.target="saveDepartment">
+                <span wire:loading>
                     {{ $isEditing ? 'Updating' : 'Creating' }}
                 </span>
-                
             </button>
         </form>
 

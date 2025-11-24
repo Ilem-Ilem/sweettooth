@@ -18,14 +18,14 @@ return new class extends Migration
             $table->date('effective_date');
             $table->enum('change_type', ['initial', 'increment', 'promotion', 'adjustment', 'bonus', 'deduction'])->default('increment');
             $table->text('reason');
-            $table->uuid('approved_by')->nullable();
+            $table->uuid('approved_by_id')->nullable();
+            $table->string('approved_by_type')->nullable();
             $table->timestamp('approved_at')->nullable();
             $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
             $table->text('notes')->nullable();
             $table->timestamps();
 
             $table->foreign('employee_id')->references('id')->on('employees')->onDelete('cascade');
-            $table->foreign('approved_by')->references('id')->on('employees')->onDelete('set null');
         });
     }
 

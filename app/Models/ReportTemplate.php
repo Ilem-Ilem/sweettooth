@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ReportTemplate extends Model
@@ -22,7 +23,8 @@ class ReportTemplate extends Model
         'formatting_options',
         'is_default',
         'is_active',
-        'created_by',
+        'created_by_id',
+        'created_by_type',
     ];
 
     protected $casts = [
@@ -44,9 +46,9 @@ class ReportTemplate extends Model
     /**
      * Get the employee who created the template.
      */
-    public function createdBy()
+    public function createdBy(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'created_by');
+        return $this->morphTo('created_by', 'created_by_type', 'created_by_id');
     }
 
     /**

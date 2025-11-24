@@ -26,9 +26,11 @@ return new class extends Migration
             $table->integer('duration_minutes')->nullable(); // Calculated duration
             $table->integer('expected_duration_minutes')->default(15); // Expected duration
             $table->enum('status', ['pending', 'approved', 'rejected', 'in_progress', 'completed', 'overdue'])->default('pending');
-            $table->uuid('approved_by')->nullable();
+            $table->uuid('approved_by_id')->nullable();
+            $table->string('approved_by_type')->nullable();
             $table->text('approval_notes')->nullable();
-            $table->uuid('rejected_by')->nullable();
+            $table->uuid('rejected_by_id')->nullable();
+            $table->string('rejected_by_type')->nullable();
             $table->text('rejection_reason')->nullable();
             $table->boolean('is_overdue')->default(false); // If they exceeded expected time
             $table->integer('overdue_minutes')->nullable();
@@ -36,8 +38,6 @@ return new class extends Migration
             $table->timestamps();
 
             $table->foreign('employee_id')->references('id')->on('employees')->onDelete('cascade');
-            $table->foreign('approved_by')->references('id')->on('employees')->onDelete('set null');
-            $table->foreign('rejected_by')->references('id')->on('employees')->onDelete('set null');
 
             $table->index(['employee_id', 'request_time']);
             $table->index(['status', 'request_time']);

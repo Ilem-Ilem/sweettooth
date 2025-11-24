@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class ProductionRecord extends Model
 {
@@ -11,7 +12,8 @@ class ProductionRecord extends Model
         'daily_produce_id',
         'recipe_id',
         'batch_number',
-        'produced_by',
+        'produced_by_id',
+        'produced_by_type',
         'quantity_produced',
         'quantity_approved',
         'quantity_rejected',
@@ -47,9 +49,9 @@ class ProductionRecord extends Model
         return $this->belongsTo(Recipe::class);
     }
 
-    public function producedBy(): BelongsTo
+    public function producedBy(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'produced_by', 'id');
+        return $this->morphTo('produced_by', 'produced_by_type', 'produced_by_id');
     }
 
     /**

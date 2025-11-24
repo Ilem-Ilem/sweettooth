@@ -88,6 +88,10 @@
 
                 </flux:navlist.group>
 
+                <flux:navlist.item icon="document-text" :href="branch_route('branch-dashboard.audit.index')"
+                    :current="request()->routeIs('branch-dashboard.audit.*')" wire:navigate>
+                    {{ __('Audit Management') }}
+                </flux:navlist.item>
 
             </flux:navlist.group>
 

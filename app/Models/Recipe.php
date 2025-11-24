@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Recipe extends Model
 {
@@ -21,7 +22,8 @@ class Recipe extends Model
         'preparation_time',
         'instructions',
         'status',
-        'created_by',
+        'created_by_id',
+        'created_by_type',
     ];
 
     protected $casts = [
@@ -52,9 +54,9 @@ class Recipe extends Model
     //     return $this->belongsTo(Category::class)->withDefault();
     // }
 
-    public function createdBy(): BelongsTo
+    public function createdBy(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'created_by', 'id');
+        return $this->morphTo('created_by', 'created_by_type', 'created_by_id');
     }
 
     public function ingredients(): HasMany

@@ -4,13 +4,15 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class ExpiryConfirmation extends Model
 {
     protected $fillable = [
         'product_stock_id',
         'sales_shift_id',
-        'confirmed_by',
+        'confirmed_by_id',
+        'confirmed_by_type',
         'action',
         'notes',
         'confirmed_at',
@@ -31,9 +33,9 @@ class ExpiryConfirmation extends Model
         return $this->belongsTo(SalesShift::class);
     }
 
-    public function confirmedBy(): BelongsTo
+    public function confirmedBy(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'confirmed_by');
+        return $this->morphTo('confirmed_by', 'confirmed_by_type', 'confirmed_by_id');
     }
 
     // Helper Methods

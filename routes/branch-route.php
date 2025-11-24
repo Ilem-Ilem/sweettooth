@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['setBranchContext', 'branch'])->prefix('branch-dashboard')->name('branch-dashboard.')->group(function () {
+Route::middleware(['auth:web,employees', 'setBranchContext', 'branch'])->prefix('branch-dashboard')->name('branch-dashboard.')->group(function () {
     Route::get('/', App\Livewire\BranchDashboard\Index::class)->name('index');
 
     Route::get('/employees', App\Livewire\BranchDashboard\EmployeeModule\Index::class)->name('employees.index');
@@ -26,6 +26,7 @@ Route::middleware(['setBranchContext', 'branch'])->prefix('branch-dashboard')->n
     // DEPARTMENT / DEPARTMENT CATEGORY SECTION 
     Route::get('departments', App\Livewire\BranchDashboard\DepartmentModule\Index::class)->name('branch.departments.index');
     Route::get('department/create', \App\Livewire\BranchDashboard\DepartmentModule\Department\CreateOrUpdate::class)->name('department.create');
+    Route::get('department/{id}/edit', \App\Livewire\BranchDashboard\DepartmentModule\Department\CreateOrUpdate::class)->name('department.edit');
     Route::get('departments/category', \App\Livewire\BranchDashboard\DepartmentModule\Category::class)->name('branch.departments.category');
     Route::get('/department/category/create', \App\Livewire\BranchDashboard\DepartmentModule\Cartegory\Create::class)->name('department.category.create');
     Route::get('department/category/{id}/edit', \App\Livewire\BranchDashboard\DepartmentModule\Cartegory\Edit::class)->name('department.category.edit');
@@ -143,6 +144,11 @@ Route::middleware(['setBranchContext', 'branch'])->prefix('branch-dashboard')->n
         Route::get('compile', \App\Livewire\BranchDashboard\ReportingDepartment\CompileReports\Index::class)->name('compile');
         Route::get('compiled/{id}', \App\Livewire\BranchDashboard\ReportingDepartment\ViewCompiled\Index::class)->name('compiled.view');
         Route::get('send-to-md', \App\Livewire\BranchDashboard\ReportingDepartment\SendToMD\Index::class)->name('send-to-md');
+    });
+
+    // Audit Management Routes
+    Route::prefix('audit')->name('audit.')->group(function () {
+        Route::get('/', \App\Livewire\BranchDashboard\AuditManagement\Index::class)->name('index');
     });
 
     // Sales Dashboard routes - Modular System

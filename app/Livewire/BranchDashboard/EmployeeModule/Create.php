@@ -240,7 +240,7 @@ class Create extends BaseComponent
         }
 
         $this->toast()->success('Employee created successfully!')->send();
-        return redirect()->route('branch-dashboard.employee.index');
+        return redirect()->route('branch-dashboard.employee.index', ['b_id' => $this->b_id]);
     }
 
     private function generateEmployeeNumber()

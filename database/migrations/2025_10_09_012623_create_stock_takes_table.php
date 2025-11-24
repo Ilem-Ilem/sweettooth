@@ -18,11 +18,11 @@ return new class extends Migration
             $table->string('stock_take_number')->unique();
             $table->date('stock_take_date');
             $table->enum('type', ['daily', 'weekly', 'monthly', 'annual', 'ad_hoc']);
-            $table->uuid('conducted_by');
-            $table->foreign('conducted_by')->references('id')->on('employees')->onDelete('restrict');
+            $table->uuid('conducted_by_id');
+            $table->string('conducted_by_type');
             $table->enum('status', ['in_progress', 'completed', 'verified'])->default('in_progress');
-            $table->uuid('verified_by')->nullable();
-            $table->foreign('verified_by')->references('id')->on('employees')->onDelete('set null');
+            $table->uuid('verified_by_id')->nullable();
+            $table->string('verified_by_type')->nullable();
             $table->timestamp('verified_at')->nullable();
             $table->text('notes')->nullable();
             $table->timestamps();

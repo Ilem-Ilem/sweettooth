@@ -8,11 +8,14 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Spatie\Permission\Traits\HasRoles;
+use App\Traits\RequiresApproval;
 
 class Employee extends Authenticatable
 {
     use HasRoles, HasUuids, Notifiable, SoftDeletes, TwoFactorAuthenticatable;
 
+    use RequiresApproval;
+    
     protected $guard = 'employees';
 
     protected $fillable = [

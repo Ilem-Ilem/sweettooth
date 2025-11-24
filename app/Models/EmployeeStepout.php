@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class EmployeeStepout extends Model
 {
@@ -19,9 +20,11 @@ class EmployeeStepout extends Model
         'duration_minutes',
         'expected_duration_minutes',
         'status',
-        'approved_by',
+        'approved_by_id',
+        'approved_by_type',
         'approval_notes',
-        'rejected_by',
+        'rejected_by_id',
+        'rejected_by_type',
         'rejection_reason',
         'is_overdue',
         'overdue_minutes',
@@ -52,14 +55,14 @@ class EmployeeStepout extends Model
         return $this->belongsTo(\App\Models\Shift::class);
     }
 
-    public function approvedBy()
+    public function approvedBy(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'approved_by');
+        return $this->morphTo('approved_by', 'approved_by_type', 'approved_by_id');
     }
 
-    public function rejectedBy()
+    public function rejectedBy(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'rejected_by');
+        return $this->morphTo('rejected_by', 'rejected_by_type', 'rejected_by_id');
     }
 
     // Scopes
@@ -79,19 +82,21 @@ class EmployeeStepout extends Model
     }
 
     // Methods
-    public function approve($approverId, $notes = null)
+    public function approve($approverId, $approverType, $notes = null)
     {
         $this->status = 'approved';
-        $this->approved_by = $approverId;
+        $this->approved_by_id = $approverId;
+        $this->approved_by_type = $approverType;
         $this->approved_time = now();
         $this->approval_notes = $notes;
         $this->save();
     }
 
-    public function reject($rejecterId, $reason)
+    public function reject($rejecterId, $rejectorType, $reason)
     {
         $this->status = 'rejected';
-        $this->rejected_by = $rejecterId;
+        $this->rejected_by_id = $rejecterId;
+        $this->rejected_by_type = $rejectorType;
         $this->rejection_reason = $reason;
         $this->save();
     }

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class CompiledReport extends Model
@@ -13,7 +14,8 @@ class CompiledReport extends Model
 
     protected $fillable = [
         'branch_id',
-        'compiled_by',
+        'compiled_by_id',
+        'compiled_by_type',
         'compilation_title',
         'compilation_description',
         'compilation_date',
@@ -24,7 +26,8 @@ class CompiledReport extends Model
         'key_metrics',
         'recommendations',
         'status',
-        'approved_by',
+        'approved_by_id',
+        'approved_by_type',
         'approved_at',
         'sent_to_md_at',
         'md_user_id',
@@ -57,17 +60,17 @@ class CompiledReport extends Model
     /**
      * Get the employee who compiled the report.
      */
-    public function compiledBy()
+    public function compiledBy(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'compiled_by');
+        return $this->morphTo('compiled_by', 'compiled_by_type', 'compiled_by_id');
     }
 
     /**
      * Get the employee who approved the report.
      */
-    public function approvedBy()
+    public function approvedBy(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'approved_by');
+        return $this->morphTo('approved_by', 'approved_by_type', 'approved_by_id');
     }
 
     /**
@@ -138,11 +141,12 @@ class CompiledReport extends Model
     /**
      * Mark report as approved.
      */
-    public function markAsApproved($employeeId)
+    public function markAsApproved($employeeId, $employeeType)
     {
         $this->update([
             'status' => 'approved',
-            'approved_by' => $employeeId,
+            'approved_by_id' => $employeeId,
+            'approved_by_type' => $employeeType,
             'approved_at' => now(),
         ]);
     }

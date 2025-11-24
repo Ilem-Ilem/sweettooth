@@ -351,7 +351,8 @@ class ProductRecipeSeeder extends Seeder
                 'preparation_time' => $recipeData['preparation_time'],
                 'instructions' => $recipeData['instructions'],
                 'status' => 'active',
-                'created_by' => $employee->id,
+                'created_by_id' => $employee->id,
+                'created_by_type' => Employee::class,
             ]);
 
             $totalRecipes++;

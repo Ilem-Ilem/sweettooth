@@ -17,12 +17,12 @@ return new class extends Migration
             $table->foreign('request_id')->references('id')->on('item_requests')->onDelete('cascade');
             $table->unsignedBigInteger('item_id');
             $table->foreign('item_id')->references('id')->on('items')->onDelete('restrict');
-            $table->uuid('dispatched_by');
+            $table->uuid('dispatched_by_id');
+            $table->string('dispatched_by_type');
             $table->uuid('branch_id');
             $table->foreign('branch_id')->references('id')->on('branches')->onDelete('cascade');
-            $table->foreign('dispatched_by')->references('id')->on('employees')->onDelete('restrict');
-            $table->uuid('received_by')->nullable();
-            $table->foreign('received_by')->references('id')->on('employees')->onDelete('restrict');
+            $table->uuid('received_by_id')->nullable();
+            $table->string('received_by_type')->nullable();
             $table->decimal('quantity', 12, 2);
             $table->enum('uom', ['grams', 'kg', 'liters', 'ml', 'pcs', 'units', 'bags', 'cartons']);
             $table->timestamp('dispatch_time');

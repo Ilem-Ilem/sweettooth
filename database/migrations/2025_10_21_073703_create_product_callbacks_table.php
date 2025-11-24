@@ -19,8 +19,8 @@ return new class extends Migration
             $table->foreign('product_id')->references('id')->on('products')->onDelete('cascade');
             $table->unsignedBigInteger('sales_shift_id');
             $table->foreign('sales_shift_id')->references('id')->on('sales_shifts')->onDelete('cascade');
-            $table->uuid('recorded_by');
-            $table->foreign('recorded_by')->references('id')->on('employees')->onDelete('cascade');
+            $table->uuid('recorded_by_id');
+            $table->string('recorded_by_type');
 
             $table->decimal('quantity', 12, 2);
             $table->enum('reason', ['expired', 'damaged', 'quality_issue', 'customer_return', 'other']);

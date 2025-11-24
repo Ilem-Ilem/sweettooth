@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class DepartmentReport extends Model
@@ -14,7 +15,8 @@ class DepartmentReport extends Model
     protected $fillable = [
         'branch_id',
         'department_id',
-        'generated_by',
+        'generated_by_id',
+        'generated_by_type',
         'report_type',
         'report_category',
         'report_name',
@@ -25,7 +27,8 @@ class DepartmentReport extends Model
         'summary_metrics',
         'charts_data',
         'status',
-        'reviewed_by',
+        'reviewed_by_id',
+        'reviewed_by_type',
         'reviewed_at',
         'review_notes',
         'export_format',
@@ -61,17 +64,17 @@ class DepartmentReport extends Model
     /**
      * Get the employee who generated the report.
      */
-    public function generatedBy()
+    public function generatedBy(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'generated_by');
+        return $this->morphTo('generated_by', 'generated_by_type', 'generated_by_id');
     }
 
     /**
      * Get the employee who reviewed the report.
      */
-    public function reviewedBy()
+    public function reviewedBy(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'reviewed_by');
+        return $this->morphTo('reviewed_by', 'reviewed_by_type', 'reviewed_by_id');
     }
 
     /**
@@ -142,11 +145,12 @@ class DepartmentReport extends Model
     /**
      * Mark report as reviewed.
      */
-    public function markAsReviewed($employeeId, $notes = null)
+    public function markAsReviewed($employeeId, $employeeType, $notes = null)
     {
         $this->update([
             'status' => 'reviewed',
-            'reviewed_by' => $employeeId,
+            'reviewed_by_id' => $employeeId,
+            'reviewed_by_type' => $employeeType,
             'reviewed_at' => now(),
             'review_notes' => $notes,
         ]);

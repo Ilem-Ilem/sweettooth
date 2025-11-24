@@ -19,8 +19,8 @@ return new class extends Migration
             $table->foreign('branch_id')->references('id')->on('branches')->onDelete('set null');
             $table->unsignedBigInteger('department_id')->nullable();
             $table->foreign('department_id')->references('id')->on('departments')->onDelete('set null');
-            $table->uuid('sold_by');
-            $table->foreign('sold_by')->references('id')->on('employees')->onDelete('restrict');
+            $table->uuid('sold_by_id');
+            $table->string('sold_by_type');
             $table->string('sale_number')->unique();
             $table->timestamp('sale_time');
             $table->decimal('subtotal', 10, 2)->default(0);

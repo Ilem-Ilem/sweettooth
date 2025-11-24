@@ -16,27 +16,51 @@ class SetBranchContext
     {
         // 1. Super-admin (regular auth, NOT employee guard)
         if (auth()->check() && !auth('employees')->check()) {
-            $this->setSuperAdminBranchContext();           // <-- **keeps session logic**
+            $this->setSuperAdminBranchContext($request);   // Pass request to validate b_id param
             $redirect = $this->ensureBranchSlugInUrl($request);
             if ($redirect) {
                 return $redirect;
             }
         }
-        // 2. Regular employee – unchanged
+        // 2. Regular employee
         elseif (auth('employees')->check()) {
-            $this->setEmployeeBranchContext();
+            $this->setEmployeeBranchContext($request);     // Pass request to validate b_id param
         }
 
         return $next($request);
     }
 
     /* --------------------------------------------------------------------- *
-     *  ORIGINAL SESSION-BASED LOGIC (unchanged – you asked to keep it)
+     *  Super Admin: Session-based branch selection with URL override
+     *  
+     *  Logic:
+     *  1. If b_id is in URL query parameter, validate and use it
+     *  2. Otherwise, use session (or set default if no session)
+     *  3. Validate that selected branch exists and is active
      * --------------------------------------------------------------------- */
-    protected function setSuperAdminBranchContext(): void
+    protected function setSuperAdminBranchContext(Request $request): void
     {
-        // If no branch selected in session, set default
-        if (!session()->has('selected_branch_id')) {
+        // Check if b_id is explicitly provided in the URL (super admin selecting a branch)
+        $urlBranchId = $request->query('b_id');
+        
+        if ($urlBranchId) {
+            // Super admin is trying to select a specific branch via URL
+            // Validate it's a real, active branch
+            $branch = Branch::where('id', $urlBranchId)
+                ->where('is_active', 1)
+                ->first();
+            
+            if ($branch) {
+                session(['selected_branch_id' => $branch->id]);
+            } else {
+                // Invalid branch in URL, just ignore and fall back to current session/default
+                \Illuminate\Support\Facades\Log::warning('Invalid branch selection attempt by super admin', [
+                    'requested_branch' => $urlBranchId,
+                    'user_id' => auth()->id(),
+                ]);
+            }
+        } elseif (!session()->has('selected_branch_id')) {
+            // No b_id in URL and no session set, use default
             $user = auth()->user();
 
             // Try to use last accessed branch
@@ -85,6 +109,7 @@ class SetBranchContext
         if (!$branchId) {
             return null;
         }
+
 
         $branch = Branch::select('id')
             ->where('id', $branchId)
@@ -143,13 +168,32 @@ class SetBranchContext
     }
 
     /* --------------------------------------------------------------------- *
-     *  EMPLOYEE (unchanged)
+     *  Employee: Fixed to assigned branch - NO branch selection allowed
+     *  
+     *  Logic:
+     *  1. Employee MUST use their assigned branch_id from the database
+     *  2. If they try to access a different branch via ?b_id=xxx, it's logged
+     *  3. Session is ALWAYS set to their actual branch_id
+     *  4. The BranchMiddleware will validate this on the route
      * --------------------------------------------------------------------- */
-    protected function setEmployeeBranchContext(): void
+    protected function setEmployeeBranchContext(Request $request): void
     {
         $employee = auth('employees')->user();
 
         if ($employee && $employee->branch_id) {
+            // Check if employee is trying to access a different branch via URL parameter
+            $requestedBranchId = $request->query('b_id');
+            if ($requestedBranchId && $requestedBranchId !== $employee->branch_id) {
+                \Illuminate\Support\Facades\Log::warning('Employee attempted to access unauthorized branch', [
+                    'employee_id' => $employee->id,
+                    'assigned_branch' => $employee->branch_id,
+                    'requested_branch' => $requestedBranchId,
+                    'url' => $request->fullUrl(),
+                ]);
+            }
+
+            // ALWAYS set session to employee's actual assigned branch
+            // This ensures they can only access their branch regardless of URL parameters
             session(['selected_branch_id' => $employee->branch_id]);
 
             if ($employee->department_id) {

@@ -27,8 +27,8 @@ return new class extends Migration
             $table->integer('preparation_time')->nullable(); // in minutes
             $table->text('instructions')->nullable();
             $table->enum('status', ['active', 'inactive', 'testing'])->default('active');
-            $table->uuid('created_by');
-            $table->foreign('created_by')->references('id')->on('employees')->onDelete('restrict');
+            $table->uuid('created_by_id');
+            $table->string('created_by_type');
             $table->timestamps();
         });
     }

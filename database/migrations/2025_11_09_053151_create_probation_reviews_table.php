@@ -30,13 +30,13 @@ return new class extends Migration
             $table->integer('extension_days')->nullable();
             $table->text('extension_reason')->nullable();
             $table->enum('status', ['draft', 'submitted', 'acknowledged'])->default('draft');
-            $table->uuid('acknowledged_by')->nullable();
+            $table->uuid('acknowledged_by_id')->nullable();
+            $table->string('acknowledged_by_type')->nullable();
             $table->timestamp('acknowledged_at')->nullable();
             $table->timestamps();
 
             $table->foreign('employee_id')->references('id')->on('employees')->onDelete('cascade');
             $table->foreign('reviewer_id')->references('id')->on('employees')->onDelete('cascade');
-            $table->foreign('acknowledged_by')->references('id')->on('employees')->onDelete('set null');
         });
     }
 

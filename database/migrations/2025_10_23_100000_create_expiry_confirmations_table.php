@@ -19,8 +19,8 @@ return new class extends Migration
             $table->unsignedBigInteger('sales_shift_id');
             $table->foreign('sales_shift_id')->references('id')->on('sales_shifts')->onDelete('cascade');
 
-            $table->uuid('confirmed_by');
-            $table->foreign('confirmed_by')->references('id')->on('employees')->onDelete('cascade');
+            $table->uuid('confirmed_by_id');
+            $table->string('confirmed_by_type');
 
             $table->enum('action', ['confirmed_good', 'marked_callback'])->comment('Action taken: confirmed still good or marked as callback');
             $table->text('notes')->nullable()->comment('Reason for confirmation or callback');

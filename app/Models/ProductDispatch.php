@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class ProductDispatch extends Model
 {
@@ -15,14 +16,16 @@ class ProductDispatch extends Model
         'sales_shift_id',
         'sales_department_id',
         'product_id',
-        'dispatched_by',
+        'dispatched_by_id',
+        'dispatched_by_type',
         'quantity',
         'received_quantity',
         'uom',
         'dispatch_time',
         'shift_type',
         'dispatch_date',
-        'received_by',
+        'received_by_id',
+        'received_by_type',
         'received_at',
         'status',
         'notes',
@@ -67,14 +70,14 @@ class ProductDispatch extends Model
         return $this->belongsTo(Product::class);
     }
 
-    public function dispatchedBy(): BelongsTo
+    public function dispatchedBy(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'dispatched_by');
+        return $this->morphTo('dispatched_by', 'dispatched_by_type', 'dispatched_by_id');
     }
 
-    public function receivedBy(): BelongsTo
+    public function receivedBy(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'received_by');
+        return $this->morphTo('received_by', 'received_by_type', 'received_by_id');
     }
 
     public function productDispatchCallbacks(): HasMany

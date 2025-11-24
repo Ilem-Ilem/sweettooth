@@ -25,8 +25,8 @@ return new class extends Migration
             $table->uuid('product_id');
             $table->foreign('product_id')->references('id')->on('products')->onDelete('cascade');
 
-            $table->uuid('dispatched_by');
-            $table->foreign('dispatched_by')->references('id')->on('employees')->onDelete('cascade');
+            $table->uuid('dispatched_by_id');
+            $table->string('dispatched_by_type');
 
             $table->decimal('quantity', 12, 2);
             $table->string('uom', 50);
@@ -35,8 +35,8 @@ return new class extends Migration
             $table->enum('shift_type', ['morning', 'afternoon', 'night']);
             $table->date('dispatch_date');
 
-            $table->uuid('received_by')->nullable()->comment('Sales employee who received');
-            $table->foreign('received_by')->references('id')->on('employees')->onDelete('set null');
+            $table->uuid('received_by_id')->nullable()->comment('Sales employee who received');
+            $table->string('received_by_type')->nullable();
             $table->timestamp('received_at')->nullable();
 
             $table->enum('status', ['dispatched', 'received', 'rejected'])->default('dispatched');

@@ -221,14 +221,14 @@
             <div class="flex items-center space-x-2">
 
                 @if (is_super_admin())
-                    <button wire:click="editDepartment({{ $row->id }})"
+                    <a href="{{ route('branch-dashboard.department.edit', array_merge(request()->query(), ['id' => $row->id])) }}"
                         class="p-2 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors"
                         title="Edit Department">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
-                    </button>
+                    </a>
                     <button wire:click="deleteDepartment({{ $row->id }})"
                         class="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors cursor-pointer"
                         title="Delete Department">
@@ -245,14 +245,14 @@
                         </svg>
                     </span>
                 @else
-                    <button wire:click="editDepartment({{ $row->id }})"
+                    <a href="{{ route('branch-dashboard.department.edit', array_merge(request()->query(), ['id' => $row->id])) }}"
                         class="p-2 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors"
                         title="Edit Department">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
-                    </button>
+                    </a>
                     <button wire:click="deleteDepartment({{ $row->id }})"
                         class="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors cursor-pointer"
                         title="Delete Department">
@@ -265,4 +265,44 @@
             </div>
         @endinteract
     </x-table>
+
+    <!-- Delete Reason Modal for Non-Super Admins -->
+    @if (!is_super_admin())
+        @if ($showDeleteReasonModal)
+            <div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+                <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-lg max-w-md w-full mx-4">
+                    <div class="p-6">
+                        <h2 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-4">Delete Department</h2>
+                        <p class="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
+                            Please provide a reason for deleting this department. This will be submitted for approval.
+                        </p>
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Reason</label>
+                            <textarea 
+                                wire:model="deleteReason"
+                                placeholder="Explain why this department should be deleted..."
+                                rows="4"
+                                class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-zinc-400">
+                            </textarea>
+                            <p class="text-xs text-zinc-500 mt-1">Minimum 5 characters required</p>
+                        </div>
+
+                        <div class="flex justify-end space-x-3">
+                            <button 
+                                wire:click="cancelledDeleteDepartment('Cancelled')"
+                                class="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors">
+                                Cancel
+                            </button>
+                            <button 
+                                wire:click="confirmedDeleteDepartment('Confirmed Successfully')"
+                                class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors">
+                                Submit for Approval
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endif
+    @endif
 </div>

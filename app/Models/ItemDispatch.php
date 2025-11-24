@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class ItemDispatch extends Model
 {
@@ -14,8 +15,10 @@ class ItemDispatch extends Model
         'branch_id',
         'request_id',
         'item_id',
-        'dispatched_by',
-        'received_by',
+        'dispatched_by_id',
+        'dispatched_by_type',
+        'received_by_id',
+        'received_by_type',
         'quantity',
         'uom',
         'dispatch_time',
@@ -65,17 +68,17 @@ class ItemDispatch extends Model
     /**
      * Get the employee who dispatched
      */
-    public function dispatcher(): BelongsTo
+    public function dispatcher(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'dispatched_by');
+        return $this->morphTo('dispatched_by', 'dispatched_by_type', 'dispatched_by_id');
     }
 
     /**
      * Get the employee who received
      */
-    public function receiver(): BelongsTo
+    public function receiver(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'received_by');
+        return $this->morphTo('received_by', 'received_by_type', 'received_by_id');
     }
 
     /**

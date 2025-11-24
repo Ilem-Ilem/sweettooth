@@ -33,8 +33,8 @@ return new class extends Migration
             $table->foreign('product_id')->references('id')->on('products')->onDelete('cascade');
 
             // Employee recording the callback
-            $table->uuid('recorded_by');
-            $table->foreign('recorded_by')->references('id')->on('employees')->onDelete('cascade');
+            $table->uuid('recorded_by_id');
+            $table->string('recorded_by_type');
 
             // Quantity being returned
             $table->decimal('quantity', 12, 2);
@@ -59,8 +59,8 @@ return new class extends Migration
             ])->default('pending');
 
             // Inventory employee who approved
-            $table->uuid('approved_by')->nullable();
-            $table->foreign('approved_by')->references('id')->on('employees')->onDelete('set null');
+            $table->uuid('approved_by_id')->nullable();
+            $table->string('approved_by_type')->nullable();
             $table->timestamp('approved_at')->nullable();
 
             // Notes

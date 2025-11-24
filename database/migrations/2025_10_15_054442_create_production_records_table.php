@@ -17,8 +17,8 @@ return new class extends Migration
             $table->foreign('daily_produce_id')->references('id')->on('daily_produces')->onDelete('cascade');
             $table->unsignedBigInteger('recipe_id');
             $table->foreign('recipe_id')->references('id')->on('recipes')->onDelete('cascade');
-            $table->uuid('produced_by');
-            $table->foreign('produced_by')->references('id')->on('employees')->onDelete('restrict');
+            $table->uuid('produced_by_id');
+            $table->string('produced_by_type');
             $table->decimal('quantity_produced', 12, 2);
             $table->decimal('quantity_approved', 12, 2)->default(0);
             $table->decimal('quantity_rejected', 12, 2)->default(0);

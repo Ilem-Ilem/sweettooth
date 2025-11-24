@@ -6,6 +6,7 @@ use App\Livewire\BaseComponent;
 use App\Models\Department;
 use App\Models\Branch;
 use App\Models\DepartmentCategory;
+use App\Services\AuditService;
 
 class Index extends BaseComponent
 {
@@ -193,7 +194,13 @@ class Index extends BaseComponent
     public function confirmedDeleteDepartment(string $message): void
     {
         if ($this->selectedDepartmentId) {
-            Department::findOrFail($this->selectedDepartmentId)->delete();
+            $department = Department::findOrFail($this->selectedDepartmentId);
+            
+            // Log the deletion action
+            $user = auth()->user() ?? auth('employees')->user();
+            AuditService::log($user, 'delete', $department, 'Department deleted by super admin', 'completed');
+            
+            $department->delete();
             $this->dialog()->success('Success', 'Department deleted successfully!')->send();
             $this->selectedDepartmentId = null;
         }
@@ -217,6 +224,16 @@ class Index extends BaseComponent
 
     public function confirmedBulkDelete(string $message): void
     {
+        $user = auth()->user() ?? auth('employees')->user();
+        
+        // Log each deletion
+        foreach ($this->selectedIds as $id) {
+            $department = Department::find($id);
+            if ($department) {
+                AuditService::log($user, 'delete', $department, 'Department deleted by super admin (bulk)', 'completed');
+            }
+        }
+        
         Department::whereIn('id', $this->selectedIds)->delete();
         $this->dialog()->success('Success', count($this->selectedIds) . ' department(s) deleted successfully!')->send();
         $this->selectedIds = [];

@@ -21,8 +21,8 @@ return new class extends Migration
             $table->enum('uom', ['grams', 'kg', 'liters', 'ml', 'pcs', 'units']);
             $table->enum('reason', ['expired', 'damaged', 'quality_issue', 'contaminated', 'other']);
             $table->text('description')->nullable();
-            $table->uuid('reported_by');
-            $table->foreign('reported_by')->references('id')->on('employees')->onDelete('restrict');
+            $table->uuid('reported_by_id');
+            $table->string('reported_by_type');
             $table->timestamp('callback_time');
             $table->enum('action_taken', ['disposed', 'returned_to_supplier', 'reprocessed', 'pending'])->default('pending');
             $table->timestamps();

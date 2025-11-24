@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class StockTake extends Model
 {
@@ -16,9 +17,11 @@ class StockTake extends Model
         'stock_take_number',
         'stock_take_date',
         'type',
-        'conducted_by',
+        'conducted_by_id',
+        'conducted_by_type',
         'status',
-        'verified_by',
+        'verified_by_id',
+        'verified_by_type',
         'verified_at',
         'notes',
     ];
@@ -63,17 +66,17 @@ class StockTake extends Model
     /**
      * Get the employee who conducted the stock take
      */
-    public function conductor(): BelongsTo
+    public function conductor(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'conducted_by');
+        return $this->morphTo('conducted_by', 'conducted_by_type', 'conducted_by_id');
     }
 
     /**
      * Get the employee who verified the stock take
      */
-    public function verifier(): BelongsTo
+    public function verifier(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'verified_by');
+        return $this->morphTo('verified_by', 'verified_by_type', 'verified_by_id');
     }
 
     /**
@@ -136,10 +139,11 @@ class StockTake extends Model
     /**
      * Verify stock take
      */
-    public function verify($verifiedBy): void
+    public function verify($verifiedById, $verifiedByType): void
     {
         $this->status = 'verified';
-        $this->verified_by = $verifiedBy;
+        $this->verified_by_id = $verifiedById;
+        $this->verified_by_type = $verifiedByType;
         $this->verified_at = now();
         $this->save();
     }

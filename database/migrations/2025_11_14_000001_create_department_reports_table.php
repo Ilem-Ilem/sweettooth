@@ -15,7 +15,8 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('branch_id')->constrained()->cascadeOnDelete();
             $table->foreignId('department_id')->nullable()->constrained()->cascadeOnDelete();
-            $table->foreignUuid('generated_by')->nullable()->constrained('employees')->nullOnDelete();
+            $table->uuid('generated_by_id')->nullable();
+            $table->string('generated_by_type')->nullable();
 
             $table->string('report_type'); // production_efficiency, quality_metrics, etc.
             $table->string('report_category'); // production, sales, inventory
@@ -29,7 +30,8 @@ return new class extends Migration
             $table->json('charts_data')->nullable(); // Data for charts/graphs
 
             $table->enum('status', ['draft', 'pending_review', 'reviewed', 'compiled', 'sent_to_md'])->default('draft');
-            $table->foreignUuid('reviewed_by')->nullable()->constrained('employees')->nullOnDelete();
+            $table->uuid('reviewed_by_id')->nullable();
+            $table->string('reviewed_by_type')->nullable();
             $table->timestamp('reviewed_at')->nullable();
             $table->text('review_notes')->nullable();
 

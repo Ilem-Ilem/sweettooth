@@ -12,7 +12,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('employees', function (Blueprint $table) {
-            $table->boolean('is_superadmin')->nullable()->default(false);
+            if (!Schema::hasColumn('employees', 'is_superadmin')) {
+                $table->boolean('is_superadmin')->nullable()->default(false);
+            }
         });
     }
 

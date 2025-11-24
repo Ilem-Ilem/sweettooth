@@ -27,7 +27,8 @@ return new class extends Migration
             $table->boolean('is_default')->default(false);
             $table->boolean('is_active')->default(true);
 
-            $table->foreignUuid('created_by')->nullable()->constrained('employees')->nullOnDelete();
+            $table->uuid('created_by_id')->nullable();
+            $table->string('created_by_type')->nullable();
 
             $table->timestamps();
             $table->softDeletes();

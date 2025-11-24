@@ -114,8 +114,11 @@ class Index extends Component
             $this->showCompileModal = false;
             $this->selectedReports = [];
 
-            // Redirect to view compiled report
-            return redirect()->route('branch-dashboard.reporting.compiled.view', $compiledReport->id);
+            // Redirect to view compiled report with b_id parameter
+            return redirect()->route('branch-dashboard.reporting.compiled.view', [
+                'id' => $compiledReport->id,
+                'b_id' => $this->b_id
+            ]);
 
         } catch (\Exception $e) {
             $this->toast()->error('Error compiling reports: ' . $e->getMessage())->send();
