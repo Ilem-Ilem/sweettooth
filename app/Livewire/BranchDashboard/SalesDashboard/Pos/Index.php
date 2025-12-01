@@ -43,6 +43,15 @@ class Index extends BaseComponent
     public array $payments = [];
     public float $paymentTotal = 0.0;
     public float $paymentRemaining = 0.0;
+    
+    public function __set(string $name, mixed $value): void
+    {
+        // Ensure float properties stay as floats
+        if (in_array($name, ['subtotal', 'discount', 'tax', 'total', 'cashReceived', 'changeDue', 'paymentTotal', 'paymentRemaining'])) {
+            $value = (float)$value;
+        }
+        parent::__set($name, $value);
+    }
 
     // Table Management
     public ?int $selectedTableId = null;

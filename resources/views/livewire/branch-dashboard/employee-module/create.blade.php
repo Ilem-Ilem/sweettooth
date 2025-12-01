@@ -26,8 +26,8 @@
     <x-breadcrumb
         title="Create Employee"
         :items="[
-            ['label' => 'Dashboard', 'url' => route('dashboard')],
-            ['label' => 'Employees', 'url' => route('super-admin.employee.index')],
+            ['label' => 'Dashboard', 'url' => branch_route('branch-dashboard.index')],
+            ['label' => 'Employees', 'url' => branch_route('branch-dashboard.employee.index', ['b_id' => $b_id])],
             ['label' => 'Create Employee']
         ]"
         :compact="false"
@@ -49,7 +49,7 @@
 
     <!-- Main Form -->
     <div class="bg-white dark:bg-zinc-800 rounded-2xl shadow-md border border-zinc-200 dark:border-zinc-700">
-        <form wire:submit.prevent="saveEmployee">
+        <form wire:submit.prevent="initiateSave">
             <div class="p-6 space-y-8">
 
                 <!-- Personal Information Section -->
@@ -465,24 +465,102 @@
                             @enderror
                         </div>
                     </div>
-                </div>
+                    </div>
 
-            </div>
+                    <!-- Creation Reason Modal (For Non-Super-Admins) -->
+                    @if (!is_super_admin())
+                    <div x-data="{ show: @entangle('showCreationReasonModal') }" x-show="show" x-cloak
+                    class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto" @keydown.escape.window="show = false">
+                    <!-- Backdrop -->
+                    <div x-show="show" x-transition:enter="transition-opacity ease-linear duration-300"
+                       x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+                       x-transition:leave="transition-opacity ease-linear duration-300" x-transition:leave-start="opacity-100"
+                       x-transition:leave-end="opacity-0" class="fixed inset-0 bg-black bg-opacity-50"
+                       @click="show = false"></div>
+
+                    <!-- Modal Panel -->
+                    <div x-show="show" x-transition:enter="transform transition ease-in-out duration-300"
+                       x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100"
+                       x-transition:leave="transform transition ease-in-out duration-300" x-transition:leave-start="scale-100 opacity-100"
+                       x-transition:leave-end="scale-95 opacity-0"
+                       class="relative bg-white dark:bg-zinc-800 rounded-2xl shadow-xl max-w-md w-full mx-4 border border-zinc-200 dark:border-zinc-700">
+
+                       <!-- Modal Header -->
+                       <div class="px-6 py-4 border-b border-zinc-200 dark:border-zinc-700">
+                           <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+                               Provide Reason for Employee Creation
+                           </h3>
+                           <p class="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+                               As a non-admin user, please provide a reason for creating this employee.
+                           </p>
+                       </div>
+
+                       <!-- Modal Body -->
+                       <div class="px-6 py-4">
+                           <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                               Reason *
+                           </label>
+                           <textarea wire:model="creationReason" rows="4"
+                               class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500"
+                               placeholder="Explain why this employee needs to be created..."></textarea>
+                           <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-2">
+                               Minimum {{ strlen($creationReason) }}/5 characters
+                           </p>
+                       </div>
+
+                       <!-- Modal Footer -->
+                       <div class="px-6 py-4 border-t border-zinc-200 dark:border-zinc-700 flex gap-3 justify-end">
+                           <button type="button" wire:click="closeCreationReasonModal"
+                               class="px-4 py-2 text-sm font-medium text-zinc-700 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-600 rounded-lg">
+                               Cancel
+                           </button>
+                           <button type="button" wire:click="proceedWithCreationReason"
+                               {{ strlen($creationReason) < 5 ? 'disabled' : '' }}
+                               class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg flex items-center">
+                               <span wire:loading.remove>
+                                   <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                   </svg>
+                                   Submit Request
+                               </span>
+                               <span wire:loading>
+                                   <svg class="w-4 h-4 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                       <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25" fill="none"></circle>
+                                       <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                   </svg>
+                                   Submitting...
+                               </span>
+                           </button>
+                       </div>
+                    </div>
+                    </div>
+                    @endif
+
+                    </div>
 
             <!-- Form Actions -->
             <div
                 class="px-6 py-4 bg-zinc-50 dark:bg-zinc-900/50 border-t border-zinc-200 dark:border-zinc-700 flex items-center justify-end space-x-3 rounded-b-2xl">
-                <a href="{{ route('super-admin.employee.index') }}"
-                    class="px-6 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors">
+                <a href="{{ branch_route('branch-dashboard.employee.index', ['b_id' => $b_id]) }}"
+                   class="px-6 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors">
                     Cancel
                 </a>
-                <button type="submit" wire:click="saveEmployee"
-                    class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M5 13l4 4L19 7" />
-                    </svg>
-                    Create Employee
+                <button type="submit"
+                   class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center" wire:loading.attr="disabled">
+                    <span wire:loading.remove>
+                       <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                               d="M5 13l4 4L19 7" />
+                       </svg>
+                       Create Employee
+                   </span>
+                   <span wire:loading>
+                       <svg class="w-5 h-5 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                           <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25" fill="none"></circle>
+                           <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                       </svg>
+                       Creating...
+                   </span>
                 </button>
             </div>
         </form>

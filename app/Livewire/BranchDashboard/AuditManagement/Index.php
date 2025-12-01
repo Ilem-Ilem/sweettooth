@@ -115,11 +115,15 @@ class Index extends Component
     /**
      * Execute an approved action based on the request type
      * Generic handler that works with any model/action combination
+     * Supports: create, update, delete, and sync operations
      */
     private function executeApprovedAction(ApprovalAuditRequest $request)
     {
-        // Parse action format: "action:model" (e.g., "create:department", "delete:inventory_item")
-        [$action, $model] = explode(':', $request->action);
+        // Parse action format: "action:model" or "action:model:relationship" (e.g., "create:department", "sync:employee:roles")
+        $parts = explode(':', $request->action);
+        $action = $parts[0];
+        $model = $parts[1] ?? null;
+        $relationship = $parts[2] ?? null;
         $modelId = $request->payload['id'] ?? null;
 
         $auditable = null;
@@ -129,12 +133,12 @@ class Index extends Component
                 'create' => $auditable = $this->handleCreateAction($model, $request->payload),
                 'update' => $auditable = $this->handleUpdateAction($model, $modelId, $request->payload),
                 'delete' => $auditable = $this->handleDeleteAction($model, $modelId),
+                'sync' => $auditable = $this->handleSyncAction($model, $modelId, $relationship, $request->payload),
                 default => null,
             };
         } catch (\Exception $e) {
-            throw new \Exception($e->getmessage());
+            throw new \Exception($e->getMessage());
         }
-
 
         return $auditable;
     }
@@ -201,6 +205,46 @@ class Index extends Component
         $auditable = $modelClass::find($modelId);
         if ($auditable) {
             $auditable->delete();
+        }
+
+        return $auditable;
+    }
+
+    /**
+     * Handle sync actions for many-to-many relationships
+     * Supports syncing roles, permissions, and other relationships
+     */
+    private function handleSyncAction(string $modelName, ?int $modelId, ?string $relationship, array $payload)
+    {
+        $modelClass = $modelName;
+        if (!$modelClass || !$modelId || !$relationship) {
+            return null;
+        }
+
+        $auditable = $modelClass::find($modelId);
+        if (!$auditable) {
+            return null;
+        }
+
+        // Get the sync data from payload
+        // Expected format: $payload['sync_data'] = [1, 2, 3] or [1 => ['pivot_col' => 'val'], ...]
+        $syncData = $payload['sync_data'] ?? $payload[$relationship] ?? [];
+
+        if (empty($syncData)) {
+            return $auditable;
+        }
+
+        try {
+            // Execute the sync operation
+            if (method_exists($auditable, $relationship)) {
+                // Direct relationship method exists
+                $auditable->{$relationship}()->sync($syncData);
+            } else {
+                // Try as dynamic relationship
+                $auditable->$relationship()->sync($syncData);
+            }
+        } catch (\Exception $e) {
+            throw new \Exception("Failed to sync {$relationship}: " . $e->getMessage());
         }
 
         return $auditable;

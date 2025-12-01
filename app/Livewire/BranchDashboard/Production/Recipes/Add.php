@@ -163,7 +163,7 @@ class Add extends Component
                 return $actualQuantity * $costPerUnit;
             });
 
-            $costPerUnit = (int) $totalCost / max((float) $this->yield_quantity, 1);
+            $costPerUnit = $totalCost / max((float) $this->yield_quantity, 1);
 
             $data = [
                 'branch_id' => $branchId,

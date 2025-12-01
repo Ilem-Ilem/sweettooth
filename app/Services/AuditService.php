@@ -384,6 +384,76 @@ class AuditService
     }
 
     /**
+     * Log a sync operation on a many-to-many relationship.
+     *
+     * Tracks which related models were attached, detached, or updated.
+     *
+     * @param Model $causer             The user/employee performing the sync
+     * @param Model $auditable          The model whose relationship is being synced
+     * @param string $relationship      The relationship name (e.g., 'roles', 'permissions')
+     * @param array $syncData           The data being synced (IDs or [id => attributes])
+     * @param array $previousData       The previous data (for comparison)
+     * @param string|null $description  Reason for the sync
+     * @param string $status            Status: 'completed', 'pending'
+     *
+     * @return AuditLog
+     */
+    public static function logSync(
+        ?Model $causer,
+        Model $auditable,
+        string $relationship,
+        array $syncData,
+        array $previousData = [],
+        ?string $description = null,
+        string $status = 'completed'
+    ): AuditLog {
+        // Extract branch_id
+        $branchId = null;
+        if ($auditable) {
+            $branchId = $auditable->branch_id ?? $auditable->branch ?? null;
+            if ($branchId instanceof Model) {
+                $branchId = $branchId->id;
+            }
+        }
+        if (!$branchId && function_exists('current_branch_id')) {
+            $branchId = current_branch_id();
+        }
+
+        // Calculate differences
+        $attached = array_diff_key($syncData, $previousData);
+        $detached = array_diff_key($previousData, $syncData);
+        $updated = array_intersect_key($syncData, $previousData);
+
+        $metadata = [
+            'relationship' => $relationship,
+            'attached' => $attached,
+            'detached' => $detached,
+            'updated' => $updated,
+            'sync_data' => $syncData,
+            'previous_data' => $previousData,
+            'causer' => $causer ? get_class($causer) : null,
+            'auditable' => $auditable ? get_class($auditable) : null,
+        ];
+
+        return AuditLog::create([
+            'branch_id' => $branchId,
+            'causer_type' => $causer ? get_class($causer) : null,
+            'causer_id' => $causer?->id,
+            'auditable_type' => get_class($auditable),
+            'auditable_id' => $auditable->id,
+            'action' => "sync_{$relationship}",
+            'description' => $description ?? "Synced {$relationship}",
+            'old_values' => $previousData,
+            'new_values' => $syncData,
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+            'status' => $status,
+            'logged_at' => now(),
+            'details' => $metadata,
+        ]);
+    }
+
+    /**
      * Determine if an action requires approval.
      *
      * Can be overridden per application needs.
@@ -404,6 +474,8 @@ class AuditService
             'delete_department',
             'disable_branch',
             'approve_sensitive_leave',
+            'sync_roles',
+            'sync_permissions',
         ];
 
         return in_array($action, $sensitiveActions);

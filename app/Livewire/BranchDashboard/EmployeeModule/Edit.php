@@ -6,6 +6,9 @@ use App\Livewire\BaseComponent;
 use App\Models\Employee;
 use App\Models\Branch;
 use App\Models\Department;
+use App\Models\ApprovalAuditRequest;
+use App\Services\AuditService;
+use App\Traits\AuditableSyncTrait;
 use Livewire\WithFileUploads;
 use Spatie\Permission\Models\Role;
 use Livewire\Attributes\{Layout, Url, On};
@@ -13,7 +16,7 @@ use Livewire\Attributes\{Layout, Url, On};
 #[Layout('components.layouts.app.branch-dashboard')]
 class Edit extends BaseComponent
 {
-    use WithFileUploads;
+    use WithFileUploads, AuditableSyncTrait;
 
     public $employeeId;
     #[Url(keep: true)]
@@ -46,6 +49,11 @@ class Edit extends BaseComponent
     public ?string $last_performance_review_date = null;
     public ?float $performance_rating = null;
     public array $selectedRoles = [];
+
+    // Reason modal state for employees
+    public bool $showUpdateReasonModal = false;
+    public string $updateReason = '';
+    public bool $updatingEmployee = false;
 
     // Modal states for creating branch/department
     public bool $showCreateBranchModal = false;
@@ -169,79 +177,185 @@ class Edit extends BaseComponent
         $this->closeCreateDepartmentModal();
     }
 
+    public function initiateSave()
+    {
+        try {
+            $this->validate([
+                'department_id' => 'required|exists:departments,id',
+                'employee_number' => 'required|string|unique:employees,employee_number,' . $this->employeeId,
+                'name' => 'required|string|max:255',
+                'email' => 'required|email|unique:employees,email,' . $this->employeeId,
+                'phone' => 'nullable|string|max:50',
+                'address' => 'nullable|string',
+                'date_of_birth' => 'nullable|date',
+                'gender' => 'nullable|in:male,female,other,prefer_not_to_say',
+                'nationality' => 'nullable|string|max:100',
+                'emergency_contact_name' => 'nullable|string|max:255',
+                'emergency_contact_phone' => 'nullable|string|max:50',
+                'hire_date' => 'required|date',
+                'termination_date' => 'nullable|date',
+                'status' => 'required|in:active,inactive,terminated,on_probation,on_leave',
+                'probation_end_date' => 'nullable|date',
+                'shift_preference' => 'nullable|in:morning,afternoon,night,rotating,flexible',
+                'salary' => 'nullable|numeric|min:0',
+                'hourly_rate' => 'nullable|numeric|min:0',
+                'tax_id' => 'nullable|string|max:50',
+                'bank_account' => 'nullable|string|max:100',
+                'allergies' => 'nullable|string',
+                'profile_photo' => 'nullable|image|max:2048',
+                'last_performance_review_date' => 'nullable|date',
+                'performance_rating' => 'nullable|numeric|min:0|max:5',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return;
+        }
+
+        if (is_super_admin()) {
+            $this->saveEmployee();
+        } else {
+            $this->showUpdateReasonModal = true;
+        }
+    }
+
+    public function closeUpdateReasonModal()
+    {
+        $this->showUpdateReasonModal = false;
+        $this->updateReason = '';
+    }
+
+    public function proceedWithUpdateReason()
+    {
+        if (strlen($this->updateReason) < 5) {
+            $this->toast()->error('Reason must be at least 5 characters long')->send();
+            return;
+        }
+        
+        $this->showUpdateReasonModal = false;
+        $this->saveEmployee();
+    }
+
     public function saveEmployee()
     {
-        $this->validate([
-            'department_id' => 'required|exists:departments,id',
-            'employee_number' => 'required|string|unique:employees,employee_number,' . $this->employeeId,
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:employees,email,' . $this->employeeId,
-            'phone' => 'nullable|string|max:50',
-            'address' => 'nullable|string',
-            'date_of_birth' => 'nullable|date',
-            'gender' => 'nullable|in:male,female,other,prefer_not_to_say',
-            'nationality' => 'nullable|string|max:100',
-            'emergency_contact_name' => 'nullable|string|max:255',
-            'emergency_contact_phone' => 'nullable|string|max:50',
-            'hire_date' => 'required|date',
-            'termination_date' => 'nullable|date',
-            'status' => 'required|in:active,inactive,terminated,on_probation,on_leave',
-            'probation_end_date' => 'nullable|date',
-            'shift_preference' => 'nullable|in:morning,afternoon,night,rotating,flexible',
-            'salary' => 'nullable|numeric|min:0',
-            'hourly_rate' => 'nullable|numeric|min:0',
-            'tax_id' => 'nullable|string|max:50',
-            'bank_account' => 'nullable|string|max:100',
-            'allergies' => 'nullable|string',
-            'profile_photo' => 'nullable|image|max:2048',
-            'last_performance_review_date' => 'nullable|date',
-            'performance_rating' => 'nullable|numeric|min:0|max:5',
-        ]);
+        if ($this->updatingEmployee) return;
+        
+        $this->updatingEmployee = true;
 
-        $employee = Employee::findOrFail($this->employeeId);
+        try {
+            $this->validate([
+                'department_id' => 'required|exists:departments,id',
+                'employee_number' => 'required|string|unique:employees,employee_number,' . $this->employeeId,
+                'name' => 'required|string|max:255',
+                'email' => 'required|email|unique:employees,email,' . $this->employeeId,
+                'phone' => 'nullable|string|max:50',
+                'address' => 'nullable|string',
+                'date_of_birth' => 'nullable|date',
+                'gender' => 'nullable|in:male,female,other,prefer_not_to_say',
+                'nationality' => 'nullable|string|max:100',
+                'emergency_contact_name' => 'nullable|string|max:255',
+                'emergency_contact_phone' => 'nullable|string|max:50',
+                'hire_date' => 'required|date',
+                'termination_date' => 'nullable|date',
+                'status' => 'required|in:active,inactive,terminated,on_probation,on_leave',
+                'probation_end_date' => 'nullable|date',
+                'shift_preference' => 'nullable|in:morning,afternoon,night,rotating,flexible',
+                'salary' => 'nullable|numeric|min:0',
+                'hourly_rate' => 'nullable|numeric|min:0',
+                'tax_id' => 'nullable|string|max:50',
+                'bank_account' => 'nullable|string|max:100',
+                'allergies' => 'nullable|string',
+                'profile_photo' => 'nullable|image|max:2048',
+                'last_performance_review_date' => 'nullable|date',
+                'performance_rating' => 'nullable|numeric|min:0|max:5',
+                'updateReason' => is_super_admin() ? 'nullable|string' : 'required|string|min:5',
+            ]);
 
-        $data = [
-            'branch_id' => $this->b_id,
-            'department_id' => $this->department_id,
-            'employee_number' => $this->employee_number,
-            'name' => $this->name,
-            'email' => $this->email,
-            'phone' => $this->phone,
-            'address' => $this->address,
-            'date_of_birth' => $this->date_of_birth,
-            'gender' => $this->gender,
-            'nationality' => $this->nationality,
-            'emergency_contact_name' => $this->emergency_contact_name,
-            'emergency_contact_phone' => $this->emergency_contact_phone,
-            'hire_date' => $this->hire_date,
-            'termination_date' => $this->termination_date,
-            'status' => $this->status,
-            'probation_end_date' => $this->probation_end_date,
-            'shift_preference' => $this->shift_preference,
-            'salary' => $this->salary,
-            'hourly_rate' => $this->hourly_rate,
-            'tax_id' => $this->tax_id,
-            'bank_account' => $this->bank_account,
-            'allergies' => $this->allergies,
-            'last_performance_review_date' => $this->last_performance_review_date,
-            'performance_rating' => $this->performance_rating,
-        ];
+            $employee = Employee::findOrFail($this->employeeId);
 
-        if ($this->profile_photo) {
-            $data['profile_photo'] = $this->profile_photo->store('employee-photos', 'public');
+            $data = [
+                'branch_id' => $this->b_id,
+                'department_id' => $this->department_id,
+                'employee_number' => $this->employee_number,
+                'name' => $this->name,
+                'email' => $this->email,
+                'phone' => $this->phone,
+                'address' => $this->address,
+                'date_of_birth' => $this->date_of_birth,
+                'gender' => $this->gender,
+                'nationality' => $this->nationality,
+                'emergency_contact_name' => $this->emergency_contact_name,
+                'emergency_contact_phone' => $this->emergency_contact_phone,
+                'hire_date' => $this->hire_date,
+                'termination_date' => $this->termination_date,
+                'status' => $this->status,
+                'probation_end_date' => $this->probation_end_date,
+                'shift_preference' => $this->shift_preference,
+                'salary' => $this->salary,
+                'hourly_rate' => $this->hourly_rate,
+                'tax_id' => $this->tax_id,
+                'bank_account' => $this->bank_account,
+                'allergies' => $this->allergies,
+                'last_performance_review_date' => $this->last_performance_review_date,
+                'performance_rating' => $this->performance_rating,
+            ];
+
+            if ($this->profile_photo) {
+                $data['profile_photo'] = $this->profile_photo->store('employee-photos', 'public');
+            }
+
+            $user = current_actor();
+
+            if (!is_super_admin()) {
+                // EMPLOYEE: Create approval request
+                ApprovalAuditRequest::create([
+                    'branch_id' => $this->b_id,
+                    'requester_id' => $user->id,
+                    'requester_type' => get_class($user),
+                    'action' => 'update:' . Employee::class . ':' . $this->employeeId,
+                    'description' => $this->updateReason,
+                    'payload' => array_merge($data, ['selectedRoles' => $this->selectedRoles]),
+                    'status' => 'pending',
+                ]);
+
+                // Log as pending
+                AuditService::log(
+                    $user,
+                    'update',
+                    $employee,
+                    $this->updateReason,
+                    'pending'
+                );
+
+                $this->toast()->success('Employee update request submitted for approval!')->send();
+                $this->redirectRoute('branch-dashboard.employees.index', ['b_id' => $this->b_id]);
+                return;
+            }
+
+            // SUPER ADMIN: Update immediately
+            $employee->update($data);
+
+            // Sync roles with audit
+            $this->syncWithAudit(
+                $employee,
+                'roles',
+                $this->selectedRoles,
+                "Updated employee {$employee->name} - roles changed"
+            );
+
+            // Log as completed
+            AuditService::log(
+                $user,
+                'update',
+                $employee,
+                'Employee updated by super admin',
+                'completed'
+            );
+
+            $this->toast()->success('Employee updated successfully!')->send();
+            $this->redirectRoute('branch-dashboard.employees.index', ['b_id' => $this->b_id]);
+
+        } finally {
+            $this->updatingEmployee = false;
         }
-
-        $employee->update($data);
-
-        // Sync roles
-        if (!empty($this->selectedRoles)) {
-            $employee->syncRoles($this->selectedRoles);
-        } else {
-            $employee->syncRoles([]);
-        }
-
-        $this->toast()->success('Employee updated successfully!')->send();
-        return redirect()->route('branch-dashboard.employees.index',  ['b_id'=>$this->b_id]);
     }
 
     public function render()
