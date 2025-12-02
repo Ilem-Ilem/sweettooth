@@ -1,0 +1,251 @@
+# Leave Management Module
+
+## Overview
+Comprehensive leave management system handling leave applications, approvals, allocations, and balance tracking.
+
+## Components
+
+### 1. **ApplyLeave** (`ApplyLeave.php`)
+**Status:** ✅ Fully Implemented
+
+**Purpose:** Allows employees to submit leave requests
+
+**Features:**
+- Leave type selection with balance checking
+- Dynamic date range with working day calculation (excludes weekends)
+- Leave balance validation before submission
+- Document upload support (PDF, JPG, PNG - max 2MB)
+- Emergency contact field
+- Minimum notice period enforcement
+- Maximum consecutive days validation
+- Auto-calculation of total working days
+- File storage in `storage/app/public/leave-documents`
+
+**Key Methods:**
+- `submit()` - Validates and creates leave application
+- `calculateTotalDays()` - Computes working days between dates
+- `updateAvailableBalance()` - Fetches remaining days for selected leave type
+
+**Audit Implementation Points:**
+- ❌ **NOT LOGGED**: Leave application creation should trigger audit log
+  - Create `AuditService::log()` call in `submit()` method (line 215)
+  - Log: "Employee applied for {leave_type} from {start_date} to {end_date}"
+
+**Dashboard Needs:**
+- ✅ Dashboard already shows application status
+- View: `/resources/views/livewire/branch-dashboard/employee-module/leave-management/apply-leave.blade.php`
+
+---
+
+### 2. **ApproveLeave** (`ApproveLeave.php`)
+**Status:** ✅ Fully Implemented
+
+**Purpose:** Managers/Approvers review and approve/reject leave requests
+
+**Features:**
+- Filterable list of pending/approved/rejected applications
+- Modal for approval with optional notes
+- Modal for rejection with required reason
+- Document viewing capability
+- Approval history tracking
+- Status filtering and search
+
+**Key Methods:**
+- `approveLeave()` - Approves pending leave
+- `rejectLeave()` - Rejects with reason (min 10 chars)
+- `viewDetails()` - Shows full application details
+- `viewDocument()` - Downloads supporting documents
+
+**Audit Implementation Points:**
+- ✅ **PARTIALLY LOGGED**: Approval/rejection tracked in `LeaveApplication::approve()` and `reject()` models
+- ⚠️ **ENHANCEMENT NEEDED**: Add detailed audit trail for approval decisions
+  - Log: "Approver: {approver_name}, Notes: {notes}"
+  - Track time of approval decision
+
+**Dashboard Needs:**
+- ✅ Works as approval dashboard
+- View: `/resources/views/livewire/branch-dashboard/employee-module/leave-management/approve-leave.blade.php`
+
+---
+
+### 3. **ManageAllocations** (`ManageAllocations.php`)
+**Status:** ✅ Fully Implemented
+
+**Purpose:** Assign leave days to employees per leave type and year
+
+**Features:**
+- Allocate leave days per employee and leave type
+- Year-based allocation selection
+- Default values from leave type configuration
+- Bulk allocation of defaults to all employees
+- Edit existing allocations
+- Allocation notes field
+
+**Key Methods:**
+- `openAllocationModal()` - Load allocation form for employee
+- `saveAllocations()` - Save individual allocations
+- `bulkAllocateDefaults()` - Mass allocate to all employees
+
+**Audit Implementation Points:**
+- ❌ **NOT LOGGED**: Allocation creation/modification should be tracked
+  - Add audit in `saveAllocations()` method (line 121)
+  - Log: "Allocated {days} days of {leave_type} to {employee_name} for {year}"
+  - Add allocator user ID tracking
+
+**Dashboard Needs:**
+- ⚠️ **PARTIALLY IMPLEMENTED**: View needed showing allocation summary
+  - Suggested: Add allocation report/dashboard page
+  - Show: Allocation vs Actual Usage by department/branch
+  - Show: Year-over-year allocation trends
+
+---
+
+### 4. **LeaveBalance** (`LeaveBalance.php`)
+**Status:** ✅ Fully Implemented
+
+**Purpose:** Display employee's leave balance and history for selected year
+
+**Features:**
+- Year selector (current year ±1)
+- Summary stats: Total allocated, used, pending, remaining
+- Per leave-type balance breakdown
+- Leave history for selected year
+- Real-time balance calculations
+
+**Key Methods:**
+- `mount()` - Initialize balances for employee
+- `render()` - Fetch and display balance data
+
+**Audit Implementation Points:**
+- ❌ **NOT LOGGED**: Balance checks could be logged for compliance
+  - Optional: Log when balance queries are made by non-employee viewers
+
+**Dashboard Needs:**
+- ✅ Works as personal dashboard
+- View: `/resources/views/livewire/branch-dashboard/employee-module/leave-management/leave-balance.blade.php`
+- Could add:
+  - Visualization of usage trends
+  - Predictive forecasting for leave depletion
+
+---
+
+### 5. **LeaveTypes** (`LeaveTypes.php`)
+**Status:** ✅ Fully Implemented
+
+**Purpose:** Manage leave type configurations (vacation, sick, etc.)
+
+**Features:**
+- Create/Edit leave types
+- Configuration options:
+  - Default days per year
+  - Requires approval (Y/N)
+  - Requires document (Y/N)
+  - Max consecutive days allowed
+  - Min notice days required
+  - Paid/Unpaid toggle
+  - Color coding
+- Soft delete prevention (checks for existing applications)
+- Status toggle (activate/deactivate)
+
+**Key Methods:**
+- `save()` - Create/update leave type
+- `delete()` - Delete with validation
+- `toggleStatus()` - Activate/deactivate leave type
+
+**Audit Implementation Points:**
+- ❌ **NOT LOGGED**: Leave type changes should be audited
+  - Add audit in `save()` method (line 140)
+  - Log: "{Approver} created/updated {leave_type_name} with {settings}"
+  - Log: "{Approver} deleted {leave_type_name}"
+
+**Dashboard Needs:**
+- ✅ Admin dashboard showing configuration
+- View: `/resources/views/livewire/branch-dashboard/employee-module/leave-management/leave-types.blade.php`
+
+---
+
+### 6. **MyLeaves** (`MyLeaves.php`)
+**Status:** ✅ Fully Implemented
+
+**Purpose:** Employees view their own leave applications
+
+**Features:**
+- View all employee's leave applications
+- Status filtering (pending, approved, rejected, cancelled)
+- Search by application number or reason
+- Document download
+- Cancel pending/approved leaves
+- Cancellation reason required (min 10 chars)
+
+**Key Methods:**
+- `cancelLeave()` - Cancels pending/approved leaves
+- `viewDocument()` - Downloads supporting files
+- `getRowsProperty()` - Filters employee's leaves
+
+**Audit Implementation Points:**
+- ❌ **NOT LOGGED**: Leave cancellation not audited
+  - Add audit in `cancelLeave()` method (line 120)
+  - Log: "Employee {name} cancelled leave application {app_number}"
+
+**Dashboard Needs:**
+- ✅ Employee dashboard showing own leaves
+- View: `/resources/views/livewire/branch-dashboard/employee-module/leave-management/my-leaves.blade.php`
+
+---
+
+## Database Models Used
+- `LeaveType` - Leave type configurations
+- `LeaveApplication` - Individual leave requests
+- `EmployeeLeaveBalance` - Employee's balance per type/year
+- `EmployeeLeaveAllocation` - Allocated days per employee/type/year
+- `Employee` - Employee records
+- `EmployeeLeaveBalance` (via methods like `initializeForEmployee()`)
+
+## Audit Trail Gaps
+
+### Critical (Implement First)
+1. **Leave Application Creation** → `ApplyLeave::submit()`
+2. **Allocation Creation/Update** → `ManageAllocations::saveAllocations()`
+3. **Leave Cancellation** → `MyLeaves::cancelLeave()`
+
+### Important (Implement Second)
+1. **Approval/Rejection Details** → Enhance logging in `ApproveLeave`
+2. **Leave Type Changes** → `LeaveTypes::save()` and `delete()`
+
+### Implementation Template
+```php
+AuditService::log(
+    $user,  // current_actor()
+    'create',  // action
+    $leaveApplication,  // model instance
+    'Leave application for {leave_type} from {date1} to {date2}',
+    'pending'  // status
+);
+```
+
+## Routes
+- `branch-dashboard.leave.apply` - Apply for leave
+- `branch-dashboard.leave.my-leaves` - View own leaves
+- `branch-dashboard.leave.approve` - Approve leaves
+- `branch-dashboard.leave.manage-allocations` - Manage allocations
+- `branch-dashboard.leave.leave-balance` - View balance
+- `branch-dashboard.leave.leave-types` - Manage types
+
+## Missing Features / Enhancements
+
+### High Priority
+- [ ] Bulk approval/rejection interface
+- [ ] Leave balance reports by department
+- [ ] Notification system for leave status changes
+- [ ] Email notifications to approvers for pending leaves
+
+### Medium Priority
+- [ ] Leave calendar view
+- [ ] Conflict detection (overlapping leaves)
+- [ ] Leave substitution/coverage assignment
+- [ ] Annual leave carryover rules
+
+### Low Priority
+- [ ] Integration with payroll system
+- [ ] Holiday calendar integration
+- [ ] Team schedule view

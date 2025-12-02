@@ -4,6 +4,7 @@ namespace App\Livewire\BranchDashboard\EmployeeModule\LeaveManagement;
 
 use App\Livewire\BaseComponent;
 use App\Models\LeaveApplication;
+use App\Services\AuditService;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Livewire\WithPagination;
@@ -133,6 +134,15 @@ class MyLeaves extends BaseComponent
 
             $employee = auth('employees')->user();
             $leave->cancel($employee->id, $this->cancellation_reason);
+
+            // Log the cancellation
+            AuditService::log(
+                $employee,
+                'cancel',
+                $leave,
+                "Cancelled leave application {$leave->application_number}. Reason: {$this->cancellation_reason}",
+                'completed'
+            );
 
             $this->toast()->success('Leave application cancelled successfully.')->send();
             $this->closeCancelModal();

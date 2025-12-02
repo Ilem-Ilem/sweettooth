@@ -462,7 +462,7 @@
                         <label class="flex items-center p-3 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer transition-colors">
                             <input type="checkbox" 
                                 wire:model="selectedRoles" 
-                                value="{{ $role->name }}"
+                                value="{{ $role->id }}"
                                 class="w-5 h-5 text-purple-600 bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-600 rounded focus:ring-purple-500 dark:focus:ring-purple-600 focus:ring-2">
                             <span class="ml-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">{{ ucfirst($role->name) }}</span>
                         </label>
@@ -525,7 +525,7 @@
                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
                    Reason *
                </label>
-               <textarea wire:model="roleReason" rows="4"
+               <textarea wire:model.live="roleReason" rows="4"
                    class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500"
                    placeholder="Explain why this employee's roles need to be changed..."></textarea>
                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-2">

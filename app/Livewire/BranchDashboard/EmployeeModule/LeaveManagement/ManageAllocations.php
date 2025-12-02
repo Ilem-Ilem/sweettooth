@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\LeaveType;
 use App\Models\EmployeeLeaveAllocation;
 use App\Models\EmployeeLeaveBalance;
+use App\Services\AuditService;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Livewire\WithPagination;
@@ -125,13 +126,23 @@ class ManageAllocations extends BaseComponent
 
             foreach ($this->allocations as $allocation) {
                 if ($allocation['allocated_days'] > 0) {
-                    EmployeeLeaveAllocation::allocateToEmployee(
+                    $allocationRecord = EmployeeLeaveAllocation::allocateToEmployee(
                         $this->selectedEmployeeId,
                         $allocation['leave_type_id'],
                         $this->selectedYear,
                         $allocation['allocated_days'],
                         $allocator->id,
                         $allocation['notes']
+                    );
+
+                    // Log the allocation
+                    AuditService::log(
+                        $allocator,
+                        'create',
+                        $allocationRecord,
+                        "Allocated {$allocation['allocated_days']} days of {$allocation['leave_type_name']} " .
+                        "to {$this->selectedEmployee->name} for {$this->selectedYear}. Notes: {$allocation['notes']}",
+                        'completed'
                     );
                 }
             }

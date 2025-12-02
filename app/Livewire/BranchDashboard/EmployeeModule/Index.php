@@ -249,7 +249,7 @@ class Index extends BaseComponent
     {
         $this->employeeIdForRole = $employeeId;
         $employee = Employee::find($employeeId);
-        $this->selectedRoles = $employee ? $employee->roles->pluck('name')->toArray() : [];
+        $this->selectedRoles = $employee ? $employee->roles->pluck('id')->toArray() : [];
         $this->showRoleModal = true;
     }
 
@@ -304,9 +304,9 @@ class Index extends BaseComponent
                     'branch_id' => $this->b_id,
                     'requester_id' => $user->id,
                     'requester_type' => get_class($user),
-                    'action' => 'update:roles:' . $employee->id,
+                    'action' => 'sync:' . Employee::class . ':roles:' . $employee->id,
                     'description' => $this->roleReason,
-                    'payload' => ['selectedRoles' => $this->selectedRoles],
+                    'payload' => ['id' => $employee->id, 'sync_data' => $this->selectedRoles],
                     'status' => 'pending',
                 ]);
 

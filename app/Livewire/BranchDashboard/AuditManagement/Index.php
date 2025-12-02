@@ -98,10 +98,11 @@ class Index extends Component
 
 
             // Log the approval action
-            $actionName = str_replace(':', '_', $request->action);
+            // Extract just the action type (e.g., "update:roles:uuid" -> "update")
+            $baseAction = explode(':', $request->action)[0];
             AuditService::log(
                 $approver,
-                "approve_{$actionName}",
+                "approve_{$baseAction}",
                 $auditable,
                 'Approved by ' . $approver->name,
                 'completed'
@@ -119,12 +120,23 @@ class Index extends Component
      */
     private function executeApprovedAction(ApprovalAuditRequest $request)
     {
-        // Parse action format: "action:model" or "action:model:relationship" (e.g., "create:department", "sync:employee:roles")
-        $parts = explode(':', $request->action);
-        $action = $parts[0];
-        $model = $parts[1] ?? null;
-        $relationship = $parts[2] ?? null;
-        $modelId = $request->payload['id'] ?? null;
+        // Parse action format: "action:model" or "action:model:relationship:id" 
+        // (e.g., "create:department", "sync:App\Models\Employee:roles:123")
+         $parts = explode(':', $request->action);
+         $action = $parts[0];
+         $model = null;
+         $relationship = null;
+         $modelId = $request->payload['id'] ?? null;
+        
+        // For sync actions with full namespace: "sync:App\Models\Employee:roles:id"
+        if ($action === 'sync' && count($parts) >= 3) {
+            $model = $parts[1];
+            $relationship = $parts[2];
+        } else {
+            // Fallback for other formats
+            $model = $parts[1] ?? null;
+            $relationship = $parts[2] ?? null;
+        }
 
         $auditable = null;
 
@@ -214,7 +226,7 @@ class Index extends Component
      * Handle sync actions for many-to-many relationships
      * Supports syncing roles, permissions, and other relationships
      */
-    private function handleSyncAction(string $modelName, ?int $modelId, ?string $relationship, array $payload)
+    private function handleSyncAction(string $modelName, int|string|null $modelId, ?string $relationship, array $payload)
     {
         $modelClass = $modelName;
         if (!$modelClass || !$modelId || !$relationship) {
@@ -235,13 +247,19 @@ class Index extends Component
         }
 
         try {
-            // Execute the sync operation
-            if (method_exists($auditable, $relationship)) {
-                // Direct relationship method exists
-                $auditable->{$relationship}()->sync($syncData);
+            // Special handling for roles - use syncRoles() which resolves names to IDs
+            if ($relationship === 'roles') {
+                $auditable->syncRoles($syncData);
+            } else if ($relationship === 'permissions') {
+                // Similar handling for permissions
+                $auditable->syncPermissions($syncData);
             } else {
-                // Try as dynamic relationship
-                $auditable->$relationship()->sync($syncData);
+                // Generic sync for other relationships
+                if (method_exists($auditable, $relationship)) {
+                    $auditable->{$relationship}()->sync($syncData);
+                } else {
+                    $auditable->$relationship()->sync($syncData);
+                }
             }
         } catch (\Exception $e) {
             throw new \Exception("Failed to sync {$relationship}: " . $e->getMessage());
@@ -263,9 +281,11 @@ class Index extends Component
             ]);
 
             // Log the rejection action
+            // Extract just the action type (e.g., "update:roles:uuid" -> "update")
+            $baseAction = explode(':', $request->action)[0];
             AuditService::log(
                 $approver,
-                'reject_' . str_replace(':department', '', $request->action),
+                "reject_{$baseAction}",
                 null,
                 'Rejected by ' . $approver->name,
                 'completed'
