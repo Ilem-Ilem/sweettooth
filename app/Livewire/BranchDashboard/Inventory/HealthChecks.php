@@ -4,6 +4,7 @@ namespace App\Livewire\BranchDashboard\Inventory;
 
 use App\Models\HealthCheck;
 use App\Models\Stock;
+use App\Services\AuditService;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\{Layout, On, Url};
@@ -14,7 +15,7 @@ class HealthChecks extends Component
 {
     use WithPagination;
     #[Url(keep:true)]
-    public $b_id;
+    public ?string $b_id = null;
 
     // Listen for branch changes from BranchSelector (for super admins)
     #[On('branch-changed')]
@@ -119,7 +120,7 @@ class HealthChecks extends Component
 
         $actor = current_actor();
 
-        HealthCheck::create([
+        $healthCheck = HealthCheck::create([
             'stock_id' => $this->stock_id,
             'checked_by_id' => $actor->id,
             'checked_by_type'=>get_class($actor),
@@ -129,6 +130,18 @@ class HealthChecks extends Component
             'observations' => $this->observations,
             'action_taken' => $this->action_taken,
         ]);
+
+        // Log the health check
+        $stock = Stock::findOrFail($this->stock_id);
+        AuditService::log(
+            $actor,
+            'create',
+            $healthCheck,
+            "Created health check for item '{$stock->item->name}'. " .
+            "Condition: {$this->condition}, Qty Affected: {$this->quantity_affected} {$stock->item->uom}. " .
+            "Observations: {$this->observations}. Action: {$this->action_taken}",
+            'completed'
+        );
 
         session()->flash('success', 'Health check recorded successfully.');
         $this->closeModal();

@@ -5,13 +5,20 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['auth:web,employees', 'setBranchContext', 'branch'])->prefix('branch-dashboard')->name('branch-dashboard.')->group(function () {
     Route::get('/', App\Livewire\BranchDashboard\Index::class)->name('index');
 
-    Route::get('/employees', App\Livewire\BranchDashboard\EmployeeModule\Index::class)->name('employees.index');
+    Route::get('/employees', App\Livewire\BranchDashboard\EmployeeModule\Index::class)->name('employee.index');
     Route::get('employee/create', App\Livewire\BranchDashboard\EmployeeModule\Create::class)->name('employee.create');
     Route::get('/employee//{employee_number}/{id}/', \App\Livewire\BranchDashboard\EmployeeModule\Details::class)->name('employee.details');
     Route::get('/employee/{id}/edit', \App\Livewire\BranchDashboard\EmployeeModule\Edit::class)->name('employee.edit');
     // ROLE ASSIGNMENT
     Route::get('role-assignments', \App\Livewire\BranchDashboard\EmployeeModule\RolePermission\AssignRole::class)->name('role-assignments.index');
     Route::get('/role-permisssion', \App\Livewire\BranchDashboard\EmployeeModule\RolePermission\Index::class)->name('role-permission');
+
+    // Clock-In Board Routes
+    Route::prefix('clock-in-board')->name('clock-in-board.')->group(function () {
+        Route::get('/', \App\Livewire\BranchDashboard\EmployeeModule\ClockInModule\TodayIndex::class)->name('today');
+        Route::get('all', \App\Livewire\BranchDashboard\EmployeeModule\ClockInModule\GeneralClockInBoard::class)->name('all');
+        Route::get('employee/{employee}/history', \App\Livewire\BranchDashboard\EmployeeModule\ClockInModule\EmployeeHistory::class)->name('employee-history');
+    });
 
     // Leave Management routes
     Route::prefix('leave')->name('leave.')->group(function () {
@@ -149,6 +156,7 @@ Route::middleware(['auth:web,employees', 'setBranchContext', 'branch'])->prefix(
     // Audit Management Routes
     Route::prefix('audit')->name('audit.')->group(function () {
         Route::get('/', \App\Livewire\BranchDashboard\AuditManagement\Index::class)->name('index');
+        Route::get('inventory-approvals', \App\Livewire\BranchDashboard\AuditManagement\InventoryApprovals::class)->name('inventory-approvals');
     });
 
     // Sales Dashboard routes - Modular System

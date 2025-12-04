@@ -16,9 +16,13 @@
                     <!-- Profile Photo -->
                     <div class="relative">
                         <div class="w-32 h-32 rounded-full bg-white/20 flex items-center justify-center overflow-hidden border-4 border-white/30">
-                            <svg class="w-20 h-20 text-white/80" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
-                            </svg>
+                            @if($profilePhotoUrl)
+                                <img src="{{ $profilePhotoUrl }}" alt="{{ $employee->name }}" class="w-full h-full object-cover">
+                            @else
+                                <svg class="w-20 h-20 text-white/80" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+                                </svg>
+                            @endif
                         </div>
                         <div class="absolute bottom-2 right-2 bg-green-500 w-5 h-5 rounded-full border-2 border-white"></div>
                     </div>
@@ -47,6 +51,10 @@
                         <h3 class="font-semibold mb-3 text-sm uppercase tracking-wide">Quick Info</h3>
                         <div class="space-y-2 text-sm">
                             <div class="flex justify-between items-center">
+                                <span class="text-blue-100">Employee ID:</span>
+                                <span class="font-semibold">{{ $employee->employee_number ?? 'N/A' }}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
                                 <span class="text-blue-100">Department:</span>
                                 <span class="font-semibold">{{ $employee->department->name ?? 'N/A' }}</span>
                             </div>
@@ -56,11 +64,7 @@
                             </div>
                             <div class="flex justify-between items-center">
                                 <span class="text-blue-100">Hire Date:</span>
-                                <span class="font-semibold">{{ $employee->hire_date ? \Carbon\Carbon::parse($employee->hire_date)->format('M d, Y') : 'N/A' }}</span>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="text-blue-100">Email:</span>
-                                <span class="font-semibold text-xs truncate max-w-[150px]">{{ $employee->email ?? 'N/A' }}</span>
+                                <span class="font-semibold text-xs">{{ $employee->hire_date ? \Carbon\Carbon::parse($employee->hire_date)->format('M d, Y') : 'N/A' }}</span>
                             </div>
                         </div>
                     </div>

@@ -15,7 +15,7 @@ class Index extends Component
     public $stats = [];
 
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
 
     public function mount()
     {

@@ -43,9 +43,14 @@ class Stock extends Model
         return $this->attributes['quantity_reserved'] ?? 0;
     }
 
-    public function getTotalQuantityAttribute()
+    public function getTotalQuantityAttribute(): float
     {
-        return $this->quantity_available + $this->quantity_reserved + $this->quantity_damaged;
+        return (float) round(
+            ((float) $this->quantity_available) + 
+            ((float) $this->quantity_reserved) + 
+            ((float) $this->quantity_damaged),
+            2
+        );
     }
 
     /**

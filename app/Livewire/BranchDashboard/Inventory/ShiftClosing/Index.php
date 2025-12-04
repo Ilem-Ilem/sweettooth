@@ -18,7 +18,7 @@ class Index extends BaseComponent
     use Interactions;
 
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
 
     public ?string $branchId = null;
     public string $branchName = '';

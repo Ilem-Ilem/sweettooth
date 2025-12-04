@@ -13,9 +13,9 @@ use Livewire\Attributes\Layout;
 
 class OverallSummaryDashboard extends Component
 {
-    public $dateFrom;
-    public $dateTo;
-    public $selectedBranch;
+    public ?string $dateFrom = null;
+    public ?string $dateTo = null;
+    public ?string $selectedBranch = null;
 
     public function mount()
     {

@@ -29,7 +29,7 @@ class StockMovementAnalytics extends Component
     public $viewMode = 'table';
 
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
 
     protected $listeners = ['refresh' => '$refresh'];
 

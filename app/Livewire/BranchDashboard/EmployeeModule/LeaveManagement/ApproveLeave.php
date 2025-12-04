@@ -17,18 +17,18 @@ class ApproveLeave extends BaseComponent
     use WithPagination, Interactions;
 
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
 
     public ?int $quantity = 20;
     public ?string $search = null;
-    public ?string $status_filter = 'pending';
+    public ?string $status_filter = '';
 
     // Modals
     public $showApprovalModal = false;
     public $showRejectionModal = false;
     public $showDetailsModal = false;
     public $selectedLeaveId = null;
-    public $selectedLeave = null;
+    public ?LeaveApplication $selectedLeave = null;
     public $approval_notes = '';
     public $rejection_reason = '';
 

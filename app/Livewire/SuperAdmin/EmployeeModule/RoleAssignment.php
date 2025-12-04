@@ -16,7 +16,7 @@ class RoleAssignment extends BaseComponent
     public string $filterBranch = '';
     public string $filterDepartment = '';
     public bool $showRemoveRoleModal = false;
-    public $selectedEmployee = null;
+    public ?Employee $selectedEmployee = null;
 
     protected $queryString = ['searchEmployee', 'filterBranch', 'filterDepartment'];
 

@@ -2,23 +2,23 @@
 
 namespace App\Livewire\BranchDashboard\Inventory;
 
+use App\Livewire\BaseComponent;
 use App\Models\Stock;
 use App\Models\StockMovement;
-use Livewire\Component;
-use Livewire\WithPagination;
+use App\Services\AuditService;
+use App\Services\InventoryApprovalService;
 use Livewire\Attributes\{Layout, Url, On};
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 #[Layout('components.layouts.app.branch-dashboard')]
-class Stocks extends Component
+class Stocks extends BaseComponent
 {
-    use WithPagination;
 
     // Pagination
     public $quantity = 15;
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
 
     public function mount()
     {
@@ -43,6 +43,7 @@ class Stocks extends Component
     // Edit Modal
     public $showEditModal = false;
     public $editingStockId = null;
+    public $editingItemId = null;
     public $quantity_available = 0;
     public $quantity_reserved = 0;
     public $quantity_damaged = 0;
@@ -50,6 +51,14 @@ class Stocks extends Component
     public $health_status = 'good';
     public $expiry_date = '';
     public $notes = '';
+    public $reorder_level = 0;
+    public $max_stock_level = 0;
+
+    // Audit Modal
+    public $showAuditModal = false;
+    public $auditReason = '';
+    public $auditAction = null;
+    public $pendingStockId = null;
 
     protected $rules = [
         'quantity_available' => 'required|numeric|min:0',
@@ -59,6 +68,9 @@ class Stocks extends Component
         'health_status' => 'required|in:good,warning,critical,expired',
         'expiry_date' => 'nullable|date',
         'notes' => 'nullable|string|max:500',
+        'reorder_level' => 'nullable|numeric|min:0',
+        'max_stock_level' => 'nullable|numeric|min:0',
+        'auditReason' => 'required_if:auditAction,!=null|string|min:10|max:500',
     ];
 
     public function getBranchId()
@@ -119,6 +131,7 @@ class Stocks extends Component
             ->firstOrFail();
 
         $this->editingStockId = $stock->id;
+        $this->editingItemId = $stock->item_id;
         $this->quantity_available = $stock->quantity_available;
         $this->quantity_reserved = $stock->quantity_reserved;
         $this->quantity_damaged = $stock->quantity_damaged;
@@ -126,13 +139,39 @@ class Stocks extends Component
         $this->health_status = $stock->health_status;
         $this->expiry_date = $stock->expiry_date ? $stock->expiry_date->format('Y-m-d') : '';
         $this->notes = '';
+        $this->reorder_level = $stock->item->reorder_level ?? 0;
+        $this->max_stock_level = $stock->item->max_stock_level ?? 0;
         $this->showEditModal = true;
     }
 
     public function updateStock()
     {
-        $this->validate();
+        $this->validate([
+            'quantity_available' => 'required|numeric|min:0',
+            'quantity_reserved' => 'required|numeric|min:0',
+            'quantity_damaged' => 'required|numeric|min:0',
+            'average_cost' => 'required|numeric|min:0',
+            'health_status' => 'required|in:good,warning,critical,expired',
+            'expiry_date' => 'nullable|date',
+            'notes' => 'nullable|string|max:500',
+        ]);
 
+        // For non-super admins, show audit modal instead of updating directly
+        if (!is_super_admin()) {
+            $this->pendingStockId = $this->editingStockId;
+            $this->auditAction = 'stock_adjustment';
+            $this->auditReason = '';
+            $this->showEditModal = false; // Hide edit modal but keep form values
+            $this->showAuditModal = true;
+            return;
+        }
+
+        // Super admins can update directly
+        $this->applyStockUpdate();
+    }
+
+    private function applyStockUpdate()
+    {
         DB::beginTransaction();
         try {
             $branchId = $this->getBranchId();
@@ -141,34 +180,87 @@ class Stocks extends Component
                 ->where('branch_id', $branchId)
                 ->firstOrFail();
 
-            $oldQuantityAvailable = $stock->quantity_available;
+            $item = $stock->item;
+            
+            $oldQuantityAvailable = (float) $stock->quantity_available;
+            $oldQuantityReserved = (float) $stock->quantity_reserved;
+            $oldQuantityDamaged = (float) $stock->quantity_damaged;
+            $oldAverageCost = (float) $stock->average_cost;
+            $oldHealthStatus = $stock->health_status;
+            $oldReorderLevel = (float) $item->reorder_level;
+            $oldMaxStockLevel = (float) $item->max_stock_level;
 
             $stock->update([
-                'quantity_available' => $this->quantity_available,
-                'quantity_reserved' => $this->quantity_reserved,
-                'quantity_damaged' => $this->quantity_damaged,
-                'average_cost' => $this->average_cost,
+                'quantity_available' => (float) $this->quantity_available,
+                'quantity_reserved' => (float) $this->quantity_reserved,
+                'quantity_damaged' => (float) $this->quantity_damaged,
+                'average_cost' => (float) $this->average_cost,
                 'health_status' => $this->health_status,
                 'expiry_date' => $this->expiry_date ?: null,
                 'last_stock_take_date' => now(),
             ]);
 
+            // Update item reorder and max stock levels if changed
+            if ((float)$oldReorderLevel !== (float)$this->reorder_level || 
+                (float)$oldMaxStockLevel !== (float)$this->max_stock_level) {
+                $item->update([
+                    'reorder_level' => (float) $this->reorder_level ?? 0,
+                    'max_stock_level' => (float) $this->max_stock_level ?? 0,
+                ]);
+            }
+
             // Record stock movement if quantity changed
-            if ($oldQuantityAvailable != $this->quantity_available) {
-                $quantityDiff = $this->quantity_available - $oldQuantityAvailable;
+            if ((float) $oldQuantityAvailable != (float) $this->quantity_available) {
+                $quantityDiff = (float) $this->quantity_available - (float) $oldQuantityAvailable;
 
                 StockMovement::create([
                     'stock_id' => $stock->id,
                     'type' => $quantityDiff > 0 ? 'in' : 'out',
-                    'quantity' => abs($quantityDiff),
-                    'quantity_before' => $oldQuantityAvailable,
-                    'quantity_after' => $this->quantity_available,
+                    'quantity' => (float) abs($quantityDiff),
+                    'quantity_before' => (float) $oldQuantityAvailable,
+                    'quantity_after' => (float) $this->quantity_available,
                     'reference_type' => 'manual_adjustment',
                     'reference_id' => null,
-                    'moved_by' => Auth::guard('employees')->id(),
+                    'moved_by_id' => Auth::guard('employees')->id(),
+                    'moved_by_type' => \App\Models\Employee::class,
                     'movement_date' => now(),
                     'notes' => $this->notes ?: 'Manual stock adjustment from Stocks page',
                 ]);
+            }
+
+            // Log the stock update
+            $changes = [];
+            if ($oldQuantityAvailable !== (float)$this->quantity_available) {
+                $changes[] = "Available: {$oldQuantityAvailable} → {$this->quantity_available}";
+            }
+            if ($oldQuantityReserved !== (float)$this->quantity_reserved) {
+                $changes[] = "Reserved: {$oldQuantityReserved} → {$this->quantity_reserved}";
+            }
+            if ($oldQuantityDamaged !== (float)$this->quantity_damaged) {
+                $changes[] = "Damaged: {$oldQuantityDamaged} → {$this->quantity_damaged}";
+            }
+            if ($oldAverageCost !== (float)$this->average_cost) {
+                $changes[] = "Cost: {$oldAverageCost} → {$this->average_cost}";
+            }
+            if ($oldHealthStatus !== $this->health_status) {
+                $changes[] = "Health: {$oldHealthStatus} → {$this->health_status}";
+            }
+            if ($oldReorderLevel !== (float)$this->reorder_level) {
+                $changes[] = "Reorder Level: {$oldReorderLevel} → {$this->reorder_level}";
+            }
+            if ($oldMaxStockLevel !== (float)$this->max_stock_level) {
+                $changes[] = "Max Stock Level: {$oldMaxStockLevel} → {$this->max_stock_level}";
+            }
+
+            if (!empty($changes)) {
+                AuditService::log(
+                    current_actor(),
+                    'update',
+                    $stock,
+                    "Updated stock for item '{$stock->item->name}'. Changes: " . implode(', ', $changes) . 
+                    ". Notes: {$this->notes}",
+                    'completed'
+                );
             }
 
             DB::commit();
@@ -178,6 +270,68 @@ class Stocks extends Component
             DB::rollBack();
             session()->flash('error', 'Error updating stock: ' . $e->getMessage());
         }
+    }
+
+    public function proceedWithStockAdjustment(): void
+    {
+        $this->validate([
+            'auditReason' => 'required|string|min:10|max:500',
+        ], [
+            'auditReason.required' => 'Please provide a reason for the stock adjustment.',
+            'auditReason.min' => 'Reason must be at least 10 characters.',
+        ]);
+
+        try {
+            $branchId = $this->getBranchId();
+
+            $stock = Stock::where('id', $this->pendingStockId)
+                ->where('branch_id', $branchId)
+                ->firstOrFail();
+
+            $actor = Auth::guard('employees')->user();
+
+            // Create approval request with adjustment data
+            // NOTE: InventoryApprovalService::requestStockAdjustment() already logs this request
+            // via AuditService::log() internally, so we don't duplicate logging here
+            $request = InventoryApprovalService::requestStockAdjustment(
+                $actor,
+                $stock->id,
+                [
+                    'quantity_available' => (float) $this->quantity_available,
+                    'quantity_reserved' => (float) $this->quantity_reserved,
+                    'quantity_damaged' => (float) $this->quantity_damaged,
+                    'average_cost' => (float) $this->average_cost,
+                    'health_status' => $this->health_status ?? 'good',
+                    'expiry_date' => $this->expiry_date ?: null,
+                    'reorder_level' => (float) ($this->reorder_level ?? 0),
+                    'max_stock_level' => (float) ($this->max_stock_level ?? 0),
+                    'notes' => $this->notes ?? '',
+                ],
+                $this->auditReason
+            );
+
+            // Verify the request was created successfully
+            if (!$request || !$request->id) {
+                throw new \Exception('Failed to create approval request');
+            }
+
+            session()->flash('success', 'Stock adjustment request submitted for approval! Request ID: ' . $request->id);
+            $this->toast()->success('Request submitted for approval. Navigate to Audit > Inventory Approvals to view.')->send();
+            $this->closeAuditModal();
+            $this->closeEditModal();
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to submit stock adjustment: ' . $e->getMessage());
+            $this->toast()->error('Error: ' . $e->getMessage())->send();
+        }
+    }
+
+    public function closeAuditModal()
+    {
+        $this->showAuditModal = false;
+        $this->auditReason = '';
+        $this->auditAction = null;
+        $this->pendingStockId = null;
+        $this->resetValidation();
     }
 
     public function closeEditModal()
@@ -197,6 +351,9 @@ class Stocks extends Component
         $this->health_status = 'good';
         $this->expiry_date = '';
         $this->notes = '';
+        $this->reorder_level = 0;
+        $this->max_stock_level = 0;
+        $this->editingItemId = null;
     }
 
     public function resetFilters()
@@ -228,5 +385,16 @@ class Stocks extends Component
     public function updatedFilterHealthStatus()
     {
         $this->resetPage();
+    }
+
+    protected function getModelClass(): string
+    {
+        return Stock::class;
+    }
+
+    protected function getAllSelectableIds(): array
+    {
+        $branchId = $this->getBranchId();
+        return Stock::where('branch_id', $branchId)->pluck('id')->toArray();
     }
 }

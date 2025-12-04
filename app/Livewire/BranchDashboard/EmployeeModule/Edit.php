@@ -305,14 +305,19 @@ class Edit extends BaseComponent
             $user = current_actor();
 
             if (!is_super_admin()) {
-                // EMPLOYEE: Create approval request
+                // EMPLOYEE: Create approval request with optimized payload
+                $approvalPayload = array_merge($data, [
+                    'id' => $this->employeeId, // Required for audit system
+                    'selectedRoles' => $this->selectedRoles,
+                ]);
+
                 ApprovalAuditRequest::create([
                     'branch_id' => $this->b_id,
                     'requester_id' => $user->id,
                     'requester_type' => get_class($user),
                     'action' => 'update:' . Employee::class . ':' . $this->employeeId,
                     'description' => $this->updateReason,
-                    'payload' => array_merge($data, ['selectedRoles' => $this->selectedRoles]),
+                    'payload' => $approvalPayload,
                     'status' => 'pending',
                 ]);
 
@@ -326,7 +331,7 @@ class Edit extends BaseComponent
                 );
 
                 $this->toast()->success('Employee update request submitted for approval!')->send();
-                $this->redirectRoute('branch-dashboard.employees.index', ['b_id' => $this->b_id]);
+                $this->redirectRoute('branch-dashboard.employee.index', ['b_id' => $this->b_id]);
                 return;
             }
 

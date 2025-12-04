@@ -22,8 +22,8 @@ class Category extends BaseComponent
     public ?string $dateTo = null;
 
     //selected category delete modal functionality
-    public $selectedCategoryDeprtament;
-    public $selectedCategoryId;
+    public ?DepartmentCategory $selectedCategoryDeprtament = null;
+    public ?int $selectedCategoryId = null;
     // Modal states
     public bool $showCategoryModal = false;
     public ?string $selectedId = null;

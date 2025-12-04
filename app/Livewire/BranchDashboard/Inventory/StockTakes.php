@@ -6,6 +6,7 @@ use App\Models\StockTake;
 use App\Models\StockTakeDetail;
 use App\Models\Stock;
 use App\Models\StockMovement;
+use App\Services\AuditService;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\{Layout, Url, On};
@@ -17,7 +18,7 @@ class StockTakes extends Component
 {
     use WithPagination;
 #[Url(keep:true)]
-    public $b_id;
+    public ?string $b_id = null;
     public $search = '';
     public $filterType = '';
     public $filterStatus = '';
@@ -98,7 +99,7 @@ class StockTakes extends Component
             $this->stockTakeItems[] = [
                 'stock_id' => $stock->id,
                 'item_name' => $stock->item->name,
-                'system_quantity' => $stock->total_quantity,
+                'system_quantity' => (float) $stock->quantity_available,
                 'physical_quantity' => '',
                 'uom' => $stock->item->uom,
             ];
@@ -127,21 +128,40 @@ class StockTakes extends Component
                 'notes' => $this->notes,
             ]);
 
+            $itemDetails = [];
             foreach ($this->stockTakeItems as $item) {
                 if ($item['physical_quantity'] !== '' && $item['physical_quantity'] !== null) {
-                    $variance = $item['physical_quantity'] - $item['system_quantity'];
+                    $physicalQty = (float) ($item['physical_quantity'] ?? 0);
+                    $systemQty = (float) ($item['system_quantity'] ?? 0);
+                    $variance = (float) ($physicalQty - $systemQty);
                     $varianceType = $variance == 0 ? 'match' : ($variance > 0 ? 'surplus' : 'shortage');
 
                     StockTakeDetail::create([
                         'stock_take_id' => $stockTake->id,
                         'stock_id' => $item['stock_id'],
-                        'system_quantity' => $item['system_quantity'],
-                        'physical_quantity' => $item['physical_quantity'],
+                        'system_quantity' => $systemQty,
+                        'physical_quantity' => $physicalQty,
                         'variance_quantity' => $variance,
                         'variance_type' => $varianceType,
                     ]);
+
+                    if ($variance != 0) {
+                        $itemDetails[] = "{$item['item_name']}: {$varianceType} of {$variance} {$item['uom']}";
+                    }
                 }
             }
+
+            // Log the stock take creation
+            AuditService::log(
+                Auth::guard('employees')->user(),
+                'create',
+                $stockTake,
+                "Created {$this->type} stock take #{$stockTakeNumber} on {$this->stock_take_date}. " .
+                "Items counted: " . count($this->stockTakeItems) . 
+                ". Variances: " . (empty($itemDetails) ? 'None' : implode(', ', $itemDetails)) . 
+                ". Notes: {$this->notes}",
+                'completed'
+            );
 
             DB::commit();
             session()->flash('success', 'Stock take created successfully.');
@@ -169,7 +189,24 @@ class StockTakes extends Component
             return;
         }
 
+        // Get variance summary before marking as completed
+        $details = $stockTake->stockTakeDetails;
+        $surpluses = $details->where('variance_type', 'surplus')->count();
+        $shortages = $details->where('variance_type', 'shortage')->count();
+        $matches = $details->where('variance_type', 'match')->count();
+
         $stockTake->markAsCompleted();
+
+        // Log the stock take completion
+        AuditService::log(
+            Auth::guard('employees')->user(),
+            'update',
+            $stockTake,
+            "Completed stock take #{$stockTake->stock_take_number} (type: {$stockTake->type}). " .
+            "Matched: {$matches}, Surplus: {$surpluses}, Shortage: {$shortages}",
+            'completed'
+        );
+
         session()->flash('success', 'Stock take marked as completed.');
     }
 

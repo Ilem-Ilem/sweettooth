@@ -11,6 +11,7 @@ use App\Services\AuditService;
 use App\Models\ApprovalRequest;
 use App\Models\ApprovalAuditRequest;
 use Livewire\Attributes\{Layout, On, Title, Url};
+use App\Services\InventoryApprovalService;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 #[Title("Audit Mnagement")]
@@ -84,9 +85,18 @@ class Index extends Component
     {
         $request = ApprovalAuditRequest::find($requestId);
 
-        if ($request && $request->status === 'pending') {
+        if (!$request || $request->status !== 'pending') {
+            $this->dispatch('toast', message: 'Request not found or already processed', type: 'error');
+            return;
+        }
+
+        try {
             // Execute the approved action - delegates to action handler
             $auditable = $this->executeApprovedAction($request);
+           
+            if (!$auditable) {
+                throw new \Exception('Failed to execute approval action');
+            }
 
             $approver = auth()->user() ?? auth('employees')->user();
             $request->update([
@@ -96,9 +106,8 @@ class Index extends Component
                 'approved_at' => now(),
             ]);
 
-
             // Log the approval action
-            // Extract just the action type (e.g., "update:roles:uuid" -> "update")
+            // Extract just the action type (e.g., "update:App\Models\Employee" -> "update")
             $baseAction = explode(':', $request->action)[0];
             AuditService::log(
                 $approver,
@@ -110,6 +119,18 @@ class Index extends Component
 
             $this->dispatch('toast', message: 'Request approved successfully', type: 'success');
             $this->resetPage();
+        } catch (\Exception $e) {
+            // Log the error
+            $approver = auth()->user() ?? auth('employees')->user();
+            AuditService::log(
+                $approver,
+                'approve_failed',
+                null,
+                'Approval failed: ' . $e->getMessage(),
+                'failed'
+            );
+
+            $this->dispatch('toast', message: 'Error approving request: ' . $e->getMessage(), type: 'error');
         }
     }
 
@@ -121,8 +142,9 @@ class Index extends Component
     private function executeApprovedAction(ApprovalAuditRequest $request)
     {
         // Parse action format: "action:model" or "action:model:relationship:id" 
-        // (e.g., "create:department", "sync:App\Models\Employee:roles:123")
+        // (e.g., "create:department", "sync:App\Models\Employee:roles:123", "update_item:123")
          $parts = explode(':', $request->action);
+
          $action = $parts[0];
          $model = null;
          $relationship = null;
@@ -138,6 +160,11 @@ class Index extends Component
             $relationship = $parts[2] ?? null;
         }
 
+        // Extract ID from action string for inventory operations (e.g., "update_item:123" -> 123)
+        if (count($parts) > 1 && !$modelId && in_array($action, ['delete_item', 'delete_purchase', 'update_item'])) {
+            $modelId = $parts[1];
+        }
+
         $auditable = null;
 
         try {
@@ -146,6 +173,12 @@ class Index extends Component
                 'update' => $auditable = $this->handleUpdateAction($model, $modelId, $request->payload),
                 'delete' => $auditable = $this->handleDeleteAction($model, $modelId),
                 'sync' => $auditable = $this->handleSyncAction($model, $modelId, $relationship, $request->payload),
+                'stock_adjustment' => $auditable = InventoryApprovalService::executeStockAdjustment($request),
+                'create_item' => $auditable = InventoryApprovalService::executeItemCreation($request),
+                'update_item' => $auditable = InventoryApprovalService::executeItemUpdate($request),
+                'delete_item' => $auditable = InventoryApprovalService::executeItemDeletion($request, $this->getApprover()),
+                'create_purchase' => $auditable = InventoryApprovalService::executePurchaseCreation($request, $this->getApprover()),
+                'delete_purchase' => $auditable = InventoryApprovalService::executePurchaseDeletion($request, $this->getApprover()),
                 default => null,
             };
         } catch (\Exception $e) {
@@ -157,52 +190,122 @@ class Index extends Component
 
     /**
      * Handle create actions for any model
+     * Supports both basic field creation and relationship syncing (roles, permissions, etc.)
      */
     private function handleCreateAction(string $modelName, array $payload)
     {
-
         $modelClass = $modelName;
         if (!$modelClass) {
             return null;
         }
 
-        // Extract only fillable fields from the payload
-        $modelClass = "\\$modelClass";
-        $model = new $modelClass;
-        $fillable = $model->getFillable();
-        $createData = array_intersect_key($payload, array_flip($fillable));
-        $createData['slug'] = Str::slug($createData['name']);
+        try {
+            // Extract only fillable fields from the payload
+            $modelClass = "\\$modelClass";
+            $model = new $modelClass;
+            $fillable = $model->getFillable();
+            $createData = array_intersect_key($payload, array_flip($fillable));
+            
+            // Add slug for models that use it (e.g., Department)
+            if (isset($createData['name']) && in_array('slug', $fillable)) {
+                $createData['slug'] = Str::slug($createData['name']);
+            }
 
-        return $modelClass::create($createData);
+            // Create the model
+            $auditable = $modelClass::create($createData);
+
+            // Handle role syncing if roles are included in payload
+            if (isset($payload['selectedRoles'])) {
+                $this->syncRolesFromPayload($auditable, $payload['selectedRoles']);
+            }
+
+            // Handle permission syncing if permissions are included
+            if (isset($payload['selectedPermissions'])) {
+                $this->syncPermissionsFromPayload($auditable, $payload['selectedPermissions']);
+            }
+
+            // Handle other relationship syncing patterns (selectedX, syncX, X_ids)
+            foreach ($payload as $key => $value) {
+                if (str_starts_with($key, 'selected') && is_array($value)) {
+                    // Convert selectedRoles -> roles, selectedDepartments -> departments, etc.
+                    $relationshipName = lcfirst(str_replace('selected', '', $key));
+                    if (method_exists($auditable, $relationshipName) && $relationshipName !== 'roles' && $relationshipName !== 'permissions') {
+                        $this->syncRelationship($auditable, $relationshipName, $value);
+                    }
+                }
+            }
+
+            return $auditable;
+        } catch (\Exception $e) {
+            throw new \Exception("Failed to create {$modelClass}: " . $e->getMessage());
+        }
     }
 
     /**
      * Handle update actions for any model
+     * Supports both basic field updates and relationship syncing (roles, permissions, etc.)
      */
-    private function handleUpdateAction(string $modelName, ?int $modelId, array $payload)
+    private function handleUpdateAction(string $modelName, ?string $modelId, array $payload)
     {
-
-
         $modelClass = $modelName;
         if (!$modelClass || !$modelId) {
             return null;
         }
 
         $auditable = $modelClass::find($modelId);
-        if ($auditable) {
-            // Extract only fillable fields from the payload
+        if (!$auditable) {
+            return null;
+        }
+
+        try {
+            // Extract only fillable fields for the model update
             $fillable = $auditable->getFillable();
             $updateData = array_intersect_key($payload, array_flip($fillable));
-            $auditable->update($updateData);
+            
+            // Update basic model fields
+            if (!empty($updateData)) {
+                $auditable->update($updateData);
+            }
+
+            // Handle role syncing if roles are included in payload
+            if (isset($payload['selectedRoles'])) {
+                $this->syncRolesFromPayload($auditable, $payload['selectedRoles']);
+            }
+
+            // Handle permission syncing if permissions are included
+            if (isset($payload['selectedPermissions'])) {
+                $this->syncPermissionsFromPayload($auditable, $payload['selectedPermissions']);
+            }
+
+            // Handle other relationship syncing patterns (selectedX, syncX, X_ids)
+            foreach ($payload as $key => $value) {
+                if (str_starts_with($key, 'selected') && is_array($value)) {
+                    // Convert selectedRoles -> roles, selectedDepartments -> departments, etc.
+                    $relationshipName = lcfirst(str_replace('selected', '', $key));
+                    if (method_exists($auditable, $relationshipName) && $relationshipName !== 'roles' && $relationshipName !== 'permissions') {
+                        $this->syncRelationship($auditable, $relationshipName, $value);
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            throw new \Exception("Failed to update {$modelClass}: " . $e->getMessage());
         }
 
         return $auditable;
     }
 
     /**
+     * Get the current approver (user or employee)
+     */
+    private function getApprover()
+    {
+        return auth()->user() ?? auth('employees')->user();
+    }
+
+    /**
      * Handle delete actions for any model
      */
-    private function handleDeleteAction(string $modelName, ?int $modelId)
+    private function handleDeleteAction(string $modelName, ?string $modelId)
     {
         // $modelMap = [
         //     'department' => Department::class,
@@ -220,6 +323,91 @@ class Index extends Component
         }
 
         return $auditable;
+    }
+
+    /**
+     * Sync roles for an auditable model
+     * Handles both role IDs and role names
+     */
+    private function syncRolesFromPayload($auditable, $roleData)
+    {
+        if (empty($roleData)) {
+            return;
+        }
+
+        $roleNames = [];
+        $guardName = property_exists($auditable, 'guard_name') ? $auditable->guard_name : 'employees';
+
+        foreach ($roleData as $role) {
+            if (is_numeric($role)) {
+                // It's an ID, get the role name from the correct guard
+                $roleObj = \Spatie\Permission\Models\Role::where('id', $role)
+                    ->where('guard_name', $guardName)
+                    ->first();
+                if ($roleObj) {
+                    $roleNames[] = $roleObj->name;
+                }
+            } else {
+                // It's already a name
+                $roleNames[] = $role;
+            }
+        }
+
+        if (!empty($roleNames)) {
+            $auditable->syncRoles($roleNames);
+        }
+    }
+
+    /**
+     * Sync permissions for an auditable model
+     * Handles both permission IDs and permission names
+     */
+    private function syncPermissionsFromPayload($auditable, $permissionData)
+    {
+        if (empty($permissionData)) {
+            return;
+        }
+
+        $permissionNames = [];
+        $guardName = property_exists($auditable, 'guard_name') ? $auditable->guard_name : 'web';
+
+        foreach ($permissionData as $permission) {
+            if (is_numeric($permission)) {
+                // It's an ID, get the permission name from the correct guard
+                $permissionObj = \Spatie\Permission\Models\Permission::where('id', $permission)
+                    ->where('guard_name', $guardName)
+                    ->first();
+                if ($permissionObj) {
+                    $permissionNames[] = $permissionObj->name;
+                }
+            } else {
+                // It's already a name
+                $permissionNames[] = $permission;
+            }
+        }
+
+        if (!empty($permissionNames)) {
+            $auditable->syncPermissions($permissionNames);
+        }
+    }
+
+    /**
+     * Sync a generic many-to-many relationship
+     */
+    private function syncRelationship($auditable, string $relationshipName, array $syncData)
+    {
+        if (empty($syncData)) {
+            return;
+        }
+
+        try {
+            if (method_exists($auditable, $relationshipName)) {
+                $auditable->{$relationshipName}()->sync($syncData);
+            }
+        } catch (\Exception $e) {
+            // Silently fail for relationships that don't exist
+            // This prevents errors when generic sync patterns are used
+        }
     }
 
     /**
@@ -247,9 +435,29 @@ class Index extends Component
         }
 
         try {
-            // Special handling for roles - use syncRoles() which resolves names to IDs
+            // Special handling for roles - convert IDs to names if needed
             if ($relationship === 'roles') {
-                $auditable->syncRoles($syncData);
+                // If syncData contains numeric values (IDs), convert to role names
+                $roleNames = [];
+                $guardName = property_exists($auditable, 'guard_name') ? $auditable->guard_name : 'employees';
+                
+                foreach ($syncData as $role) {
+                    if (is_numeric($role)) {
+                        // It's an ID, get the role name from the correct guard
+                        $roleObj = \Spatie\Permission\Models\Role::where('id', $role)
+                            ->where('guard_name', $guardName)
+                            ->first();
+                        if ($roleObj) {
+                            $roleNames[] = $roleObj->name;
+                        }
+                    } else {
+                        // It's already a name
+                        $roleNames[] = $role;
+                    }
+                }
+                if (!empty($roleNames)) {
+                    $auditable->syncRoles($roleNames);
+                }
             } else if ($relationship === 'permissions') {
                 // Similar handling for permissions
                 $auditable->syncPermissions($syncData);
@@ -271,7 +479,13 @@ class Index extends Component
     public function rejectRequest($requestId)
     {
         $request = ApprovalAuditRequest::find($requestId);
-        if ($request && $request->status === 'pending') {
+        
+        if (!$request || $request->status !== 'pending') {
+            $this->dispatch('toast', message: 'Request not found or already processed', type: 'error');
+            return;
+        }
+
+        try {
             $approver = auth()->user() ?? auth('employees')->user();
             $request->update([
                 'status' => 'rejected',
@@ -281,7 +495,7 @@ class Index extends Component
             ]);
 
             // Log the rejection action
-            // Extract just the action type (e.g., "update:roles:uuid" -> "update")
+            // Extract just the action type (e.g., "update:App\Models\Employee" -> "update")
             $baseAction = explode(':', $request->action)[0];
             AuditService::log(
                 $approver,
@@ -291,8 +505,20 @@ class Index extends Component
                 'completed'
             );
 
-            $this->dispatch('toast', message: 'Request rejected', type: 'info');
+            $this->dispatch('toast', message: 'Request rejected successfully', type: 'info');
             $this->resetPage();
+        } catch (\Exception $e) {
+            // Log the error
+            $approver = auth()->user() ?? auth('employees')->user();
+            AuditService::log(
+                $approver,
+                'reject_failed',
+                null,
+                'Rejection failed: ' . $e->getMessage(),
+                'failed'
+            );
+
+            $this->dispatch('toast', message: 'Error rejecting request: ' . $e->getMessage(), type: 'error');
         }
     }
 

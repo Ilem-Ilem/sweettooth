@@ -20,7 +20,7 @@ class Index extends BaseComponent
     use Interactions;
 
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
 
     #[Url(keep: true)]
     public ?string $deptSlug = null;

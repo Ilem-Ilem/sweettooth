@@ -19,7 +19,7 @@ class StockMonitor extends BaseComponent
     use WithPagination, Interactions;
 
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
 
     public ?int $quantity = 20;
     public ?string $search = null;

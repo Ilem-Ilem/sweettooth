@@ -4,8 +4,11 @@ namespace App\Providers;
 
 use App\Helpers\RolePermission;
 use App\Models\Department;
+use App\Models\Employee;
+use App\Models\User;
 use App\Observers\DepartmentObserver;
 use App\Observers\SalesPageObserver;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
@@ -28,6 +31,14 @@ class AppServiceProvider extends ServiceProvider
         // Register observers
         Department::observe(DepartmentObserver::class);
         Department::observe(SalesPageObserver::class);
+
+        // Register morph aliases for polymorphic relationships
+        Relation::morphMap([
+            'employee' => Employee::class,
+            'Employee' => Employee::class,
+            'user' => User::class,
+            'User' => User::class,
+        ]);
 
         Auth::macro('employee', function () {
             return Auth::guard('employees')->user();

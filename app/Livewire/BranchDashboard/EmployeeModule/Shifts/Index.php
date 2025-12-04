@@ -15,7 +15,7 @@ use App\Models\EmployeeShift;
 class Index extends BaseComponent
 {
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
 
     public function mount()
     {

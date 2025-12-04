@@ -17,7 +17,7 @@ use App\Models\Employee;
 class Recipes extends BaseComponent
 {
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
 
     // Listen for branch changes from BranchSelector (for super admins)
     #[On('branch-changed')]
@@ -44,9 +44,9 @@ class Recipes extends BaseComponent
 
 
     #[Url(keep: true)]
-    public $dept_slug;
+    public ?string $dept_slug = null;
 
-    public $department;
+    public ?Department $department = null;
 
     public function mount($deptSlug){
         $this->dept_slug = $deptSlug;

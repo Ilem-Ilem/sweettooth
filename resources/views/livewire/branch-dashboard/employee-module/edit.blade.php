@@ -27,7 +27,7 @@
         title="Edit Employee"
         :items="[
             ['label' => 'Dashboard', 'url' => branch_route('branch-dashboard.index', ['b_id' => $b_id])],
-            ['label' => 'Employees', 'url' => branch_route('branch-dashboard.employees.index', ['b_id' => $b_id])],
+            ['label' => 'Employees', 'url' => branch_route('branch-dashboard.employee.index', ['b_id' => $b_id])],
             ['label' => 'Edit Employee']
         ]"
         :compact="false"
@@ -55,7 +55,7 @@
                             d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
                             clip-rule="evenodd"></path>
                     </svg>
-                    <a href="{{ branch_route('branch-dashboard.employees.index', ['b_id' => $b_id]) }}"
+                    <a href="{{ branch_route('branch-dashboard.employee.index', ['b_id' => $b_id]) }}"
                         class="ml-1 text-sm font-medium text-zinc-700 hover:text-blue-600 md:ml-2 dark:text-zinc-400 dark:hover:text-white">
                         Employees
                     </a>
@@ -78,7 +78,7 @@
     <!-- Header -->
     <div class="flex justify-between items-center">
         <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Edit Employee</h1>
-        <a href="{{ branch_route('branch-dashboard.employees.index', ['b_id' => $b_id]) }}"
+        <a href="{{ branch_route('branch-dashboard.employee.index', ['b_id' => $b_id]) }}"
             class="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors duration-200 flex items-center shadow-sm">
             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -546,7 +546,7 @@
                                Cancel
                            </button>
                            <button type="button" wire:click="proceedWithUpdateReason"
-                               {{ strlen($updateReason) < 5 ? 'disabled' : '' }}
+                               :disabled="@entangle('updateReason').length < 5"
                                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg flex items-center">
                                <span wire:loading.remove>
                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -572,7 +572,7 @@
             <!-- Form Actions -->
             <div
                 class="px-6 py-4 bg-zinc-50 dark:bg-zinc-900/50 border-t border-zinc-200 dark:border-zinc-700 flex items-center justify-end space-x-3 rounded-b-2xl">
-                <a href="{{ branch_route('branch-dashboard.employees.index', ['b_id' => $b_id]) }}"
+                <a href="{{ branch_route('branch-dashboard.employee.index', ['b_id' => $b_id]) }}"
                     class="px-6 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors">
                     Cancel
                 </a>

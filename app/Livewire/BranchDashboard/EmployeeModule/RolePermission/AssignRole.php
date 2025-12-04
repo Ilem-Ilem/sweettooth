@@ -20,10 +20,10 @@ class AssignRole extends BaseComponent
     public string $filterBranch = '';
     public string $filterDepartment = '';
     public bool $showRemoveRoleModal = false;
-    public $selectedEmployee = null;
+    public ?Employee $selectedEmployee = null;
     
     #[Url(keep:true)]
-    public $b_id;
+    public ?string $b_id = null;
 
     protected $queryString = ['searchEmployee', 'filterBranch', 'filterDepartment'];
     

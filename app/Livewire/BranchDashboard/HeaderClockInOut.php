@@ -13,7 +13,7 @@ class HeaderClockInOut extends Component
     use Interactions;
 
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
 
     public $currentShift = null;
     public $hasActiveShift = false;

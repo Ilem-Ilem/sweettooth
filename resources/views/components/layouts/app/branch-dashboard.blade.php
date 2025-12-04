@@ -36,16 +36,28 @@
                     </flux:navlist.item>
                 </flux:navlist.group>
                 <flux:navlist.group :heading="__('Employee Management')" expandable
-                    :expanded="request()->routeIs('branch-dashboard.employees.*') || request()->routeIs('branch-dashboard.assignments.*')"
+                    :expanded="request()->routeIs('branch-dashboard.employees.*') || request()->routeIs('branch-dashboard.assignments.*') || request()->routeIs('branch-dashboard.clock-in-board.*')"
                     class="grid" icon='users'>
-                    <flux:navlist.item icon="user" :href="branch_route('branch-dashboard.employees.index')"
-                        :current="request()->routeIs('branch-dashboard.employees.index')" wire:navigate>
+                    <flux:navlist.item icon="user" :href="branch_route('branch-dashboard.employee.index')"
+                    :current="request()->routeIs('branch-dashboard.employee.index')" wire:navigate>
                         {{ __('All Employees') }}
                     </flux:navlist.item>
                     <flux:navlist.item icon="user-plus" :href="branch_route('branch-dashboard.employee.create')"
                         :current="request()->routeIs('branch-dashboard.employee.create')" wire:navigate>
                         {{ __('Create Employee') }}
                     </flux:navlist.item>
+
+                    <flux:navlist.group :heading="__('Clock-In Board')" expandable
+                        :expanded="request()->routeIs('branch-dashboard.clock-in-board.*')" class="grid" icon='clock'>
+                        <flux:navlist.item icon="calendar-days" :href="branch_route('branch-dashboard.clock-in-board.today')"
+                            :current="request()->routeIs('branch-dashboard.clock-in-board.today')" wire:navigate>
+                            {{ __('Today') }}
+                        </flux:navlist.item>
+                        <flux:navlist.item icon="calendar" :href="branch_route('branch-dashboard.clock-in-board.all')"
+                            :current="request()->routeIs('branch-dashboard.clock-in-board.all')" wire:navigate>
+                            {{ __('All Employees (Date Range)') }}
+                        </flux:navlist.item>
+                    </flux:navlist.group>
 
                     <flux:navlist.item icon="user-plus" :href="branch_route('branch-dashboard.role-permission')"
                         :current="request()->routeIs('branch-dashboard.employee.role-permission')" wire:navigate>

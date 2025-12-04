@@ -18,7 +18,7 @@ class Index extends Component
     use Interactions, WithPagination;
 
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
 
     public $selectedReports = [];
     public $compilationTitle = '';

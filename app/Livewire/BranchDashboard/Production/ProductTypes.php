@@ -12,7 +12,7 @@ use Livewire\Attributes\{Layout, On, Url};
 class ProductTypes extends BaseComponent
 {
     #[Url(keep:true)]
-    public $b_id;
+    public ?string $b_id = null;
 
     // Listen for branch changes from BranchSelector (for super admins)
     #[On('branch-changed')]
@@ -40,8 +40,8 @@ class ProductTypes extends BaseComponent
     public string $status = 'active';
     public int $sort_order = 0;
 
-    public $employees_department;
-    public $department;
+    public ?Employee $employees_department = null;
+    public ?Department $department = null;
 
 
     protected array $bulkActions = [
@@ -50,7 +50,7 @@ class ProductTypes extends BaseComponent
 
 
     #[Url(keep: true)]
-    public $dept_slug;
+    public ?string $dept_slug = null;
 
     public function mount($deptSlug){
         $this->dept_slug = $deptSlug;

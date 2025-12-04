@@ -19,7 +19,7 @@ class ApplyLeave extends BaseComponent
     use Interactions, WithFileUploads;
 
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
 
     // Form fields
     public $leave_type_id = null;

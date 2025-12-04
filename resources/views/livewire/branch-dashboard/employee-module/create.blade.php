@@ -515,7 +515,7 @@
                                Cancel
                            </button>
                            <button type="button" wire:click="proceedWithCreationReason"
-                               {{ strlen($creationReason) < 5 ? 'disabled' : '' }}
+                               :disabled="@entangle('creationReason').length < 5"
                                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg flex items-center">
                                <span wire:loading.remove>
                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

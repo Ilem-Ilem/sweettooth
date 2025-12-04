@@ -7,7 +7,7 @@ use App\Models\Employee;
 
 class EmployeeDetails extends Component
 {
-    public $employee;
+    public ?Employee $employee = null;
 
     public function mount($employee_number, $id){
         $employee = Employee::with(['department', 'branch'])->

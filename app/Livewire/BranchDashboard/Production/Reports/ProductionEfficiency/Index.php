@@ -16,7 +16,7 @@ class Index extends Component
     use Interactions;
 
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
 
     // Filters
     public $periodFilter = 'week';

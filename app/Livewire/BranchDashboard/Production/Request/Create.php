@@ -21,12 +21,12 @@ class Create extends Component
     use Interactions;
 
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
 
     #[Url(keep: true)]
-    public $dept_slug;
+    public ?string $dept_slug = null;
 
-    public $department;
+    public ?Department $department = null;
 
     public $selectedProducts = [];
     public $currentShift = null;

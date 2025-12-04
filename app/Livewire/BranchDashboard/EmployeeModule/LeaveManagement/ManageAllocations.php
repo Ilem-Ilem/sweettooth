@@ -19,7 +19,7 @@ class ManageAllocations extends BaseComponent
     use WithPagination, Interactions;
 
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
 
     public ?int $quantity = 20;
     public ?string $search = null;
@@ -28,7 +28,7 @@ class ManageAllocations extends BaseComponent
     // Modal fields
     public $showAllocationModal = false;
     public $selectedEmployeeId = null;
-    public $selectedEmployee = null;
+    public ?Employee $selectedEmployee = null;
     public $allocations = [];
 
     // Table headers

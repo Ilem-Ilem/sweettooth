@@ -446,23 +446,24 @@
                 </div>
 
                 <!-- Data Display -->
+                <template x-if="selectedApproval">
                 <div x-show="!loading && selectedApproval" x-transition class="space-y-6">
                     <!-- Status Badge -->
                     <div class="flex items-center gap-3">
                         <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">
-                            <span x-text="`{{ 'Status' }}: ` + (selectedApproval.status.charAt(0).toUpperCase() + selectedApproval.status.slice(1))"></span>
+                            <span x-text="selectedApproval ? `{{ 'Status' }}: ` + (selectedApproval.status?.charAt(0).toUpperCase() + selectedApproval.status?.slice(1)) : ''"></span>
                         </h2>
-                        <template x-if="selectedApproval.status === 'pending'">
+                        <template x-if="selectedApproval && selectedApproval.status === 'pending'">
                             <span class="px-4 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded-full text-sm font-semibold">
                                 ⏳ Awaiting Decision
                             </span>
                         </template>
-                        <template x-if="selectedApproval.status === 'approved'">
+                        <template x-if="selectedApproval && selectedApproval.status === 'approved'">
                             <span class="px-4 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 rounded-full text-sm font-semibold">
                                 ✅ Approved
                             </span>
                         </template>
-                        <template x-if="selectedApproval.status === 'rejected'">
+                        <template x-if="selectedApproval && selectedApproval.status === 'rejected'">
                             <span class="px-4 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 rounded-full text-sm font-semibold">
                                 ❌ Rejected
                             </span>
@@ -473,25 +474,25 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div class="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4 border dark:border-gray-600">
                             <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase mb-1">Requested By</label>
-                            <p class="text-gray-900 dark:text-gray-100 font-medium text-sm" x-text="selectedApproval.requesterName"></p>
-                            <p class="text-xs text-gray-500 dark:text-gray-500" x-text="selectedApproval.branchName"></p>
+                            <p class="text-gray-900 dark:text-gray-100 font-medium text-sm" x-text="selectedApproval?.requesterName || 'Unknown'"></p>
+                            <p class="text-xs text-gray-500 dark:text-gray-500" x-text="selectedApproval?.branchName || 'N/A'"></p>
                         </div>
 
                         <div class="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4 border dark:border-gray-600">
                             <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase mb-1">Request Type</label>
                             <p class="text-gray-900 dark:text-gray-100 font-medium text-sm">
-                                <span x-text="`{{ 'What' }}: ` + selectedApproval.action.split(':')[0].charAt(0).toUpperCase() + selectedApproval.action.split(':')[0].slice(1).replace(/_/g, ' ')"></span>
+                                <span x-text="selectedApproval ? `{{ 'What' }}: ` + selectedApproval.action?.split(':')[0].charAt(0).toUpperCase() + selectedApproval.action?.split(':')[0].slice(1).replace(/_/g, ' ') : ''"></span>
                             </p>
                         </div>
 
                         <div class="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4 border dark:border-gray-600">
                             <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase mb-1">Requested At</label>
-                            <p class="text-gray-900 dark:text-gray-100 font-medium text-sm" x-text="selectedApproval.createdAt"></p>
+                            <p class="text-gray-900 dark:text-gray-100 font-medium text-sm" x-text="selectedApproval?.createdAt || 'N/A'"></p>
                         </div>
 
                         <div class="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4 border dark:border-gray-600">
                             <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase mb-1">Request ID</label>
-                            <p class="text-gray-900 dark:text-gray-100 font-mono text-xs" x-text="selectedApproval.id"></p>
+                            <p class="text-gray-900 dark:text-gray-100 font-mono text-xs" x-text="selectedApproval?.id || 'N/A'"></p>
                         </div>
                     </div>
 
@@ -499,7 +500,7 @@
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">💬 Reason Provided</label>
                         <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
-                            <p class="text-gray-900 dark:text-gray-100 text-sm whitespace-pre-wrap" x-text="selectedApproval.description || 'No reason provided'"></p>
+                            <p class="text-gray-900 dark:text-gray-100 text-sm whitespace-pre-wrap" x-text="selectedApproval?.description || 'No reason provided'"></p>
                         </div>
                     </div>
 
@@ -518,7 +519,7 @@
                                 <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase mb-2">Data Being Changed</label>
                                 <div class="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 border dark:border-gray-700 overflow-x-auto max-h-64 overflow-y-auto">
                                     <div class="text-xs font-mono text-gray-700 dark:text-gray-300 space-y-2">
-                                        <template x-if="Object.keys(selectedApproval.payload).length > 0">
+                                        <template x-if="selectedApproval && selectedApproval.payload && Object.keys(selectedApproval.payload).length > 0">
                                             <div>
                                                 <p class="font-bold text-gray-900 dark:text-white mb-2">Change Details:</p>
                                                 <template x-for="(value, key) in selectedApproval.payload" :key="key">
@@ -534,7 +535,7 @@
                                                 </template>
                                             </div>
                                         </template>
-                                        <template x-if="Object.keys(selectedApproval.payload).length === 0">
+                                        <template x-if="!selectedApproval || !selectedApproval.payload || Object.keys(selectedApproval.payload).length === 0">
                                             <p class="text-gray-500">No payload data available</p>
                                         </template>
                                     </div>
@@ -545,12 +546,13 @@
                             <div>
                                 <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase mb-2">Raw Data</label>
                                 <div class="bg-gray-900 dark:bg-gray-950 rounded-lg p-4 overflow-x-auto max-h-64 overflow-y-auto">
-                                    <pre class="text-gray-300 text-xs font-mono" x-text="JSON.stringify(selectedApproval.payload, null, 2)"></pre>
+                                    <pre class="text-gray-300 text-xs font-mono" x-text="selectedApproval ? JSON.stringify(selectedApproval.payload, null, 2) : '{}'"></pre>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+                </template>
             </div>
 
             <!-- Footer -->

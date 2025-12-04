@@ -23,10 +23,10 @@
     }
 </style>
 <x-breadcrumb
-    title="Role  Management"
+    title="Role Management"
     :items="[
-        ['label' => 'Dashboard', 'url' => route('dashboard')],
-        ['label' => 'Manage Role and permissions']
+        ['label' => 'Dashboard', 'url' => branch_route('branch-dashboard.index')],
+        ['label' => 'Role Management']
     ]"
     :compact="false"
     :with-icons="true"

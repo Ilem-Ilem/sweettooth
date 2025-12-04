@@ -10,6 +10,8 @@ use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use Livewire\WithPagination;
 use App\Models\StockMovement;
+use App\Services\AuditService;
+use App\Services\InventoryApprovalService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\{Layout, Url, On};
@@ -19,7 +21,7 @@ class Purchases extends Component
 {
     use WithPagination;
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
     public $purchaseId;
     public $purchase_date;
     public $supplier_name;
@@ -41,6 +43,13 @@ class Purchases extends Component
     public $showModal = false;
     public $isEditing = false;
 
+    // Audit Modal
+    public $showAuditModal = false;
+    public $auditReason = '';
+    public $auditAction = null;
+    public $pendingPurchaseData = [];
+    public $pendingItemId = null;
+
     protected $rules = [
         'purchase_date' => 'required|date',
         'supplier_name' => 'required|string|max:255',
@@ -50,10 +59,12 @@ class Purchases extends Component
         'other_costs' => 'required|numeric|min:0',
         'payment_status' => 'required|in:paid,partial,pending',
         'notes' => 'nullable|string',
+        'purchaseItems' => 'required|array|min:1',
         'purchaseItems.*.item_id' => 'required|exists:items,id',
         'purchaseItems.*.quantity' => 'required|numeric|min:0.01',
         'purchaseItems.*.uom' => 'required|string',
         'purchaseItems.*.unit_fob_fc' => 'required|numeric|min:0',
+        'auditReason' => 'required_if:showAuditModal,true|string|min:10|max:500',
     ];
 
     public function mount()
@@ -140,6 +151,49 @@ class Purchases extends Component
 
         $this->validate();
 
+        // For super admins, create directly
+        if (is_super_admin()) {
+            $this->executeImmediatePurchaseCreation();
+            return;
+        }
+
+        // For regular employees, show audit modal first
+        $branchId = $this->getBranchId();
+        $branch = Auth::guard('employees')->user()->branch;
+
+        $totalFobFc = 0;
+        $totalFobNgn = 0;
+
+        foreach ($this->purchaseItems as $item) {
+            $totalFobFc += $item['quantity'] * $item['unit_fob_fc'];
+            $totalFobNgn += $item['quantity'] * ($item['unit_fob_fc'] * $this->exchange_rate);
+        }
+
+        $landingCost = $totalFobNgn + $this->other_costs;
+
+        // Store purchase data for approval
+        $this->pendingPurchaseData = [
+            'purchase_date' => $this->purchase_date,
+            'supplier_name' => $this->supplier_name,
+            'supplier_contact' => $this->supplier_contact,
+            'total_fob_fc' => $totalFobFc,
+            'total_fob_ngn' => $totalFobNgn,
+            'other_costs' => $this->other_costs,
+            'landing_cost' => $landingCost,
+            'currency' => $this->currency,
+            'exchange_rate' => $this->exchange_rate,
+            'payment_status' => $this->payment_status,
+            'notes' => $this->notes,
+            'items' => $this->purchaseItems,
+        ];
+
+        $this->auditReason = '';
+        $this->closeModal();
+        $this->showAuditModal = true;
+    }
+
+    private function executeImmediatePurchaseCreation()
+    {
         DB::beginTransaction();
         try {
             $actor = current_actor();
@@ -147,7 +201,6 @@ class Purchases extends Component
             if (!$actor) {
                 abort(403, "No Authenticated User Found");
             }
-
 
             $branchId = $this->getBranchId();
             $branch = is_super_admin() ? Branch::where('id', $branchId)->First() :
@@ -227,9 +280,7 @@ class Purchases extends Component
 
                 StockMovement::create([
                     'stock_id' => $stock->id,
-                    'item_id' => $item['item_id'],
-                    'branch_id' => $branchId,
-                    'movement_type' => 'in',
+                    'type' => 'in',
                     'quantity_before'=>$quantity_before,
                     'quantity_after'=>$stock->quantity_available,
                     'quantity' => $quantity,
@@ -242,6 +293,18 @@ class Purchases extends Component
                 ]);
             }
 
+            // Log the purchase creation
+            AuditService::log(
+                $actor,
+                'create',
+                $purchase,
+                "Created purchase #{$purchase->purchase_number} from {$purchase->supplier_name}. " .
+                "Total FOB FC: {$purchase->total_fob_fc}, Total FOB NGN: {$purchase->total_fob_ngn}, " .
+                "Landing Cost: {$purchase->landing_cost}, Payment Status: {$purchase->payment_status}. " .
+                "Items: " . count($this->purchaseItems),
+                'completed'
+            );
+
             DB::commit();
             session()->flash('success', 'Purchase created successfully.');
             $this->closeModal();
@@ -250,6 +313,37 @@ class Purchases extends Component
             DB::rollBack();
             throw new \Exception($e->getMessage());
             session()->flash('error', 'Error creating purchase: ' . $e->getMessage());
+        }
+    }
+
+    public function submitPurchaseApprovalRequest()
+    {
+        $this->validate([
+            'auditReason' => 'required|string|min:10|max:500',
+        ], [
+            'auditReason.required' => 'Please provide a reason for the purchase.',
+            'auditReason.min' => 'Reason must be at least 10 characters.',
+        ]);
+
+        try {
+            $actor = Auth::guard('employees')->user();
+
+            $request = InventoryApprovalService::requestPurchaseCreation(
+                $actor,
+                $this->pendingPurchaseData,
+                $this->auditReason
+            );
+
+            // Verify request was created
+            if (!$request || !$request->id) {
+                throw new \Exception('Failed to create approval request');
+            }
+
+            $this->toast()->success('Purchase approval request submitted! (Request ID: ' . $request->id . ')')->send();
+            $this->closeAuditModal();
+            $this->resetFields();
+        } catch (\Exception $e) {
+            $this->toast()->error('Failed: ' . $e->getMessage())->send();
         }
     }
 
@@ -264,14 +358,77 @@ class Purchases extends Component
             return;
         }
 
-        $purchase->delete();
-        session()->flash('success', 'Purchase deleted successfully.');
+        // For super admins, delete directly
+        if (is_super_admin()) {
+            $purchaseNumber = $purchase->purchase_number;
+            $supplierName = $purchase->supplier_name;
+            $itemCount = $purchase->purchaseItems()->count();
+            $landingCost = $purchase->landing_cost;
+
+            $purchase->delete();
+
+            // Log the purchase deletion
+            AuditService::log(
+                current_actor(),
+                'delete',
+                $purchase,
+                "Deleted purchase #{$purchaseNumber} from {$supplierName}. Items: {$itemCount}, Landing Cost: {$landingCost}",
+                'completed'
+            );
+
+            session()->flash('success', 'Purchase deleted successfully.');
+            return;
+        }
+
+        // For regular employees, request approval
+        $this->pendingItemId = $id;
+        $this->auditReason = '';
+        $this->showAuditModal = true;
+    }
+
+    public function submitPurchaseDeletionRequest()
+    {
+        $this->validate([
+            'auditReason' => 'required|string|min:10|max:500',
+        ], [
+            'auditReason.required' => 'Please provide a reason for deletion.',
+            'auditReason.min' => 'Reason must be at least 10 characters.',
+        ]);
+
+        try {
+            $actor = Auth::guard('employees')->user();
+
+            $request = InventoryApprovalService::requestPurchaseDeletion(
+                $actor,
+                $this->pendingItemId,
+                $this->auditReason
+            );
+
+            // Verify request was created
+            if (!$request || !$request->id) {
+                throw new \Exception('Failed to create approval request');
+            }
+
+            $this->toast()->success('Purchase deletion request submitted! (Request ID: ' . $request->id . ')')->send();
+            $this->closeAuditModal();
+        } catch (\Exception $e) {
+            $this->toast()->error('Failed: ' . $e->getMessage())->send();
+        }
     }
 
     public function closeModal()
     {
         $this->showModal = false;
         $this->resetFields();
+        $this->resetValidation();
+    }
+
+    public function closeAuditModal()
+    {
+        $this->showAuditModal = false;
+        $this->auditReason = '';
+        $this->pendingPurchaseData = [];
+        $this->pendingItemId = null;
         $this->resetValidation();
     }
 

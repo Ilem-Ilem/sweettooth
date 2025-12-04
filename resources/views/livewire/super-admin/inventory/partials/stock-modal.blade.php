@@ -1,5 +1,23 @@
 <!-- Stock Management Modal (Slide-in) -->
-<div x-data="{ show: @entangle('showStockModal') }" x-show="show" x-cloak class="fixed inset-0 z-50 overflow-hidden"
+<div x-data="{ 
+    show: @entangle('showStockModal'),
+    total: 0,
+    available: 0,
+    reserved: 0,
+    damaged: 0,
+    updateTotal() { 
+        this.available = parseFloat($wire.stockQuantity || 0);
+        this.reserved = parseFloat($wire.stockReserved || 0);
+        this.damaged = parseFloat($wire.stockDamaged || 0);
+        this.total = (this.available + this.reserved + this.damaged).toFixed(2);
+    },
+    init() {
+        $watch('$wire.stockQuantity', () => this.updateTotal());
+        $watch('$wire.stockReserved', () => this.updateTotal());
+        $watch('$wire.stockDamaged', () => this.updateTotal());
+        this.updateTotal();
+    }
+}" x-show="show" x-cloak class="fixed inset-0 z-50 overflow-hidden"
     @keydown.escape.window="show = false">
     <!-- Backdrop -->
     <div x-show="show" x-transition:enter="transition-opacity ease-linear duration-300"

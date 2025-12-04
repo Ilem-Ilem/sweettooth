@@ -1,7 +1,19 @@
 <div>
     <div class="p-6 bg-gray-50 dark:bg-gray-900 min-h-screen">
+        <!-- Breadcrumb -->
+        <x-breadcrumb
+            title="Shift Closing"
+            :items="[
+                ['label' => 'Dashboard', 'url' => branch_route('branch-dashboard.index')],
+                ['label' => 'Inventory'],
+                ['label' => 'Shift Closing']
+            ]"
+            :compact="false"
+            :with-icons="true"
+        />
+
         <!-- Header -->
-        <div class="mb-6">
+        <div class="mb-6 mt-4">
             <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Inventory Shift Closing</h1>
             <p class="text-gray-600 dark:text-gray-400 mt-1">Close your inventory shift and reconcile stock</p>
         </div>

@@ -324,13 +324,19 @@ class Create extends BaseComponent
 
             if (!is_super_admin()) {
                 // EMPLOYEE: Create approval request (don't create employee yet)
+                // Optimized payload with all required fields for audit system
+                $approvalPayload = array_merge($data, [
+                    'branch_id' => $this->b_id,
+                    'selectedRoles' => $this->selectedRoles,
+                ]);
+
                 ApprovalAuditRequest::create([
                     'branch_id' => $this->b_id,
                     'requester_id' => $user->id,
                     'requester_type' => get_class($user),
                     'action' => 'create:' . Employee::class,
                     'description' => $this->creationReason,
-                    'payload' => array_merge($data, ['selectedRoles' => $this->selectedRoles]),
+                    'payload' => $approvalPayload,
                     'status' => 'pending',
                 ]);
 
