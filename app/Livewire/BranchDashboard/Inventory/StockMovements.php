@@ -253,8 +253,7 @@ class StockMovements extends Component
         $query = StockMovement::with([
             'stock.item',
             'stock.branch',
-            'mover',
-            'reference'
+            'mover'
         ])
             ->whereHas('stock', function ($q) use ($branchId) {
                 $q->where('branch_id', $branchId);

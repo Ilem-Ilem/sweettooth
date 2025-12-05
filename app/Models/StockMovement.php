@@ -47,7 +47,8 @@ class StockMovement extends Model
 
     public function reference(): MorphTo
     {
-        return $this->morphTo(__FUNCTION__, 'reference_type', 'reference_id');
+        return $this->morphTo(__FUNCTION__, 'reference_type', 'reference_id')
+            ->withDefault(null);
     }
 
     public function isInbound(): bool
@@ -62,15 +63,27 @@ class StockMovement extends Model
 
     /**
      * Smart accessor: returns correct department name for ALL reference types
+     * Avoids lazy-loading by checking if reference is already loaded
      */
     public function getDepartmentNameAttribute(): ?string
     {
-        if (! $this->reference) {
+        // Handle invalid/missing reference types (manual_adjustment, production_callback, etc.)
+        if (!$this->reference_type || strpos($this->reference_type, '\\') === false) {
+            return ucfirst(str_replace('_', ' ', $this->reference_type ?? 'Manual'));
+        }
+
+        // Only access reference if it's already been loaded to avoid lazy-loading errors
+        if (!$this->relationLoaded('reference')) {
+            return null;
+        }
+
+        $ref = $this->getRelation('reference');
+        if (! $ref) {
             return null;
         }
 
         // 1. Purchase → show "Purchases"
-        if (is_a($this->reference, \App\Models\Purchase::class, true)) {
+        if (is_a($ref, \App\Models\Purchase::class, true)) {
             return 'Purchases';
         }
 
@@ -78,8 +91,8 @@ class StockMovement extends Model
         $relations = ['department', 'fromDepartment', 'toDepartment', 'from_department', 'to_department'];
 
         foreach ($relations as $relation) {
-            if (method_exists($this->reference, $relation)) {
-                $dept = $this->reference->{$relation};
+            if (method_exists($ref, $relation)) {
+                $dept = $ref->{$relation};
                 if ($dept) {
                     return $dept->name ?? $dept;
                 }
@@ -87,6 +100,6 @@ class StockMovement extends Model
         }
 
         // 3. Fallback: show model name
-        return class_basename($this->reference);
+        return class_basename($ref);
     }
 }

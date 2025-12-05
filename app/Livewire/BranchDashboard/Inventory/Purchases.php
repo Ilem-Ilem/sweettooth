@@ -10,24 +10,24 @@ use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use Livewire\WithPagination;
 use App\Models\StockMovement;
+use App\Models\PurchaseApprovalRequest;
 use App\Services\AuditService;
-use App\Services\InventoryApprovalService;
+use App\Services\PurchaseAuditApprovalService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\{Layout, Url, On};
+use TallStackUi\Traits\Interactions;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Purchases extends Component
 {
-    use WithPagination;
+    use WithPagination, Interactions;
     #[Url(keep: true)]
     public ?string $b_id = null;
     public $purchaseId;
     public $purchase_date;
     public $supplier_name;
     public $supplier_contact;
-    public $currency = 'NGN';
-    public $exchange_rate = 1;
     public $other_costs = 0;
     public $payment_status = 'pending';
     public $notes;
@@ -39,32 +39,35 @@ class Purchases extends Component
 
     public $search = '';
     public $filterPaymentStatus = '';
+    public $filterStatus = '';
+    public $sortColumn = 'purchase_date';
+    public $sortDirection = 'desc';
+    public $viewMode = 'table'; // table, cards, list, timeline, stats
 
     public $showModal = false;
     public $isEditing = false;
 
-    // Audit Modal
-    public $showAuditModal = false;
-    public $auditReason = '';
-    public $auditAction = null;
+    // Request Approval Modal
+    public $showRequestModal = false;
+    public $requestNotes = '';
     public $pendingPurchaseData = [];
-    public $pendingItemId = null;
+
+    // View Detail Modal
+    public $showDetailModal = false;
+    public $detailPurchase = null;
 
     protected $rules = [
         'purchase_date' => 'required|date',
         'supplier_name' => 'required|string|max:255',
         'supplier_contact' => 'nullable|string|max:255',
-        'currency' => 'required|in:NGN,USD,EUR,GBP',
-        'exchange_rate' => 'required|numeric|min:0.01',
-        'other_costs' => 'required|numeric|min:0',
+        'other_costs' => 'nullable|numeric|min:0',
         'payment_status' => 'required|in:paid,partial,pending',
         'notes' => 'nullable|string',
         'purchaseItems' => 'required|array|min:1',
         'purchaseItems.*.item_id' => 'required|exists:items,id',
         'purchaseItems.*.quantity' => 'required|numeric|min:0.01',
-        'purchaseItems.*.uom' => 'required|string',
-        'purchaseItems.*.unit_fob_fc' => 'required|numeric|min:0',
-        'auditReason' => 'required_if:showAuditModal,true|string|min:10|max:500',
+        'purchaseItems.*.uom' => 'required|string|min:1',
+        'purchaseItems.*.unit_price' => 'required|numeric|min:0.01',
     ];
 
     public function mount()
@@ -98,9 +101,8 @@ class Purchases extends Component
                 });
             })
             ->when($this->filterPaymentStatus, fn ($q) => $q->where('payment_status', $this->filterPaymentStatus))
-            ->orderBy('purchase_date', 'desc');
-
-        
+            ->when($this->filterStatus, fn ($q) => $q->where('status', $this->filterStatus))
+            ->orderBy($this->sortColumn, $this->sortDirection);
 
         $purchases = $query->paginate(15);
         $items = Item::where('branch_id', $branchId)
@@ -111,6 +113,8 @@ class Purchases extends Component
         return view('livewire.branch-dashboard.inventory.purchases', [
             'purchases' => $purchases,
             'items' => $items,
+            'summary' => $this->getPurchaseSummary(),
+            'purchasesByStatus' => $this->getPurchasesByStatus(),
         ]);
     }
 
@@ -128,9 +132,9 @@ class Purchases extends Component
         $this->purchaseItems[] = [
             'id' => $this->itemIndex++,
             'item_id' => '',
-            'quantity' => '',
+            'quantity' => 0,
             'uom' => '',
-            'unit_fob_fc' => '',
+            'unit_price' => 0,
         ];
     }
 
@@ -149,47 +153,21 @@ class Purchases extends Component
         //     $this->authorize('create-purchases');
         // }
 
-        $this->validate();
+        try {
+            $this->validate();
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Keep modal open and show validation errors
+            throw $e;
+        }
 
-        // For super admins, create directly
+        // Super admins create immediately with stock updates
         if (is_super_admin()) {
             $this->executeImmediatePurchaseCreation();
             return;
         }
 
-        // For regular employees, show audit modal first
-        $branchId = $this->getBranchId();
-        $branch = Auth::guard('employees')->user()->branch;
-
-        $totalFobFc = 0;
-        $totalFobNgn = 0;
-
-        foreach ($this->purchaseItems as $item) {
-            $totalFobFc += $item['quantity'] * $item['unit_fob_fc'];
-            $totalFobNgn += $item['quantity'] * ($item['unit_fob_fc'] * $this->exchange_rate);
-        }
-
-        $landingCost = $totalFobNgn + $this->other_costs;
-
-        // Store purchase data for approval
-        $this->pendingPurchaseData = [
-            'purchase_date' => $this->purchase_date,
-            'supplier_name' => $this->supplier_name,
-            'supplier_contact' => $this->supplier_contact,
-            'total_fob_fc' => $totalFobFc,
-            'total_fob_ngn' => $totalFobNgn,
-            'other_costs' => $this->other_costs,
-            'landing_cost' => $landingCost,
-            'currency' => $this->currency,
-            'exchange_rate' => $this->exchange_rate,
-            'payment_status' => $this->payment_status,
-            'notes' => $this->notes,
-            'items' => $this->purchaseItems,
-        ];
-
-        $this->auditReason = '';
-        $this->closeModal();
-        $this->showAuditModal = true;
+        // Regular employees save as draft and then request approval
+        $this->savePurchaseDraft();
     }
 
     private function executeImmediatePurchaseCreation()
@@ -208,15 +186,18 @@ class Purchases extends Component
 
             $purchaseNumber = Purchase::generatePurchaseNumber($branch->code);
 
-            $totalFobFc = 0;
-            $totalFobNgn = 0;
+            $totalCost = 0;
 
             foreach ($this->purchaseItems as $item) {
-                $totalFobFc += $item['quantity'] * $item['unit_fob_fc'];
-                $totalFobNgn += $item['quantity'] * ($item['unit_fob_fc'] * $this->exchange_rate);
+                $itemTotal = $item['quantity'] * $item['unit_price'];
+                $totalCost += $itemTotal;
             }
 
-            $landingCost = $totalFobNgn + $this->other_costs;
+            $landingCost = $totalCost + ($this->other_costs ?? 0);
+            $totalCost = $landingCost; // Set total_cost equal to landing_cost
+            
+            // For NGN currency (branch dashboard only uses NGN)
+            $totalFobNgn = $landingCost - ($this->other_costs ?? 0);
 
             $purchase = Purchase::create([
                 'branch_id' => $branchId,
@@ -228,35 +209,34 @@ class Purchases extends Component
                 'supplier_contact' => $this->supplier_contact,
                 'total_fob_fc' => $totalFobFc,
                 'total_fob_ngn' => $totalFobNgn,
-                'other_costs' => $this->other_costs,
+                'other_costs' => $this->other_costs ?? 0,
                 'landing_cost' => $landingCost,
-                'currency' => $this->currency,
-                'exchange_rate' => $this->exchange_rate,
+                'total_cost' => $totalCost,
                 'payment_status' => $this->payment_status,
                 'notes' => $this->notes,
+                'status' => 'approved', // Super admins bypass approval
             ]);
 
             foreach ($this->purchaseItems as $item) {
                 $quantity = $item['quantity'];
-                $unitFobFc = $item['unit_fob_fc'];
-                $unitFobNgn = $unitFobFc * $this->exchange_rate;
-                $totalFobItemFc = $quantity * $unitFobFc;
-                $totalFobItemNgn = $quantity * $unitFobNgn;
+                $unitPrice = $item['unit_price'];
+                $totalItemCost = $quantity * $unitPrice;
 
-                $costProportion = $totalFobNgn > 0 ? ($totalFobItemNgn / $totalFobNgn) : 0;
-                $allocatedOtherCosts = $this->other_costs * $costProportion;
-                $totalCost = $totalFobItemNgn + $allocatedOtherCosts;
-                $costPerUnit = $quantity > 0 ? ($totalCost / $quantity) : 0;
+                $costProportion = ($landingCost - ($this->other_costs ?? 0)) > 0 ? ($totalItemCost / ($landingCost - ($this->other_costs ?? 0))) : 0;
+                $allocatedOtherCosts = ($this->other_costs ?? 0) * $costProportion;
+                $landingCostItem = $totalItemCost + $allocatedOtherCosts;
+                $costPerUnit = $quantity > 0 ? ($landingCostItem / $quantity) : 0;
 
                 PurchaseItem::create([
                     'purchase_id' => $purchase->id,
                     'item_id' => $item['item_id'],
                     'quantity' => $quantity,
                     'uom' => $item['uom'],
-                    'fob_fc' => $unitFobFc,
-                    'fob_ngn' => $unitFobNgn,
+                    'fob_fc' => 0,
+                    'fob_ngn' => $unitPrice,
                     'other_costs' => $allocatedOtherCosts,
-                    'total_cost' => $totalCost,
+                    'landing_cost' => $landingCostItem,
+                    'total_cost' => $landingCostItem,
                     'cost_per_unit' => $costPerUnit,
                 ]);
 
@@ -306,115 +286,205 @@ class Purchases extends Component
             );
 
             DB::commit();
-            session()->flash('success', 'Purchase created successfully.');
+            $this->toast()->success('Purchase created successfully.')->send();
             $this->closeModal();
             $this->resetFields();
         } catch (\Exception $e) {
             DB::rollBack();
-            throw new \Exception($e->getMessage());
-            session()->flash('error', 'Error creating purchase: ' . $e->getMessage());
+            $this->toast()->error('Error creating purchase: ' . $e->getMessage())->send();
         }
     }
 
+    /**
+     * Save purchase as draft (for regular employees)
+     */
+    private function savePurchaseDraft()
+    {
+        DB::beginTransaction();
+        try {
+            $actor = current_actor();
+
+            if (!$actor) {
+                abort(403, "No Authenticated User Found");
+            }
+
+            $branchId = $this->getBranchId();
+
+            $purchaseNumber = Purchase::generatePurchaseNumber(
+                Auth::guard('employees')->user()->branch->code
+            );
+
+            $totalFobFc = 0;
+            $totalFobNgn = 0;
+
+            foreach ($this->purchaseItems as $item) {
+                $itemTotal = $item['quantity'] * $item['unit_price'];
+                $totalFobNgn += $itemTotal;
+            }
+
+            $landingCost = $totalFobNgn + ($this->other_costs ?? 0);
+
+            // Create the purchase with draft status
+            $purchase = Purchase::create([
+                'branch_id' => $branchId,
+                'recorded_by_id' => $actor->id,
+                'recorded_by_type' => get_class($actor),
+                'purchase_number' => $purchaseNumber,
+                'purchase_date' => $this->purchase_date,
+                'supplier_name' => $this->supplier_name,
+                'supplier_contact' => $this->supplier_contact,
+                'total_fob_fc' => $totalFobNgn,
+                'total_fob_ngn' => $totalFobNgn,
+                'other_costs' => $this->other_costs ?? 0,
+                'landing_cost' => $landingCost,
+                'payment_status' => $this->payment_status,
+                'notes' => $this->notes,
+                'status' => 'draft', // Save as draft
+            ]);
+
+            // Add purchase items (no stock updates)
+            foreach ($this->purchaseItems as $item) {
+                PurchaseItem::create([
+                    'purchase_id' => $purchase->id,
+                    'item_id' => $item['item_id'],
+                    'quantity' => $item['quantity'],
+                    'uom' => $item['uom'],
+                    'fob_fc' => $item['unit_price'],
+                    'fob_ngn' => $item['unit_price'],
+                    'other_costs' => 0, // Will be allocated on approval
+                    'total_cost' => $item['quantity'] * $item['unit_price'],
+                    'cost_per_unit' => $item['unit_price'],
+                ]);
+            }
+
+            // Log the draft creation
+            AuditService::log(
+                $actor,
+                'create',
+                $purchase,
+                "Saved purchase draft #{$purchase->purchase_number} from {$purchase->supplier_name}. " .
+                "Total FOB NGN: {$purchase->total_fob_ngn}, Landing Cost: {$purchase->landing_cost}. " .
+                "Items: " . count($this->purchaseItems) . ". Status: Draft",
+                'completed'
+            );
+
+            DB::commit();
+            
+            $this->toast()->success('Purchase saved as draft successfully. Click "Request Approval" button to submit for approval.')->send();
+            $this->closeModal();
+            $this->resetFields();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $this->toast()->error('Error saving purchase: ' . $e->getMessage())->send();
+        }
+    }
+
+    /**
+     * Request approval for a draft purchase
+     */
+    public function requestPurchaseApproval($purchaseId)
+    {
+        try {
+            $purchase = Purchase::findOrFail($purchaseId);
+
+            if ($purchase->branch_id !== $this->getBranchId()) {
+                throw new \Exception('Unauthorized action.');
+            }
+
+            if ($purchase->status !== 'draft') {
+                throw new \Exception('Only draft purchases can be submitted for approval.');
+            }
+
+            $this->pendingPurchaseData = $purchase->toArray();
+            $this->requestNotes = '';
+            $this->showRequestModal = true;
+        } catch (\Exception $e) {
+            $this->toast()->error($e->getMessage())->send();
+        }
+    }
+
+    /**
+     * Submit purchase approval request to auditor
+     */
     public function submitPurchaseApprovalRequest()
     {
         $this->validate([
-            'auditReason' => 'required|string|min:10|max:500',
-        ], [
-            'auditReason.required' => 'Please provide a reason for the purchase.',
-            'auditReason.min' => 'Reason must be at least 10 characters.',
+            'requestNotes' => 'nullable|string|max:500',
         ]);
 
         try {
             $actor = Auth::guard('employees')->user();
+            $branchId = $this->getBranchId();
 
-            $request = InventoryApprovalService::requestPurchaseCreation(
-                $actor,
-                $this->pendingPurchaseData,
-                $this->auditReason
-            );
-
-            // Verify request was created
-            if (!$request || !$request->id) {
-                throw new \Exception('Failed to create approval request');
+            // Find the purchase by ID from pending data
+            $purchaseId = $this->pendingPurchaseData['id'] ?? null;
+            if (!$purchaseId) {
+                throw new \Exception('Purchase ID not found');
             }
 
-            $this->toast()->success('Purchase approval request submitted! (Request ID: ' . $request->id . ')')->send();
-            $this->closeAuditModal();
+            // Use PurchaseAuditApprovalService to create approval request
+            PurchaseAuditApprovalService::requestPurchaseApproval(
+                $actor,
+                $purchaseId,
+                $this->requestNotes ?? 'No reason provided'
+            );
+
+            $this->toast()->success('Purchase approval request submitted successfully!')->send();
+            $this->closeRequestModal();
             $this->resetFields();
         } catch (\Exception $e) {
             $this->toast()->error('Failed: ' . $e->getMessage())->send();
         }
     }
 
-    public function delete($id)
+    /**
+     * Close request approval modal
+     */
+    public function closeRequestModal()
     {
-        // $this->authorize('delete-purchases'); // TODO: Enable permissions after testing
-
-        $purchase = Purchase::findOrFail($id);
-
-        if ($purchase->branch_id !== $this->getBranchId()) {
-            session()->flash('error', 'Unauthorized action.');
-            return;
-        }
-
-        // For super admins, delete directly
-        if (is_super_admin()) {
-            $purchaseNumber = $purchase->purchase_number;
-            $supplierName = $purchase->supplier_name;
-            $itemCount = $purchase->purchaseItems()->count();
-            $landingCost = $purchase->landing_cost;
-
-            $purchase->delete();
-
-            // Log the purchase deletion
-            AuditService::log(
-                current_actor(),
-                'delete',
-                $purchase,
-                "Deleted purchase #{$purchaseNumber} from {$supplierName}. Items: {$itemCount}, Landing Cost: {$landingCost}",
-                'completed'
-            );
-
-            session()->flash('success', 'Purchase deleted successfully.');
-            return;
-        }
-
-        // For regular employees, request approval
-        $this->pendingItemId = $id;
-        $this->auditReason = '';
-        $this->showAuditModal = true;
+        $this->showRequestModal = false;
+        $this->requestNotes = '';
+        $this->pendingPurchaseData = [];
+        $this->resetValidation();
     }
 
-    public function submitPurchaseDeletionRequest()
-    {
-        $this->validate([
-            'auditReason' => 'required|string|min:10|max:500',
-        ], [
-            'auditReason.required' => 'Please provide a reason for deletion.',
-            'auditReason.min' => 'Reason must be at least 10 characters.',
-        ]);
+        public function delete($id)
+        {
+            // $this->authorize('delete-purchases'); // TODO: Enable permissions after testing
 
-        try {
-            $actor = Auth::guard('employees')->user();
+            try {
+                $purchase = Purchase::findOrFail($id);
 
-            $request = InventoryApprovalService::requestPurchaseDeletion(
-                $actor,
-                $this->pendingItemId,
-                $this->auditReason
-            );
+                if ($purchase->branch_id !== $this->getBranchId()) {
+                    throw new \Exception('Unauthorized action.');
+                }
 
-            // Verify request was created
-            if (!$request || !$request->id) {
-                throw new \Exception('Failed to create approval request');
+                // Only allow deletion of draft purchases
+                if ($purchase->status !== 'draft') {
+                    throw new \Exception('Only draft purchases can be deleted.');
+                }
+
+                $purchaseNumber = $purchase->purchase_number;
+                $supplierName = $purchase->supplier_name;
+                $itemCount = $purchase->purchaseItems()->count();
+                $landingCost = $purchase->landing_cost;
+
+                $purchase->delete();
+
+                // Log the purchase deletion
+                AuditService::log(
+                    current_actor(),
+                    'delete',
+                    $purchase,
+                    "Deleted purchase draft #{$purchaseNumber} from {$supplierName}. Items: {$itemCount}, Landing Cost: {$landingCost}",
+                    'completed'
+                );
+
+                $this->toast()->success('Purchase deleted successfully.')->send();
+            } catch (\Exception $e) {
+                $this->toast()->error($e->getMessage())->send();
             }
-
-            $this->toast()->success('Purchase deletion request submitted! (Request ID: ' . $request->id . ')')->send();
-            $this->closeAuditModal();
-        } catch (\Exception $e) {
-            $this->toast()->error('Failed: ' . $e->getMessage())->send();
         }
-    }
 
     public function closeModal()
     {
@@ -423,14 +493,7 @@ class Purchases extends Component
         $this->resetValidation();
     }
 
-    public function closeAuditModal()
-    {
-        $this->showAuditModal = false;
-        $this->auditReason = '';
-        $this->pendingPurchaseData = [];
-        $this->pendingItemId = null;
-        $this->resetValidation();
-    }
+
 
     public function resetFields()
     {
@@ -438,8 +501,6 @@ class Purchases extends Component
         $this->purchase_date = now()->format('Y-m-d');
         $this->supplier_name = '';
         $this->supplier_contact = '';
-        $this->currency = 'NGN';
-        $this->exchange_rate = 1;
         $this->other_costs = 0;
         $this->payment_status = 'pending';
         $this->notes = '';
@@ -451,12 +512,113 @@ class Purchases extends Component
     {
         $this->search = '';
         $this->filterPaymentStatus = '';
+        $this->filterStatus = '';
     }
 
-    public function updatedCurrency($value)
+    public function setViewMode($mode)
     {
-        if ($value === 'NGN') {
-            $this->exchange_rate = 1;
+        $this->viewMode = $mode;
+        $this->resetPage();
+    }
+
+    public function sortByColumn($column)
+    {
+        if ($this->sortColumn === $column) {
+            $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->sortColumn = $column;
+            $this->sortDirection = 'desc';
         }
+    }
+
+    public function getPurchaseSummary()
+    {
+        $branchId = $this->getBranchId();
+        $query = Purchase::where('branch_id', $branchId)
+            ->when($this->search, function ($q) {
+                $q->where(function ($query) {
+                    $query->where('purchase_number', 'like', '%' . $this->search . '%')
+                        ->orWhere('supplier_name', 'like', '%' . $this->search . '%');
+                });
+            })
+            ->when($this->filterPaymentStatus, fn($q) => $q->where('payment_status', $this->filterPaymentStatus))
+            ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus));
+
+        $purchases = $query->get();
+
+        return [
+            'total_purchases' => $purchases->count(),
+            'total_cost' => $purchases->sum('landing_cost'),
+            'paid_count' => $purchases->where('payment_status', 'paid')->count(),
+            'pending_count' => $purchases->where('payment_status', 'pending')->count(),
+            'partial_count' => $purchases->where('payment_status', 'partial')->count(),
+        ];
+    }
+
+    public function getPurchasesByStatus()
+    {
+        $branchId = $this->getBranchId();
+        $query = Purchase::where('branch_id', $branchId)
+            ->when($this->search, function ($q) {
+                $q->where(function ($query) {
+                    $query->where('purchase_number', 'like', '%' . $this->search . '%')
+                        ->orWhere('supplier_name', 'like', '%' . $this->search . '%');
+                });
+            })
+            ->when($this->filterPaymentStatus, fn($q) => $q->where('payment_status', $this->filterPaymentStatus))
+            ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus));
+
+        return $query->get()->groupBy('payment_status')->map(function ($group) {
+            return [
+                'status' => $group->first()->payment_status,
+                'count' => $group->count(),
+                'total_cost' => $group->sum('landing_cost'),
+                'purchases' => $group,
+            ];
+        })->sortByDesc('total_cost');
+    }
+
+    /**
+     * Update UOM when item is selected
+     */
+    public function updateItemUom($index, $itemId)
+    {
+        if (empty($itemId)) {
+            return;
+        }
+
+        $item = Item::find($itemId);
+        if ($item) {
+            $this->purchaseItems[$index]['uom'] = $item->uom;
+        }
+    }
+
+    /**
+     * View purchase details
+     */
+    public function viewDetail($purchaseId)
+    {
+        try {
+            $this->detailPurchase = Purchase::with(['purchaseItems.item', 'recorder', 'approvalRequest'])
+                ->findOrFail($purchaseId);
+
+            if ($this->detailPurchase->branch_id !== $this->getBranchId()) {
+                throw new \Exception('Unauthorized action.');
+            }
+
+            $this->showDetailModal = true;
+        } catch (\Exception $e) {
+            $this->toast()->error($e->getMessage())->send();
+        }
+    }
+
+    /**
+     * Close detail modal
+     */
+    public function closeDetailModal()
+    {
+        $this->showDetailModal = false;
+        $this->detailPurchase = null;
+        $this->resetValidation();
     }
 }

@@ -17,39 +17,24 @@ class StockValuation extends Component
     public $searchTerm = '';
     public $sortBy = 'value';
     public $sortDirection = 'desc';
+    public $viewMode = 'all';
 
-    protected $queryString = ['selectedCategory', 'searchTerm', 'sortBy', 'sortDirection'];
+    protected $queryString = ['selectedCategory', 'searchTerm', 'sortBy', 'sortDirection', 'viewMode'];
 
     public function updatedSearchTerm()
     {
         $this->resetPage();
-        $this->dispatch('chartsUpdated', [
-            'categoryValuation' => $this->getCategoryValuation(),
-            'topItems' => $this->getTopValueItems()->map(function($item) {
-                return [
-                    'name' => $item->item->name,
-                    'value' => $item->total_value,
-                    'quantity' => $item->quantity_available + $item->quantity_reserved,
-                    'avg_cost' => $item->average_cost
-                ];
-            })->values()->toArray()
-        ]);
     }
 
     public function updatedSelectedCategory()
     {
         $this->resetPage();
-        $this->dispatch('chartsUpdated', [
-            'categoryValuation' => $this->getCategoryValuation(),
-            'topItems' => $this->getTopValueItems()->map(function($item) {
-                return [
-                    'name' => $item->item->name,
-                    'value' => $item->total_value,
-                    'quantity' => $item->quantity_available + $item->quantity_reserved,
-                    'avg_cost' => $item->average_cost
-                ];
-            })->values()->toArray()
-        ]);
+    }
+
+    public function setViewMode($mode)
+    {
+        $this->viewMode = $mode;
+        $this->resetPage();
     }
 
     public function sortByColumn($column)
@@ -136,6 +121,69 @@ class StockValuation extends Component
             ->take(10);
     }
 
+    public function getLowStockItems()
+    {
+        $branchId = Auth::guard('employees')->user()->branch_id;
+
+        return Stock::with('item')
+            ->where('branch_id', $branchId)
+            ->when($this->searchTerm, function ($query) {
+                $query->whereHas('item', function ($q) {
+                    $q->where('name', 'like', '%' . $this->searchTerm . '%')
+                      ->orWhere('sku', 'like', '%' . $this->searchTerm . '%');
+                });
+            })
+            ->when($this->selectedCategory, function ($query) {
+                $query->whereHas('item', function ($q) {
+                    $q->where('category', $this->selectedCategory);
+                });
+            })
+            ->where('quantity_available', '<', 100)
+            ->get()
+            ->map(function ($stock) {
+                $stock->total_value = ($stock->quantity_available + $stock->quantity_reserved) * $stock->average_cost;
+                $stock->available_value = $stock->quantity_available * $stock->average_cost;
+                return $stock;
+            })
+            ->sortBy([[$this->sortBy, $this->sortDirection === 'desc' ? SORT_DESC : SORT_ASC]])
+            ->values();
+    }
+
+    public function getCategoryGroupedData()
+    {
+        $branchId = Auth::guard('employees')->user()->branch_id;
+
+        $stocks = Stock::with('item')
+            ->where('branch_id', $branchId)
+            ->when($this->searchTerm, function ($query) {
+                $query->whereHas('item', function ($q) {
+                    $q->where('name', 'like', '%' . $this->searchTerm . '%')
+                      ->orWhere('sku', 'like', '%' . $this->searchTerm . '%');
+                });
+            })
+            ->when($this->selectedCategory, function ($query) {
+                $query->whereHas('item', function ($q) {
+                    $q->where('category', $this->selectedCategory);
+                });
+            })
+            ->get()
+            ->map(function ($stock) {
+                $stock->total_value = ($stock->quantity_available + $stock->quantity_reserved) * $stock->average_cost;
+                $stock->available_value = $stock->quantity_available * $stock->average_cost;
+                return $stock;
+            });
+
+        return $stocks->groupBy('item.category')->map(function ($items) {
+            return [
+                'category' => $items->first()->item->category,
+                'items' => $items,
+                'total_value' => $items->sum('total_value'),
+                'item_count' => $items->count(),
+                'total_qty' => $items->sum(fn($s) => $s->quantity_available + $s->quantity_reserved),
+            ];
+        })->sortByDesc('total_value')->values();
+    }
+
     public function render()
     {
         $branchId = Auth::guard('employees')->user()->branch_id;
@@ -172,12 +220,22 @@ class StockValuation extends Component
 
         $categories = ['raw_material', 'packaging', 'consumable', 'equipment'];
 
+        // Get data based on view mode
+        $viewData = match($this->viewMode) {
+            'top' => $this->getTopValueItems(),
+            'category' => $this->getCategoryGroupedData(),
+            'low' => $this->getLowStockItems(),
+            default => $paginatedStocks->items(),
+        };
+
         return view('livewire.branch-dashboard.analytics.stock-valuation', [
             'stocks' => $paginatedStocks,
+            'topItems' => $this->getTopValueItems(),
+            'lowStockItems' => $this->getLowStockItems(),
+            'categoryData' => $this->getCategoryGroupedData(),
             'categories' => $categories,
             'summary' => $this->getValuationSummary(),
             'categoryValuation' => $this->getCategoryValuation(),
-            'topItems' => $this->getTopValueItems(),
         ]);
     }
 }

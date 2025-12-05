@@ -47,358 +47,262 @@
                        class="border border-zinc-300 dark:border-zinc-600 rounded-lg px-4 py-2 bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full">
             </div>
         </div>
+        <div class="mt-4 flex justify-end">
+            <button wire:click="resetFilters" class="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium text-sm">
+                Reset Filters
+            </button>
+        </div>
     </div>
 
-    <!-- Charts -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <!-- View Mode Tabs -->
+    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-2 mb-4">
+        <div class="flex flex-wrap gap-1 bg-zinc-100 dark:bg-zinc-700 p-1 rounded-lg">
+            <button wire:click="setViewMode('overview')" class="px-3 py-2 text-xs font-medium rounded transition-all whitespace-nowrap {{ $viewMode === 'overview' ? 'bg-white dark:bg-zinc-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200' }}">
+                📊 Overview
+            </button>
+            <button wire:click="setViewMode('breakdown')" class="px-3 py-2 text-xs font-medium rounded transition-all whitespace-nowrap {{ $viewMode === 'breakdown' ? 'bg-white dark:bg-zinc-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200' }}">
+                📈 Breakdown
+            </button>
+            <button wire:click="setViewMode('suppliers')" class="px-3 py-2 text-xs font-medium rounded transition-all whitespace-nowrap {{ $viewMode === 'suppliers' ? 'bg-white dark:bg-zinc-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200' }}">
+                🏢 Suppliers
+            </button>
+            <button wire:click="setViewMode('items')" class="px-3 py-2 text-xs font-medium rounded transition-all whitespace-nowrap {{ $viewMode === 'items' ? 'bg-white dark:bg-zinc-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200' }}">
+                📦 Items
+            </button>
+            <button wire:click="setViewMode('table')" class="px-3 py-2 text-xs font-medium rounded transition-all whitespace-nowrap {{ $viewMode === 'table' ? 'bg-white dark:bg-zinc-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200' }}">
+                📋 Table
+            </button>
+        </div>
+    </div>
+
+    <!-- OVERVIEW VIEW -->
+    @if($viewMode === 'overview')
+    <div class="space-y-4">
+        <!-- Payment Status Breakdown with Percentages -->
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
-            <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Purchase Trend</h3>
-            <div id="purchaseTrendChart" class="h-80" wire:ignore>
-                <div class="flex items-center justify-center h-full">
-                    <div class="text-center">
-                        <svg class="animate-spin h-10 w-10 mx-auto text-blue-600 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading chart...</p>
+            <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Payment Status Overview</h3>
+            <div class="space-y-4">
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-medium text-zinc-900 dark:text-zinc-100">Paid</span>
+                        <span class="text-sm font-bold text-green-600 dark:text-green-400">{{ $summary['paid_count'] }} ({{ $summary['paid_percentage'] }}%)</span>
+                    </div>
+                    <div class="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-3">
+                        <div class="bg-green-500 h-3 rounded-full" style="width: {{ $summary['paid_percentage'] }}%"></div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-medium text-zinc-900 dark:text-zinc-100">Partial</span>
+                        <span class="text-sm font-bold text-yellow-600 dark:text-yellow-400">{{ $summary['partial_count'] }} ({{ $summary['partial_percentage'] }}%)</span>
+                    </div>
+                    <div class="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-3">
+                        <div class="bg-yellow-500 h-3 rounded-full" style="width: {{ $summary['partial_percentage'] }}%"></div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-medium text-zinc-900 dark:text-zinc-100">Pending</span>
+                        <span class="text-sm font-bold text-red-600 dark:text-red-400">{{ $summary['pending_count'] }} ({{ $summary['pending_percentage'] }}%)</span>
+                    </div>
+                    <div class="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-3">
+                        <div class="bg-red-500 h-3 rounded-full" style="width: {{ $summary['pending_percentage'] }}%"></div>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
-            <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Top Suppliers by Spending</h3>
-            <div id="supplierChart" class="h-80" wire:ignore>
-                <div class="flex items-center justify-center h-full">
-                    <div class="text-center">
-                        <svg class="animate-spin h-10 w-10 mx-auto text-blue-600 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading chart...</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+
+        <!-- Cost Breakdown -->
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
             <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Cost Breakdown</h3>
-            <div id="costBreakdownChart" class="h-80" wire:ignore>
-                <div class="flex items-center justify-center h-full">
-                    <div class="text-center">
-                        <svg class="animate-spin h-10 w-10 mx-auto text-blue-600 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading chart...</p>
-                    </div>
+            <div class="space-y-2">
+                <div class="flex justify-between items-center p-3 bg-zinc-50 dark:bg-zinc-700/50 rounded">
+                    <span class="text-zinc-700 dark:text-zinc-300">FOB Cost (NGN)</span>
+                    <span class="font-bold text-lg text-zinc-900 dark:text-zinc-100">₦{{ number_format($costBreakdown['series'][0] ?? 0, 2) }}</span>
+                </div>
+                <div class="flex justify-between items-center p-3 bg-zinc-50 dark:bg-zinc-700/50 rounded">
+                    <span class="text-zinc-700 dark:text-zinc-300">Other Costs</span>
+                    <span class="font-bold text-lg text-zinc-900 dark:text-zinc-100">₦{{ number_format($costBreakdown['series'][1] ?? 0, 2) }}</span>
+                </div>
+                <div class="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-800">
+                    <span class="font-medium text-green-900 dark:text-green-100">Total Landing Cost</span>
+                    <span class="font-bold text-lg text-green-600 dark:text-green-400">₦{{ number_format($costBreakdown['series'][2] ?? 0, 2) }}</span>
                 </div>
             </div>
         </div>
+    </div>
+    @endif
+
+    <!-- BREAKDOWN VIEW -->
+    @if($viewMode === 'breakdown')
+    <div class="space-y-4">
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
-            <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Top 10 Purchased Items</h3>
-            <div id="topItemsChart" class="h-80" wire:ignore>
-                <div class="flex items-center justify-center h-full">
-                    <div class="text-center">
-                        <svg class="animate-spin h-10 w-10 mx-auto text-blue-600 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading chart...</p>
+            <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Detailed Payment Status Analysis</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 border border-green-200 dark:border-green-700">
+                    <p class="text-sm text-green-700 dark:text-green-300">Paid Purchases</p>
+                    <p class="text-3xl font-bold text-green-600 dark:text-green-400">{{ $summary['paid_count'] }}</p>
+                    <p class="text-xs text-green-600 dark:text-green-400 mt-1">{{ $summary['paid_percentage'] }}% of total</p>
+                </div>
+                <div class="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4 border border-yellow-200 dark:border-yellow-700">
+                    <p class="text-sm text-yellow-700 dark:text-yellow-300">Partial Purchases</p>
+                    <p class="text-3xl font-bold text-yellow-600 dark:text-yellow-400">{{ $summary['partial_count'] }}</p>
+                    <p class="text-xs text-yellow-600 dark:text-yellow-400 mt-1">{{ $summary['partial_percentage'] }}% of total</p>
+                </div>
+                <div class="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 border border-red-200 dark:border-red-700">
+                    <p class="text-sm text-red-700 dark:text-red-300">Pending Purchases</p>
+                    <p class="text-3xl font-bold text-red-600 dark:text-red-400">{{ $summary['pending_count'] }}</p>
+                    <p class="text-xs text-red-600 dark:text-red-400 mt-1">{{ $summary['pending_percentage'] }}% of total</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
+            <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Cost Analysis</h3>
+            <div class="space-y-3">
+                @php
+                    $totalCost = $costBreakdown['series'][2] ?? 0;
+                    $fobCost = $costBreakdown['series'][0] ?? 0;
+                    $otherCosts = $costBreakdown['series'][1] ?? 0;
+                    $fobPct = $totalCost > 0 ? round(($fobCost / $totalCost) * 100, 1) : 0;
+                    $otherPct = $totalCost > 0 ? round(($otherCosts / $totalCost) * 100, 1) : 0;
+                @endphp
+                <div>
+                    <div class="flex justify-between mb-2">
+                        <span class="font-medium">FOB Cost</span>
+                        <span class="font-bold text-blue-600 dark:text-blue-400">{{ $fobPct }}%</span>
+                    </div>
+                    <div class="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-3">
+                        <div class="bg-blue-500 h-3 rounded-full" style="width: {{ $fobPct }}%"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex justify-between mb-2">
+                        <span class="font-medium">Other Costs</span>
+                        <span class="font-bold text-orange-600 dark:text-orange-400">{{ $otherPct }}%</span>
+                    </div>
+                    <div class="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-3">
+                        <div class="bg-orange-500 h-3 rounded-full" style="width: {{ $otherPct }}%"></div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+    @endif
 
-    <!-- Purchase Records Table -->
+    <!-- SUPPLIERS VIEW -->
+    @if($viewMode === 'suppliers')
     <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
-        <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Purchase Records</h3>
+        <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Top Suppliers by Spending</h3>
+        <div class="space-y-3">
+            @forelse($supplierAnalysis as $supplier)
+                @php
+                    $percentage = ($summary['total_spent'] > 0) ? (($supplier->total_spent / $summary['total_spent']) * 100) : 0;
+                @endphp
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <div>
+                            <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $supplier->supplier_name }}</span>
+                            <p class="text-xs text-zinc-600 dark:text-zinc-400">{{ $supplier->purchase_count }} purchases</p>
+                        </div>
+                        <span class="text-sm font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($supplier->total_spent, 0) }} ({{ round($percentage, 1) }}%)</span>
+                    </div>
+                    <div class="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-2">
+                        <div class="bg-blue-500 h-2 rounded-full" style="width: {{ $percentage }}%"></div>
+                    </div>
+                </div>
+            @empty
+                <p class="text-center text-zinc-600 dark:text-zinc-400 py-4">No supplier data available</p>
+            @endforelse
+        </div>
+    </div>
+    @endif
+
+    <!-- ITEMS VIEW -->
+    @if($viewMode === 'items')
+    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
+        <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Top 10 Purchased Items</h3>
+        <div class="space-y-3">
+            @forelse($topItems as $item)
+                @php
+                    $percentage = ($summary['total_spent'] > 0) ? (($item->total_cost / $summary['total_spent']) * 100) : 0;
+                @endphp
+                <div class="border-l-4 border-blue-500 pl-3 py-2">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <p class="font-medium text-zinc-900 dark:text-zinc-100">{{ $item->item->name ?? 'N/A' }}</p>
+                            <p class="text-xs text-zinc-600 dark:text-zinc-400">Qty: {{ number_format($item->total_quantity, 2) }} {{ $item->item->uom ?? 'units' }}</p>
+                        </div>
+                        <span class="text-sm font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($item->total_cost, 2) }} ({{ round($percentage, 1) }}%)</span>
+                    </div>
+                    <div class="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-1.5">
+                        <div class="bg-blue-500 h-1.5 rounded-full" style="width: {{ $percentage }}%"></div>
+                    </div>
+                </div>
+            @empty
+                <p class="text-center text-zinc-600 dark:text-zinc-400 py-4">No item data available</p>
+            @endforelse
+        </div>
+    </div>
+    @endif
+
+    <!-- TABLE VIEW -->
+    @if($viewMode === 'table')
+    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+        <div class="px-4 py-3 border-b border-zinc-200 dark:border-zinc-700">
+            <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100">Purchase Details</h3>
+        </div>
         <div class="overflow-x-auto">
-            <table class="w-full text-sm text-left">
-                <thead class="text-xs uppercase bg-zinc-100 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300">
+            <table class="w-full">
+                <thead class="bg-zinc-50 dark:bg-zinc-700">
                     <tr>
-                        <th class="px-4 py-3">Purchase #</th>
-                        <th class="px-4 py-3">Date</th>
-                        <th class="px-4 py-3">Supplier</th>
-                        <th class="px-4 py-3">Total Cost</th>
-                        <th class="px-4 py-3">Payment Status</th>
-                        <th class="px-4 py-3">Recorded By</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-zinc-700 dark:text-zinc-300">Purchase #</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-zinc-700 dark:text-zinc-300">Date</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-zinc-700 dark:text-zinc-300">Supplier</th>
+                        <th class="px-4 py-2 text-right text-xs font-medium text-zinc-700 dark:text-zinc-300">Landing Cost</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-zinc-700 dark:text-zinc-300">Payment</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-zinc-700 dark:text-zinc-300">Recorded By</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
                     @forelse($purchases as $purchase)
-                        <tr class="bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/50">
-                            <td class="px-4 py-3 text-zinc-900 dark:text-zinc-100">{{ $purchase->purchase_number }}</td>
-                            <td class="px-4 py-3 text-zinc-900 dark:text-zinc-100">{{ \Carbon\Carbon::parse($purchase->purchase_date)->format('M d, Y') }}</td>
-                            <td class="px-4 py-3 text-zinc-900 dark:text-zinc-100">{{ $purchase->supplier_name }}</td>
-                            <td class="px-4 py-3 text-zinc-900 dark:text-zinc-100">₦{{ number_format($purchase->total_cost, 2) }}</td>
-                            <td class="px-4 py-3">
-                                @php
-                                    $badgeColors = match($purchase->payment_status) {
-                                        'paid' => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-                                        'partial' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-                                        'pending' => 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-                                        default => 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
-                                    };
-                                @endphp
-                                <span class="px-2 py-1 text-xs font-semibold rounded {{ $badgeColors }}">
+                        <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-700/50">
+                            <td class="px-4 py-2 text-sm text-zinc-900 dark:text-zinc-100 font-mono">{{ $purchase->purchase_number }}</td>
+                            <td class="px-4 py-2 text-sm text-zinc-600 dark:text-zinc-400">{{ $purchase->purchase_date->format('d M Y') }}</td>
+                            <td class="px-4 py-2 text-sm text-zinc-900 dark:text-zinc-100">{{ $purchase->supplier_name }}</td>
+                            <td class="px-4 py-2 text-sm text-right font-bold text-zinc-900 dark:text-zinc-100">₦{{ number_format($purchase->landing_cost, 2) }}</td>
+                            <td class="px-4 py-2 text-sm">
+                                <span class="px-2 py-1 text-xs font-semibold rounded 
+                                    @if($purchase->payment_status === 'paid') bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400
+                                    @elseif($purchase->payment_status === 'partial') bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400
+                                    @else bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400
+                                    @endif">
                                     {{ ucfirst($purchase->payment_status) }}
                                 </span>
                             </td>
-                            <td class="px-4 py-3 text-zinc-900 dark:text-zinc-100">{{ $purchase->recorder->name ?? 'N/A' }}</td>
+                            <td class="px-4 py-2 text-sm text-zinc-600 dark:text-zinc-400">
+                                @if($purchase->recorder && isset($purchase->recorder->name))
+                                    {{ $purchase->recorder->name }}
+                                @elseif($purchase->recorder && isset($purchase->recorder->employee_name))
+                                    {{ $purchase->recorder->employee_name }}
+                                @else
+                                    System
+                                @endif
+                            </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No purchases found</td>
+                            <td colspan="6" class="px-4 py-8 text-center text-zinc-500 dark:text-zinc-400">No purchases found</td>
                         </tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
-        <div class="mt-4">{{ $purchases->links() }}</div>
+        <div class="px-4 py-3 border-t border-zinc-200 dark:border-zinc-700">
+            {{ $purchases->links() }}
+        </div>
     </div>
-
-
-    @push('scripts')
-<script src="https://code.highcharts.com/highcharts.js"></script>
-<script src="https://code.highcharts.com/modules/exporting.js"></script>
-<script src="https://code.highcharts.com/modules/export-data.js"></script>
-<script src="https://code.highcharts.com/modules/accessibility.js"></script>
-
-<script>
-    let trendChart, supplierChart, costChart, topItemsChart;
-    let chartData = {
-        trendData: @js($trendData),
-        supplierAnalysis: @js($supplierAnalysis),
-        costBreakdown: @js($costBreakdown),
-        topItems: @js($topItems->map(function($item) {
-            return [
-                'name' => $item->item->name,
-                'total_cost' => $item->total_cost,
-                'total_quantity' => $item->total_quantity,
-                'uom' => $item->item->uom
-            ];
-        })->toArray())
-    };
-
-    document.addEventListener('DOMContentLoaded', function () {
-        if (typeof Highcharts !== 'undefined') {
-            initCharts();
-        }
-    });
-
-    document.addEventListener('livewire:navigated', function () {
-        if (typeof Highcharts !== 'undefined') {
-            initCharts();
-        }
-    });
-
-    document.addEventListener('livewire:init', () => {
-        Livewire.on('chartsUpdated', (event) => {
-            const data = event[0];
-            chartData.trendData = data.trendData;
-            chartData.supplierAnalysis = data.supplierAnalysis;
-            chartData.costBreakdown = data.costBreakdown;
-            chartData.topItems = data.topItems;
-            updateCharts();
-        });
-    });
-
-    function initCharts() {
-        if (typeof Highcharts === 'undefined') {
-            console.error('Highcharts is not loaded');
-            return;
-        }
-
-        if (trendChart) trendChart.destroy();
-        if (supplierChart) supplierChart.destroy();
-        if (costChart) costChart.destroy();
-        if (topItemsChart) topItemsChart.destroy();
-
-        // Clear loading spinners
-        const trendContainer = document.getElementById('purchaseTrendChart');
-        const supplierContainer = document.getElementById('supplierChart');
-        const costContainer = document.getElementById('costBreakdownChart');
-        const topItemsContainer = document.getElementById('topItemsChart');
-        if (trendContainer) trendContainer.innerHTML = '';
-        if (supplierContainer) supplierContainer.innerHTML = '';
-        if (costContainer) costContainer.innerHTML = '';
-        if (topItemsContainer) topItemsContainer.innerHTML = '';
-
-        const themeColors = getThemeColors();
-
-        // Purchase Trend Chart
-        trendChart = Highcharts.chart('purchaseTrendChart', {
-            chart: { type: 'spline', height: 320, backgroundColor: 'transparent' },
-            title: { text: null },
-            credits: { enabled: false },
-            xAxis: {
-                categories: chartData.trendData.categories,
-                labels: { style: { color: themeColors.textColor } },
-                gridLineColor: themeColors.gridColor
-            },
-            yAxis: [{
-                title: { text: 'Total Cost (₦)', style: { color: themeColors.textColor } },
-                labels: {
-                    style: { color: themeColors.textColor },
-                    formatter: function() { return '₦' + Highcharts.numberFormat(this.value, 0, '.', ','); }
-                },
-                gridLineColor: themeColors.gridColor
-            }, {
-                title: { text: 'Count', style: { color: themeColors.textColor } },
-                labels: { style: { color: themeColors.textColor } },
-                opposite: true,
-                gridLineColor: themeColors.gridColor
-            }],
-            tooltip: { shared: true, backgroundColor: themeColors.backgroundColor, style: { color: themeColors.textColor } },
-            plotOptions: { spline: { marker: { enabled: true, radius: 4 }, lineWidth: 3 } },
-            series: [{
-                name: chartData.trendData.series[0].name,
-                data: chartData.trendData.series[0].data,
-                color: '#10B981',
-                yAxis: 0
-            }, {
-                name: chartData.trendData.series[1].name,
-                data: chartData.trendData.series[1].data,
-                color: '#3B82F6',
-                yAxis: 1
-            }],
-            legend: { itemStyle: { color: themeColors.textColor } },
-            exporting: { enabled: true }
-        });
-
-        // Supplier Chart
-        supplierChart = Highcharts.chart('supplierChart', {
-            chart: { type: 'bar', height: 320, backgroundColor: 'transparent' },
-            title: { text: null },
-            credits: { enabled: false },
-            xAxis: {
-                categories: chartData.supplierAnalysis.labels,
-                labels: { style: { color: themeColors.textColor, fontSize: '10px' } }
-            },
-            yAxis: {
-                title: { text: 'Total (₦)', style: { color: themeColors.textColor } },
-                labels: {
-                    style: { color: themeColors.textColor },
-                    formatter: function() { return '₦' + Highcharts.numberFormat(this.value, 0, '.', ','); }
-                }
-            },
-            tooltip: {
-                backgroundColor: themeColors.backgroundColor,
-                formatter: function() { return '<b>' + this.point.category + '</b><br/>₦' + Highcharts.numberFormat(this.y, 2, '.', ','); }
-            },
-            plotOptions: { bar: { dataLabels: { enabled: true, formatter: function() { return '₦' + Highcharts.numberFormat(this.y, 0, '.', ','); } } } },
-            series: [{ name: 'Total Spent', data: chartData.supplierAnalysis.series[0].data, color: '#3B82F6', showInLegend: false }],
-            exporting: { enabled: true }
-        });
-
-        // Cost Breakdown Chart
-        const costData = chartData.costBreakdown.labels.map((label, index) => ({
-            name: label,
-            y: chartData.costBreakdown.series[index]
-        }));
-
-        costChart = Highcharts.chart('costBreakdownChart', {
-            chart: { type: 'pie', height: 320, backgroundColor: 'transparent' },
-            title: { text: null },
-            credits: { enabled: false },
-            tooltip: { pointFormat: '<b>₦{point.y:,.2f}</b> ({point.percentage:.1f}%)', backgroundColor: themeColors.backgroundColor },
-            plotOptions: {
-                pie: {
-                    allowPointSelect: true,
-                    dataLabels: { enabled: true, format: '<b>{point.name}</b>: {point.percentage:.1f}%', style: { color: themeColors.textColor } },
-                    showInLegend: true
-                }
-            },
-            series: [{ name: 'Cost', colorByPoint: true, data: costData }],
-            colors: ['#3B82F6', '#F59E0B', '#10B981'],
-            legend: { itemStyle: { color: themeColors.textColor } },
-            exporting: { enabled: true }
-        });
-
-        // Top Items Chart
-        const topItemsData = chartData.topItems.map(item => item.total_cost);
-        const topItemsLabels = chartData.topItems.map(item => item.name);
-
-        topItemsChart = Highcharts.chart('topItemsChart', {
-            chart: { type: 'bar', height: 320, backgroundColor: 'transparent' },
-            title: { text: null },
-            credits: { enabled: false },
-            xAxis: {
-                categories: topItemsLabels,
-                labels: { style: { color: themeColors.textColor, fontSize: '10px' } }
-            },
-            yAxis: {
-                title: { text: 'Cost (₦)', style: { color: themeColors.textColor } },
-                labels: {
-                    style: { color: themeColors.textColor },
-                    formatter: function() { return '₦' + Highcharts.numberFormat(this.value, 0, '.', ','); }
-                }
-            },
-            tooltip: {
-                backgroundColor: themeColors.backgroundColor,
-                formatter: function() {
-                    const item = chartData.topItems[this.point.index];
-                    return '<b>' + this.point.category + '</b><br/>Cost: ₦' + Highcharts.numberFormat(this.y, 2, '.', ',') + '<br/>Qty: ' + Highcharts.numberFormat(item.total_quantity, 2) + ' ' + item.uom;
-                }
-            },
-            plotOptions: { bar: { dataLabels: { enabled: true, formatter: function() { return '₦' + Highcharts.numberFormat(this.y, 0, '.', ','); } }, colorByPoint: true } },
-            series: [{ name: 'Total Cost', data: topItemsData, showInLegend: false }],
-            colors: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6', '#F97316', '#84CC16'],
-            exporting: { enabled: true }
-        });
-    }
-
-    function updateCharts() {
-        if (trendChart && chartData.trendData) {
-            trendChart.series[0].setData(chartData.trendData.series[0].data, false);
-            trendChart.series[1].setData(chartData.trendData.series[1].data, false);
-            trendChart.xAxis[0].setCategories(chartData.trendData.categories, false);
-            trendChart.redraw();
-        }
-
-        if (supplierChart && chartData.supplierAnalysis) {
-            supplierChart.series[0].setData(chartData.supplierAnalysis.series[0].data, false);
-            supplierChart.xAxis[0].setCategories(chartData.supplierAnalysis.labels, false);
-            supplierChart.redraw();
-        }
-
-        if (costChart && chartData.costBreakdown) {
-            const costData = chartData.costBreakdown.labels.map((label, index) => ({
-                name: label,
-                y: chartData.costBreakdown.series[index]
-            }));
-            costChart.series[0].setData(costData, true);
-        }
-
-        if (topItemsChart && chartData.topItems) {
-            const topItemsData = chartData.topItems.map(item => item.total_cost);
-            const topItemsLabels = chartData.topItems.map(item => item.name);
-            topItemsChart.series[0].setData(topItemsData, false);
-            topItemsChart.xAxis[0].setCategories(topItemsLabels, false);
-            topItemsChart.redraw();
-        }
-    }
-
-    function getThemeColors() {
-        const isDark = document.documentElement.classList.contains('dark');
-        return {
-            textColor: isDark ? '#e4e4e7' : '#27272a',
-            gridColor: isDark ? '#3f3f46' : '#e4e4e7',
-            backgroundColor: isDark ? '#27272a' : '#ffffff'
-        };
-    }
-
-    // Initialize charts when script loads
-    if (typeof Highcharts !== 'undefined') {
-        initCharts();
-    } else {
-        // Wait for Highcharts to load
-        setTimeout(() => {
-            if (typeof Highcharts !== 'undefined') {
-                initCharts();
-            }
-        }, 100);
-    }
-</script>
-    @endpush
+    @endif
 </div>

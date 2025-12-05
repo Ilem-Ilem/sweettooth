@@ -112,7 +112,7 @@ class InventoryApprovalService
                 'quantity' => (float) abs($newQuantity - $oldQuantity),
                 'quantity_before' => $oldQuantity,
                 'quantity_after' => $newQuantity,
-                'reference_type' => 'approval_adjustment',
+                'reference_type' => ApprovalAuditRequest::class,
                 'reference_id' => $request->id,
                 'moved_by_id' => $approver->id,
                 'moved_by_type' => get_class($approver),

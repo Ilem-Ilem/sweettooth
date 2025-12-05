@@ -140,11 +140,7 @@
                         :current="request()->routeIs('branch-dashboard.inventory.item-dispatches')" wire:navigate>
                         {{ __('Dispatches') }}
                     </flux:navlist.item>
-                    <flux:navlist.item icon="chart-bar"
-                        :href="branch_route('branch-dashboard.inventory.stock-movements')"
-                        :current="request()->routeIs('branch-dashboard.inventory.stock-movements')" wire:navigate>
-                        {{ __('Stock Movements') }}
-                    </flux:navlist.item>
+                  
                 </flux:navlist.group>
 
                 <flux:navlist.group :heading="__('Callbacks')" class="grid" expandable

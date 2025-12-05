@@ -21,10 +21,10 @@ class StockValuation extends Component
     public $movementType = '';
     public $selectedItem = null;
     public $searchTerm = '';
-    public $itemSearch = '';
-    public $trendData;
-    public $typeDistribution;
-    public $velocityAnalysis;
+    public $selectedCategory = '';
+    public $sortColumn = 'total_value';
+    public $sortDirection = 'desc';
+    public $viewMode = 'table'; // table, cards, list, bars, accordion
 
     protected $queryString = [
         'dateFrom',
@@ -39,41 +39,30 @@ class StockValuation extends Component
         $this->dateTo = now()->format('Y-m-d');
     }
 
-    public function updatedSelectedItem()
+    public function updatedSearchTerm()
     {
         $this->resetPage();
-        $this->updateChartData();
     }
 
-    public function updatedMovementType()
+    public function updatedSelectedCategory()
     {
         $this->resetPage();
-        $this->updateChartData();
     }
 
-    public function updatedDateFrom()
+    public function sortByColumn($column)
     {
+        if ($this->sortColumn === $column) {
+            $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->sortColumn = $column;
+            $this->sortDirection = 'desc';
+        }
+    }
+
+    public function setViewMode($mode)
+    {
+        $this->viewMode = $mode;
         $this->resetPage();
-        $this->updateChartData();
-    }
-
-    public function updatedDateTo()
-    {
-        $this->resetPage();
-        $this->updateChartData();
-    }
-
-    public function updateChartData()
-    {
-        $this->trendData = $this->getMovementTrendData();
-        $this->typeDistribution = $this->getMovementTypeDistribution();
-        $this->velocityAnalysis = $this->getVelocityAnalysis();
-
-        $this->dispatch('chartsUpdated', [
-            'trendData' => $this->trendData,
-            'typeDistribution' => $this->typeDistribution,
-            'velocityAnalysis' => $this->velocityAnalysis
-        ]);
     }
 
     public function getAvailableItems()
@@ -103,217 +92,143 @@ class StockValuation extends Component
             });
     }
 
-    public function getMovementTrendData()
+    public function getCategoryValuation()
     {
-        $query = StockMovement::query();
+        $query = Stock::with('item');
 
         if ($this->selectedBranch) {
-            $query->whereHas('stock', function ($stockQuery) {
-                $stockQuery->where('branch_id', $this->selectedBranch);
+            $query->where('branch_id', $this->selectedBranch);
+        }
+
+        if ($this->selectedCategory) {
+            $query->whereHas('item', function ($q) {
+                $q->where('category', $this->selectedCategory);
             });
         }
 
-        $movements = $query
-            ->when($this->selectedItem, function ($query) {
-                $query->where('stock_id', $this->selectedItem);
-            })
-            ->when($this->movementType, function ($query) {
-                $query->where('type', $this->movementType);
-            })
-            ->whereBetween('movement_date', [$this->dateFrom, $this->dateTo])
-            ->selectRaw('DATE(movement_date) as date, type, SUM(quantity) as total_quantity')
-            ->groupBy('date', 'type')
-            ->orderBy('date')
-            ->get();
-
-        $dates = [];
-        $inData = [];
-        $outData = [];
-        $adjustmentData = [];
-
-        $groupedByDate = $movements->groupBy('date');
-
-        foreach ($groupedByDate as $date => $items) {
-            $dates[] = \Carbon\Carbon::parse($date)->format('M d');
-
-            // Stock In: 'in' and 'return' types
-            $inData[] = $items->whereIn('type', ['in', 'return'])->sum('total_quantity');
-
-            // Stock Out: 'out', 'transfer', 'damaged' types (use absolute values)
-            $outData[] = abs($items->whereIn('type', ['out', 'transfer', 'damaged'])->sum('total_quantity'));
-
-            // Adjustments: 'adjustment' type
-            $adjustmentData[] = abs($items->where('type', 'adjustment')->sum('total_quantity'));
-        }
-
-        return [
-            'categories' => $dates,
-            'series' => [
-                ['name' => 'Stock In', 'data' => $inData],
-                ['name' => 'Stock Out', 'data' => $outData],
-                ['name' => 'Adjustments', 'data' => $adjustmentData],
-            ],
-        ];
-    }
-
-    public function getMovementTypeDistribution()
-    {
-        $query = StockMovement::query();
-
-        if ($this->selectedBranch) {
-            $query->whereHas('stock', function ($stockQuery) {
-                $stockQuery->where('branch_id', $this->selectedBranch);
-            });
-        }
-
-        $distribution = $query
-            ->when($this->selectedItem, function ($query) {
-                $query->where('stock_id', $this->selectedItem);
-            })
-            ->when($this->movementType, function ($query) {
-                $query->where('type', $this->movementType);
-            })
-            ->whereBetween('movement_date', [$this->dateFrom, $this->dateTo])
-            ->selectRaw('type, COUNT(*) as count')
-            ->groupBy('type')
+        $stocks = $query
+            ->selectRaw('item_id, SUM(quantity_available * average_cost) as available_value, SUM((quantity_available + quantity_reserved) * average_cost) as total_value, COUNT(*) as item_count')
+            ->groupBy('item_id')
             ->get();
 
         return [
-            'labels' => $distribution->pluck('type')->map(fn($type) => ucfirst($type))->toArray(),
-            'series' => $distribution->pluck('count')->toArray(),
+            'labels' => $stocks->map(fn($s) => $s->item->category)->toArray(),
+            'series' => $stocks->pluck('total_value')->toArray(),
         ];
     }
 
-    public function getTopMovedItems()
+    public function getTopItems()
     {
-        $query = StockMovement::with(['stock.item']);
+        $query = Stock::with('item');
 
         if ($this->selectedBranch) {
-            $query->whereHas('stock', function ($stockQuery) {
-                $stockQuery->where('branch_id', $this->selectedBranch);
+            $query->where('branch_id', $this->selectedBranch);
+        }
+
+        if ($this->selectedCategory) {
+            $query->whereHas('item', function ($q) {
+                $q->where('category', $this->selectedCategory);
             });
         }
 
         return $query
-            ->when($this->selectedItem, function ($query) {
-                $query->where('stock_id', $this->selectedItem);
-            })
-            ->when($this->movementType, function ($query) {
-                $query->where('type', $this->movementType);
-            })
-            ->whereBetween('movement_date', [$this->dateFrom, $this->dateTo])
-            ->selectRaw('stock_id, SUM(ABS(quantity)) as total_moved')
-            ->groupBy('stock_id')
-            ->orderByDesc('total_moved')
+            ->orderByDesc(DB::raw('(quantity_available + quantity_reserved) * average_cost'))
             ->limit(10)
             ->get();
     }
 
-    public function getMovementSummary()
+    public function getStocks()
     {
-        $query = StockMovement::query();
+        $query = Stock::with('item');
 
         if ($this->selectedBranch) {
-            $query->whereHas('stock', function ($stockQuery) {
-                $stockQuery->where('branch_id', $this->selectedBranch);
+            $query->where('branch_id', $this->selectedBranch);
+        }
+
+        if ($this->selectedCategory) {
+            $query->whereHas('item', function ($q) {
+                $q->where('category', $this->selectedCategory);
             });
         }
 
-        $movements = $query
-            ->when($this->selectedItem, function ($query) {
-                $query->where('stock_id', $this->selectedItem);
-            })
-            ->when($this->movementType, function ($query) {
-                $query->where('type', $this->movementType);
-            })
-            ->whereBetween('movement_date', [$this->dateFrom, $this->dateTo])
-            ->get();
+        if ($this->searchTerm) {
+            $query->whereHas('item', function ($q) {
+                $q->where('name', 'like', '%' . $this->searchTerm . '%')
+                  ->orWhere('sku', 'like', '%' . $this->searchTerm . '%');
+            });
+        }
+
+        $query->orderBy($this->sortColumn, $this->sortDirection);
+
+        return $query;
+    }
+
+    public function getSummary()
+    {
+        $query = Stock::query();
+
+        if ($this->selectedBranch) {
+            $query->where('branch_id', $this->selectedBranch);
+        }
+
+        if ($this->selectedCategory) {
+            $query->whereHas('item', function ($q) {
+                $q->where('category', $this->selectedCategory);
+            });
+        }
+
+        $stocks = $query->get();
 
         return [
-            'total_movements' => $movements->count(),
-            'total_in' => $movements->whereIn('type', ['in', 'return'])->sum('quantity'),
-            'total_out' => abs($movements->whereIn('type', ['out', 'transfer', 'damaged'])->sum('quantity')),
-            'total_adjustments' => $movements->where('type', 'adjustment')->count(),
-            'total_damaged' => abs($movements->where('type', 'damaged')->sum('quantity')),
-            'total_transfers' => $movements->where('type', 'transfer')->count(),
+            'total_value' => $stocks->sum(fn($s) => ($s->quantity_available + $s->quantity_reserved) * $s->average_cost),
+            'available_value' => $stocks->sum(fn($s) => $s->quantity_available * $s->average_cost),
+            'reserved_value' => $stocks->sum(fn($s) => $s->quantity_reserved * $s->average_cost),
+            'damaged_value' => $stocks->sum(fn($s) => $s->quantity_damaged * $s->average_cost),
+            'total_items' => $stocks->count(),
         ];
     }
 
-    public function getVelocityAnalysis()
+    public function getCategories()
     {
-        $query = StockMovement::with(['stock.item']);
-
-        if ($this->selectedBranch) {
-            $query->whereHas('stock', function ($stockQuery) {
-                $stockQuery->where('branch_id', $this->selectedBranch);
-            });
-        }
-
-        $items = $query
-            ->when($this->selectedItem, function ($query) {
-                $query->where('stock_id', $this->selectedItem);
+        return Stock::with('item')
+            ->when($this->selectedBranch, function ($query) {
+                $query->where('branch_id', $this->selectedBranch);
             })
-            ->when($this->movementType, function ($query) {
-                $query->where('type', $this->movementType);
-            })
-            ->whereBetween('movement_date', [$this->dateFrom, $this->dateTo])
-            ->whereIn('type', ['out', 'dispatch'])
-            ->selectRaw('stock_id, COUNT(*) as movement_count, SUM(quantity) as total_quantity')
-            ->groupBy('stock_id')
-            ->orderByDesc('movement_count')
-            ->limit(10)
-            ->get();
+            ->get()
+            ->pluck('item.category')
+            ->unique()
+            ->sort()
+            ->values()
+            ->toArray();
+    }
 
-        return [
-            'labels' => $items->map(fn($item) => $item->stock->item->name)->toArray(),
-            'series' => [
-                [
-                    'name' => 'Movement Frequency',
-                    'data' => $items->pluck('movement_count')->toArray(),
-                ],
-            ],
-        ];
+    public function getCategoryGroupedData()
+    {
+        $stocks = $this->getStocks()->get();
+        
+        $grouped = $stocks->groupBy(fn($s) => $s->item->category)->map(function ($items) {
+            $totalValue = $items->sum(fn($s) => ($s->quantity_available + $s->quantity_reserved) * $s->average_cost);
+            return [
+                'category' => $items->first()->item->category,
+                'items' => $items,
+                'total_value' => $totalValue,
+                'item_count' => $items->count(),
+                'total_qty' => $items->sum(fn($s) => $s->quantity_available + $s->quantity_reserved),
+            ];
+        })->sortByDesc('total_value')->values();
+
+        return $grouped;
     }
 
     public function render()
     {
-        $query = StockMovement::with(['stock.item', 'mover']);
-
-        if ($this->selectedBranch) {
-            $query->whereHas('stock', function ($stockQuery) {
-                $stockQuery->where('branch_id', $this->selectedBranch);
-            });
-        }
-
-        $movements = $query
-            ->when($this->selectedItem, function ($query) {
-                $query->where('stock_id', $this->selectedItem);
-            })
-            ->when($this->movementType, function ($query) {
-                $query->where('type', $this->movementType);
-            })
-            ->whereBetween('movement_date', [$this->dateFrom, $this->dateTo])
-            ->latest('movement_date')
-            ->paginate(15);
-
-        $movementTypes = ['in', 'out', 'adjustment', 'transfer', 'damaged', 'return'];
-        $branches = Branch::orderBy('name')->get();
-
-        // Store chart data in public properties for JavaScript access
-        $this->trendData = $this->getMovementTrendData();
-        $this->typeDistribution = $this->getMovementTypeDistribution();
-        $this->velocityAnalysis = $this->getVelocityAnalysis();
-
         return view('livewire.super-admin.analytics.stock-valuation', [
-            'movements' => $movements,
-            'movementTypes' => $movementTypes,
-            'branches' => $branches,
-            'availableItems' => $this->getAvailableItems(),
-            'summary' => $this->getMovementSummary(),
-            'trendData' => $this->trendData,
-            'typeDistribution' => $this->typeDistribution,
-            'topMovedItems' => $this->getTopMovedItems(),
-            'velocityAnalysis' => $this->velocityAnalysis,
+            'summary' => $this->getSummary(),
+            'categories' => $this->getCategories(),
+            'stocks' => $this->getStocks()->paginate(15),
+            'categoryValuation' => $this->getCategoryValuation(),
+            'topItems' => $this->getTopItems(),
+            'categoryGroupedData' => $this->getCategoryGroupedData(),
         ]);
     }
 }

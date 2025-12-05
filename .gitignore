@@ -23,7 +23,6 @@ yarn-error.log
 /.zed
 /*.md
 /storage
-/MDs
 /amp-codes
 /.intelephense
 /docker

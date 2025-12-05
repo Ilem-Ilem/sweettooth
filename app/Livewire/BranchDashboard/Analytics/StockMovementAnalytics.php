@@ -60,8 +60,46 @@ class StockMovementAnalytics extends Component
     public function updated($property)
     {
         if (in_array($property, ['selectedItem', 'movementType', 'dateFrom', 'dateTo', 'filterShift', 'filterDepartment', 'searchTerm'])) {
+            if (in_array($property, ['dateFrom', 'dateTo'])) {
+                $this->validateDateRange();
+            }
             $this->resetPage();
         }
+    }
+
+    private function validateDateRange()
+    {
+        $from = Carbon::parse($this->dateFrom);
+        $to = Carbon::parse($this->dateTo);
+
+        if ($from->greaterThan($to)) {
+            // Swap dates
+            $temp = $this->dateFrom;
+            $this->dateFrom = $this->dateTo;
+            $this->dateTo = $temp;
+
+            session()->flash('warning', 'Date range was automatically corrected.');
+        }
+
+        // Warn if range > 1 year
+        if ($from->diffInDays($to) > 365) {
+            session()->flash('warning', 'Large date ranges may impact performance.');
+        }
+    }
+
+    public function resetFilters()
+    {
+        $this->dateFrom = now()->subDays(30)->format('Y-m-d');
+        $this->dateTo = now()->format('Y-m-d');
+        $this->movementType = '';
+        $this->selectedItem = null;
+        $this->searchTerm = '';
+        $this->itemSearch = '';
+        $this->filterShift = '';
+        $this->filterDepartment = '';
+        $this->resetPage();
+
+        session()->flash('success', 'Filters reset successfully.');
     }
 
     private function getAnalyticsSummary($branchId)
@@ -76,9 +114,26 @@ class StockMovementAnalytics extends Component
         $filteredQuery = clone $baseQuery;
         $this->applyFiltersToQuery($filteredQuery);
 
-        $todayQuery = StockMovement::query()
+        // OPTIMIZED: Single query for period aggregations instead of 8+ cloned queries
+        $periodData = $filteredQuery->clone()->selectRaw('
+            SUM(CASE WHEN type IN ("in","return") THEN quantity ELSE 0 END) as stock_in,
+            ABS(SUM(CASE WHEN type IN ("out","damaged","transfer") THEN quantity ELSE 0 END)) as stock_out,
+            COUNT(CASE WHEN type = "transfer" THEN 1 END) as transfers,
+            COUNT(*) as total_movements,
+            COUNT(CASE WHEN type = "adjustment" THEN 1 END) as adjustments,
+            ABS(SUM(CASE WHEN type = "damaged" THEN quantity ELSE 0 END)) as damaged
+        ')->first();
+
+        // OPTIMIZED: Single query for today aggregations
+        $todayData = StockMovement::query()
             ->whereHas('stock', fn ($q) => $q->where('branch_id', $branchId))
-            ->whereDate('movement_date', today());
+            ->whereDate('movement_date', today())
+            ->selectRaw('
+                SUM(CASE WHEN type IN ("in","return") THEN quantity ELSE 0 END) as stock_in,
+                ABS(SUM(CASE WHEN type IN ("out","damaged","transfer") THEN quantity ELSE 0 END)) as stock_out,
+                COUNT(CASE WHEN type = "transfer" THEN 1 END) as transfers,
+                COUNT(*) as total_movements
+            ')->first();
 
         $daysDiff = $dateFrom->diffInDays($dateTo);
         $previousPeriodQuery = StockMovement::query()
@@ -90,18 +145,18 @@ class StockMovementAnalytics extends Component
 
         return [
             'today' => [
-                'stock_in' => $todayQuery->clone()->whereIn('type', ['in', 'return'])->sum('quantity'),
-                'stock_out' => abs($todayQuery->clone()->whereIn('type', ['out', 'damaged', 'transfer'])->sum('quantity')),
-                'transfers' => $todayQuery->clone()->where('type', 'transfer')->count(),
-                'total_movements' => $todayQuery->count(),
+                'stock_in' => $todayData?->stock_in ?? 0,
+                'stock_out' => $todayData?->stock_out ?? 0,
+                'transfers' => $todayData?->transfers ?? 0,
+                'total_movements' => $todayData?->total_movements ?? 0,
             ],
             'period' => [
-                'stock_in' => $filteredQuery->clone()->whereIn('type', ['in', 'return'])->sum('quantity'),
-                'stock_out' => abs($filteredQuery->clone()->whereIn('type', ['out', 'damaged', 'transfer'])->sum('quantity')),
-                'transfers' => $filteredQuery->clone()->where('type', 'transfer')->count(),
-                'total_movements' => $filteredQuery->count(),
-                'adjustments' => $filteredQuery->clone()->where('type', 'adjustment')->count(),
-                'damaged' => abs($filteredQuery->clone()->where('type', 'damaged')->sum('quantity')),
+                'stock_in' => $periodData?->stock_in ?? 0,
+                'stock_out' => $periodData?->stock_out ?? 0,
+                'transfers' => $periodData?->transfers ?? 0,
+                'total_movements' => $periodData?->total_movements ?? 0,
+                'adjustments' => $periodData?->adjustments ?? 0,
+                'damaged' => $periodData?->damaged ?? 0,
             ],
             'previous_period' => [
                 'total_movements' => $previousPeriodQuery->count(),
@@ -126,8 +181,10 @@ class StockMovementAnalytics extends Component
                         ->orWhere('notes', 'like', "%{$this->searchTerm}%");
                 });
             })
-            ->when($this->filterShift, fn ($q) => $q->whereHasMorph('reference', ['App\Models\ItemRequest'], fn ($sq) => $sq->where('shift', $this->filterShift)))
-            ->when($this->filterDepartment, fn ($q) => $q->whereHasMorph('reference', ['App\Models\ItemRequest'], fn ($sq) => $sq->where('department_id', $this->filterDepartment)));
+            // FIXED: Now uses denormalized shift/department fields instead of morphTo
+            // This allows filtering across ALL movement types (ItemRequest, Purchase, Adjustment, etc)
+            ->when($this->filterShift, fn ($q) => $q->where('shift', $this->filterShift))
+            ->when($this->filterDepartment, fn ($q) => $q->where('department_id', $this->filterDepartment));
     }
 
     private function getDailyBreakdown($branchId)
@@ -308,22 +365,6 @@ class StockMovementAnalytics extends Component
             ->get();
     }
 
-    public function getMovementTypeDistribution()
-    {
-        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
-        $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
-        $dateTo = Carbon::parse($this->dateTo)->endOfDay();
-
-        return StockMovement::whereHas('stock', fn ($q) => $q->where('branch_id', $branchId))
-            ->when($this->selectedItem, fn ($q) => $q->where('stock_id', $this->selectedItem))
-            ->when($this->movementType, fn ($q) => $q->where('type', $this->movementType))
-            ->whereBetween('movement_date', [$dateFrom, $dateTo])
-            ->selectRaw('type, COUNT(*) as count, SUM(ABS(quantity)) as total_quantity')
-            ->groupBy('type')
-            ->orderByDesc('count')
-            ->get();
-    }
-
     public function getVelocityAnalysis()
     {
         $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
@@ -341,6 +382,11 @@ class StockMovementAnalytics extends Component
             ->orderByDesc('movement_count')
             ->limit(10)
             ->get();
+    }
+
+    private function isAnyFilterActive()
+    {
+        return $this->movementType || $this->selectedItem || $this->searchTerm || $this->filterShift || $this->filterDepartment;
     }
 
     public function render()
@@ -365,15 +411,15 @@ class StockMovementAnalytics extends Component
             : collect();
 
         return view('livewire.branch-dashboard.analytics.stock-movement-analytics', [
-            'movements'        => $movements,
-            'movementTypes'    => ['in', 'out', 'adjustment', 'transfer', 'damaged', 'return'],
-            'availableItems'   => $this->getAvailableItems(),
-            'analytics'        => $this->getAnalyticsSummary($branchId),
-            'typeDistribution' => $this->getMovementTypeDistribution(),
-            'topMovedItems'    => $this->getTopMovedItems(),
-            'velocityAnalysis' => $this->getVelocityAnalysis(),
-            'activityFeed'     => $activityFeed,
-            'departments'      => Department::orderBy('name')->get(),
+            'movements'         => $movements,
+            'movementTypes'     => ['in', 'out', 'adjustment', 'transfer', 'damaged', 'return'],
+            'availableItems'    => $this->getAvailableItems(),
+            'analytics'         => $this->getAnalyticsSummary($branchId),
+            'topMovedItems'     => $this->getTopMovedItems(),
+            'velocityAnalysis'  => $this->getVelocityAnalysis(),
+            'activityFeed'      => $activityFeed,
+            'departments'       => Department::orderBy('name')->get(),
+            'isAnyFilterActive' => $this->isAnyFilterActive(),
         ]);
     }
 }

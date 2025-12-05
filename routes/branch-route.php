@@ -45,7 +45,6 @@ Route::middleware(['auth:web,employees', 'setBranchContext', 'branch'])->prefix(
         Route::get('items', \App\Livewire\BranchDashboard\Inventory\Items::class)->name('items');
         Route::get('purchases', \App\Livewire\BranchDashboard\Inventory\Purchases::class)->name('purchases');
         Route::get('stocks', \App\Livewire\BranchDashboard\Inventory\Stocks::class)->name('stocks');
-        Route::get('stock-movements', \App\Livewire\BranchDashboard\Inventory\StockMovements::class)->name('stock-movements');
         Route::get('item-requests', \App\Livewire\BranchDashboard\Inventory\ItemRequests::class)->name('item-requests');
         Route::get('item-dispatches', \App\Livewire\BranchDashboard\Inventory\ItemDispatches::class)->name('item-dispatches');
         Route::get('stock-takes', \App\Livewire\BranchDashboard\Inventory\StockTakes::class)->name('stock-takes');

@@ -215,11 +215,11 @@ class Stocks extends BaseComponent
 
                 StockMovement::create([
                     'stock_id' => $stock->id,
-                    'type' => $quantityDiff > 0 ? 'in' : 'out',
+                    'type' => $quantityDiff > 0 ? 'adjustment' : 'adjustment',
                     'quantity' => (float) abs($quantityDiff),
                     'quantity_before' => (float) $oldQuantityAvailable,
                     'quantity_after' => (float) $this->quantity_available,
-                    'reference_type' => 'manual_adjustment',
+                    'reference_type' => null,
                     'reference_id' => null,
                     'moved_by_id' => Auth::guard('employees')->id(),
                     'moved_by_type' => \App\Models\Employee::class,

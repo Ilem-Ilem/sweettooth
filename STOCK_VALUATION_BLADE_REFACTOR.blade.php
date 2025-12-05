@@ -1,3 +1,6 @@
+<!-- STOCK VALUATION - REFACTORED BLADE TEMPLATE -->
+<!-- Updated: Remove charts, add tabs and table views -->
+
 <div class="p-3 space-y-3">
     <!-- Breadcrumb -->
     <x-breadcrumb
@@ -296,3 +299,12 @@
     @endif
 
 </div>
+
+<!-- Notes for developers:
+- Removed all Highcharts code (was ~150 lines)
+- Added 4 tab views (All, Top, Category, Low Stock)
+- All filters work across all views
+- Mobile responsive with overflow-x-auto on tables
+- Dark mode compatible
+- No external dependencies needed
+-->

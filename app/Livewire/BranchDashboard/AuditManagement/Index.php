@@ -12,6 +12,7 @@ use App\Models\ApprovalRequest;
 use App\Models\ApprovalAuditRequest;
 use Livewire\Attributes\{Layout, On, Title, Url};
 use App\Services\InventoryApprovalService;
+use App\Services\PurchaseAuditApprovalService;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 #[Title("Audit Mnagement")]
@@ -179,6 +180,7 @@ class Index extends Component
                 'delete_item' => $auditable = InventoryApprovalService::executeItemDeletion($request, $this->getApprover()),
                 'create_purchase' => $auditable = InventoryApprovalService::executePurchaseCreation($request, $this->getApprover()),
                 'delete_purchase' => $auditable = InventoryApprovalService::executePurchaseDeletion($request, $this->getApprover()),
+                'approve_purchase' => $auditable = PurchaseAuditApprovalService::approvePurchase($request, $this->getApprover()),
                 default => null,
             };
         } catch (\Exception $e) {
@@ -487,16 +489,21 @@ class Index extends Component
 
         try {
             $approver = auth()->user() ?? auth('employees')->user();
-            $request->update([
-                'status' => 'rejected',
-                'approver_id' => $approver->id,
-                'approver_type' => get_class($approver),
-                'denied_at' => now(),
-            ]);
+            
+            // Handle purchase rejection - reset status back to draft
+            $baseAction = explode(':', $request->action)[0];
+            if ($baseAction === 'approve_purchase') {
+                PurchaseAuditApprovalService::rejectPurchase($request, $approver, request('rejection_comment', ''));
+            } else {
+                $request->update([
+                    'status' => 'rejected',
+                    'approver_id' => $approver->id,
+                    'approver_type' => get_class($approver),
+                    'denied_at' => now(),
+                ]);
+            }
 
             // Log the rejection action
-            // Extract just the action type (e.g., "update:App\Models\Employee" -> "update")
-            $baseAction = explode(':', $request->action)[0];
             AuditService::log(
                 $approver,
                 "reject_{$baseAction}",
