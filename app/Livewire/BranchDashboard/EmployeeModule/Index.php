@@ -6,12 +6,16 @@ use App\Livewire\BaseComponent;
 use App\Models\Employee;
 use App\Models\Department;
 use App\Models\Branch;
+use App\Models\ApprovalAuditRequest;
+use App\Services\AuditService;
+use App\Traits\AuditableSyncTrait;
 use Spatie\Permission\Models\Role;
 use Livewire\Attributes\{Layout, Url, On};
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Index extends BaseComponent
 {
+    use AuditableSyncTrait;
     public ?int $quantity = 10;
     public ?string $search = null;
     public ?string $advancedSearch = null;
@@ -64,6 +68,11 @@ class Index extends BaseComponent
     public bool $showRoleModal = false;
     public ?string $employeeIdForRole = null;
     public array $selectedRoles = [];
+    
+    // Role reason modal state
+    public bool $showRoleReasonModal = false;
+    public string $roleReason = '';
+    public bool $savingRoles = false;
 
     protected function getModelClass(): string
     {
@@ -240,7 +249,7 @@ class Index extends BaseComponent
     {
         $this->employeeIdForRole = $employeeId;
         $employee = Employee::find($employeeId);
-        $this->selectedRoles = $employee ? $employee->roles->pluck('name')->toArray() : [];
+        $this->selectedRoles = $employee ? $employee->roles->pluck('id')->toArray() : [];
         $this->showRoleModal = true;
     }
 
@@ -251,13 +260,94 @@ class Index extends BaseComponent
         $this->selectedRoles = [];
     }
 
+    public function initiateRoleSave(): void
+    {
+        if (!is_super_admin()) {
+            $this->showRoleReasonModal = true;
+        } else {
+            $this->saveRoles();
+        }
+    }
+
+    public function closeRoleReasonModal(): void
+    {
+        $this->showRoleReasonModal = false;
+        $this->roleReason = '';
+    }
+
+    public function proceedWithRoleReason(): void
+    {
+        if (strlen($this->roleReason) < 5) {
+            $this->toast()->error('Reason must be at least 5 characters long')->send();
+            return;
+        }
+        
+        $this->showRoleReasonModal = false;
+        $this->saveRoles();
+    }
+
     public function saveRoles(): void
     {
-        if ($this->employeeIdForRole) {
+        if ($this->savingRoles) return;
+        
+        $this->savingRoles = true;
+
+        try {
+            if (!$this->employeeIdForRole) return;
+
             $employee = Employee::findOrFail($this->employeeIdForRole);
-            $employee->syncRoles($this->selectedRoles);
+            $user = current_actor();
+
+            if (!is_super_admin()) {
+                // EMPLOYEE: Create approval request
+                ApprovalAuditRequest::create([
+                    'branch_id' => $this->b_id,
+                    'requester_id' => $user->id,
+                    'requester_type' => get_class($user),
+                    'action' => 'sync:' . Employee::class . ':roles:' . $employee->id,
+                    'description' => $this->roleReason,
+                    'payload' => ['id' => $employee->id, 'sync_data' => $this->selectedRoles],
+                    'status' => 'pending',
+                ]);
+
+                // Log as pending
+                AuditService::log(
+                    $user,
+                    'update',
+                    $employee,
+                    $this->roleReason,
+                    'pending'
+                );
+
+                $this->toast()->success('Role update request submitted for approval!')->send();
+                $this->closeRoleModal();
+                $this->roleReason = '';
+                return;
+            }
+
+            // SUPER ADMIN: Update immediately
+            $this->syncWithAudit(
+                $employee,
+                'roles',
+                $this->selectedRoles,
+                "Updated roles for {$employee->name}"
+            );
+
+            // Log as completed
+            AuditService::log(
+                $user,
+                'update',
+                $employee,
+                'Roles updated by super admin',
+                'completed'
+            );
+
             $this->toast()->success('Roles updated successfully!')->send();
             $this->closeRoleModal();
+            $this->roleReason = '';
+
+        } finally {
+            $this->savingRoles = false;
         }
     }
 

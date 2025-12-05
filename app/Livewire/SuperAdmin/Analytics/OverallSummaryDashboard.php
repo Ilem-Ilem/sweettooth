@@ -13,9 +13,9 @@ use Livewire\Attributes\Layout;
 
 class OverallSummaryDashboard extends Component
 {
-    public $dateFrom;
-    public $dateTo;
-    public $selectedBranch;
+    public ?string $dateFrom = null;
+    public ?string $dateTo = null;
+    public ?string $selectedBranch = null;
 
     public function mount()
     {
@@ -59,7 +59,7 @@ class OverallSummaryDashboard extends Component
             'low_stock_items' => $stocks->filter(fn($s) => $s->quantity_available < ($s->item->reorder_level ?? 0))->count(),
             'critical_items' => $stocks->where('health_status', 'critical')->count() + $stocks->where('health_status', 'expired')->count(),
             'total_purchases' => $purchases->count(),
-            'total_purchase_value' => $purchases->sum('total_cost'),
+            'total_purchase_value' => $purchases->sum('landing_cost'),
             'total_movements' => $movements->count(),
             'stock_in' => $movements->where('type', 'in')->sum('quantity'),
             'stock_out' => $movements->where('type', 'out')->sum('quantity'),

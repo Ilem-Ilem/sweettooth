@@ -235,17 +235,32 @@ class CreateOrUpdate extends Component
     }
 
     /**
-     * Initiate department creation workflow
+     * Initiate department save workflow
      * 
-     * For super admins: shows form ready to submit
-     * For employees: shows reason modal before proceeding
+     * For super admins: proceeds directly to save (no approval needed)
+     * For employees: shows reason modal to collect approval reason
      * 
      * @return void
      */
-    public function initiateCreate()
+    public function initiateSave()
     {
-        if (!is_super_admin()) {
-            // Employees must provide reason for creation
+        // Validate form first
+        try {
+            $this->validate([
+                'name' => 'required|string|max:255|unique:departments,name,' . $this->selectedDepartmentId,
+                'category_id' => 'required|exists:department_categories,id',
+                'description' => 'nullable|string',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->dispatch('notify', message: 'Please fix validation errors', type: 'error');
+            return;
+        }
+
+        if (is_super_admin()) {
+            // Super admin: proceed directly to save (no approval needed)
+            $this->saveDepartment();
+        } else {
+            // Employees: must provide reason for approval workflow
             $this->showReasonModal = true;
         }
     }
@@ -261,6 +276,26 @@ class CreateOrUpdate extends Component
     {
         $this->showReasonModal = false;
         $this->creationReason = '';
+    }
+
+    /**
+     * Proceed with save after providing reason (Employee Workflow)
+     * 
+     * Called when employee submits the reason modal.
+     * Validates reason length before proceeding with save.
+     * 
+     * @return void
+     */
+    public function proceedWithReasonSubmitted()
+    {
+        if (strlen($this->creationReason) < 5) {
+            $this->toast()->error('Reason must be at least 5 characters long')->send();
+            return;
+        }
+        
+        // Close modal and proceed with save
+        $this->showReasonModal = false;
+        $this->saveDepartment();
     }
 
     /**
@@ -294,22 +329,14 @@ class CreateOrUpdate extends Component
      */
     public function saveDepartment()
     {
-        try {
-            // Validate form input
-            $this->validate([
-                'name' => 'required|string|max:255|unique:departments,name,' . $this->selectedDepartmentId,
-                'category_id' => 'required|exists:department_categories,id',
-                'description' => 'nullable|string',
-                // Reason is required for employees, optional for super admin
-                'creationReason' => is_super_admin() ? 'nullable|string' : 'required|string|min:5',
-            ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            // If validation fails and modal is open, don't close it
-            if (!is_super_admin() && $this->showReasonModal) {
-                throw $e;
-            }
-            throw $e;
-        }
+        // Validate form input
+        $this->validate([
+            'name' => 'required|string|max:255|unique:departments,name,' . $this->selectedDepartmentId,
+            'category_id' => 'required|exists:department_categories,id',
+            'description' => 'nullable|string',
+            // Reason is required for employees, optional for super admin
+            'creationReason' => is_super_admin() ? 'nullable|string' : 'required|string|min:5',
+        ]);
 
         // Determine branch_id based on user role:
         // - Super admin: use selected branch from dropdown

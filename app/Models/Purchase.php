@@ -23,10 +23,9 @@ class Purchase extends Model
         'total_fob_ngn',
         'other_costs',
         'landing_cost',
-        'currency',
-        'exchange_rate',
         'payment_status',
         'notes',
+        'status',
     ];
 
     protected $casts = [
@@ -35,7 +34,6 @@ class Purchase extends Model
         'total_fob_ngn' => 'decimal:2',
         'other_costs' => 'decimal:2',
         'landing_cost' => 'decimal:2',
-        'exchange_rate' => 'decimal:4',
     ];
 
     /**
@@ -44,6 +42,30 @@ class Purchase extends Model
     public function scopeForBranch($query, $branchId)
     {
         return $query->where('branch_id', $branchId);
+    }
+
+    /**
+     * Scope to filter draft purchases
+     */
+    public function scopeDrafts($query)
+    {
+        return $query->where('status', 'draft');
+    }
+
+    /**
+     * Scope to filter pending approval purchases
+     */
+    public function scopePendingApproval($query)
+    {
+        return $query->where('status', 'pending_approval');
+    }
+
+    /**
+     * Scope to filter approved purchases
+     */
+    public function scopeApproved($query)
+    {
+        return $query->where('status', 'approved');
     }
 
     /**
@@ -72,6 +94,23 @@ class Purchase extends Model
     public function purchaseItems(): HasMany
     {
         return $this->hasMany(PurchaseItem::class);
+    }
+
+    /**
+     * Get the approval request for this purchase
+     */
+    public function approvalRequest()
+    {
+        return $this->hasOne(PurchaseApprovalRequest::class);
+    }
+
+    /**
+     * Get the stock movements created from this purchase
+     */
+    public function stockMovements(): HasMany
+    {
+        return $this->hasMany(StockMovement::class, 'reference_id')
+            ->where('reference_type', 'App\Models\Purchase');
     }
 
     /**

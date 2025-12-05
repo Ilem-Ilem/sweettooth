@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Log;
 
 class BranchSelector extends Component
 {
-    public $selectedBranch;
+    public ?string $selectedBranch = null;
 
     public function mount()
     {

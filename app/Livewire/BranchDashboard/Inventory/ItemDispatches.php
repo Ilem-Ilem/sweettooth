@@ -7,6 +7,7 @@ use App\Models\ItemRequest;
 use App\Models\ItemRequestDetail;
 use App\Models\Stock;
 use App\Models\StockMovement;
+use App\Services\AuditService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\{Layout, Url, On};
@@ -24,7 +25,7 @@ class ItemDispatches extends Component
     public $quantity = 15;
 
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
 
     public $search = '';
 
@@ -120,18 +121,15 @@ class ItemDispatches extends Component
 
         // Show ALL items - requested, approved, and dispatched
         foreach ($request->requestDetails as $detail) {
-            $remainingToApprove = $detail->quantity_requested - $detail->quantity_approved;
-            $remainingToDispatch = $detail->quantity_approved - $detail->quantity_dispatched;
+            $remainingToApprove = (float) (($detail->quantity_requested ?? 0) - ($detail->quantity_approved ?? 0));
+            $remainingToDispatch = (float) (($detail->quantity_approved ?? 0) - ($detail->quantity_dispatched ?? 0));
 
-            // Get current stock level
-            // $stock = Stock::where('branch_id', $branchId)
-            //     ->where('item_id', $detail->item_id)
-            //     ->first();
+            // Get current stock level for this branch
+            $stock = Stock::where('branch_id', $branchId)
+                ->where('item_id', $detail->item_id)
+                ->first();
 
-            $stock = Stock::where('item_id', $detail->item_id)
-         ->first();
-
-         $stockAvailable = $stock ? $stock->quantity_available : 0;
+            $stockAvailable = $stock ? (float) $stock->quantity_available : 0.0;
 
             $this->dispatchedItems[] = [
                 'detail_id' => $detail->id,
@@ -212,6 +210,24 @@ class ItemDispatches extends Component
 
                 if ($approvedCount > 0) {
                     $request->refresh();
+                    
+                    // Log the approval
+                    $approvedItems = [];
+                    foreach ($this->dispatchedItems as $item) {
+                        if ((float)($item['approve_quantity'] ?? 0) > 0) {
+                            $approvedItems[] = "{$item['item_name']}: {$item['approve_quantity']} {$item['uom']}";
+                        }
+                    }
+
+                    // Log the approval
+                    AuditService::log(
+                        Auth::guard('employees')->user(),
+                        'update',
+                        $request,
+                        "Approved {$approvedCount} item(s) from request #{$request->request_number}. " .
+                        "Items: " . implode(', ', $approvedItems),
+                        'completed'
+                    );
                 }
             });
 
@@ -336,7 +352,8 @@ class ItemDispatches extends Component
                         'movement_date' => now(),
                         'reference_type' => ItemRequest::class,
                         'reference_id' => $this->requestId,
-                        'moved_by' => Auth::guard('employees')->id(),
+                        'moved_by_id' => Auth::guard('employees')->id(),
+                        'moved_by_type' => \App\Models\Employee::class,
                         'notes' => "Dispatch for request: {$request->request_number}",
                     ]);
 
@@ -360,6 +377,31 @@ class ItemDispatches extends Component
                         ? 'completed'
                         : 'partially_dispatched',
                 ]);
+
+                // Prepare audit description
+                $dispatchedItems = [];
+                foreach ($this->dispatchedItems as $item) {
+                    $detail = ItemRequestDetail::find($item['detail_id']);
+                    if ($detail) {
+                        $dispatchQty = $detail->quantity_approved - $detail->quantity_dispatched;
+                        if ($dispatchQty > 0) {
+                            $dispatchedItems[] = "{$item['item_name']}: {$dispatchQty} {$item['uom']}";
+                        }
+                    }
+                }
+
+                // Log the dispatch
+                if (!empty($dispatchedItems)) {
+                    AuditService::log(
+                        Auth::guard('employees')->user(),
+                        'update',
+                        $request,
+                        "Dispatched items from request #{$request->request_number}. " .
+                        "Items: " . implode(', ', $dispatchedItems) . 
+                        ". Status: {$request->status}",
+                        'completed'
+                    );
+                }
             });
 
             // Show success message with warnings if applicable

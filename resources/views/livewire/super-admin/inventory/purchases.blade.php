@@ -154,78 +154,296 @@
         </div>
     </div>
 
-    <!-- Purchases Table -->
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
+        <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg shadow-sm p-3">
+            <p class="text-xs opacity-90">Total Purchases</p>
+            <p class="text-2xl font-bold">{{ $summary['total_purchases'] }}</p>
+        </div>
+        <div class="bg-green-50 dark:bg-green-900/20 rounded-lg shadow-sm p-3 border border-green-200 dark:border-green-700">
+            <p class="text-xs text-gray-600 dark:text-gray-400">Total Cost</p>
+            <p class="text-2xl font-bold text-green-600 dark:text-green-500">₦{{ number_format($summary['total_cost'], 0) }}</p>
+        </div>
+        <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg shadow-sm p-3 border border-blue-200 dark:border-blue-700">
+            <p class="text-xs text-gray-600 dark:text-gray-400">Paid</p>
+            <p class="text-2xl font-bold text-blue-600 dark:text-blue-500">{{ $summary['paid_count'] }}</p>
+        </div>
+        <div class="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg shadow-sm p-3 border border-yellow-200 dark:border-yellow-700">
+            <p class="text-xs text-gray-600 dark:text-gray-400">Partial</p>
+            <p class="text-2xl font-bold text-yellow-600 dark:text-yellow-500">{{ $summary['partial_count'] }}</p>
+        </div>
+        <div class="bg-red-50 dark:bg-red-900/20 rounded-lg shadow-sm p-3 border border-red-200 dark:border-red-700">
+            <p class="text-xs text-gray-600 dark:text-gray-400">Pending</p>
+            <p class="text-2xl font-bold text-red-600 dark:text-red-500">{{ $summary['pending_count'] }}</p>
+        </div>
+    </div>
+
+    <!-- View Mode Tabs -->
+    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-2 mb-4">
+        <div class="flex flex-wrap gap-1 bg-zinc-100 dark:bg-zinc-700 p-1 rounded-lg">
+            <button wire:click="setViewMode('table')" class="px-3 py-2 text-xs font-medium rounded transition-all whitespace-nowrap {{ $viewMode === 'table' ? 'bg-white dark:bg-zinc-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200' }}">
+                📋 Table
+            </button>
+            <button wire:click="setViewMode('cards')" class="px-3 py-2 text-xs font-medium rounded transition-all whitespace-nowrap {{ $viewMode === 'cards' ? 'bg-white dark:bg-zinc-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200' }}">
+                🎴 Cards
+            </button>
+            <button wire:click="setViewMode('list')" class="px-3 py-2 text-xs font-medium rounded transition-all whitespace-nowrap {{ $viewMode === 'list' ? 'bg-white dark:bg-zinc-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200' }}">
+                📝 List
+            </button>
+            <button wire:click="setViewMode('timeline')" class="px-3 py-2 text-xs font-medium rounded transition-all whitespace-nowrap {{ $viewMode === 'timeline' ? 'bg-white dark:bg-zinc-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200' }}">
+                📅 Timeline
+            </button>
+            <button wire:click="setViewMode('stats')" class="px-3 py-2 text-xs font-medium rounded transition-all whitespace-nowrap {{ $viewMode === 'stats' ? 'bg-white dark:bg-zinc-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200' }}">
+                📊 Analysis
+            </button>
+        </div>
+    </div>
+
+    <!-- TABLE VIEW -->
+    @if($viewMode === 'table')
     <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700">
     <div class="px-3 py-2 border-b border-zinc-200 dark:border-zinc-700 flex justify-between items-center">
     <h3 class="text-sm font-medium text-zinc-800 dark:text-zinc-100">Purchases List</h3>
-            @can('create-purchases')
-                <button wire:click="openCreateModal"
-                    class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md text-xs font-medium">
-                    New Purchase
-                </button>
-            @endcan
+             @can('create-purchases')
+                 <button wire:click="openCreateModal"
+                     class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md text-xs font-medium">
+                     New Purchase
+                 </button>
+             @endcan
+         </div>
+         <div class="overflow-x-auto">
+             <table class="min-w-full divide-y divide-gray-200">
+                 <thead class="bg-gray-50 dark:bg-zinc-700">
+                     <tr>
+                         <th wire:click="sortByColumn('purchase_number')" class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-zinc-600">Purchase #</th>
+                         <th wire:click="sortByColumn('purchase_date')" class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-zinc-600">Date</th>
+                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Branch</th>
+                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Supplier</th>
+                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Currency</th>
+                         <th wire:click="sortByColumn('landing_cost')" class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-zinc-600">Total Cost</th>
+                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Payment</th>
+                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Items</th>
+                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
+                     </tr>
+                 </thead>
+                 <tbody class="bg-white dark:bg-zinc-800 divide-y divide-gray-200 dark:divide-zinc-700">
+                     @forelse ($purchases as $purchase)
+                         <tr class="hover:bg-gray-50 dark:hover:bg-zinc-700/50">
+                             <td class="px-3 py-2 text-xs font-medium text-gray-900 dark:text-zinc-100">{{ $purchase->purchase_number }}
+                             </td>
+                             <td class="px-3 py-2 text-xs text-gray-600 dark:text-gray-400">
+                                 {{ $purchase->purchase_date->format('d M Y') }}</td>
+                             <td class="px-3 py-2 text-xs text-gray-600 dark:text-gray-400">{{ $purchase->branch->name }}</td>
+                             <td class="px-3 py-2 text-xs text-gray-900 dark:text-zinc-100">{{ $purchase->supplier_name }}</td>
+                             <td class="px-3 py-2 text-xs text-gray-600 dark:text-gray-400">{{ $purchase->currency }}</td>
+                             <td class="px-3 py-2 text-xs font-medium text-gray-900 dark:text-zinc-100">
+                                 ₦{{ number_format($purchase->landing_cost, 2) }}</td>
+                             <td class="px-3 py-2 text-xs">
+                                 <span
+                                     class="px-2 py-0.5 rounded-full text-xs font-medium
+                                     {{ $purchase->payment_status === 'paid' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : '' }}
+                                     {{ $purchase->payment_status === 'partial' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' : '' }}
+                                     {{ $purchase->payment_status === 'pending' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' : '' }}">
+                                     {{ ucfirst($purchase->payment_status) }}
+                                 </span>
+                             </td>
+                             <td class="px-3 py-2 text-xs text-gray-600 dark:text-gray-400">{{ $purchase->purchaseItems->count() }}</td>
+                             <td class="px-3 py-2 text-xs">
+                                 @can('delete-purchases')
+                                     <button wire:click="delete({{ $purchase->id }})"
+                                         onclick="return confirm('Are you sure you want to delete this purchase?')"
+                                         class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
+                                         Delete
+                                     </button>
+                                 @endcan
+                             </td>
+                         </tr>
+                     @empty
+                         <tr>
+                             <td colspan="9" class="px-3 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                                 No purchases found.
+                             </td>
+                         </tr>
+                     @endforelse
+                 </tbody>
+             </table>
+         </div>
+         <div class="px-3 py-2 border-t border-gray-200 dark:border-zinc-700">
+             {{ $purchases->links() }}
+         </div>
+     </div>
+    @endif
+
+    <!-- CARDS VIEW -->
+    @if($viewMode === 'cards')
+    <div>
+        <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Purchases</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            @forelse($purchases as $purchase)
+                <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4 hover:shadow-md transition-shadow">
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <h4 class="font-medium text-zinc-900 dark:text-zinc-100">{{ $purchase->purchase_number }}</h4>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">{{ $purchase->purchase_date->format('d M Y') }}</p>
+                        </div>
+                        <span class="px-2 py-1 text-xs font-semibold rounded {{ $purchase->payment_status === 'paid' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : ($purchase->payment_status === 'partial' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400') }}">
+                            {{ ucfirst($purchase->payment_status) }}
+                        </span>
+                    </div>
+                    <div class="space-y-2 text-sm border-t border-zinc-200 dark:border-zinc-700 pt-3">
+                        <div class="flex justify-between">
+                            <span class="text-zinc-600 dark:text-zinc-400">Branch:</span>
+                            <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $purchase->branch->name }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-zinc-600 dark:text-zinc-400">Supplier:</span>
+                            <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ Str::limit($purchase->supplier_name, 20) }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-zinc-600 dark:text-zinc-400">Items:</span>
+                            <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $purchase->purchaseItems->count() }}</span>
+                        </div>
+                        <div class="border-t border-zinc-200 dark:border-zinc-700 pt-2 mt-2">
+                            <div class="flex justify-between">
+                                <span class="text-zinc-600 dark:text-zinc-400">Total:</span>
+                                <span class="font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($purchase->landing_cost, 0) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @empty
+                <div class="col-span-3 text-center py-8">
+                    <p class="text-gray-500 dark:text-gray-400">No purchases found</p>
+                </div>
+            @endforelse
         </div>
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Purchase #</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Branch</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Supplier</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Currency</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Total Cost</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Payment</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Items</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                    @forelse ($purchases as $purchase)
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-3 py-2 text-xs font-medium text-gray-900">{{ $purchase->purchase_number }}
-                            </td>
-                            <td class="px-3 py-2 text-xs text-gray-600">
-                                {{ $purchase->purchase_date->format('d M Y') }}</td>
-                            <td class="px-3 py-2 text-xs text-gray-600">{{ $purchase->branch->name }}</td>
-                            <td class="px-3 py-2 text-xs text-gray-900">{{ $purchase->supplier_name }}</td>
-                            <td class="px-3 py-2 text-xs text-gray-600">{{ $purchase->currency }}</td>
-                            <td class="px-3 py-2 text-xs font-medium text-gray-900">
-                                ₦{{ number_format($purchase->landing_cost, 2) }}</td>
-                            <td class="px-3 py-2 text-xs">
-                                <span
-                                    class="px-2 py-0.5 rounded-full text-xs font-medium
-                                    {{ $purchase->payment_status === 'paid' ? 'bg-green-100 text-green-800' : '' }}
-                                    {{ $purchase->payment_status === 'partial' ? 'bg-yellow-100 text-yellow-800' : '' }}
-                                    {{ $purchase->payment_status === 'pending' ? 'bg-red-100 text-red-800' : '' }}">
-                                    {{ ucfirst($purchase->payment_status) }}
-                                </span>
-                            </td>
-                            <td class="px-3 py-2 text-xs text-gray-600">{{ $purchase->purchaseItems->count() }}</td>
-                            <td class="px-3 py-2 text-xs">
-                                @can('delete-purchases')
-                                    <button wire:click="delete({{ $purchase->id }})"
-                                        onclick="return confirm('Are you sure you want to delete this purchase?')"
-                                        class="text-red-600 hover:text-red-800">
-                                        Delete
-                                    </button>
-                                @endcan
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="9" class="px-3 py-4 text-center text-sm text-gray-500">
-                                No purchases found.
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
+        <div class="mt-4">{{ $purchases->links() }}</div>
+    </div>
+    @endif
+
+    <!-- LIST VIEW -->
+    @if($viewMode === 'list')
+    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
+        <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Purchases</h3>
+        <div class="space-y-2">
+            @forelse($purchases as $purchase)
+                <div class="flex items-center justify-between p-3 bg-zinc-50 dark:bg-zinc-700/50 rounded border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-700">
+                    <div class="flex-1">
+                        <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $purchase->purchase_number }}</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">{{ $purchase->supplier_name }} • {{ $purchase->purchase_date->format('d M Y') }}</div>
+                    </div>
+                    <div class="hidden sm:flex gap-4 text-sm text-right">
+                        <div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">Items</div>
+                            <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $purchase->purchaseItems->count() }}</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">Cost</div>
+                            <div class="font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($purchase->landing_cost, 0) }}</div>
+                        </div>
+                    </div>
+                </div>
+            @empty
+                <div class="text-center py-8">
+                    <p class="text-gray-500 dark:text-gray-400">No purchases found</p>
+                </div>
+            @endforelse
         </div>
-        <div class="px-3 py-2 border-t border-gray-200">
-            {{ $purchases->links() }}
+        <div class="mt-4">{{ $purchases->links() }}</div>
+    </div>
+    @endif
+
+    <!-- TIMELINE VIEW -->
+    @if($viewMode === 'timeline')
+    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
+        <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-6">Purchase Timeline</h3>
+        <div class="space-y-4">
+            @forelse($purchases as $purchase)
+                <div class="flex gap-4">
+                    <div class="flex flex-col items-center">
+                        <div class="w-4 h-4 rounded-full border-2 border-blue-600 dark:border-blue-400 bg-white dark:bg-zinc-800"></div>
+                        @if(!$loop->last)
+                            <div class="w-1 h-12 bg-zinc-200 dark:bg-zinc-700"></div>
+                        @endif
+                    </div>
+                    <div class="flex-1 pb-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div>
+                                <h4 class="font-medium text-zinc-900 dark:text-zinc-100">{{ $purchase->purchase_number }}</h4>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">{{ $purchase->purchase_date->format('d M Y \a\t H:i') }}</p>
+                            </div>
+                            <span class="px-2 py-1 text-xs font-semibold rounded {{ $purchase->payment_status === 'paid' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : ($purchase->payment_status === 'partial' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400') }}">
+                                {{ ucfirst($purchase->payment_status) }}
+                            </span>
+                        </div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">{{ $purchase->supplier_name }} • {{ $purchase->branch->name }}</p>
+                        <p class="text-sm font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($purchase->landing_cost, 2) }} • {{ $purchase->purchaseItems->count() }} items</p>
+                    </div>
+                </div>
+            @empty
+                <div class="text-center py-8">
+                    <p class="text-gray-500 dark:text-gray-400">No purchases found</p>
+                </div>
+            @endforelse
+        </div>
+        <div class="mt-4">{{ $purchases->links() }}</div>
+    </div>
+    @endif
+
+    <!-- ANALYSIS/STATS VIEW -->
+    @if($viewMode === 'stats')
+    <div class="space-y-4">
+        <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100">Purchase Analysis</h3>
+        
+        <!-- By Payment Status -->
+        <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
+            <h4 class="font-semibold text-zinc-800 dark:text-zinc-100 mb-4">By Payment Status</h4>
+            <div class="space-y-3">
+                @foreach($purchasesByStatus as $statusData)
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <div>
+                                <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ ucfirst($statusData['status']) }}</span>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">{{ $statusData['count'] }} purchases</p>
+                            </div>
+                            <span class="text-sm font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($statusData['total_cost'], 0) }}</span>
+                        </div>
+                        @php
+                            $percentage = ($statusData['total_cost'] / $summary['total_cost']) * 100;
+                        @endphp
+                        <div class="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-2">
+                            <div class="bg-blue-600 dark:bg-blue-500 h-2 rounded-full" style="width: {{ $percentage }}%"></div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+
+        <!-- By Branch -->
+        <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
+            <h4 class="font-semibold text-zinc-800 dark:text-zinc-100 mb-4">By Branch</h4>
+            <div class="space-y-3">
+                @foreach($purchasesByBranch as $branchData)
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <div>
+                                <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $branchData['branch'] }}</span>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">{{ $branchData['count'] }} purchases • Avg: ₦{{ number_format($branchData['avg_cost'], 0) }}</p>
+                            </div>
+                            <span class="text-sm font-bold text-green-600 dark:text-green-400">₦{{ number_format($branchData['total_cost'], 0) }}</span>
+                        </div>
+                        @php
+                            $percentage = ($branchData['total_cost'] / $summary['total_cost']) * 100;
+                        @endphp
+                        <div class="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-2">
+                            <div class="bg-green-600 dark:bg-green-500 h-2 rounded-full" style="width: {{ $percentage }}%"></div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
         </div>
     </div>
+    @endif
 
     <!-- Create Purchase Modal -->
     @if ($showModal)
@@ -363,65 +581,73 @@
                             </div>
 
                             <div class="space-y-2">
-                                @foreach ($purchaseItems as $index => $item)
-                                    <div class="grid grid-cols-12 gap-2 items-start border p-2 rounded bg-gray-50">
-                                        <div class="col-span-4">
-                                            <select wire:model="purchaseItems.{{ $index }}.item_id"
-                                                class="w-full px-2 py-1 text-xs border border-gray-300 rounded-md">
-                                                <option value="">Select Item</option>
-                                                @foreach ($items as $itemOption)
-                                                    <option value="{{ $itemOption->id }}">{{ $itemOption->name }}
-                                                    </option>
-                                                @endforeach
-                                            </select>
-                                            @error('purchaseItems.' . $index . '.item_id')
-                                                <span class="text-xs text-red-600">{{ $message }}</span>
-                                            @enderror
-                                        </div>
-                                        <div class="col-span-2">
-                                            <input type="number" step="0.01"
-                                                wire:model="purchaseItems.{{ $index }}.quantity"
-                                                placeholder="Qty"
-                                                class="w-full px-2 py-1 text-xs border border-gray-300 rounded-md">
-                                            @error('purchaseItems.' . $index . '.quantity')
-                                                <span class="text-xs text-red-600">{{ $message }}</span>
-                                            @enderror
-                                        </div>
-                                        <div class="col-span-2">
-                                            <select wire:model="purchaseItems.{{ $index }}.uom"
-                                                class="w-full px-2 py-1 text-xs border border-gray-300 rounded-md">
-                                                <option value="">UOM</option>
-                                                <option value="grams">Grams</option>
-                                                <option value="kg">Kg</option>
-                                                <option value="liters">Liters</option>
-                                                <option value="ml">ml</option>
-                                                <option value="pcs">Pcs</option>
-                                                <option value="units">Units</option>
-                                                <option value="bags">Bags</option>
-                                                <option value="cartons">Cartons</option>
-                                            </select>
-                                            @error('purchaseItems.' . $index . '.uom')
-                                                <span class="text-xs text-red-600">{{ $message }}</span>
-                                            @enderror
-                                        </div>
-                                        <div class="col-span-3">
-                                            <input type="number" step="0.01"
-                                                wire:model="purchaseItems.{{ $index }}.unit_fob_fc"
-                                                placeholder="Unit Price"
-                                                class="w-full px-2 py-1 text-xs border border-gray-300 rounded-md">
-                                            @error('purchaseItems.' . $index . '.unit_fob_fc')
-                                                <span class="text-xs text-red-600">{{ $message }}</span>
-                                            @enderror
-                                        </div>
-                                        <div class="col-span-1">
-                                            <button type="button" wire:click="removePurchaseItem({{ $index }})"
-                                                class="text-red-600 hover:text-red-800 text-xs">
-                                                Remove
-                                            </button>
-                                        </div>
-                                    </div>
-                                @endforeach
-                            </div>
+                                 @foreach ($purchaseItems as $index => $item)
+                                     <div class="grid grid-cols-12 gap-2 items-start border p-2 rounded bg-gray-50" x-data="{ qty: parseFloat(@json($item['quantity'] ?? 0)) || 0, price: parseFloat(@json($item['unit_price'] ?? 0)) || 0 }">
+                                         <div class="col-span-3">
+                                             <select wire:model="purchaseItems.{{ $index }}.item_id"
+                                                 class="w-full px-2 py-1 text-xs border border-gray-300 rounded-md">
+                                                 <option value="">Select Item</option>
+                                                 @foreach ($items as $itemOption)
+                                                     <option value="{{ $itemOption->id }}">{{ $itemOption->name }}
+                                                     </option>
+                                                 @endforeach
+                                             </select>
+                                             @error('purchaseItems.' . $index . '.item_id')
+                                                 <span class="text-xs text-red-600">{{ $message }}</span>
+                                             @enderror
+                                         </div>
+                                         <div class="col-span-2">
+                                             <input type="number" step="0.01"
+                                                 wire:model.live="purchaseItems.{{ $index }}.quantity"
+                                                 @input="qty = parseFloat($event.target.value) || 0"
+                                                 placeholder="Qty"
+                                                 class="w-full px-2 py-1 text-xs border border-gray-300 rounded-md">
+                                             @error('purchaseItems.' . $index . '.quantity')
+                                                 <span class="text-xs text-red-600">{{ $message }}</span>
+                                             @enderror
+                                         </div>
+                                         <div class="col-span-2">
+                                             <select wire:model="purchaseItems.{{ $index }}.uom"
+                                                 class="w-full px-2 py-1 text-xs border border-gray-300 rounded-md">
+                                                 <option value="">UOM</option>
+                                                 <option value="grams">Grams</option>
+                                                 <option value="kg">Kg</option>
+                                                 <option value="liters">Liters</option>
+                                                 <option value="ml">ml</option>
+                                                 <option value="pcs">Pcs</option>
+                                                 <option value="units">Units</option>
+                                                 <option value="bags">Bags</option>
+                                                 <option value="cartons">Cartons</option>
+                                             </select>
+                                             @error('purchaseItems.' . $index . '.uom')
+                                                 <span class="text-xs text-red-600">{{ $message }}</span>
+                                             @enderror
+                                         </div>
+                                         <div class="col-span-2">
+                                             <input type="number" step="0.01"
+                                                 wire:model.live="purchaseItems.{{ $index }}.unit_price"
+                                                 @input="price = parseFloat($event.target.value) || 0"
+                                                 placeholder="Unit Price"
+                                                 class="w-full px-2 py-1 text-xs border border-gray-300 rounded-md">
+                                             @error('purchaseItems.' . $index . '.unit_price')
+                                                 <span class="text-xs text-red-600">{{ $message }}</span>
+                                             @enderror
+                                         </div>
+                                         <div class="col-span-2">
+                                             <input type="number" step="0.01" disabled
+                                                 :value="(qty * price).toFixed(2)"
+                                                 placeholder="Total"
+                                                 class="w-full px-2 py-1 text-xs border border-gray-300 rounded-md bg-gray-100 text-gray-700 font-semibold cursor-not-allowed opacity-75">
+                                         </div>
+                                         <div class="col-span-1">
+                                             <button type="button" wire:click="removePurchaseItem({{ $index }})"
+                                                 class="text-red-600 hover:text-red-800 text-xs">
+                                                 Remove
+                                             </button>
+                                         </div>
+                                     </div>
+                                 @endforeach
+                             </div>
                         </div>
 
                         <div class="flex justify-end space-x-2 pt-2 border-t">

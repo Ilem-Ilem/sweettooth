@@ -20,6 +20,7 @@ class ApprovalAuditRequest extends Model
         'comment',
         'approved_at',
         'denied_at',
+        'rejection_comment',
     ];
     protected $casts = ['payload' => 'array'];
 

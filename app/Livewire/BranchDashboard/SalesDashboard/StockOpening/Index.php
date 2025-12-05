@@ -19,7 +19,7 @@ class Index extends BaseComponent
     use WithPagination, Interactions;
 
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
 
     #[Url(keep: true)]
     public ?string $salesDeptSlug = null;
@@ -43,7 +43,7 @@ class Index extends BaseComponent
     public $availableShifts = [];
     public $selectedShiftForViewing = null;
 
-    public $selectedStockItem;
+    public ?ProductStock $selectedStockItem = null;
 
     // Table headers
     public array $headers = [

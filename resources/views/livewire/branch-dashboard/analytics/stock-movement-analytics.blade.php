@@ -200,6 +200,25 @@
         </div>
     </div>
 
+    <!-- Session Messages -->
+    @if (session('warning'))
+        <div class="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded text-xs text-yellow-800 dark:text-yellow-200 flex items-start">
+            <svg class="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+            </svg>
+            {{ session('warning') }}
+        </div>
+    @endif
+
+    @if (session('success'))
+        <div class="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded text-xs text-green-800 dark:text-green-200 flex items-start">
+            <svg class="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+            </svg>
+            {{ session('success') }}
+        </div>
+    @endif
+
     <!-- Filters Section -->
     <div x-data="{ open: true }"
         class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 transition-all duration-300">
@@ -211,14 +230,27 @@
                 </svg>
                 Filters & Date Range
             </h2>
-            <button @click="open = !open"
-                class="flex items-center px-2.5 py-1 rounded text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white transition-all duration-200">
-                <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path x-show="!open" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16" />
-                    <path x-show="open" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                <span x-text="open ? 'Close' : 'Show Filters'"></span>
-            </button>
+            <div class="flex gap-2">
+                <button @click="open = !open"
+                    class="flex items-center px-2.5 py-1 rounded text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white transition-all duration-200">
+                    <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path x-show="!open" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16" />
+                        <path x-show="open" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    <span x-text="open ? 'Close' : 'Show Filters'"></span>
+                </button>
+                
+                <!-- Reset Filters Button -->
+                @if($isAnyFilterActive)
+                    <button wire:click="resetFilters"
+                        class="flex items-center px-2.5 py-1 rounded text-xs font-medium bg-gray-600 hover:bg-gray-700 text-white transition-all duration-200">
+                        <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        Reset
+                    </button>
+                @endif
+            </div>
         </div>
 
         <div x-show="open" x-collapse class="p-3 space-y-3">
@@ -277,6 +309,49 @@
                 </div>
             </div>
         </div>
+
+        <!-- Applied Filters Display -->
+        @if($isAnyFilterActive)
+            <div class="p-3 border-t border-zinc-200 dark:border-zinc-700">
+                <p class="text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-2">Active Filters:</p>
+                <div class="flex flex-wrap gap-2">
+                    @if($movementType)
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 font-medium">
+                            Type: {{ ucfirst($movementType) }}
+                            <button wire:click="$set('movementType', '')" class="ml-1 hover:font-bold text-blue-600 dark:text-blue-300">×</button>
+                        </span>
+                    @endif
+                    
+                    @if($selectedItem)
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 font-medium">
+                            Item Selected
+                            <button wire:click="$set('selectedItem', null)" class="ml-1 hover:font-bold text-green-600 dark:text-green-300">×</button>
+                        </span>
+                    @endif
+                    
+                    @if($searchTerm)
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 font-medium">
+                            Search: "{{ substr($searchTerm, 0, 20) }}{{ strlen($searchTerm) > 20 ? '...' : '' }}"
+                            <button wire:click="$set('searchTerm', '')" class="ml-1 hover:font-bold text-purple-600 dark:text-purple-300">×</button>
+                        </span>
+                    @endif
+                    
+                    @if($filterShift)
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 font-medium">
+                            Shift: {{ ucfirst($filterShift) }}
+                            <button wire:click="$set('filterShift', '')" class="ml-1 hover:font-bold text-orange-600 dark:text-orange-300">×</button>
+                        </span>
+                    @endif
+                    
+                    @if($filterDepartment)
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 font-medium">
+                            Department Selected
+                            <button wire:click="$set('filterDepartment', '')" class="ml-1 hover:font-bold text-indigo-600 dark:text-indigo-300">×</button>
+                        </span>
+                    @endif
+                </div>
+            </div>
+        @endif
     </div>
 
     <!-- View Mode Tabs & Export -->
@@ -310,47 +385,6 @@
 
     <!-- Analytics Grid -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <!-- Movement Type Distribution -->
-        <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
-            <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Movement Type Distribution</h3>
-            <div class="space-y-2">
-                @forelse($typeDistribution as $dist)
-                    @php
-                        $typeColors = [
-                            'in' => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-                            'out' => 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-                            'adjustment' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-                            'transfer' => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-                            'damaged' => 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-                            'return' => 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-                        ];
-                        $percentage = $analytics['period']['total_movements'] > 0
-                            ? ($dist->count / $analytics['period']['total_movements']) * 100
-                            : 0;
-                    @endphp
-                    <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-zinc-700/50 rounded">
-                        <div class="flex items-center flex-1">
-                            <span class="px-2 py-1 text-xs font-semibold rounded {{ $typeColors[$dist->type] ?? '' }} mr-3">
-                                {{ ucfirst($dist->type) }}
-                            </span>
-                            <div class="flex-1">
-                                <div class="w-full bg-zinc-200 dark:bg-zinc-600 rounded-full h-2">
-                                    <div class="h-2 rounded-full {{ str_replace(['100', '800'], ['600', '600'], $typeColors[$dist->type] ?? '') }}"
-                                        style="width: {{ $percentage }}%"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="text-right ml-4">
-                            <p class="font-bold text-zinc-900 dark:text-zinc-100">{{ number_format($dist->count) }}</p>
-                            <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ number_format($percentage, 1) }}%</p>
-                        </div>
-                    </div>
-                @empty
-                    <p class="text-center text-zinc-500 dark:text-zinc-400 py-8">No data available</p>
-                @endforelse
-            </div>
-        </div>
-
         <!-- Top 10 Most Moved Items -->
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
             <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Top 10 Most Moved Items</h3>

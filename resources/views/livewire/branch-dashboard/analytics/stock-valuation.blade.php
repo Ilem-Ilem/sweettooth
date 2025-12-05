@@ -1,366 +1,298 @@
 <div class="p-3 space-y-3">
-    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
-        <h2 class="text-lg font-semibold text-zinc-800 dark:text-zinc-100 mb-6">Stock Valuation</h2>
+    <!-- Breadcrumb -->
+    <x-breadcrumb
+        title="Stock Valuation"
+        :items="[
+            ['label' => 'Dashboard', 'url' => branch_route('branch-dashboard.index')],
+            ['label' => 'Analytics'],
+            ['label' => 'Stock Valuation']
+        ]"
+        :compact="false"
+        :with-icons="true"
+    />
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-            <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg shadow-sm p-4">
-                <p class="text-sm opacity-90">Total Value</p>
-                <p class="text-2xl font-bold">₦{{ number_format($summary['total_value'], 2) }}</p>
-            </div>
-            <div class="bg-green-50 dark:bg-green-900/20 rounded-lg shadow-sm p-4">
-                <p class="text-sm text-gray-600 dark:text-gray-400">Available</p>
-                <p class="text-2xl font-bold text-green-600 dark:text-green-500">₦{{ number_format($summary['available_value'], 2) }}</p>
-            </div>
-            <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg shadow-sm p-4">
-                <p class="text-sm text-gray-600 dark:text-gray-400">Reserved</p>
-                <p class="text-2xl font-bold text-blue-600 dark:text-blue-500">₦{{ number_format($summary['reserved_value'], 2) }}</p>
-            </div>
-            <div class="bg-red-50 dark:bg-red-900/20 rounded-lg shadow-sm p-4">
-                <p class="text-sm text-gray-600 dark:text-gray-400">Damaged</p>
-                <p class="text-2xl font-bold text-red-600 dark:text-red-500">₦{{ number_format($summary['damaged_value'], 2) }}</p>
-            </div>
-            <div class="bg-purple-50 dark:bg-purple-900/20 rounded-lg shadow-sm p-4">
-                <p class="text-sm text-gray-600 dark:text-gray-400">Total Items</p>
-                <p class="text-2xl font-bold text-purple-600 dark:text-purple-500">{{ $summary['total_items'] }}</p>
-            </div>
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg shadow-sm p-3">
+            <p class="text-xs opacity-90">Total Value</p>
+            <p class="text-xl font-bold">₦{{ number_format($summary['total_value'], 0) }}</p>
+            <p class="text-xs opacity-75 mt-1">All stock</p>
         </div>
+        <div class="bg-green-50 dark:bg-green-900/20 rounded-lg shadow-sm p-3 border border-green-200 dark:border-green-700">
+            <p class="text-xs text-gray-600 dark:text-gray-400">Available</p>
+            <p class="text-xl font-bold text-green-600 dark:text-green-500">₦{{ number_format($summary['available_value'], 0) }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Ready to use</p>
+        </div>
+        <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg shadow-sm p-3 border border-blue-200 dark:border-blue-700">
+            <p class="text-xs text-gray-600 dark:text-gray-400">Reserved</p>
+            <p class="text-xl font-bold text-blue-600 dark:text-blue-500">₦{{ number_format($summary['reserved_value'], 0) }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">In orders</p>
+        </div>
+        <div class="bg-red-50 dark:bg-red-900/20 rounded-lg shadow-sm p-3 border border-red-200 dark:border-red-700">
+            <p class="text-xs text-gray-600 dark:text-gray-400">Damaged</p>
+            <p class="text-xl font-bold text-red-600 dark:text-red-500">₦{{ number_format($summary['damaged_value'], 0) }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Write-off</p>
+        </div>
+        <div class="bg-purple-50 dark:bg-purple-900/20 rounded-lg shadow-sm p-3 border border-purple-200 dark:border-purple-700">
+            <p class="text-xs text-gray-600 dark:text-gray-400">Total Items</p>
+            <p class="text-xl font-bold text-purple-600 dark:text-purple-500">{{ number_format($summary['total_items']) }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">SKUs</p>
+        </div>
+    </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <input wire:model.live="searchTerm" placeholder="Search..." class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
-            <select wire:model.live="selectedCategory" class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+    <!-- Filters -->
+    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <input wire:model.live="searchTerm" 
+                placeholder="Search item name or SKU..." 
+                class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+            <select wire:model.live="selectedCategory" 
+                class="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
                 <option value="">All Categories</option>
                 @foreach($categories as $cat)
                     <option value="{{ $cat }}">{{ str_replace('_', ' ', ucfirst($cat)) }}</option>
                 @endforeach
             </select>
         </div>
+    </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
-                <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Valuation by Category</h3>
-                <div id="categoryValuationChart" class="h-80" wire:ignore>
-                    <div class="flex items-center justify-center h-full">
-                        <div class="text-center">
-                            <svg class="animate-spin h-10 w-10 mx-auto text-blue-600 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading chart...</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
-                <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Top 10 Most Valuable Items</h3>
-                <div id="topItemsChart" class="h-80" wire:ignore>
-                    <div class="flex items-center justify-center h-full">
-                        <div class="text-center">
-                            <svg class="animate-spin h-10 w-10 mx-auto text-blue-600 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading chart...</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <!-- Tab Navigation -->
+    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-2">
+        <div class="flex flex-wrap gap-1 bg-zinc-100 dark:bg-zinc-700 p-1 rounded-lg">
+            <button wire:click="setViewMode('all')"
+                class="px-3 py-1.5 text-xs font-medium rounded transition-all whitespace-nowrap {{ $viewMode === 'all' ? 'bg-white dark:bg-zinc-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900' }}">
+                📋 All Items
+            </button>
+            <button wire:click="setViewMode('top')"
+                class="px-3 py-1.5 text-xs font-medium rounded transition-all whitespace-nowrap {{ $viewMode === 'top' ? 'bg-white dark:bg-zinc-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900' }}">
+                🏆 Top Valuable
+            </button>
+            <button wire:click="setViewMode('category')"
+                class="px-3 py-1.5 text-xs font-medium rounded transition-all whitespace-nowrap {{ $viewMode === 'category' ? 'bg-white dark:bg-zinc-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900' }}">
+                📊 By Category
+            </button>
+            <button wire:click="setViewMode('low')"
+                class="px-3 py-1.5 text-xs font-medium rounded transition-all whitespace-nowrap {{ $viewMode === 'low' ? 'bg-white dark:bg-zinc-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900' }}">
+                ⚠️ Low Stock
+            </button>
         </div>
+    </div>
 
-        <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
-            <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Detailed Valuation</h3>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm text-left">
-                    <thead class="text-xs uppercase bg-zinc-100 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300">
+    <!-- All Items Tab -->
+    @if($viewMode === 'all')
+    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
+        <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-3">All Items</h3>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-zinc-100 dark:bg-zinc-700">
+                    <tr>
+                        <th wire:click="sortByColumn('item.name')" class="px-3 py-2 text-left text-zinc-700 dark:text-zinc-300 cursor-pointer hover:bg-zinc-200 dark:hover:bg-zinc-600">
+                            Item {{ $sortBy === 'item.name' ? ($sortDirection === 'desc' ? '↓' : '↑') : '' }}
+                        </th>
+                        <th class="px-3 py-2 text-left text-zinc-700 dark:text-zinc-300">Category</th>
+                        <th wire:click="sortByColumn('quantity_available')" class="px-3 py-2 text-right text-zinc-700 dark:text-zinc-300 cursor-pointer hover:bg-zinc-200 dark:hover:bg-zinc-600">
+                            Qty Avail {{ $sortBy === 'quantity_available' ? ($sortDirection === 'desc' ? '↓' : '↑') : '' }}
+                        </th>
+                        <th class="px-3 py-2 text-right text-zinc-700 dark:text-zinc-300">Reserved</th>
+                        <th wire:click="sortByColumn('average_cost')" class="px-3 py-2 text-right text-zinc-700 dark:text-zinc-300 cursor-pointer hover:bg-zinc-200 dark:hover:bg-zinc-600">
+                            Avg Cost {{ $sortBy === 'average_cost' ? ($sortDirection === 'desc' ? '↓' : '↑') : '' }}
+                        </th>
+                        <th class="px-3 py-2 text-right text-zinc-700 dark:text-zinc-300">Available Value</th>
+                        <th wire:click="sortByColumn('value')" class="px-3 py-2 text-right text-zinc-700 dark:text-zinc-300 cursor-pointer hover:bg-zinc-200 dark:hover:bg-zinc-600">
+                            Total Value {{ $sortBy === 'value' ? ($sortDirection === 'desc' ? '↓' : '↑') : '' }}
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                    @forelse($stocks as $stock)
+                        <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-700/50">
+                            <td class="px-3 py-2">
+                                <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $stock->item->name }}</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400">{{ $stock->item->sku }}</div>
+                            </td>
+                            <td class="px-3 py-2">
+                                <span class="px-2 py-0.5 text-xs font-semibold rounded bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                    {{ str_replace('_', ' ', ucfirst($stock->item->category)) }}
+                                </span>
+                            </td>
+                            <td class="px-3 py-2 text-right text-zinc-900 dark:text-zinc-100">{{ number_format($stock->quantity_available, 2) }}</td>
+                            <td class="px-3 py-2 text-right text-zinc-900 dark:text-zinc-100">{{ number_format($stock->quantity_reserved, 2) }}</td>
+                            <td class="px-3 py-2 text-right text-zinc-900 dark:text-zinc-100">₦{{ number_format($stock->average_cost, 2) }}</td>
+                            <td class="px-3 py-2 text-right font-medium text-green-600 dark:text-green-400">₦{{ number_format($stock->available_value, 2) }}</td>
+                            <td class="px-3 py-2 text-right font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($stock->total_value, 2) }}</td>
+                        </tr>
+                    @empty
                         <tr>
-                            <th wire:click="sortByColumn('item.name')" class="px-4 py-3 cursor-pointer">Item</th>
-                            <th class="px-4 py-3">Category</th>
-                            <th wire:click="sortByColumn('quantity_available')" class="px-4 py-3 cursor-pointer">Qty Available</th>
-                            <th class="px-4 py-3">Qty Reserved</th>
-                            <th wire:click="sortByColumn('average_cost')" class="px-4 py-3 cursor-pointer">Avg Cost</th>
-                            <th wire:click="sortByColumn('available_value')" class="px-4 py-3 cursor-pointer">Available Value</th>
-                            <th wire:click="sortByColumn('total_value')" class="px-4 py-3 cursor-pointer">Total Value</th>
+                            <td colspan="7" class="px-3 py-8 text-center text-gray-500 dark:text-gray-400">No items found</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+        <div class="mt-3">{{ $stocks->links() }}</div>
+    </div>
+    @endif
+
+    <!-- Top Valuable Items Tab -->
+    @if($viewMode === 'top')
+    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
+        <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-3">Top 10 Most Valuable Items</h3>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-zinc-100 dark:bg-zinc-700">
+                    <tr>
+                        <th class="px-3 py-2 text-left text-zinc-700 dark:text-zinc-300">Rank</th>
+                        <th class="px-3 py-2 text-left text-zinc-700 dark:text-zinc-300">Item</th>
+                        <th class="px-3 py-2 text-left text-zinc-700 dark:text-zinc-300">Category</th>
+                        <th class="px-3 py-2 text-right text-zinc-700 dark:text-zinc-300">Qty (Avail)</th>
+                        <th class="px-3 py-2 text-right text-zinc-700 dark:text-zinc-300">Unit Cost</th>
+                        <th class="px-3 py-2 text-right text-zinc-700 dark:text-zinc-300">Total Value</th>
+                        <th class="px-3 py-2 text-right text-zinc-700 dark:text-zinc-300">% of Total</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                    @php
+                        $totalValue = $summary['total_value'];
+                    @endphp
+                    @forelse($topItems as $index => $item)
+                        @php
+                            $percentage = $totalValue > 0 ? ($item->total_value / $totalValue) * 100 : 0;
+                        @endphp
+                        <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-700/50">
+                            <td class="px-3 py-2">
+                                <span class="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 text-xs font-bold">
+                                    {{ $index + 1 }}
+                                </span>
+                            </td>
+                            <td class="px-3 py-2">
+                                <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $item->item->name }}</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400">{{ $item->item->sku }}</div>
+                            </td>
+                            <td class="px-3 py-2">{{ str_replace('_', ' ', ucfirst($item->item->category)) }}</td>
+                            <td class="px-3 py-2 text-right font-medium text-zinc-900 dark:text-zinc-100">
+                                {{ number_format($item->quantity_available + $item->quantity_reserved, 2) }}
+                            </td>
+                            <td class="px-3 py-2 text-right text-zinc-900 dark:text-zinc-100">₦{{ number_format($item->average_cost, 2) }}</td>
+                            <td class="px-3 py-2 text-right font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($item->total_value, 2) }}</td>
+                            <td class="px-3 py-2 text-right">
+                                <div class="flex items-center justify-end gap-2">
+                                    <div class="h-1.5 bg-blue-200 dark:bg-blue-800 rounded-full" style="width: {{ min($percentage, 50) }}px;"></div>
+                                    <span class="text-xs text-zinc-600 dark:text-zinc-400">{{ number_format($percentage, 1) }}%</span>
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="7" class="px-3 py-8 text-center text-gray-500 dark:text-gray-400">No items found</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+    @endif
+
+    <!-- By Category Tab -->
+    @if($viewMode === 'category')
+    <div class="space-y-3">
+        @forelse($categoryData as $category)
+        <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
+            <div class="flex items-center justify-between mb-3">
+                <div>
+                    <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100">
+                        {{ str_replace('_', ' ', ucfirst($category['category'])) }}
+                    </h3>
+                    <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
+                        {{ $category['item_count'] }} items • {{ number_format($category['total_qty'], 2) }} units • ₦{{ number_format($category['total_value'], 0) }} total value
+                    </p>
+                </div>
+                <div class="text-right">
+                    <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($category['total_value'], 0) }}</p>
+                    <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-1">{{ number_format(($category['total_value'] / $summary['total_value']) * 100, 1) }}% of total</p>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-zinc-50 dark:bg-zinc-700/50">
+                        <tr>
+                            <th class="px-3 py-2 text-left text-zinc-700 dark:text-zinc-300">Item</th>
+                            <th class="px-3 py-2 text-right text-zinc-700 dark:text-zinc-300">Qty</th>
+                            <th class="px-3 py-2 text-right text-zinc-700 dark:text-zinc-300">Avg Cost</th>
+                            <th class="px-3 py-2 text-right text-zinc-700 dark:text-zinc-300">Value</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
-                        @forelse($stocks as $stock)
-                            <tr class="bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/50">
-                                <td class="px-4 py-3">
-                                    <div>
-                                        <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $stock->item->name }}</div>
-                                        <div class="text-xs text-gray-500 dark:text-gray-400">{{ $stock->item->sku }}</div>
-                                    </div>
+                        @forelse($category['items'] as $item)
+                            <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-700/50">
+                                <td class="px-3 py-2">
+                                    <div class="font-medium text-zinc-900 dark:text-zinc-100 text-xs">{{ $item->item->name }}</div>
                                 </td>
-                                <td class="px-4 py-3">
-                                    <span class="px-2 py-1 text-xs font-semibold rounded bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                                        {{ str_replace('_', ' ', ucfirst($stock->item->category)) }}
-                                    </span>
-                                </td>
-                                <td class="px-4 py-3 text-zinc-900 dark:text-zinc-100">{{ number_format($stock->quantity_available, 2) }}</td>
-                                <td class="px-4 py-3 text-zinc-900 dark:text-zinc-100">{{ number_format($stock->quantity_reserved, 2) }}</td>
-                                <td class="px-4 py-3 text-zinc-900 dark:text-zinc-100">₦{{ number_format($stock->average_cost, 2) }}</td>
-                                <td class="px-4 py-3 font-medium text-green-600 dark:text-green-400">₦{{ number_format($stock->available_value, 2) }}</td>
-                                <td class="px-4 py-3 font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($stock->total_value, 2) }}</td>
+                                <td class="px-3 py-2 text-right text-xs">{{ number_format($item->quantity_available, 0) }}</td>
+                                <td class="px-3 py-2 text-right text-xs">₦{{ number_format($item->average_cost, 2) }}</td>
+                                <td class="px-3 py-2 text-right text-xs font-semibold text-blue-600 dark:text-blue-400">₦{{ number_format($item->total_value, 0) }}</td>
                             </tr>
                         @empty
-                            <tr>
-                                <td colspan="7" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No items found</td>
-                            </tr>
+                            <tr><td colspan="4" class="px-3 py-3 text-center text-xs text-gray-500">No items</td></tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
-            <div class="mt-4">{{ $stocks->links() }}</div>
+        </div>
+        @empty
+            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-8 text-center">
+                <p class="text-gray-500 dark:text-gray-400">No category data available</p>
+            </div>
+        @endforelse
+    </div>
+    @endif
+
+    <!-- Low Stock Tab -->
+    @if($viewMode === 'low')
+    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-red-200 dark:border-red-700 p-4">
+        <h3 class="text-base font-semibold text-red-700 dark:text-red-400 mb-3 flex items-center">
+            <span class="mr-2">⚠️</span> Low Stock Items (Below 100 units)
+        </h3>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-red-50 dark:bg-red-900/20">
+                    <tr>
+                        <th class="px-3 py-2 text-left text-red-700 dark:text-red-400">Item</th>
+                        <th class="px-3 py-2 text-left text-red-700 dark:text-red-400">Category</th>
+                        <th class="px-3 py-2 text-right text-red-700 dark:text-red-400">Available</th>
+                        <th class="px-3 py-2 text-right text-red-700 dark:text-red-400">Reserved</th>
+                        <th class="px-3 py-2 text-right text-red-700 dark:text-red-400">Avg Cost</th>
+                        <th class="px-3 py-2 text-right text-red-700 dark:text-red-400">Available Value</th>
+                        <th class="px-3 py-2 text-right text-red-700 dark:text-red-400">Reorder</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-red-200 dark:divide-red-700">
+                    @forelse($lowStockItems as $item)
+                        <tr class="hover:bg-red-50 dark:hover:bg-red-900/20 {{ $item->quantity_available === 0 ? 'bg-red-100 dark:bg-red-900/40' : '' }}">
+                            <td class="px-3 py-2">
+                                <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $item->item->name }}</div>
+                                <div class="text-xs text-gray-500">{{ $item->item->sku }}</div>
+                            </td>
+                            <td class="px-3 py-2 text-xs">{{ str_replace('_', ' ', ucfirst($item->item->category)) }}</td>
+                            <td class="px-3 py-2 text-right font-bold text-red-600 dark:text-red-400">{{ number_format($item->quantity_available, 2) }}</td>
+                            <td class="px-3 py-2 text-right text-zinc-900 dark:text-zinc-100">{{ number_format($item->quantity_reserved, 2) }}</td>
+                            <td class="px-3 py-2 text-right">₦{{ number_format($item->average_cost, 2) }}</td>
+                            <td class="px-3 py-2 text-right font-semibold text-red-600 dark:text-red-400">₦{{ number_format($item->available_value, 0) }}</td>
+                            <td class="px-3 py-2 text-center">
+                                <span class="px-2 py-0.5 text-xs font-semibold rounded bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200">
+                                    {{ $item->quantity_available < 50 ? 'URGENT' : 'Soon' }}
+                                </span>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="7" class="px-3 py-8 text-center text-gray-500 dark:text-gray-400">No low stock items</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
         </div>
     </div>
+    @endif
 
-    @push('scripts')
-<script src="https://code.highcharts.com/highcharts.js"></script>
-<script src="https://code.highcharts.com/modules/exporting.js"></script>
-<script src="https://code.highcharts.com/modules/export-data.js"></script>
-<script src="https://code.highcharts.com/modules/accessibility.js"></script>
-
-<script>
-    let categoryChart, topItemsChart;
-    let chartData = {
-        categoryValuation: @js($categoryValuation),
-        topItems: @js($topItems->map(function($item) {
-            return [
-                'name' => $item->item->name,
-                'value' => $item->total_value,
-                'quantity' => $item->quantity_available + $item->quantity_reserved,
-                'avg_cost' => $item->average_cost
-            ];
-        })->values()->toArray())
-    };
-
-    document.addEventListener('DOMContentLoaded', function () {
-        initCharts();
-    });
-
-    document.addEventListener('livewire:navigated', function () {
-        initCharts();
-    });
-
-    // Listen for chart update events from Livewire
-    document.addEventListener('livewire:init', () => {
-        Livewire.on('chartsUpdated', (event) => {
-            const data = event[0];
-            chartData.categoryValuation = data.categoryValuation;
-            chartData.topItems = data.topItems;
-            updateCharts();
-        });
-    });
-
-    function initCharts() {
-        // Destroy existing charts if they exist
-        if (categoryChart) categoryChart.destroy();
-        if (topItemsChart) topItemsChart.destroy();
-
-        // Clear loading spinners
-        const categoryContainer = document.getElementById('categoryValuationChart');
-        const topItemsContainer = document.getElementById('topItemsChart');
-        if (categoryContainer) categoryContainer.innerHTML = '';
-        if (topItemsContainer) topItemsContainer.innerHTML = '';
-
-        const themeColors = getThemeColors();
-
-        // Category Valuation Chart - Pie Chart
-        const pieData = chartData.categoryValuation.labels.map((label, index) => ({
-            name: label,
-            y: chartData.categoryValuation.series[index]
-        }));
-
-        categoryChart = Highcharts.chart('categoryValuationChart', {
-            chart: {
-                type: 'pie',
-                height: 320,
-                backgroundColor: 'transparent'
-            },
-            title: {
-                text: null
-            },
-            credits: {
-                enabled: false
-            },
-            tooltip: {
-                pointFormat: '<b>₦{point.y:,.2f}</b> ({point.percentage:.1f}%)',
-                backgroundColor: themeColors.backgroundColor,
-                borderWidth: 1,
-                borderRadius: 8,
-                shadow: true,
-                style: {
-                    color: themeColors.textColor
-                }
-            },
-            plotOptions: {
-                pie: {
-                    allowPointSelect: true,
-                    cursor: 'pointer',
-                    dataLabels: {
-                        enabled: true,
-                        format: '<b>{point.name}</b>: {point.percentage:.1f}%',
-                        style: {
-                            fontSize: '11px',
-                            color: themeColors.textColor
-                        }
-                    },
-                    showInLegend: true
-                }
-            },
-            series: [{
-                name: 'Valuation',
-                colorByPoint: true,
-                data: pieData
-            }],
-            colors: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'],
-            legend: {
-                align: 'center',
-                verticalAlign: 'bottom',
-                layout: 'horizontal',
-                itemStyle: {
-                    color: themeColors.textColor
-                },
-                itemHoverStyle: {
-                    color: themeColors.textColor
-                }
-            },
-            exporting: {
-                enabled: true,
-                buttons: {
-                    contextButton: {
-                        menuItems: ['viewFullscreen', 'separator', 'downloadPNG', 'downloadJPEG', 'downloadPDF', 'downloadSVG', 'separator', 'downloadCSV', 'downloadXLS']
-                    }
-                }
-            }
-        });
-
-        // Top Items Chart - Horizontal Bar Chart
-        const topItemsData = chartData.topItems.map(item => item.value);
-        const topItemsLabels = chartData.topItems.map(item => item.name);
-
-        topItemsChart = Highcharts.chart('topItemsChart', {
-            chart: {
-                type: 'bar',
-                height: 320,
-                backgroundColor: 'transparent'
-            },
-            title: {
-                text: null
-            },
-            credits: {
-                enabled: false
-            },
-            xAxis: {
-                categories: topItemsLabels,
-                title: {
-                    text: null
-                },
-                labels: {
-                    style: {
-                        color: themeColors.textColor,
-                        fontSize: '10px'
-                    }
-                },
-                gridLineColor: themeColors.gridColor
-            },
-            yAxis: {
-                min: 0,
-                title: {
-                    text: 'Value (₦)',
-                    align: 'high',
-                    style: {
-                        color: themeColors.textColor
-                    }
-                },
-                labels: {
-                    style: {
-                        color: themeColors.textColor
-                    },
-                    formatter: function() {
-                        return '₦' + Highcharts.numberFormat(this.value, 0, '.', ',');
-                    }
-                },
-                gridLineColor: themeColors.gridColor
-            },
-            tooltip: {
-                backgroundColor: themeColors.backgroundColor,
-                borderWidth: 1,
-                borderRadius: 8,
-                shadow: true,
-                style: {
-                    color: themeColors.textColor
-                },
-                formatter: function() {
-                    const item = chartData.topItems[this.point.index];
-                    return '<b>' + this.point.category + '</b><br/>' +
-                           'Value: <b>₦' + Highcharts.numberFormat(this.y, 2, '.', ',') + '</b><br/>' +
-                           'Qty: ' + Highcharts.numberFormat(item.quantity, 2) + '<br/>' +
-                           'Avg Cost: ₦' + Highcharts.numberFormat(item.avg_cost, 2);
-                }
-            },
-            plotOptions: {
-                bar: {
-                    dataLabels: {
-                        enabled: true,
-                        style: {
-                            color: themeColors.textColor,
-                            fontSize: '10px'
-                        },
-                        formatter: function() {
-                            return '₦' + Highcharts.numberFormat(this.y, 0, '.', ',');
-                        }
-                    },
-                    colorByPoint: true
-                }
-            },
-            series: [{
-                name: 'Item Value',
-                data: topItemsData,
-                showInLegend: false
-            }],
-            colors: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6', '#F97316', '#84CC16'],
-            exporting: {
-                enabled: true,
-                buttons: {
-                    contextButton: {
-                        menuItems: ['viewFullscreen', 'separator', 'downloadPNG', 'downloadJPEG', 'downloadPDF', 'downloadSVG', 'separator', 'downloadCSV', 'downloadXLS']
-                    }
-                }
-            }
-        });
-    }
-
-    function updateCharts() {
-        // Update Category Chart
-        if (categoryChart && chartData.categoryValuation) {
-            const pieData = chartData.categoryValuation.labels.map((label, index) => ({
-                name: label,
-                y: chartData.categoryValuation.series[index]
-            }));
-            categoryChart.series[0].setData(pieData, true);
-        }
-
-        // Update Top Items Chart
-        if (topItemsChart && chartData.topItems) {
-            const topItemsData = chartData.topItems.map(item => item.value);
-            const topItemsLabels = chartData.topItems.map(item => item.name);
-            topItemsChart.series[0].setData(topItemsData, false);
-            topItemsChart.xAxis[0].setCategories(topItemsLabels, false);
-            topItemsChart.redraw();
-        }
-    }
-
-    // Detect theme and return appropriate colors
-    function getThemeColors() {
-        const isDark = document.documentElement.classList.contains('dark');
-        return {
-            textColor: isDark ? '#e4e4e7' : '#27272a',
-            gridColor: isDark ? '#3f3f46' : '#e4e4e7',
-            backgroundColor: isDark ? '#27272a' : '#ffffff'
-        };
-    }
-
-    initCharts();
-</script>
-    @endpush
 </div>

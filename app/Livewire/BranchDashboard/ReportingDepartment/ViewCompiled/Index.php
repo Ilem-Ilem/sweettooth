@@ -11,9 +11,9 @@ use Livewire\Attributes\{Layout, On, Title, Url};
 class Index extends Component
 {
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
 
-    public $compiledReport;
+    public ?CompiledReport $compiledReport = null;
     public $reportId;
 
     public function mount($id)

@@ -11,13 +11,14 @@ use Livewire\Attributes\{Layout, Url, On};
 #[Layout('components.layouts.app.branch-dashboard')]
 class Details extends Component
 {
-    public $employee;
+    public ?Employee $employee = null;
     public $leaveBalances;
     public $recentLeaveApplications;
     public $leaveStats;
+    public ?string $profilePhotoUrl = null;
 
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
 
     public function mount($employee_number, $id){
         // Set b_id from current branch context
@@ -26,6 +27,11 @@ class Details extends Component
         $employee = Employee::with(['department', 'branch', 'roles'])->
         where('id', '=',  $id)->where('employee_number', '=', $employee_number)->firstOrFail();
         $this->employee = $employee;
+
+        // Set profile photo URL if available
+        if ($employee->profile_photo) {
+            $this->profilePhotoUrl = asset('storage/' . $employee->profile_photo);
+        }
 
         // Load leave information
         $this->loadLeaveData();
@@ -84,6 +90,7 @@ class Details extends Component
             'leaveBalances' => $this->leaveBalances,
             'recentLeaveApplications' => $this->recentLeaveApplications,
             'leaveStats' => $this->leaveStats,
+            'profilePhotoUrl' => $this->profilePhotoUrl,
         ]);
     }
 }

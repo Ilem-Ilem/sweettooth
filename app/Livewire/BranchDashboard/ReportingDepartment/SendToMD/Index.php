@@ -17,11 +17,11 @@ class Index extends Component
     use Interactions, WithPagination;
 
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
 
-    public $selectedMdUser;
+    public ?User $selectedMdUser = null;
     public $showSendModal = false;
-    public $reportToSend;
+    public ?CompiledReport $reportToSend = null;
 
     public function mount()
     {

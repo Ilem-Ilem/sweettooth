@@ -107,6 +107,24 @@ class ApprovalRequest extends Model
     }
 
     /**
+     * Create a new pending approval request
+     */
+    public static function createPending(Model $requestedBy, string $action, Model $auditable): self
+    {
+        return static::create([
+            'requested_by_id' => $requestedBy->id,
+            'requested_by_type' => get_class($requestedBy),
+            'action' => $action,
+            'auditable_id' => $auditable->id,
+            'auditable_type' => get_class($auditable),
+            'status' => 'pending',
+            'metadata' => [
+                'branch_id' => $auditable->branch_id ?? $auditable->branch ?? null,
+            ],
+        ]);
+    }
+
+    /**
      * Scopes
      */
     public function scopePending($query)

@@ -10,7 +10,9 @@
             @click.stop>
             <!-- Modal Header -->
             <div class="px-6 py-4 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
-                <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">Create Department Request</h3>
+                <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+                    {{ $isEditing ? 'Update Department - Reason Required' : 'Create Department - Reason Required' }}
+                </h3>
                 <button type="button" wire:click="closeReasonModal"
                     class="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -22,15 +24,21 @@
             <!-- Modal Body -->
             <div class="px-6 py-4" @click.stop>
                 <p class="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
-                    Please provide a reason for creating this department. This will be reviewed by an administrator.
+                    {{ $isEditing 
+                        ? 'Please provide a reason for updating this department. This will be reviewed by an administrator.' 
+                        : 'Please provide a reason for creating this department. This will be reviewed by an administrator.' 
+                    }}
                 </p>
-                <textarea wire:model="creationReason" rows="4"
+                <textarea wire:model.live="creationReason" rows="4"
                     class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                    placeholder="Explain why this department is needed..."
-                    @click.stop @keydown.enter.prevent></textarea>
+                    placeholder="Explain your reason (minimum 5 characters)..."
+                    @click.stop></textarea>
                 @error('creationReason')
                     <span class="text-red-500 text-sm mt-2 block">{{ $message }}</span>
                 @enderror
+                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-2">
+                    {{ strlen($creationReason) }}/5 minimum characters required
+                </p>
             </div>
             
             <!-- Modal Footer -->
@@ -39,10 +47,11 @@
                     class="px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-600 rounded-lg transition-colors">
                     Cancel
                 </button>
-                <button type="button" wire:click="saveDepartment"
-                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
-                    <span wire:loading.remove wire:loading.target="saveDepartment">Continue</span>
-                    <span wire:loading wire:loading.target="saveDepartment">Processing...</span>
+                <button type="button" wire:click="proceedWithReasonSubmitted" 
+                    {{ strlen($creationReason) < 5 ? 'disabled' : '' }}
+                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg transition-colors">
+                    <span wire:loading.remove wire:loading.target="proceedWithReasonSubmitted">Submit Request</span>
+                    <span wire:loading wire:loading.target="proceedWithReasonSubmitted">Submitting...</span>
                 </button>
             </div>
         </div>
@@ -109,12 +118,7 @@
             </div>
 
 
-            <button type="button"
-                @if(!$isEditing && !is_super_admin())
-                    wire:click="initiateCreate"
-                @else
-                    wire:click="saveDepartment"
-                @endif
+            <button type="button" wire:click="initiateSave"
                 class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors">
                 <span wire:loading.remove>
                     {{ $isEditing ? 'Update Department' : 'Create Department' }}

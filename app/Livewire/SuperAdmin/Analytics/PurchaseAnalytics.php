@@ -113,7 +113,7 @@ class PurchaseAnalytics extends Component
             ->when($this->supplierFilter, fn($q) => $q->where('supplier_name', 'like', '%' . $this->supplierFilter . '%'))
             ->when($this->paymentStatus, fn($q) => $q->where('payment_status', $this->paymentStatus))
             ->whereBetween('purchase_date', [$this->dateFrom, $this->dateTo])
-            ->selectRaw('DATE(purchase_date) as date, COUNT(*) as count, SUM(total_cost) as total')
+            ->selectRaw('DATE(purchase_date) as date, COUNT(*) as count, SUM(landing_cost) as total')
             ->groupBy('date')
             ->orderBy('date')
             ->get();
@@ -139,7 +139,7 @@ class PurchaseAnalytics extends Component
             ->when($this->supplierFilter, fn($q) => $q->where('supplier_name', 'like', '%' . $this->supplierFilter . '%'))
             ->when($this->paymentStatus, fn($q) => $q->where('payment_status', $this->paymentStatus))
             ->whereBetween('purchase_date', [$this->dateFrom, $this->dateTo])
-            ->selectRaw('supplier_name, COUNT(*) as purchase_count, SUM(total_cost) as total_spent')
+            ->selectRaw('supplier_name, COUNT(*) as purchase_count, SUM(landing_cost) as total_spent')
             ->groupBy('supplier_name')
             ->orderByDesc('total_spent')
             ->limit(10)
@@ -223,8 +223,8 @@ class PurchaseAnalytics extends Component
 
         return [
             'total_purchases' => $purchases->count(),
-            'total_spent' => $purchases->sum('total_cost'),
-            'avg_purchase_value' => $purchases->avg('total_cost'),
+            'total_spent' => $purchases->sum('landing_cost'),
+            'avg_purchase_value' => $purchases->avg('landing_cost'),
             'total_items' => PurchaseItem::whereIn('purchase_id', $purchases->pluck('id'))->sum('quantity'),
             'paid_count' => $purchases->where('payment_status', 'paid')->count(),
             'pending_count' => $purchases->where('payment_status', 'pending')->count(),

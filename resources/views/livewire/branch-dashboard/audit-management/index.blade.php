@@ -3,10 +3,10 @@
         viewingRequest: false,
         selectedApproval: null,
         loading: false,
+        showDetails: false,
         viewRequest(id) {
             this.loading = true;
             this.viewingRequest = true;
-            // Simulate data being already loaded from pagination
             const approval = document.querySelector(`[data-approval-id='${id}']`);
             if (approval) {
                 this.selectedApproval = {
@@ -20,14 +20,34 @@
                     payload: JSON.parse(approval.dataset.payload || '{}'),
                     createdAt: approval.dataset.createdAt
                 };
+                this.showDetails = false;
             }
             this.loading = false;
         },
         closeModal() {
             this.viewingRequest = false;
             this.selectedApproval = null;
+            this.showDetails = false;
+        },
+        getReadableAction(action) {
+            // Convert action format: 'update:roles:uuid' -> 'Update Roles'
+            const base = action.split(':')[0];
+            return base.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+        },
+        getActionIcon(action) {
+            const base = action.split(':')[0];
+            const icons = {
+                'create': '➕',
+                'update': '✏️',
+                'delete': '🗑️',
+                'approve': '✅',
+                'reject': '❌',
+                'assign': '👤'
+            };
+            return icons[base] || '📝';
         }
     }">
+
     <!-- Breadcrumb -->
     <x-breadcrumb title="Audit Management" :items="[
         ['label' => 'Dashboard', 'url' => branch_route('branch-dashboard.index')],
@@ -40,7 +60,7 @@
         <div class="flex flex-wrap items-center justify-between gap-4">
             <div>
                 <h2 class="text-2xl font-bold">Audit Management</h2>
-                <p class="text-sm opacity-90 mt-1">Complete audit trail and approval workflow</p>
+                <p class="text-sm opacity-90 mt-1">Track all system changes and approval requests</p>
             </div>
             <div class="flex items-center gap-2">
                 <button wire:click="$refresh"
@@ -90,14 +110,12 @@
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <!-- Search -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Search</label>
                 <input type="text" wire:model.live.debounce.500ms="search" placeholder="Search actions..." 
                     class="w-full px-3 py-2 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-indigo-500">
             </div>
 
-            <!-- Department Filter -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Department</label>
                 <select wire:model.live="filterDepartment" 
@@ -112,19 +130,17 @@
                 </select>
             </div>
 
-            <!-- Action Filter -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Action</label>
                 <select wire:model.live="filterAction" 
                     class="w-full px-3 py-2 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500">
                     <option value="">All Actions</option>
                     @foreach($actions ?? [] as $action)
-                        <option value="{{ $action }}">{{ ucfirst($action) }}</option>
+                        <option value="{{ $action }}">{{ ucfirst(str_replace('_', ' ', $action)) }}</option>
                     @endforeach
                 </select>
             </div>
 
-            <!-- Status Filter -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</label>
                 <select wire:model.live="filterStatus" 
@@ -136,18 +152,14 @@
                 </select>
             </div>
 
-            <!-- Date From -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">From Date</label>
-                <input type="date" wire:model.live="filterDateFrom" 
-                    class="w-full px-3 py-2 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500">
-            </div>
-
-            <!-- Date To -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">To Date</label>
-                <input type="date" wire:model.live="filterDateTo" 
-                    class="w-full px-3 py-2 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Date Range</label>
+                <div class="flex gap-2">
+                    <input type="date" wire:model.live="filterDateFrom" 
+                        class="w-1/2 px-3 py-2 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500" title="From">
+                    <input type="date" wire:model.live="filterDateTo" 
+                        class="w-1/2 px-3 py-2 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500" title="To">
+                </div>
             </div>
         </div>
     </div>
@@ -161,7 +173,7 @@
                         <tr>
                             <th class="px-4 py-3 text-left">
                                 <button wire:click="sort('logged_at')" class="font-semibold text-gray-900 dark:text-white hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1">
-                                    Timestamp
+                                    Time
                                     @if($sortBy === 'logged_at')
                                         @if($sortDirection === 'asc')
                                             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M3 3a1 1 0 000 2h11a1 1 0 100-2H3zM3 7a1 1 0 000 2h5a1 1 0 000-2H3zM3 11a1 1 0 100 2h4a1 1 0 100-2H3zM15 8a1 1 0 10-2 0v5.586l-1.293-1.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L15 13.586V8z" /></svg>
@@ -172,31 +184,45 @@
                                 </button>
                             </th>
                             <th class="px-4 py-3 text-left font-semibold text-gray-900 dark:text-white">Action</th>
-                            <th class="px-4 py-3 text-left font-semibold text-gray-900 dark:text-white">Actor</th>
-                            <th class="px-4 py-3 text-left font-semibold text-gray-900 dark:text-white">Target</th>
+                            <th class="px-4 py-3 text-left font-semibold text-gray-900 dark:text-white">User</th>
+                            <th class="px-4 py-3 text-left font-semibold text-gray-900 dark:text-white">Affected</th>
                             <th class="px-4 py-3 text-left font-semibold text-gray-900 dark:text-white">Status</th>
-                            <th class="px-4 py-3 text-left font-semibold text-gray-900 dark:text-white">Description</th>
+                            <th class="px-4 py-3 text-left font-semibold text-gray-900 dark:text-white">Details</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y dark:divide-gray-700">
                         @forelse($logs as $log)
                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                <td class="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                                    {{ $log->logged_at->format('M d, Y H:i') }}
+                                <!-- Time -->
+                                <td class="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap text-xs">
+                                    <div class="font-medium">{{ $log->logged_at->format('M d') }}</div>
+                                    <div class="text-gray-500 dark:text-gray-500">{{ $log->logged_at->format('H:i') }}</div>
                                 </td>
+
+                                <!-- Action with Icon -->
                                 <td class="px-4 py-3">
-                                    <span class="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 rounded-full text-xs font-semibold">
+                                    <span class="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 rounded-full text-xs font-semibold inline-flex items-center gap-2">
+                                        <span x-text="`{{ str_replace('_', ' ', $log->action) }}`.split(' ')[0] === 'approve' ? '✅' : 
+                                                   `{{ str_replace('_', ' ', $log->action) }}`.split(' ')[0] === 'reject' ? '❌' :
+                                                   `{{ str_replace('_', ' ', $log->action) }}`.split(' ')[0] === 'create' ? '➕' :
+                                                   `{{ str_replace('_', ' ', $log->action) }}`.split(' ')[0] === 'update' ? '✏️' :
+                                                   `{{ str_replace('_', ' ', $log->action) }}`.split(' ')[0] === 'delete' ? '🗑️' : '📝'"></span>
                                         {{ ucfirst(str_replace('_', ' ', $log->action)) }}
                                     </span>
                                 </td>
+
+                                <!-- User Info -->
                                 <td class="px-4 py-3 text-gray-900 dark:text-gray-100">
-                                    <div class="font-medium">{{ $log->causer_name ?? 'System' }}</div>
+                                    <div class="font-medium text-sm">{{ $log->causer_name ?? 'System' }}</div>
                                     <div class="text-xs text-gray-600 dark:text-gray-400">{{ class_basename($log->causer_type ?? 'System') }}</div>
                                 </td>
+
+                                <!-- Affected Item -->
                                 <td class="px-4 py-3 text-gray-900 dark:text-gray-100">
-                                    <div class="font-medium">{{ class_basename($log->auditable_type) }}</div>
-                                    <div class="text-xs text-gray-600 dark:text-gray-400">#{{ $log->auditable_id }}</div>
+                                    <div class="font-medium text-sm">{{ class_basename($log->auditable_type) }}</div>
                                 </td>
+
+                                <!-- Status -->
                                 <td class="px-4 py-3">
                                     @if($log->status === 'pending')
                                         <span class="px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded-full text-xs font-semibold">
@@ -204,7 +230,7 @@
                                         </span>
                                     @elseif($log->status === 'completed')
                                         <span class="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 rounded-full text-xs font-semibold">
-                                            ✓ Completed
+                                            ✓ Done
                                         </span>
                                     @else
                                         <span class="px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 rounded-full text-xs font-semibold">
@@ -212,8 +238,10 @@
                                         </span>
                                     @endif
                                 </td>
-                                <td class="px-4 py-3 text-gray-600 dark:text-gray-400 text-sm max-w-xs truncate">
-                                    {{ $log->description ?? '-' }}
+
+                                <!-- Description -->
+                                <td class="px-4 py-3 text-gray-600 dark:text-gray-400 text-sm max-w-sm truncate" title="{{ $log->description ?? '-' }}">
+                                    {{ Str::limit($log->description ?? '-', 50) }}
                                 </td>
                             </tr>
                         @empty
@@ -230,7 +258,6 @@
                 </table>
             </div>
 
-            <!-- Pagination -->
             @if($logs->hasPages())
                 <div class="px-4 py-3 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
                     {{ $logs->links() }}
@@ -250,9 +277,7 @@
                             <p class="text-sm opacity-90">Pending</p>
                             <p class="text-3xl font-bold mt-1">{{ count($approvals->items()) ? collect($approvals->items())->filter(fn($a) => $a->status === 'pending')->count() : 0 }}</p>
                         </div>
-                        <svg class="w-8 h-8 opacity-30" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 11-2 0 1 1 0 012 0z" clip-rule="evenodd" />
-                        </svg>
+                        <span class="text-xl">⏳</span>
                     </div>
                 </div>
 
@@ -262,9 +287,7 @@
                             <p class="text-sm opacity-90">Approved</p>
                             <p class="text-3xl font-bold mt-1">{{ count($approvals->items()) ? collect($approvals->items())->filter(fn($a) => $a->status === 'approved')->count() : 0 }}</p>
                         </div>
-                        <svg class="w-8 h-8 opacity-30" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                        </svg>
+                        <span class="text-xl">✅</span>
                     </div>
                 </div>
 
@@ -274,9 +297,7 @@
                             <p class="text-sm opacity-90">Rejected</p>
                             <p class="text-3xl font-bold mt-1">{{ count($approvals->items()) ? collect($approvals->items())->filter(fn($a) => $a->status === 'rejected')->count() : 0 }}</p>
                         </div>
-                        <svg class="w-8 h-8 opacity-30" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                        </svg>
+                        <span class="text-xl">❌</span>
                     </div>
                 </div>
             </div>
@@ -288,8 +309,8 @@
                         <thead class="bg-gray-100 dark:bg-gray-700 border-b dark:border-gray-600">
                             <tr>
                                 <th class="px-4 py-3 text-left font-semibold text-gray-900 dark:text-white">Requested By</th>
-                                <th class="px-4 py-3 text-left font-semibold text-gray-900 dark:text-white">Action</th>
-                                <th class="px-4 py-3 text-left font-semibold text-gray-900 dark:text-white">Description</th>
+                                <th class="px-4 py-3 text-left font-semibold text-gray-900 dark:text-white">What</th>
+                                <th class="px-4 py-3 text-left font-semibold text-gray-900 dark:text-white">Reason</th>
                                 <th class="px-4 py-3 text-left font-semibold text-gray-900 dark:text-white">Status</th>
                                 <th class="px-4 py-3 text-center font-semibold text-gray-900 dark:text-white">Actions</th>
                             </tr>
@@ -311,18 +332,29 @@
                                     data-branch-name="{{ $branchName }}"
                                     data-payload="{{ json_encode($approval->payload ?? []) }}"
                                     data-created-at="{{ $approval->created_at->format('M d, Y H:i') }}">
+                                    
+                                    <!-- Requested By -->
                                     <td class="px-4 py-3 text-gray-900 dark:text-gray-100">
-                                        <div class="font-medium">{{ $approval->requester?->name ?? 'Unknown' }}</div>
-                                        <div class="text-xs text-gray-600 dark:text-gray-400">{{ class_basename($approval->requester_type ?? 'Unknown') }}</div>
+                                        <div class="font-medium text-sm">{{ $approval->requester?->name ?? 'Unknown' }}</div>
+                                        <div class="text-xs text-gray-600 dark:text-gray-400">{{ $branchName }}</div>
                                     </td>
+
+                                    <!-- What -->
                                     <td class="px-4 py-3">
-                                        <span class="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 rounded-full text-xs font-semibold">
-                                            {{ ucfirst(str_replace('_', ' ', str_replace(':department', '', $approval->action))) }}
+                                        <span class="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 rounded-full text-xs font-semibold inline-flex items-center gap-2">
+                                            <span x-text="`{{ $approval->action }}`.split(':')[0] === 'update' ? '✏️' : 
+                                                       `{{ $approval->action }}`.split(':')[0] === 'create' ? '➕' :
+                                                       `{{ $approval->action }}`.split(':')[0] === 'delete' ? '🗑️' : '📝'"></span>
+                                            {{ ucfirst(str_replace(['_', ':'], [' ', ' '], explode(':', $approval->action)[0])) }}
                                         </span>
                                     </td>
-                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs max-w-xs truncate">
-                                        {{ $approval->description ?? '-' }}
+
+                                    <!-- Reason/Description -->
+                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs max-w-xs truncate" title="{{ $approval->description ?? '-' }}">
+                                        {{ Str::limit($approval->description ?? 'No reason provided', 50) }}
                                     </td>
+
+                                    <!-- Status -->
                                     <td class="px-4 py-3">
                                         @if($approval->status === 'pending')
                                             <span class="px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded-full text-xs font-semibold">
@@ -338,6 +370,8 @@
                                             </span>
                                         @endif
                                     </td>
+
+                                    <!-- Actions -->
                                     <td class="px-4 py-3 text-center">
                                         <div class="flex items-center justify-center gap-2">
                                             <button @click="viewRequest({{ $approval->id }})"
@@ -347,11 +381,11 @@
                                             @if($approval->status === 'pending')
                                                 <button wire:click="approveRequest({{ $approval->id }})"
                                                     class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-semibold transition-colors">
-                                                    Approve
+                                                    ✓
                                                 </button>
                                                 <button wire:click="rejectRequest({{ $approval->id }})"
                                                     class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-semibold transition-colors">
-                                                    Reject
+                                                    ✗
                                                 </button>
                                             @endif
                                         </div>
@@ -371,7 +405,6 @@
                     </table>
                 </div>
 
-                <!-- Pagination -->
                 @if($approvals->hasPages())
                     <div class="px-4 py-3 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
                         {{ $approvals->links() }}
@@ -381,7 +414,7 @@
         </div>
     @endif
 
-    <!-- View Request Modal -->
+    <!-- View Request Modal - User Friendly -->
     <div x-show="viewingRequest" 
         x-transition
         class="fixed inset-0 bg-black/50 dark:bg-black/70 z-50 flex items-center justify-center p-4"
@@ -390,7 +423,7 @@
             @click.stop>
             <!-- Header -->
             <div class="sticky top-0 bg-gradient-to-r from-indigo-600 to-indigo-700 dark:from-indigo-900 dark:to-indigo-950 text-white p-6 border-b dark:border-gray-700 flex items-center justify-between">
-                <h3 class="text-lg font-bold">Approval Request Details</h3>
+                <h3 class="text-lg font-bold">Request Details</h3>
                 <button @click="closeModal()" class="text-white/80 hover:text-white transition-colors">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -409,77 +442,117 @@
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
                     </div>
-                    <p class="text-gray-600 dark:text-gray-400">Loading request details...</p>
+                    <p class="text-gray-600 dark:text-gray-400">Loading...</p>
                 </div>
 
                 <!-- Data Display -->
+                <template x-if="selectedApproval">
                 <div x-show="!loading && selectedApproval" x-transition class="space-y-6">
                     <!-- Status Badge -->
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Status</label>
-                        <div class="flex items-center gap-2">
-                            <template x-if="selectedApproval.status === 'pending'">
-                                <span class="px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded-full text-sm font-semibold">
-                                    ⏳ Pending
-                                </span>
-                            </template>
-                            <template x-if="selectedApproval.status === 'approved'">
-                                <span class="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 rounded-full text-sm font-semibold">
-                                    ✓ Approved
-                                </span>
-                            </template>
-                            <template x-if="selectedApproval.status === 'rejected'">
-                                <span class="px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 rounded-full text-sm font-semibold">
-                                    ✗ Rejected
-                                </span>
-                            </template>
-                        </div>
+                    <div class="flex items-center gap-3">
+                        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100">
+                            <span x-text="selectedApproval ? `{{ 'Status' }}: ` + (selectedApproval.status?.charAt(0).toUpperCase() + selectedApproval.status?.slice(1)) : ''"></span>
+                        </h2>
+                        <template x-if="selectedApproval && selectedApproval.status === 'pending'">
+                            <span class="px-4 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded-full text-sm font-semibold">
+                                ⏳ Awaiting Decision
+                            </span>
+                        </template>
+                        <template x-if="selectedApproval && selectedApproval.status === 'approved'">
+                            <span class="px-4 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 rounded-full text-sm font-semibold">
+                                ✅ Approved
+                            </span>
+                        </template>
+                        <template x-if="selectedApproval && selectedApproval.status === 'rejected'">
+                            <span class="px-4 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 rounded-full text-sm font-semibold">
+                                ❌ Rejected
+                            </span>
+                        </template>
                     </div>
 
-                    <!-- Requester & Branch Info -->
-                    <div class="grid grid-cols-3 gap-4">
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Requested By</label>
-                            <p class="text-gray-900 dark:text-gray-100 font-medium" x-text="selectedApproval.requesterName"></p>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Type</label>
-                            <p class="text-gray-900 dark:text-gray-100 font-medium" x-text="selectedApproval.requesterType"></p>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Branch</label>
-                            <p class="text-gray-900 dark:text-gray-100 font-medium" x-text="selectedApproval.branchName"></p>
-                        </div>
-                    </div>
-
-                    <!-- Action & Created Date -->
+                    <!-- Key Information Cards -->
                     <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Action</label>
-                            <span class="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 rounded-full text-xs font-semibold inline-block" x-text="selectedApproval.action.replace(':department', '').toUpperCase()"></span>
+                        <div class="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4 border dark:border-gray-600">
+                            <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase mb-1">Requested By</label>
+                            <p class="text-gray-900 dark:text-gray-100 font-medium text-sm" x-text="selectedApproval?.requesterName || 'Unknown'"></p>
+                            <p class="text-xs text-gray-500 dark:text-gray-500" x-text="selectedApproval?.branchName || 'N/A'"></p>
                         </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Requested At</label>
-                            <p class="text-gray-900 dark:text-gray-100 text-sm" x-text="selectedApproval.createdAt"></p>
+
+                        <div class="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4 border dark:border-gray-600">
+                            <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase mb-1">Request Type</label>
+                            <p class="text-gray-900 dark:text-gray-100 font-medium text-sm">
+                                <span x-text="selectedApproval ? `{{ 'What' }}: ` + selectedApproval.action?.split(':')[0].charAt(0).toUpperCase() + selectedApproval.action?.split(':')[0].slice(1).replace(/_/g, ' ') : ''"></span>
+                            </p>
+                        </div>
+
+                        <div class="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4 border dark:border-gray-600">
+                            <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase mb-1">Requested At</label>
+                            <p class="text-gray-900 dark:text-gray-100 font-medium text-sm" x-text="selectedApproval?.createdAt || 'N/A'"></p>
+                        </div>
+
+                        <div class="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-4 border dark:border-gray-600">
+                            <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase mb-1">Request ID</label>
+                            <p class="text-gray-900 dark:text-gray-100 font-mono text-xs" x-text="selectedApproval?.id || 'N/A'"></p>
                         </div>
                     </div>
 
-                    <!-- Description -->
+                    <!-- Reason/Description -->
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Description</label>
-                        <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border dark:border-gray-600">
-                            <p class="text-gray-900 dark:text-gray-100 text-sm whitespace-pre-wrap" x-text="selectedApproval.description || '-'"></p>
+                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">💬 Reason Provided</label>
+                        <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                            <p class="text-gray-900 dark:text-gray-100 text-sm whitespace-pre-wrap" x-text="selectedApproval?.description || 'No reason provided'"></p>
                         </div>
                     </div>
 
-                    <!-- Payload -->
+                    <!-- Technical Details Toggle -->
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Payload</label>
-                        <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border dark:border-gray-600 overflow-x-auto">
-                            <pre class="text-gray-900 dark:text-gray-100 text-xs font-mono" x-text="JSON.stringify(selectedApproval.payload, null, 2)"></pre>
+                        <button @click="showDetails = !showDetails" 
+                            class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 font-medium">
+                            <span x-show="!showDetails">▶</span>
+                            <span x-show="showDetails">▼</span>
+                            <span>Technical Details (for admins)</span>
+                        </button>
+                        
+                        <div x-show="showDetails" x-transition class="mt-4 space-y-4">
+                            <!-- Affected Data -->
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase mb-2">Data Being Changed</label>
+                                <div class="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 border dark:border-gray-700 overflow-x-auto max-h-64 overflow-y-auto">
+                                    <div class="text-xs font-mono text-gray-700 dark:text-gray-300 space-y-2">
+                                        <template x-if="selectedApproval && selectedApproval.payload && Object.keys(selectedApproval.payload).length > 0">
+                                            <div>
+                                                <p class="font-bold text-gray-900 dark:text-white mb-2">Change Details:</p>
+                                                <template x-for="(value, key) in selectedApproval.payload" :key="key">
+                                                    <div class="mb-2 pb-2 border-b dark:border-gray-700">
+                                                        <span class="text-blue-600 dark:text-blue-400 font-semibold" x-text="key + ':'"></span>
+                                                        <template x-if="typeof value === 'string' || typeof value === 'number'">
+                                                            <span class="text-green-600 dark:text-green-400 ml-2" x-text="value"></span>
+                                                        </template>
+                                                        <template x-if="typeof value === 'object'">
+                                                            <pre class="ml-2 mt-1 bg-gray-900 dark:bg-gray-950 p-2 rounded text-gray-300" x-text="JSON.stringify(value, null, 2)"></pre>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+                                        <template x-if="!selectedApproval || !selectedApproval.payload || Object.keys(selectedApproval.payload).length === 0">
+                                            <p class="text-gray-500">No payload data available</p>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Raw JSON (Developer Info) -->
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase mb-2">Raw Data</label>
+                                <div class="bg-gray-900 dark:bg-gray-950 rounded-lg p-4 overflow-x-auto max-h-64 overflow-y-auto">
+                                    <pre class="text-gray-300 text-xs font-mono" x-text="selectedApproval ? JSON.stringify(selectedApproval.payload, null, 2) : '{}'"></pre>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
+                </template>
             </div>
 
             <!-- Footer -->

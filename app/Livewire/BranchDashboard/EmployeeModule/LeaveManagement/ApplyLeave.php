@@ -6,6 +6,7 @@ use App\Livewire\BaseComponent;
 use App\Models\LeaveType;
 use App\Models\LeaveApplication;
 use App\Models\EmployeeLeaveBalance;
+use App\Services\AuditService;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Livewire\WithFileUploads;
@@ -18,7 +19,7 @@ class ApplyLeave extends BaseComponent
     use Interactions, WithFileUploads;
 
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
 
     // Form fields
     public $leave_type_id = null;
@@ -200,6 +201,15 @@ class ApplyLeave extends BaseComponent
                 'supporting_document' => $documentPath,
                 'status' => 'pending',
             ]);
+
+            // Log the leave application creation
+            AuditService::log(
+                $employee,
+                'create',
+                $leaveApplication,
+                "Submitted leave application: {$this->selected_leave_type->name} from {$this->start_date} to {$this->end_date} ({$this->total_days} working days). Reason: {$this->reason}",
+                'pending'
+            );
 
             // Update leave balance (mark as pending)
             $balance = EmployeeLeaveBalance::where('employee_id', $employee->id)

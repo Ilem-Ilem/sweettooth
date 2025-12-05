@@ -15,9 +15,9 @@ class Index extends Component
     use Interactions, WithPagination;
 
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
 
-    public $selectedReport;
+    public ?DepartmentReport $selectedReport = null;
     public $showReviewModal = false;
     public $reviewNotes = '';
     public $filterCategory = 'all';

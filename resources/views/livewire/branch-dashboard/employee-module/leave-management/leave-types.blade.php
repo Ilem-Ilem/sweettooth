@@ -1,7 +1,7 @@
 <div class="p-3 space-y-3">
     <x-breadcrumb title="Leave Types Management" :items="[
         ['label' => 'Dashboard', 'url' => branch_route('branch-dashboard.index')],
-        ['label' => 'Employees', 'url' => branch_route('branch-dashboard.employees.index')],
+        ['label' => 'Employees', 'url' => branch_route('branch-dashboard.employee.index')],
         ['label' => 'Leave Types'],
     ]" :compact="false" :with-icons="true" />
 

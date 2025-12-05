@@ -1,0 +1,232 @@
+# Role & Permission Management Module
+
+## Overview
+Manages employee role assignments, permission creation, and role-permission synchronization using Spatie Laravel Permissions package.
+
+## Components
+
+### 1. **Index** (`RolePermission/Index.php`)
+**Status:** ✅ Partially Implemented
+
+**Purpose:** Role CRUD operations and role-permission management
+
+**Features:**
+- List all roles with pagination and search
+- Create new roles with permission assignment
+- Edit existing roles and update permissions
+- Delete roles with confirmation
+- View role permissions in modal
+- Create permissions inline while assigning to role
+- Create standalone permissions
+- Bulk delete roles
+- Export to CSV
+
+**Key Methods:**
+- `saveRole()` - Create/update role with permissions
+- `editRole()` - Load role into edit form
+- `deleteRole()` - Delete with confirmation
+- `createPermission()` - Create permission and add to role
+- `createStandalonePermission()` - Create permission separately
+- `toggleAllPermissions()` - Select/deselect all permissions
+
+**Audit Implementation Points:**
+- ❌ **NOT LOGGED**: Role create/update/delete operations
+  - Add audit in `saveRole()` method (line 165)
+  - Log: "{Actor} created/updated role '{role_name}' with {permission_count} permissions"
+  - Add audit in `deleteRole()` method (line 198)
+  - Log: "{Actor} deleted role '{role_name}'"
+  - Add audit in `createPermission()` method (line 280)
+  - Log: "{Actor} created permission '{permission_name}'"
+
+**Dashboard Needs:**
+- ✅ Works as admin dashboard
+- View: `/resources/views/livewire/branch-dashboard/employee-module/role-permission/index.blade.php`
+- Enhancements:
+  - Add permission matrix/heatmap showing which roles have which permissions
+  - Add role usage statistics (how many employees have each role)
+
+**Known Issues:**
+- ⚠️ No validation that prevents deleting roles with assigned employees
+  - Recommendation: Add check before deletion:
+    ```php
+    if ($role->users()->count() > 0) {
+        $this->toast()->error('Cannot delete role assigned to employees')->send();
+        return;
+    }
+    ```
+
+---
+
+### 2. **AssignRole** (`RolePermission/AssignRole.php`)
+**Status:** ⚠️ NOT FULLY IMPLEMENTED
+
+**Purpose:** Assign roles to specific employees
+
+**Features:**
+- Individual employee role assignment
+- Check current assigned roles
+- Update employee roles
+- Multi-role support
+
+**Current State:**
+- View exists: `/resources/views/livewire/branch-dashboard/employee-module/role-permission/assign-role.blade.php`
+- Controller minimal implementation
+- ❌ Main logic handled in `Index.php` (role assignment for employee in modal)
+
+**Audit Implementation Points:**
+- ✅ **PARTIALLY LOGGED**: Role assignment has approval workflow for non-admin users
+  - In: `Index.php` → `initiateRoleSave()` (line 263)
+  - Creates `ApprovalAuditRequest` for non-super-admins
+  - ⚠️ **ENHANCEMENT NEEDED**: Add detailed audit of approved role changes
+    - Log specific roles added/removed
+    - Compare old vs new roles
+
+**Dashboard Needs:**
+- ⚠️ **PARTIAL**: Modal in employee table works, but no dedicated dashboard
+- Suggested: Create dedicated role assignment dashboard
+  - Show: Employee name → Current Roles → Actions (Modify)
+  - Show: Pending role change requests (for super admin)
+
+**Missing Features:**
+- [ ] Bulk role assignment to multiple employees
+- [ ] Role assignment templates by department
+- [ ] Effective date for role changes (schedule future changes)
+- [ ] Conflict detection (incompatible role combinations)
+
+---
+
+## Database Models Used
+- `Role` (Spatie) - Role definitions
+- `Permission` (Spatie) - Permission definitions
+- `Employee` - Through role_has_employees pivot table
+- `ApprovalAuditRequest` - For non-admin role change approvals
+- `AuditTrail` - For logging role changes (when implemented)
+
+## Audit Trail Gaps
+
+### Critical (Implement First)
+1. **Role Creation** → `Index::saveRole()` when creating new
+2. **Role Deletion** → `Index::confirmedDeleteRole()`
+3. **Role Updates** → `Index::saveRole()` when editing
+4. **Permission Creation** → `Index::createPermission()` and `createStandalonePermission()`
+
+### Important (Implement Second)
+1. **Approved Role Assignments** → After approval workflow completion
+   - Log specific roles added/removed
+   - Diff old vs new role set
+2. **Bulk Operations** → `Index::confirmedBulkDelete()`
+
+### Implementation Template
+```php
+// Role creation
+AuditService::log(
+    current_actor(),
+    'create',
+    $role,
+    "Created role '{$role->name}' with permissions: " . 
+    $permissions->pluck('name')->implode(', '),
+    'completed'
+);
+
+// Role assignment
+AuditService::log(
+    current_actor(),
+    'assign_role',
+    $employee,
+    "Assigned roles: " . implode(', ', $rolesAdded) . 
+    " | Removed roles: " . implode(', ', $rolesRemoved),
+    'completed'
+);
+```
+
+## Integration with Employee Module
+
+### Role Assignment Workflow
+1. **Employee clicks "Assign Roles"** → Opens modal in `Index.php` (EmployeeModule)
+2. **Non-Super-Admin User:**
+   - Shows role reason modal (requires ≥5 chars)
+   - Submits `ApprovalAuditRequest` with reason
+   - Super-admin must approve in approval queue
+3. **Super-Admin User:**
+   - Applies roles directly
+
+### Related Files
+- `app/Livewire/BranchDashboard/EmployeeModule/Index.php` → Lines 263-287
+  - `initiateRoleSave()` and `proceedWithRoleReason()`
+  - Creates approval requests for non-admins
+
+---
+
+## Routes
+- `branch-dashboard.role-permission.index` - View/manage roles
+- `branch-dashboard.employee.role` - Assign roles to employee (via modal in employee list)
+
+## Configuration
+- **Guard:** Uses both 'web' and 'employee' guards
+- **Spatie Package:** Configured in `config/permission.php`
+- **Models:** Using Laravel Spatie/Permission `HasRoles` trait on Employee model
+
+---
+
+## Missing Features / Enhancements
+
+### High Priority - Dashboard Improvements
+- [ ] Dedicated Role Assignment Dashboard
+  - Multi-select employees
+  - Bulk role assignment
+  - Preview changes before applying
+- [ ] Approval Queue Dashboard
+  - Show pending role change requests
+  - Approve/reject with history
+
+### High Priority - Audit & Compliance
+- [ ] Complete audit logging for all role operations
+- [ ] Audit trail viewer showing who changed what when
+- [ ] Export audit trail for compliance
+
+### Medium Priority - Security
+- [ ] Prevent deletion of roles with assigned employees
+- [ ] Role change effectiveness date scheduling
+- [ ] Approval workflow enhancement (multiple approvers)
+- [ ] Change reason mandatory field (done for non-admins, extend to all)
+
+### Medium Priority - Features
+- [ ] Bulk role assignment interface
+- [ ] Role templates by department
+- [ ] Permission matrix visualization
+- [ ] Role usage statistics/heatmap
+
+### Low Priority
+- [ ] Auto-assign roles on employee creation (by department)
+- [ ] Expiration dates for temporary roles
+- [ ] Delegation of approval authority
+- [ ] Role assignment history timeline view
+
+---
+
+## Code Quality Notes
+
+### Improvements Needed
+1. **Duplicate Logic:** Role assignment logic split between:
+   - `EmployeeModule/Index.php` → `saveRoles()` method
+   - `RolePermission/AssignRole.php` → Not implemented
+
+2. **DRY Violation:** Should consolidate role assignment logic
+
+3. **Error Handling:** Limited validation for incompatible role combinations
+
+---
+
+## Related Workflows
+
+### Approval Workflow for Non-Admins
+```
+Employee changes roles → Modal asks for reason → 
+Reason validated (≥5 chars) → ApprovalAuditRequest created → 
+Super-admin approves → Roles synced → Audit logged
+```
+
+### Super-Admin Workflow
+```
+Super-admin changes roles → Directly synced → Audit logged
+```

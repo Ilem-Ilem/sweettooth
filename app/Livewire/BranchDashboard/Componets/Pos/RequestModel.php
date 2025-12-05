@@ -20,7 +20,7 @@ use Livewire\Component;
 class RequestModel extends Component
 {
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
 
     public array $requestedItems = []; // ['product_id' => quantity]
     public $currentShift = null;

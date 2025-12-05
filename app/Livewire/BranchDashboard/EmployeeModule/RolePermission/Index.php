@@ -3,6 +3,8 @@
 namespace App\Livewire\BranchDashboard\EmployeeModule\RolePermission;
 
 use App\Livewire\BaseComponent;
+use App\Models\ApprovalAuditRequest;
+use App\Services\AuditService;
 use Livewire\WithPagination;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
@@ -40,6 +42,12 @@ class Index extends BaseComponent
     // Standalone permission form
     public string $standalonePermissionName = '';
     public string $standalonePermissionGuard = 'employee';
+
+    // Approval workflow for non-admins
+    public bool $showReasonModal = false;
+    public string $operationReason = '';
+    public ?string $pendingOperation = null; // 'create_role', 'update_role', 'delete_role', 'create_permission', 'create_standalone_permission'
+    public array $pendingOperationData = [];
 
     protected array $bulkActions = [
         'delete' => ['label' => 'Delete Selected', 'method' => 'bulkDelete'],
@@ -169,18 +177,72 @@ class Index extends BaseComponent
             'roleGuard' => 'required|string',
         ]);
 
+        $actor = current_actor();
+        $isAdmin = is_super_admin();
+
+        // If non-admin, show reason modal instead of saving directly
+        if (!$isAdmin) {
+            $this->pendingOperation = $this->isEditing ? 'update_role' : 'create_role';
+            $this->pendingOperationData = [
+                'isEditing' => $this->isEditing,
+                'selectedRoleId' => $this->selectedRoleId,
+                'roleName' => $this->roleName,
+                'roleGuard' => $this->roleGuard,
+                'selectedPermissions' => $this->selectedPermissions,
+            ];
+            $this->operationReason = '';
+            $this->showReasonModal = true;
+            return;
+        }
+
+        // ADMIN: Process immediately
         if ($this->isEditing && $this->selectedRoleId) {
             $role = Role::findOrFail($this->selectedRoleId);
+            $oldName = $role->name;
+            $oldGuard = $role->guard_name;
+            
             $role->update([
                 'name' => $this->roleName,
                 'guard_name' => $this->roleGuard,
             ]);
+
+            // Log the role update
+            $changes = [];
+            if ($oldName !== $this->roleName) {
+                $changes[] = "Name: {$oldName} → {$this->roleName}";
+            }
+            if ($oldGuard !== $this->roleGuard) {
+                $changes[] = "Guard: {$oldGuard} → {$this->roleGuard}";
+            }
+
+            AuditService::log(
+                $actor,
+                'update',
+                $role,
+                "Updated role. Changes: " . implode(', ', $changes),
+                'completed'
+            );
+
             $message = 'Role updated successfully!';
         } else {
             $role = Role::create([
                 'name' => $this->roleName,
                 'guard_name' => $this->roleGuard,
             ]);
+
+            // Log the role creation
+            $permissionNames = Permission::whereIn('id', $this->selectedPermissions)
+                ->pluck('name')
+                ->implode(', ');
+
+            AuditService::log(
+                $actor,
+                'create',
+                $role,
+                "Created role '{$this->roleName}' with guard '{$this->roleGuard}'. Permissions: {$permissionNames}",
+                'completed'
+            );
+
             $message = 'Role created successfully!';
         }
 
@@ -192,6 +254,45 @@ class Index extends BaseComponent
 
         $this->toast()->success($message)->send();
         $this->closeRoleModal();
+    }
+
+    public function proceedWithRoleOperation()
+    {
+        if (strlen($this->operationReason) < 5) {
+            $this->toast()->error('Reason must be at least 5 characters long')->send();
+            return;
+        }
+
+        $actor = current_actor();
+        $data = $this->pendingOperationData;
+
+        // Create approval request
+        ApprovalAuditRequest::create([
+            'requester_id' => $actor->id,
+            'requester_type' => get_class($actor),
+            'action' => match($this->pendingOperation) {
+                'create_role' => 'create:' . Role::class . ':' . $data['roleName'],
+                'update_role' => 'update:' . Role::class . ':' . $data['selectedRoleId'],
+                'delete_role' => 'delete:' . Role::class . ':' . $data['selectedRoleId'],
+                'create_permission' => 'create:' . Permission::class . ':' . $data['permissionName'],
+                'create_standalone_permission' => 'create:' . Permission::class . ':' . $data['permissionName'],
+            },
+            'description' => $this->operationReason,
+            'payload' => $data,
+            'status' => 'pending',
+        ]);
+
+        $this->toast()->success('Operation submitted for approval!')->send();
+        $this->closeReasonModal();
+        $this->closeRoleModal();
+    }
+
+    public function closeReasonModal()
+    {
+        $this->showReasonModal = false;
+        $this->operationReason = '';
+        $this->pendingOperation = null;
+        $this->pendingOperationData = [];
     }
 
     // Delete methods
@@ -209,7 +310,41 @@ class Index extends BaseComponent
     public function confirmedDeleteRole(string $message): void
     {
         if ($this->selectedRoleId) {
-            Role::findOrFail($this->selectedRoleId)->delete();
+            $role = Role::findOrFail($this->selectedRoleId);
+            
+            // Validation: Check if role is assigned to employees
+            if ($role->users()->count() > 0) {
+                $this->dialog()->error('Error', 'Cannot delete role assigned to ' . $role->users()->count() . ' employee(s)')->send();
+                return;
+            }
+
+            $actor = current_actor();
+            $isAdmin = is_super_admin();
+
+            // If non-admin, show reason modal instead of deleting directly
+            if (!$isAdmin) {
+                $this->pendingOperation = 'delete_role';
+                $this->pendingOperationData = [
+                    'selectedRoleId' => $this->selectedRoleId,
+                    'roleName' => $role->name,
+                    'roleGuard' => $role->guard_name,
+                ];
+                $this->operationReason = '';
+                $this->showReasonModal = true;
+                return;
+            }
+
+            // ADMIN: Delete immediately
+            // Log the deletion
+            AuditService::log(
+                $actor,
+                'delete',
+                $role,
+                "Deleted role '{$role->name}' with guard '{$role->guard_name}'",
+                'completed'
+            );
+
+            $role->delete();
             $this->dialog()->success('Success', 'Role deleted successfully!')->send();
             $this->selectedRoleId = null;
         }
@@ -284,10 +419,35 @@ class Index extends BaseComponent
             'permissionGuard' => 'required|string',
         ]);
 
+        $actor = current_actor();
+        $isAdmin = is_super_admin();
+
+        // If non-admin, show reason modal instead
+        if (!$isAdmin) {
+            $this->pendingOperation = 'create_permission';
+            $this->pendingOperationData = [
+                'permissionName' => $this->permissionName,
+                'permissionGuard' => $this->permissionGuard,
+            ];
+            $this->operationReason = '';
+            $this->showReasonModal = true;
+            return;
+        }
+
+        // ADMIN: Create immediately
         $permission = Permission::create([
             'name' => $this->permissionName,
             'guard_name' => $this->permissionGuard,
         ]);
+
+        // Log permission creation
+        AuditService::log(
+            $actor,
+            'create',
+            $permission,
+            "Created permission '{$this->permissionName}' with guard '{$this->permissionGuard}'",
+            'completed'
+        );
 
         // Automatically add to selected permissions
         $this->selectedPermissions[] = $permission->id;
@@ -318,10 +478,35 @@ class Index extends BaseComponent
             'standalonePermissionGuard' => 'required|string',
         ]);
 
-        Permission::create([
+        $actor = current_actor();
+        $isAdmin = is_super_admin();
+
+        // If non-admin, show reason modal instead
+        if (!$isAdmin) {
+            $this->pendingOperation = 'create_standalone_permission';
+            $this->pendingOperationData = [
+                'standalonePermissionName' => $this->standalonePermissionName,
+                'standalonePermissionGuard' => $this->standalonePermissionGuard,
+            ];
+            $this->operationReason = '';
+            $this->showReasonModal = true;
+            return;
+        }
+
+        // ADMIN: Create immediately
+        $permission = Permission::create([
             'name' => $this->standalonePermissionName,
             'guard_name' => $this->standalonePermissionGuard,
         ]);
+
+        // Log permission creation
+        AuditService::log(
+            $actor,
+            'create',
+            $permission,
+            "Created standalone permission '{$this->standalonePermissionName}' with guard '{$this->standalonePermissionGuard}'",
+            'completed'
+        );
 
         $this->toast()->success('Permission created successfully!')->send();
         $this->closeStandalonePermissionModal();

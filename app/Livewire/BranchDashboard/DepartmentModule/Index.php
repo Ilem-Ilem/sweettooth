@@ -72,7 +72,7 @@ class Index extends BaseComponent
      * @var string|null
      */
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
 
     /**
      * Handle branch change event from BranchSelector component

@@ -19,6 +19,9 @@ class PurchaseAnalytics extends Component
     public $dateTo;
     public $supplierFilter = '';
     public $paymentStatus = '';
+    public $viewMode = 'overview'; // overview, table, suppliers, items
+    public $sortColumn = 'total_spent';
+    public $sortDirection = 'desc';
 
     protected $queryString = ['dateFrom', 'dateTo', 'supplierFilter', 'paymentStatus'];
 
@@ -26,89 +29,97 @@ class PurchaseAnalytics extends Component
     {
         $this->dateFrom = now()->subDays(90)->format('Y-m-d');
         $this->dateTo = now()->format('Y-m-d');
+        $this->validateDateRange();
     }
 
     public function updatedDateFrom()
     {
+        $this->validateDateRange();
         $this->resetPage();
-        $this->dispatch('chartsUpdated', [
-            'trendData' => $this->getPurchaseTrendData(),
-            'supplierAnalysis' => $this->getSupplierAnalysis(),
-            'costBreakdown' => $this->getCostBreakdown(),
-            'topItems' => $this->getTopPurchasedItems()->map(function($item) {
-                return [
-                    'name' => $item->item->name,
-                    'total_cost' => $item->total_cost,
-                    'total_quantity' => $item->total_quantity,
-                    'uom' => $item->item->uom
-                ];
-            })->toArray()
-        ]);
     }
 
     public function updatedDateTo()
     {
+        $this->validateDateRange();
         $this->resetPage();
-        $this->dispatch('chartsUpdated', [
-            'trendData' => $this->getPurchaseTrendData(),
-            'supplierAnalysis' => $this->getSupplierAnalysis(),
-            'costBreakdown' => $this->getCostBreakdown(),
-            'topItems' => $this->getTopPurchasedItems()->map(function($item) {
-                return [
-                    'name' => $item->item->name,
-                    'total_cost' => $item->total_cost,
-                    'total_quantity' => $item->total_quantity,
-                    'uom' => $item->item->uom
-                ];
-            })->toArray()
-        ]);
     }
 
     public function updatedSupplierFilter()
     {
         $this->resetPage();
-        $this->dispatch('chartsUpdated', [
-            'trendData' => $this->getPurchaseTrendData(),
-            'supplierAnalysis' => $this->getSupplierAnalysis(),
-            'costBreakdown' => $this->getCostBreakdown(),
-            'topItems' => $this->getTopPurchasedItems()->map(function($item) {
-                return [
-                    'name' => $item->item->name,
-                    'total_cost' => $item->total_cost,
-                    'total_quantity' => $item->total_quantity,
-                    'uom' => $item->item->uom
-                ];
-            })->toArray()
-        ]);
+    }
+
+    public function setViewMode($mode)
+    {
+        $this->viewMode = $mode;
+        $this->resetPage();
+    }
+
+    public function sortByColumn($column)
+    {
+        if ($this->sortColumn === $column) {
+            $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->sortColumn = $column;
+            $this->sortDirection = 'desc';
+        }
+    }
+
+    public function resetFilters()
+    {
+        $this->dateFrom = now()->subDays(90)->format('Y-m-d');
+        $this->dateTo = now()->format('Y-m-d');
+        $this->supplierFilter = '';
+        $this->paymentStatus = '';
+        $this->resetPage();
+        
+        session()->flash('success', 'Filters reset successfully.');
     }
 
     public function updatedPaymentStatus()
     {
         $this->resetPage();
-        $this->dispatch('chartsUpdated', [
-            'trendData' => $this->getPurchaseTrendData(),
-            'supplierAnalysis' => $this->getSupplierAnalysis(),
-            'costBreakdown' => $this->getCostBreakdown(),
-            'topItems' => $this->getTopPurchasedItems()->map(function($item) {
-                return [
-                    'name' => $item->item->name,
-                    'total_cost' => $item->total_cost,
-                    'total_quantity' => $item->total_quantity,
-                    'uom' => $item->item->uom
-                ];
-            })->toArray()
-        ]);
+    }
+
+    private function validateDateRange()
+    {
+        $from = \Carbon\Carbon::parse($this->dateFrom);
+        $to = \Carbon\Carbon::parse($this->dateTo);
+        
+        if ($from->greaterThan($to)) {
+            // Swap dates
+            $temp = $this->dateFrom;
+            $this->dateFrom = $this->dateTo;
+            $this->dateTo = $temp;
+            
+            session()->flash('warning', 'Date range was automatically corrected.');
+        }
+        
+        // Warn if range > 1 year
+        if ($from->diffInDays($to) > 365) {
+            session()->flash('warning', 'Note: Large date ranges may impact performance.');
+        }
+    }
+
+    private function isAnyFilterActive()
+    {
+        return $this->supplierFilter || $this->paymentStatus;
+    }
+
+    private function getBranchId()
+    {
+        return Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
     }
 
     public function getPurchaseTrendData()
     {
-        $branchId = @Auth::guard('employees')->user()->branch_id ??  request()->get('b_id');
+        $branchId = $this->getBranchId();
 
         $purchases = Purchase::where('branch_id', $branchId)
             ->when($this->supplierFilter, fn($q) => $q->where('supplier_name', 'like', '%' . $this->supplierFilter . '%'))
             ->when($this->paymentStatus, fn($q) => $q->where('payment_status', $this->paymentStatus))
             ->whereBetween('purchase_date', [$this->dateFrom, $this->dateTo])
-            ->selectRaw('DATE(purchase_date) as date, COUNT(*) as count, SUM(total_cost) as total')
+            ->selectRaw('DATE(purchase_date) as date, COUNT(*) as count, SUM(landing_cost) as total')
             ->groupBy('date')
             ->orderBy('date')
             ->get();
@@ -124,29 +135,22 @@ class PurchaseAnalytics extends Component
 
     public function getSupplierAnalysis()
     {
-        $branchId = @Auth::guard('employees')->user()->branch_id ??  request()->get('b_id');
+        $branchId = $this->getBranchId();
 
-        $suppliers = Purchase::where('branch_id', $branchId)
+        return Purchase::where('branch_id', $branchId)
             ->when($this->supplierFilter, fn($q) => $q->where('supplier_name', 'like', '%' . $this->supplierFilter . '%'))
             ->when($this->paymentStatus, fn($q) => $q->where('payment_status', $this->paymentStatus))
             ->whereBetween('purchase_date', [$this->dateFrom, $this->dateTo])
-            ->selectRaw('supplier_name, COUNT(*) as purchase_count, SUM(total_cost) as total_spent')
+            ->selectRaw('supplier_name, COUNT(*) as purchase_count, SUM(landing_cost) as total_spent')
             ->groupBy('supplier_name')
             ->orderByDesc('total_spent')
             ->limit(10)
             ->get();
-
-        return [
-            'labels' => $suppliers->pluck('supplier_name')->toArray(),
-            'series' => [
-                ['name' => 'Total Spent', 'data' => $suppliers->pluck('total_spent')->toArray()],
-            ],
-        ];
     }
 
     public function getCostBreakdown()
     {
-        $branchId = @Auth::guard('employees')->user()->branch_id ??  request()->get('b_id');
+        $branchId = $this->getBranchId();
 
         $breakdown = Purchase::where('branch_id', $branchId)
             ->when($this->supplierFilter, fn($q) => $q->where('supplier_name', 'like', '%' . $this->supplierFilter . '%'))
@@ -171,7 +175,7 @@ class PurchaseAnalytics extends Component
 
     public function getTopPurchasedItems()
     {
-        $branchId = @Auth::guard('employees')->user()->branch_id ??  request()->get('b_id');  
+        $branchId = $this->getBranchId();  
 
         return PurchaseItem::with(['item', 'purchase'])
             ->whereHas('purchase', function ($query) use ($branchId) {
@@ -184,40 +188,69 @@ class PurchaseAnalytics extends Component
             ->groupBy('item_id')
             ->orderByDesc('total_cost')
             ->limit(10)
+            ->with('purchase')
             ->get();
     }
 
     public function getSummary()
     {
-        $branchId = @Auth::guard('employees')->user()->branch_id ??  request()->get('b_id');
+        $branchId = $this->getBranchId();
 
         $purchases = Purchase::where('branch_id', $branchId)
+            ->when($this->supplierFilter, fn($q) => $q->where('supplier_name', 'like', '%' . $this->supplierFilter . '%'))
+            ->when($this->paymentStatus, fn($q) => $q->where('payment_status', $this->paymentStatus))
             ->whereBetween('purchase_date', [$this->dateFrom, $this->dateTo])
             ->get();
 
+        $total = $purchases->count();
+        $paid = $purchases->where('payment_status', 'paid')->count();
+        $partial = $purchases->where('payment_status', 'partial')->count();
+        $pending = $purchases->where('payment_status', 'pending')->count();
+
         return [
-            'total_purchases' => $purchases->count(),
-            'total_spent' => $purchases->sum('total_cost'),
-            'avg_purchase_value' => $purchases->avg('total_cost'),
+            'total_purchases' => $total,
+            'total_spent' => $purchases->sum('landing_cost'),
+            'avg_purchase_value' => $purchases->avg('landing_cost'),
             'total_items' => PurchaseItem::whereIn('purchase_id', $purchases->pluck('id'))->sum('quantity'),
-            'paid_count' => $purchases->where('payment_status', 'paid')->count(),
-            'pending_count' => $purchases->where('payment_status', 'pending')->count(),
+            'paid_count' => $paid,
+            'paid_percentage' => $total > 0 ? round(($paid / $total) * 100, 1) : 0,
+            'partial_count' => $partial,
+            'partial_percentage' => $total > 0 ? round(($partial / $total) * 100, 1) : 0,
+            'pending_count' => $pending,
+            'pending_percentage' => $total > 0 ? round(($pending / $total) * 100, 1) : 0,
         ];
     }
 
     public function render()
     {
-        $branchId = @Auth::guard('employees')->user()->branch_id ??  request()->get('b_id');
+        $branchId = $this->getBranchId();
 
-        $purchases = Purchase::with('recorder')
-            ->where('branch_id', $branchId)
+        $purchases = Purchase::where('branch_id', $branchId)
             ->when($this->supplierFilter, fn($q) => $q->where('supplier_name', 'like', '%' . $this->supplierFilter . '%'))
             ->when($this->paymentStatus, fn($q) => $q->where('payment_status', $this->paymentStatus))
             ->whereBetween('purchase_date', [$this->dateFrom, $this->dateTo])
             ->latest('purchase_date')
             ->paginate(15);
 
+        // Manually load recorder for each purchase
+        $purchases->getCollection()->transform(function ($purchase) {
+            if ($purchase->recorded_by_type && $purchase->recorded_by_id) {
+                try {
+                    $recordedByClass = $purchase->recorded_by_type;
+                    $purchase->recorder = $recordedByClass::find($purchase->recorded_by_id);
+                } catch (\Exception $e) {
+                    $purchase->recorder = null;
+                }
+            } else {
+                $purchase->recorder = null;
+            }
+            return $purchase;
+        });
+
         $suppliers = Purchase::where('branch_id', $branchId)
+            ->when($this->supplierFilter, fn($q) => $q->where('supplier_name', 'like', '%' . $this->supplierFilter . '%'))
+            ->when($this->paymentStatus, fn($q) => $q->where('payment_status', $this->paymentStatus))
+            ->whereBetween('purchase_date', [$this->dateFrom, $this->dateTo])
             ->distinct()
             ->pluck('supplier_name');
 
@@ -229,6 +262,7 @@ class PurchaseAnalytics extends Component
             'supplierAnalysis' => $this->getSupplierAnalysis(),
             'costBreakdown' => $this->getCostBreakdown(),
             'topItems' => $this->getTopPurchasedItems(),
+            'isAnyFilterActive' => $this->isAnyFilterActive(),
         ]);
     }
 }

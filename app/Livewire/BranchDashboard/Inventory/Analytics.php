@@ -19,7 +19,7 @@ class Analytics extends BaseComponent
     use Interactions;
 
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
 
     // Listen for branch changes from BranchSelector (for super admins)
     #[On('branch-changed')]

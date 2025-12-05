@@ -83,15 +83,29 @@
     @endif
 
     <!-- Header with Add Button -->
-    <div class="flex justify-between items-center">
-        <button wire:click="openCreateModal"
-            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center shadow-sm">
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-            Add New Item
-        </button>
-    </div>
+<button 
+    wire:click="openCreateModal"
+    wire:loading.attr="disabled"
+    wire:target="openCreateModal"
+    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all duration-200 flex items-center shadow-sm disabled:opacity-70 disabled:cursor-not-allowed">
+
+    <!-- Plus icon (hidden when loading) -->
+    <svg wire:loading.remove wire:target="openCreateModal"
+         class="w-5 h-5 mr-2 transition-opacity" 
+         fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+    </svg>
+
+    <!-- Spinner (shown only when loading) -->
+    <svg wire:loading wire:target="openCreateModal"
+         class="animate-spin w-5 h-5 mr-2" 
+         fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>
+
+    <span>Add New Item</span>
+</button>
 
     <!-- Export Buttons -->
     <div class="flex justify-end items-center space-x-2">
@@ -258,34 +272,13 @@
                 $currentStock = $row->getCurrentStock($branchId);
                 $isBelowReorder = $row->isBelowReorderLevel($branchId);
             @endphp
-            <div x-data="{ editing: false, quantity: {{ $currentStock }} }" class="flex items-center space-x-2">
-                <div x-show="!editing" @click="editing = true"
-                    class="cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700 px-2 py-1 rounded transition-colors">
-                    <span class="font-medium {{ $isBelowReorder ? 'text-red-600 dark:text-red-400' : 'text-zinc-900 dark:text-zinc-100' }}">
-                        {{ number_format($currentStock, 2) }}
-                    </span>
-                    <svg class="w-4 h-4 inline ml-1 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                    </svg>
-                </div>
-                <div x-show="editing" class="flex items-center space-x-1" x-cloak>
-                    <input type="number" step="0.01" x-model="quantity"
-                        @keydown.enter="$wire.updateStock({{ $row->id }}, quantity).then(() => editing = false)"
-                        @keydown.escape="editing = false; quantity = {{ $currentStock }}"
-                        class="w-24 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500">
-                    <button @click="$wire.updateStock({{ $row->id }}, quantity).then(() => editing = false)"
-                        class="p-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300" title="Save">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                        </svg>
-                    </button>
-                    <button @click="editing = false; quantity = {{ $currentStock }}"
-                        class="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300" title="Cancel">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
+            <div class="flex items-center space-x-2">
+                <span class="font-medium {{ $isBelowReorder ? 'text-red-600 dark:text-red-400' : 'text-zinc-900 dark:text-zinc-100' }}">
+                    {{ number_format($currentStock, 2) }}
+                </span>
+                <span class="text-xs text-zinc-500 dark:text-zinc-400">
+                    ({{ $row->uom }})
+                </span>
             </div>
         @endinteract
 
@@ -304,28 +297,48 @@
 
         @interact('column_action', $row)
             <div class="flex items-center space-x-2">
-                <button wire:click="openStockModal('{{ $row->id }}')"
-                    class="p-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                <!-- Stock Button -->
+                <button x-data="{ loading: false }"
+                    @click="loading = true; $wire.openStockModal('{{ $row->id }}').finally(() => { loading = false })"
+                    :disabled="loading"
+                    class="p-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Manage Stock">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg x-show="!loading" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                     </svg>
+                    <svg x-show="loading" class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
                 </button>
-                <button wire:click="openEditModal({{ $row->id }})"
-                    class="p-2 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors"
+
+                <!-- Edit Button -->
+                <button x-data="{ loading: false }"
+                    @click="loading = true; $wire.openEditModal({{ $row->id }}).finally(() => { loading = false })"
+                    :disabled="loading"
+                    class="p-2 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Edit Item">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg x-show="!loading" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                     </svg>
+                    <svg x-show="loading" class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
                 </button>
-                <button wire:click="delete({{ $row->id }})"
-                    class="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+
+                <!-- Delete Button -->
+                <button x-data="{ loading: false }"
+                    @click="loading = true; $wire.delete({{ $row->id }}).finally(() => { loading = false })"
+                    :disabled="loading"
+                    class="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Delete Item">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg x-show="!loading" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    <svg x-show="loading" class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
                 </button>
             </div>
@@ -335,5 +348,6 @@
     <!-- Modals -->
     @include('livewire.branch-dashboard.inventory.partials.item-modal')
     @include('livewire.branch-dashboard.inventory.partials.stock-modal')
+    @include('livewire.branch-dashboard.inventory.partials.audit-modal')
 
 </div>

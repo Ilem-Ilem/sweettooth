@@ -26,7 +26,7 @@ class OverallSummaryDashboard extends Component
     public $autoRefresh = false;
 
     #[Url(keep:true)]
-    public $b_id;
+    public ?string $b_id = null;
 
     // Listen for branch changes from BranchSelector (for super admins)
     #[On('branch-changed')]
@@ -109,7 +109,7 @@ class OverallSummaryDashboard extends Component
             'critical_items' => $stocks->where('health_status', 'critical')->count(),
             'expired_items' => $stocks->filter(fn($s) => $s->expiry_date && $s->expiry_date->isPast())->count(),
             'total_purchases' => $purchases->count(),
-            'total_purchase_value' => $purchases->sum('total_cost'),
+            'total_purchase_value' => $purchases->sum('landing_cost'),
             'total_movements' => $movements->count(),
             'stock_in' => $movements->where('type', 'in')->sum('quantity'),
             'stock_out' => abs($movements->where('type', 'out')->sum('quantity')),

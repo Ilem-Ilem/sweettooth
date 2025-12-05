@@ -15,7 +15,7 @@ class Shift extends Component
     use Interactions;
 
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
 
     public $shift_type;
     public $notes;

@@ -7,6 +7,7 @@ use App\Models\Item;
 use App\Models\ItemRequest;
 use App\Models\ItemRequestDetail;
 use App\Models\Stock;
+use App\Services\AuditService;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\{Layout, Url, On};
@@ -18,7 +19,7 @@ class ItemRequests extends Component
 {
     use WithPagination;
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
     public $search = '';
     public $filterDepartment = '';
     public $filterStatus = '';
@@ -144,9 +145,9 @@ class ItemRequests extends Component
                 ->where('item_id', $item['item_id'])
                 ->first();
 
-            $availableQuantity = $stock ? $stock->quantity_available : 0;
+            $availableQuantity = $stock ? (float) $stock->quantity_available : 0.0;
 
-            if ($item['quantity_requested'] > $availableQuantity) {
+            if ((float) $item['quantity_requested'] > $availableQuantity) {
                 $selectedItem = Item::find($item['item_id']);
                 $this->addError("requestItems.{$index}.quantity_requested",
                     "Requested quantity for {$selectedItem->name} ({$item['quantity_requested']}) exceeds available stock ({$availableQuantity}).");
@@ -181,16 +182,36 @@ class ItemRequests extends Component
             ]);
 
             foreach ($this->requestItems as $item) {
+                if (empty($item['item_id'])) {
+                    continue; // Skip items with no item_id
+                }
+                
                 $selectedItem = Item::find($item['item_id']);
+                if (!$selectedItem) {
+                    continue; // Skip if item not found
+                }
+                
                 ItemRequestDetail::create([
                     'request_id' => $request->id,
                     'item_id' => $item['item_id'],
-                    'quantity_requested' => $item['quantity_requested'],
+                    'quantity_requested' => $item['quantity_requested'] ?? 0,
                     'quantity_approved' => 0,
                     'quantity_dispatched' => 0,
                     'uom' => $selectedItem->uom,
                 ]);
             }
+
+            // Log the item request creation
+            $departmentName = $department ? $department->name : 'Unknown Department';
+            AuditService::log(
+                current_actor(),
+                'create',
+                $request,
+                "Created item request #{$requestNumber} from {$departmentName} department. " .
+                "Items: " . count($this->requestItems) . ", Request Date: {$this->request_date}. " .
+                "Notes: {$this->notes}",
+                'completed'
+            );
 
             DB::commit();
             session()->flash('success', 'Item request created successfully.');

@@ -19,15 +19,15 @@ class AlertsDashboard extends Component
     use WithPagination;
 
     public $alertType = '';
-    public $branch;
+    public ?Branch $branch = null;
 
     public function mount(){
-        $this->branch = Branch::first()->id;
+        $this->branch = Branch::first();
     }
 
     public function getAllAlerts()
     {
-        $branchId = $this->branch;
+        $branchId = $this->branch?->id;
         $stocks = Stock::with('item')->where('branch_id', $branchId)->get();
         $alerts = collect();
 

@@ -34,6 +34,9 @@ class Purchases extends Component
     public $search = '';
     public $filterBranch = '';
     public $filterPaymentStatus = '';
+    public $sortColumn = 'purchase_date';
+    public $sortDirection = 'desc';
+    public $viewMode = 'table'; // table, cards, list, timeline, stats
 
     public $showModal = false;
     public $isEditing = false;
@@ -51,7 +54,7 @@ class Purchases extends Component
         'purchaseItems.*.item_id' => 'required|exists:items,id',
         'purchaseItems.*.quantity' => 'required|numeric|min:0.01',
         'purchaseItems.*.uom' => 'required|string',
-        'purchaseItems.*.unit_fob_fc' => 'required|numeric|min:0',
+        'purchaseItems.*.unit_price' => 'required|numeric|min:0.01',
     ];
 
     public function mount()
@@ -70,7 +73,7 @@ class Purchases extends Component
             })
             ->when($this->filterBranch, fn($q) => $q->where('branch_id', $this->filterBranch))
             ->when($this->filterPaymentStatus, fn($q) => $q->where('payment_status', $this->filterPaymentStatus))
-            ->orderBy('purchase_date', 'desc');
+            ->orderBy($this->sortColumn, $this->sortDirection);
 
         $purchases = $query->paginate(15);
         $branches = Branch::orderBy('name')->get();
@@ -80,6 +83,9 @@ class Purchases extends Component
             'purchases' => $purchases,
             'branches' => $branches,
             'items' => $items,
+            'summary' => $this->getPurchaseSummary(),
+            'purchasesByStatus' => $this->getPurchasesByStatus(),
+            'purchasesByBranch' => $this->getPurchasesByBranch(),
         ]);
     }
 
@@ -97,9 +103,9 @@ class Purchases extends Component
         $this->purchaseItems[] = [
             'id' => $this->itemIndex++,
             'item_id' => '',
-            'quantity' => '',
+            'quantity' => 0,
             'uom' => '',
-            'unit_fob_fc' => '',
+            'unit_price' => 0,
         ];
     }
 
@@ -124,15 +130,18 @@ class Purchases extends Component
             $branch = Branch::findOrFail($this->branch_id);
             $purchaseNumber = Purchase::generatePurchaseNumber($branch->code);
 
-            $totalFobFc = 0;
-            $totalFobNgn = 0;
+            $totalItemsCost = 0;
 
             foreach ($this->purchaseItems as $item) {
-                $totalFobFc += $item['quantity'] * $item['unit_fob_fc'];
-                $totalFobNgn += $item['quantity'] * ($item['unit_fob_fc'] * $this->exchange_rate);
+                // unit_price is in the selected currency
+                $itemTotal = $item['quantity'] * $item['unit_price'];
+                $totalItemsCost += $itemTotal;
             }
 
+            // Convert to NGN if not NGN
+            $totalFobNgn = $this->currency === 'NGN' ? $totalItemsCost : ($totalItemsCost * $this->exchange_rate);
             $landingCost = $totalFobNgn + $this->other_costs;
+            $totalCost = $landingCost; // Set total_cost equal to landing_cost
 
             $purchase = Purchase::create([
                 'branch_id' => $this->branch_id,
@@ -145,6 +154,7 @@ class Purchases extends Component
                 'total_fob_ngn' => $totalFobNgn,
                 'other_costs' => $this->other_costs,
                 'landing_cost' => $landingCost,
+                'total_cost' => $totalCost,
                 'currency' => $this->currency,
                 'exchange_rate' => $this->exchange_rate,
                 'payment_status' => $this->payment_status,
@@ -153,28 +163,28 @@ class Purchases extends Component
 
             foreach ($this->purchaseItems as $item) {
                 $quantity = $item['quantity'];
-                $unitFobFc = $item['unit_fob_fc'];
-                $unitFobNgn = $unitFobFc * $this->exchange_rate;
-                $totalFobItemFc = $quantity * $unitFobFc;
-                $totalFobItemNgn = $quantity * $unitFobNgn;
+                $unitPrice = $item['unit_price'];
+                
+                // Convert unit price to NGN if needed
+                $unitPriceNgn = $this->currency === 'NGN' ? $unitPrice : ($unitPrice * $this->exchange_rate);
+                $totalItemCost = $quantity * $unitPriceNgn;
 
                 // Allocate other costs proportionally
-                $costProportion = $totalFobNgn > 0 ? ($totalFobItemNgn / $totalFobNgn) : 0;
+                $costProportion = $totalFobNgn > 0 ? ($totalItemCost / $totalFobNgn) : 0;
                 $allocatedOtherCosts = $this->other_costs * $costProportion;
-                $totalCost = $totalFobItemNgn + $allocatedOtherCosts;
-                $costPerUnit = $quantity > 0 ? ($totalCost / $quantity) : 0;
+                $landingCostItem = $totalItemCost + $allocatedOtherCosts;
+                $costPerUnit = $quantity > 0 ? ($landingCostItem / $quantity) : 0;
 
                 PurchaseItem::create([
                     'purchase_id' => $purchase->id,
                     'item_id' => $item['item_id'],
                     'quantity' => $quantity,
                     'uom' => $item['uom'],
-                    'unit_fob_fc' => $unitFobFc,
-                    'unit_fob_ngn' => $unitFobNgn,
-                    'total_fob_fc' => $totalFobItemFc,
-                    'total_fob_ngn' => $totalFobItemNgn,
-                    'allocated_other_costs' => $allocatedOtherCosts,
-                    'total_cost' => $totalCost,
+                    'fob_fc' => 0,
+                    'fob_ngn' => $unitPriceNgn,
+                    'other_costs' => $allocatedOtherCosts,
+                    'landing_cost' => $landingCostItem,
+                    'total_cost' => $landingCostItem,
                     'cost_per_unit' => $costPerUnit,
                 ]);
 
@@ -201,15 +211,17 @@ class Purchases extends Component
                 $stock->save();
 
                 // Record stock movement
+                $quantity_before = $stock->quantity_available - $quantity;
                 StockMovement::create([
                     'stock_id' => $stock->id,
-                    'item_id' => $item['item_id'],
-                    'branch_id' => $this->branch_id,
-                    'movement_type' => 'in',
+                    'type' => 'in',
+                    'quantity_before' => $quantity_before,
+                    'quantity_after' => $stock->quantity_available,
                     'quantity' => $quantity,
                     'reference_type' => 'App\Models\Purchase',
                     'reference_id' => $purchase->id,
-                    'recorded_by' => Auth::id(),
+                    'moved_by_type' => get_class(Auth::user()),
+                    'moved_by_id' => Auth::id(),
                     'movement_date' => $this->purchase_date,
                     'notes' => 'Purchase: ' . $purchaseNumber,
                 ]);
@@ -270,5 +282,89 @@ class Purchases extends Component
         if ($value === 'NGN') {
             $this->exchange_rate = 1;
         }
+    }
+
+    public function setViewMode($mode)
+    {
+        $this->viewMode = $mode;
+        $this->resetPage();
+    }
+
+    public function sortByColumn($column)
+    {
+        if ($this->sortColumn === $column) {
+            $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->sortColumn = $column;
+            $this->sortDirection = 'desc';
+        }
+    }
+
+    public function getPurchaseSummary()
+    {
+        $query = Purchase::query()
+            ->when($this->search, function ($q) {
+                $q->where(function ($query) {
+                    $query->where('purchase_number', 'like', '%' . $this->search . '%')
+                        ->orWhere('supplier_name', 'like', '%' . $this->search . '%');
+                });
+            })
+            ->when($this->filterBranch, fn($q) => $q->where('branch_id', $this->filterBranch))
+            ->when($this->filterPaymentStatus, fn($q) => $q->where('payment_status', $this->filterPaymentStatus));
+
+        $purchases = $query->get();
+
+        return [
+            'total_purchases' => $purchases->count(),
+            'total_cost' => $purchases->sum('landing_cost'),
+            'paid_count' => $purchases->where('payment_status', 'paid')->count(),
+            'pending_count' => $purchases->where('payment_status', 'pending')->count(),
+            'partial_count' => $purchases->where('payment_status', 'partial')->count(),
+        ];
+    }
+
+    public function getPurchasesByStatus()
+    {
+        $query = Purchase::query()
+            ->when($this->search, function ($q) {
+                $q->where(function ($query) {
+                    $query->where('purchase_number', 'like', '%' . $this->search . '%')
+                        ->orWhere('supplier_name', 'like', '%' . $this->search . '%');
+                });
+            })
+            ->when($this->filterBranch, fn($q) => $q->where('branch_id', $this->filterBranch))
+            ->when($this->filterPaymentStatus, fn($q) => $q->where('payment_status', $this->filterPaymentStatus));
+
+        return $query->get()->groupBy('payment_status')->map(function ($group) {
+            return [
+                'status' => $group->first()->payment_status,
+                'count' => $group->count(),
+                'total_cost' => $group->sum('landing_cost'),
+                'purchases' => $group,
+            ];
+        })->sortByDesc('total_cost');
+    }
+
+    public function getPurchasesByBranch()
+    {
+        $query = Purchase::with('branch')
+            ->when($this->search, function ($q) {
+                $q->where(function ($query) {
+                    $query->where('purchase_number', 'like', '%' . $this->search . '%')
+                        ->orWhere('supplier_name', 'like', '%' . $this->search . '%');
+                });
+            })
+            ->when($this->filterBranch, fn($q) => $q->where('branch_id', $this->filterBranch))
+            ->when($this->filterPaymentStatus, fn($q) => $q->where('payment_status', $this->filterPaymentStatus));
+
+        return $query->get()->groupBy('branch.name')->map(function ($group) {
+            return [
+                'branch' => $group->first()->branch->name,
+                'count' => $group->count(),
+                'total_cost' => $group->sum('landing_cost'),
+                'avg_cost' => $group->avg('landing_cost'),
+                'purchases' => $group,
+            ];
+        })->sortByDesc('total_cost');
     }
 }

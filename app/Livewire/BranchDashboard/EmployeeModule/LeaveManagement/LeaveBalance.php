@@ -15,7 +15,7 @@ class LeaveBalance extends BaseComponent
     use Interactions;
 
     #[Url(keep: true)]
-    public $b_id;
+    public ?string $b_id = null;
 
     public $selectedYear;
     public $yearOptions = [];

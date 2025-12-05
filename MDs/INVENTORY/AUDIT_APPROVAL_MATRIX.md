@@ -1,0 +1,271 @@
+# Inventory Module Audit & Approval Matrix
+
+## Overview
+Analysis of all inventory components to identify which have audit/approval systems implemented and which need them.
+
+---
+
+## Component Analysis
+
+### ✅ IMPLEMENTED - Full Audit & Approval
+
+#### 1. **Items.php**
+- **Status**: ✅ FULLY IMPLEMENTED
+- **Audit Coverage**:
+  - ✅ Create Item (requires approval for non-super-admins)
+  - ✅ Update Item (requires approval for non-super-admins)
+  - ✅ Delete Item (requires approval for non-super-admins)
+  - ✅ Detailed change tracking (name, category, UOM, reorder_level, max_stock_level, status)
+- **Service**: `InventoryApprovalService::requestItemCreation()`, `requestItemUpdate()`, `requestItemDeletion()`
+- **Audit Logging**: Yes, via `AuditService::log()`
+- **Modal Implementation**: Yes (item-modal.blade.php, audit-modal.blade.php)
+- **Features**:
+  - Real-time form validation
+  - Change comparison (before/after values)
+  - Reorder level & max stock level management
+  - Status tracking (active/inactive)
+
+---
+
+#### 2. **Stocks.php**
+- **Status**: ✅ FULLY IMPLEMENTED (Recently Updated)
+- **Audit Coverage**:
+  - ✅ Stock Adjustment (quantity_available, quantity_reserved, quantity_damaged)
+  - ✅ Average Cost updates
+  - ✅ Health Status updates
+  - ✅ Expiry Date updates
+  - ✅ Reorder Level & Max Stock Level updates (NEW)
+- **Service**: `InventoryApprovalService::requestStockAdjustment()`
+- **Audit Logging**: Yes, comprehensive change tracking
+- **Modal Implementation**: Yes (stocks-edit-modal.blade.php, stocks-audit-modal.blade.php)
+- **Features**:
+  - All 9 stock fields tracked
+  - Loading states with spinners
+  - Real-time form updates
+  - Item linking (reorder/max stock levels)
+  - Live validation with debouncing
+
+---
+
+#### 3. **Purchases.php**
+- **Status**: ✅ PARTIALLY IMPLEMENTED
+- **Audit Coverage**:
+  - ✅ Create Purchase (requires approval for non-super-admins)
+  - ✅ Purchase date, supplier, items, costs tracked
+  - ❓ Update Purchase (may not require full audit trail)
+  - ❓ Delete Purchase (likely requires approval)
+- **Service**: `InventoryApprovalService::requestPurchaseCreation()` (stub exists)
+- **Audit Logging**: Yes, but limited scope
+- **Modal Implementation**: Yes (purchase modal exists)
+- **Issues**:
+  - `executePurchaseCreation()` is incomplete (line 344-356)
+  - Delete functionality may lack approval system
+  - No detailed change tracking on updates
+
+---
+
+### ⚠️ PARTIAL AUDIT - Logging Only
+
+#### 4. **StockTakes.php**
+- **Status**: ⚠️ AUDIT LOGGING ONLY
+- **Audit Coverage**:
+  - ✅ Audit logging for stock take operations
+  - ❌ NO Approval workflow for non-super-admins
+- **Service**: Uses `AuditService::log()` directly
+- **Approval**: NONE - Changes applied immediately
+- **Recommendation**: Should require approval for material stock adjustments
+
+---
+
+#### 5. **HealthChecks.php**
+- **Status**: ⚠️ AUDIT LOGGING ONLY
+- **Audit Coverage**:
+  - ✅ Audit logging for health check operations
+  - ❌ NO Approval workflow for non-super-admins
+- **Service**: Uses `AuditService::log()` directly
+- **Approval**: NONE - Changes applied immediately
+- **Recommendation**: Critical items (condition=damaged/expired) should require approval
+
+---
+
+#### 6. **ItemRequests.php**
+- **Status**: ⚠️ AUDIT LOGGING ONLY
+- **Audit Coverage**:
+  - ✅ Audit logging for request creation/cancellation
+  - ❌ NO Approval workflow
+- **Service**: Uses `AuditService::log()` directly
+- **Approval**: NONE
+- **Note**: This is a request system, may need approval queue
+
+---
+
+### 🚫 NO AUDIT SYSTEM
+
+#### 7. **ItemDispatches.php**
+- **Status**: 🚫 MINIMAL AUDIT
+- **Audit Coverage**:
+  - ⚠️ Logs dispatch but already approved items
+  - ❌ NO Request/Approval system
+- **Note**: This handles approved item distribution - audit-only is acceptable
+
+---
+
+#### 8. **StockMovements.php**
+- **Status**: 🚫 NO AUDIT
+- **Audit Coverage**:
+  - ❌ This is a VIEW-ONLY component
+  - No operations performed here
+- **Status**: CORRECT - Movements are logged by other components
+
+---
+
+#### 9. **Analytics.php**
+- **Status**: 🚫 NO AUDIT NEEDED
+- **Audit Coverage**:
+  - ❌ This is a READ-ONLY analytics dashboard
+  - Only `toast()` notifications for export features (coming soon)
+- **Status**: CORRECT - No data modifications
+
+---
+
+## Implementation Priority Matrix
+
+### 🔴 HIGH PRIORITY (Critical Business Impact)
+
+| Component | Issue | Impact | Effort |
+|-----------|-------|--------|--------|
+| **Purchases.php** | `executePurchaseCreation()` incomplete | Financial records may not update correctly | Medium |
+| **HealthChecks.php** | No approval for critical conditions | Expired items might not be quarantined properly | Low |
+| **StockTakes.php** | No approval for large adjustments | Inventory accuracy not validated | Low |
+
+### 🟡 MEDIUM PRIORITY (Data Integrity)
+
+| Component | Issue | Impact | Effort |
+|-----------|-------|--------|--------|
+| **ItemRequests.php** | No approval workflow | Department requests not validated | Medium |
+
+### 🟢 LOW PRIORITY (Already Good)
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| **Items.php** | ✅ Complete | Fully audited with approvals |
+| **Stocks.php** | ✅ Complete | Recently enhanced with reorder/max levels |
+| **ItemDispatches.php** | ✅ Acceptable | Handles already-approved items |
+
+---
+
+## Recommended Implementation Roadmap
+
+### Phase 1: Fix Critical Issues (Week 1)
+- [ ] Complete `Purchases.php` - `executePurchaseCreation()` implementation
+- [ ] Add delete approval to `Purchases.php`
+- [ ] Add delete approval to `Items.php` edge cases
+
+### Phase 2: Add Approval Workflows (Week 2-3)
+- [ ] **HealthChecks.php**: Add approval for critical conditions
+  - Condition = 'critical' OR 'expired' requires approval
+  - Auto-approval for 'good' or 'fair'
+  
+- [ ] **StockTakes.php**: Add approval for large adjustments
+  - Threshold-based: > 10% variance requires approval
+  - Optional approval for minor adjustments
+  
+- [ ] **ItemRequests.php**: Convert to approval workflow
+  - Create request (user)
+  - Manager approval (manager)
+  - Fulfillment (inventory)
+
+### Phase 3: Enhancements (Week 4+)
+- [ ] Batch approval for multiple items
+- [ ] Approval delegation (assign approver)
+- [ ] Audit trail analytics
+- [ ] SLA tracking for approval times
+
+---
+
+## Implementation Patterns Used
+
+### Pattern 1: Items/Stocks (Full Approval)
+```php
+// User initiates request → Audit Modal → Approval System → Execution
+1. User fills form
+2. Validation
+3. Store in "pending" state
+4. Show audit modal (reason required)
+5. Create ApprovalAuditRequest
+6. Await approver action
+7. Execute or reject
+```
+
+### Pattern 2: StockTakes/HealthChecks (Audit Only)
+```php
+// User initiates action → Direct execution → Audit Log
+1. User fills form
+2. Validation
+3. Immediate update to database
+4. Log to audit trail
+5. Toast notification
+```
+
+### When to Use Each Pattern
+
+| Pattern | Use Case | Examples |
+|---------|----------|----------|
+| **Full Approval** | High-risk, data-altering operations | Item creation, stock adjustment, purchase creation |
+| **Audit Only** | Informational, reversible, or low-risk ops | Health checks, observations, stock movements |
+| **Read-Only** | Reporting and analytics | ItemDispatches (handles approved items), Analytics |
+
+---
+
+## Schema Requirements
+
+### For Full Approval System
+Required tables (already exist):
+- `approval_audit_requests` - Tracks pending approvals
+- `audit_logs` - Records of all actions
+- `items` - Item master data
+- `stocks` - Stock records
+
+### Data Integrity Notes
+- All approval payloads must include complete field set
+- ✅ `Items.php`: Complete (name, sku, category, uom, reorder, max, status)
+- ✅ `Stocks.php`: Complete (qty_available, qty_reserved, qty_damaged, cost, health, expiry, reorder, max, notes)
+- ⚠️ `Purchases.php`: Incomplete - needs execution logic
+
+---
+
+## Testing Checklist
+
+### Items Component
+- [ ] Create item → Audit modal shows → Approval required
+- [ ] Update item → Changes tracked in audit log
+- [ ] Delete item → Audit log shows deletion reason
+- [ ] Reorder/Max levels persist after approval
+
+### Stocks Component
+- [ ] All 9 fields save correctly
+- [ ] Approval shows all changed fields
+- [ ] Item's reorder/max levels update on approval
+- [ ] Loading states work properly
+- [ ] Stock movements record all details
+
+### Purchases Component
+- [ ] Complete `executePurchaseCreation()` implementation
+- [ ] Test full purchase workflow
+- [ ] Verify financial records update
+
+### HealthChecks/StockTakes
+- [ ] If implementing approval: Test modal flows
+- [ ] Test threshold-based auto-approval
+- [ ] Verify audit logging for all states
+
+---
+
+## Next Steps
+
+1. **Review** this matrix with team
+2. **Prioritize** which components to enhance
+3. **Implement** Phase 1 critical fixes
+4. **Test** against the checklist
+5. **Document** final approval workflows
+
