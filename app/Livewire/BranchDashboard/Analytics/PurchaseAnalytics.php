@@ -30,6 +30,12 @@ class PurchaseAnalytics extends Component
         $this->dateFrom = now()->subDays(90)->format('Y-m-d');
         $this->dateTo = now()->format('Y-m-d');
         $this->validateDateRange();
+        
+        // Store branch_id in session for super admin access
+        $branchId = $this->getBranchId();
+        if ($branchId) {
+            session(['branch_id_context' => $branchId]);
+        }
     }
 
     public function updatedDateFrom()
@@ -108,6 +114,12 @@ class PurchaseAnalytics extends Component
 
     private function getBranchId()
     {
+        // Check session first (for super admin context persistence)
+        if (session()->has('branch_id_context')) {
+            return session('branch_id_context');
+        }
+        
+        // Fall back to URL param or auth user's branch
         return Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
     }
 
@@ -177,19 +189,22 @@ class PurchaseAnalytics extends Component
     {
         $branchId = $this->getBranchId();  
 
-        return PurchaseItem::with(['item', 'purchase'])
+        $items = PurchaseItem::select('item_id', DB::raw('SUM(quantity) as total_quantity, SUM(COALESCE(total_cost, 0)) as total_cost'))
             ->whereHas('purchase', function ($query) use ($branchId) {
                 $query->where('branch_id', $branchId)
                     ->when($this->supplierFilter, fn($q) => $q->where('supplier_name', 'like', '%' . $this->supplierFilter . '%'))
                     ->when($this->paymentStatus, fn($q) => $q->where('payment_status', $this->paymentStatus))
                     ->whereBetween('purchase_date', [$this->dateFrom, $this->dateTo]);
             })
-            ->selectRaw('item_id, SUM(quantity) as total_quantity, SUM(total_cost) as total_cost')
             ->groupBy('item_id')
             ->orderByDesc('total_cost')
             ->limit(10)
-            ->with('purchase')
             ->get();
+
+        // Manually load the item relationship to avoid N+1 queries
+        $items->load('item');
+        
+        return $items;
     }
 
     public function getSummary()

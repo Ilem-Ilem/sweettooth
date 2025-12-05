@@ -225,9 +225,12 @@
     <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
         <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Top 10 Purchased Items</h3>
         <div class="space-y-3">
+            @php
+                $totalItemsCost = $topItems->sum('total_cost');
+            @endphp
             @forelse($topItems as $item)
                 @php
-                    $percentage = ($summary['total_spent'] > 0) ? (($item->total_cost / $summary['total_spent']) * 100) : 0;
+                    $percentage = ($totalItemsCost > 0) ? (($item->total_cost / $totalItemsCost) * 100) : 0;
                 @endphp
                 <div class="border-l-4 border-blue-500 pl-3 py-2">
                     <div class="flex justify-between items-start mb-2">
