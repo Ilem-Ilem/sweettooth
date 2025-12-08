@@ -1,0 +1,518 @@
+Component-by-Component Audit Implementation Guide
+Table of Contents
+Items.php - ✅ Reference Implementation
+Stocks.php - ✅ Recently Enhanced
+Purchases.php - ⚠️ Needs Completion
+HealthChecks.php - 🔴 Needs Implementation
+StockTakes.php - 🔴 Needs Implementation
+ItemRequests.php - 🔴 Needs Implementation
+---
+Items.php
+✅ REFERENCE IMPLEMENTATION - Complete
+Current Status: Fully implemented with approval workflow
+Implementation Details
+Component Properties
+php
+// Audit Modal State
+public ?string $auditAction = null;           // 'createitem', 'updateitem', 'deleteitem'
+public string $auditReason = '';              // User's reason for action
+public ?int $pendingItemId = null;            // Item awaiting approval
+public array $pendingItemData = [];           // Data to apply after approval
+Flow Diagram
+User Action
+    ↓
+Form Validation
+    ↓
+issuperadmin()?
+    ├─ YES → executeImmediateSave()
+    │         ↓
+    │       Update Database
+    │         ↓
+    │       AuditService::log() (completed)
+    │
+    └─ NO → Store in pendingItemData
+             ↓
+           Show auditModal
+             ↓
+           User enters reason
+             ↓
+           InventoryApprovalService::requestItemCreation/Update/Deletion()
+             ↓
+           AuditService::log() (pending)
+             ↓
+           Awaits Approval
+Key Code Patterns
+1. Save Method with Conditional Logic
+php
+public function save()
+{
+    $this->validate($this->itemValidationRules());
+    
+    $data = [
+        'branchid' => $this->getBranchId(),
+        'name' => $this->name,
+        'sku' => $this->sku,
+        // ... all fields
+    ];
+    
+    if (issuperadmin()) {
+        $this->executeImmediateSave($data);  // Direct update
+        return;
+    }
+    
+    // Non-super-admin: Require approval
+    $this->pendingItemData = $data;
+    $this->auditAction = $this->isEditing ? 'updateitem' : 'createitem';
+    $this->auditReason = '';
+    $this->showAuditModal = true;
+}
+2. Audit Request Submission
+php
+public function submitAuditRequest()
+{
+    $this->validate(['auditReason' => 'required|string|min:10|max:500']);
+    
+    try {
+        $user = Auth::guard('employees')->user();
+        
+        if ($this->auditAction === 'createitem') {
+            $request = InventoryApprovalService::requestItemCreation(
+                $user,
+                $this->pendingItemData,
+                $this->auditReason
+            );
+            // Success message...
+        }
+        // Other actions...
+    } catch (\Exception $e) {
+        // Error handling...
+    }
+}
+3. Audit Logging with Change Tracking
+php
+$changes = [];
+if ($oldName !== $this->name) {
+    $changes[] = "Name: {$oldName} → {$this->name}";
+}
+// Track all field changes...
+AuditService::log(
+    currentactor(),
+    'update',
+    $item,
+    "Updated item '{$item->name}'. Changes: " . implode(', ', $changes),
+    'completed'
+);
+Blade Template Pattern
+Modal: item-modal.blade.php - Form inputs
+Audit Modal: audit-modal.blade.php - Reason capture
+Features:
+  - Real-time SKU generation
+  - Form validation feedback
+  - Loading states
+Service Integration
+php
+// Services/InventoryApprovalService.php
+requestItemCreation($user, $itemData, $reason)
+requestItemUpdate($user, $itemId, $changes, $reason)
+requestItemDeletion($user, $itemId, $reason)
+---
+Stocks.php
+✅ RECENTLY ENHANCED - Production Ready
+Current Status: Full approval workflow with all fields
+Implementation Details
+Recent Enhancements (Latest)
+php
+// NEW: Reorder and Max Stock Level Fields
+public $reorderlevel = 0;
+public $maxstocklevel = 0;
+// Enhanced Data sent to approval
+'reorderlevel' => (float) ($this->reorderlevel ?? 0),
+'maxstocklevel' => (float) ($this->maxstocklevel ?? 0),
+// Item-level updates on approval execution
+$stock->item->update([
+    'reorderlevel' => (float) ($payload['reorderlevel'] ?? ...),
+    'maxstocklevel' => (float) ($payload['maxstocklevel'] ?? ...),
+]);
+Component Properties (Complete)
+php
+// Stock Fields
+public $quantityavailable = 0;
+public $quantityreserved = 0;
+public $quantitydamaged = 0;
+public $averagecost = 0;
+public $healthstatus = 'good';
+public $expirydate = '';
+public $notes = '';
+public $reorderlevel = 0;           // NEW
+public $maxstocklevel = 0;         // NEW
+// Modal States
+public $showEditModal = false;
+public $showAuditModal = false;
+public $auditAction = null;
+public $pendingStockId = null;
+Flow Diagram
+openEditModal($stockId)
+    ↓
+Load Stock Data + Item Reorder/Max Levels
+    ↓
+Show Edit Modal
+    ↓
+User modifies 9 fields
+    ↓
+saveStock() validation
+    ↓
+issuperadmin()?
+    ├─ YES → performStockUpdate()
+    │         ↓
+    │       Update Stock + Item
+    │         ↓
+    │       AuditService::log() (completed)
+    │
+    └─ NO → Store in pendingStockData
+             ↓
+           Close Edit Modal
+             ↓
+           Show Audit Modal
+             ↓
+           User enters reason
+             ↓
+           proceedWithStockAdjustment()
+Payload Structure (Complete)
+php
+'payload' => [
+    'stockitemid' => $stockId,
+    'quantityavailable' => (float) $adjustments['quantityavailable'],
+    'quantityreserved' => (float) $adjustments['quantityreserved'],
+    'quantitydamaged' => (float) $adjustments['quantitydamaged'],
+    'averagecost' => (float) $adjustments['averagecost'],
+    'healthstatus' => $adjustments['healthstatus'],
+    'expirydate' => $adjustments['expirydate'],
+    'reorderlevel' => (float) $adjustments['reorderlevel'],     // NEW
+    'maxstocklevel' => (float) $adjustments['maxstocklevel'],  // NEW
+    'notes' => $adjustments['notes'],
+]
+UI Enhancements
+Loading States: Alpine.js with 100ms delay
+Dynamic Cards: Real-time updates as you type
+Field Spinners: Loading indicator in each input
+Form Locking: Disabled during load
+---
+Purchases.php
+⚠️ INCOMPLETE - Needs Phase 1 Fixes
+Current Status: Approval request structure exists but execution is stub
+Issues to Fix
+Incomplete Execution Logic
+File: Services/InventoryApprovalService.php lines 344-356
+php
+public static function executePurchaseCreation(ApprovalAuditRequest $request, Employee $approver)
+{
+    // ❌ STUB - Only marks as approved, doesn't create purchase!
+    $request->update([
+        'approverid' => $approver->id,
+        'approvertype' => Employee::class,
+        'status' => 'approved',
+        'approvedat' => now(),
+    ]);
+    
+    return $request;
+}
+What Needs to be Implemented
+php
+public static function executePurchaseCreation(ApprovalAuditRequest $request, Employee $approver)
+{
+    return DB::transaction(function () use ($request, $approver) {
+        $payload = $request->payload;
+        $purchasedate = $payload['purchasedate'] ?? now();
+        
+        // 1. Create Purchase Record
+        $purchase = Purchase::create([
+            'branchid' => $request->branchid,
+            'purchasedate' => $purchasedate,
+            'suppliername' => $payload['suppliername'],
+            'suppliercontact' => $payload['suppliercontact'],
+            'currency' => $payload['currency'] ?? 'NGN',
+            'exchangerate' => $payload['exchangerate'] ?? 1,
+            'othercosts' => $payload['othercosts'] ?? 0,
+            'paymentstatus' => $payload['paymentstatus'] ?? 'pending',
+            'notes' => $payload['notes'] ?? '',
+            'createdbyid' => $request->requesterid,
+        ]);
+        
+        // 2. Create Purchase Items
+        foreach ($payload['items'] ?? [] as $item) {
+            PurchaseItem::create([
+                'purchaseid' => $purchase->id,
+                'itemid' => $item['itemid'],
+                'quantity' => $item['quantity'],
+                'unitfobfc' => $item['unitfobfc'],
+                'uom' => $item['uom'],
+            ]);
+            
+            // 3. Update Stock (add to quantityavailable)
+            $stock = Stock::where('itemid', $item['itemid'])
+                ->where('branchid', $request->branchid)
+                ->first();
+                
+            if ($stock) {
+                $stock->increment('quantityavailable', $item['quantity']);
+            }
+        }
+        
+        // 4. Mark Approval as Complete
+        $request->update([
+            'approverid' => $approver->id,
+            'approvertype' => Employee::class,
+            'status' => 'approved',
+            'approvedat' => now(),
+        ]);
+        
+        // 5. Audit Log
+        AuditService::log(
+            $approver,
+            'approve',
+            $purchase,
+            "Approved purchase from {$payload['suppliername']}. Items: " . 
+            count($payload['items'] ?? []),
+            'completed'
+        );
+        
+        return $purchase;
+    });
+}
+Component Audit State (Currently)
+php
+// In Purchases.php component
+public $showAuditModal = false;
+public $auditReason = '';
+public $auditAction = null;
+public $pendingPurchaseData = [];
+public $pendingItemId = null;
+// ISSUE: Variables defined but flow may be incomplete
+What's Missing in save() Method
+php
+public function save()
+{
+    // Current: Likely saves directly
+    // NEED: Conditional logic like Items.php
+    
+    if (issuperadmin()) {
+        // Direct creation
+        $this->createPurchase($data);
+    } else {
+        // Store pending and show audit modal
+        $this->pendingPurchaseData = $data;
+        $this->auditAction = 'createpurchase';
+        $this->showAuditModal = true;
+    }
+}
+Implementation Checklist for Purchases.php
+[ ] Step 1: Implement conditional save() logic (admin vs non-admin)
+[ ] Step 2: Implement submitAuditRequest() to call InventoryApprovalService
+[ ] Step 3: Complete executePurchaseCreation() in service
+[ ] Step 4: Add delete approval workflow
+[ ] Step 5: Test full purchase creation → approval → execution
+[ ] Step 6: Verify stock updates after approval
+---
+HealthChecks.php
+🔴 NEEDS IMPLEMENTATION - Approval for Critical Items
+Current Status: Audit logging only
+Recommended Implementation
+Threshold-Based Approval
+php
+public function save()
+{
+    $this->validate($this->rules);
+    
+    // Critical condition requires approval
+    $criticalConditions = ['critical', 'expired', 'damaged'];
+    
+    if (inarray($this->condition, $criticalConditions) && !issuperadmin()) {
+        // Require approval
+        $this->pendingCheckData = [
+            'stockid' => $this->stockid,
+            'checkdate' => $this->checkdate,
+            'condition' => $this->condition,
+            'quantityaffected' => $this->quantityaffected,
+            'observations' => $this->observations,
+            'actiontaken' => $this->actiontaken,
+        ];
+        $this->auditAction = 'criticalhealthcheck';
+        $this->showAuditModal = true;
+        return;
+    }
+    
+    // Good/Fair conditions: Direct save + audit log
+    $this->performHealthCheck();
+}
+Component Properties to Add
+php
+public $showAuditModal = false;
+public $auditReason = '';
+public $auditAction = null;
+public array $pendingCheckData = [];
+protected $bulkActions = [
+    'quarantine' => ['label' => 'Quarantine Items', 'method' => 'quarantineSelected'],
+];
+Audit Service Integration
+php
+// Option 1: Simple approval
+InventoryApprovalService::requestHealthCheckReview($user, $checkData, $reason);
+// Option 2: Auto-approve good/fair
+if ($this->condition === 'good' || $this->condition === 'fair') {
+    $this->performHealthCheck();
+    AuditService::log(..., 'completed');
+} else {
+    // Critical: require approval
+}
+---
+StockTakes.php
+🔴 NEEDS IMPLEMENTATION - Threshold-Based Approval
+Current Status: Audit logging only, no approval workflow
+Recommended Implementation
+Variance Threshold Approval
+php
+public function submitStockTake()
+{
+    $this->validate($this->rules);
+    
+    // Calculate variance for each item
+    $requiresApproval = false;
+    $varianceData = [];
+    
+    foreach ($this->takeItems as $takeItem) {
+        $currentStock = Stock::find($takeItem['stockid'])?->quantityavailable ?? 0;
+        $variance = abs($currentStock - $takeItem['countedquantity']) / max($currentStock, 1)  100;
+        
+        // If variance > 10%, requires approval
+        if ($variance > 10) {
+            $requiresApproval = true;
+            $varianceData[] = [
+                'stockid' => $takeItem['stockid'],
+                'current' => $currentStock,
+                'counted' => $takeItem['countedquantity'],
+                'variancepercent' => $variance,
+            ];
+        }
+    }
+    
+    if (!issuperadmin() && $requiresApproval) {
+        // Store for approval
+        $this->pendingTakeData = [
+            'takedate' => $this->takedate,
+            'items' => $this->takeItems,
+            'variancedata' => $varianceData,
+        ];
+        $this->auditAction = 'stocktakevariance';
+        $this->showAuditModal = true;
+        return;
+    }
+    
+    // Direct submission if small variance or super-admin
+    $this->executeTake();
+}
+Component Additions
+php
+public $showAuditModal = false;
+public $auditReason = '';
+public array $pendingTakeData = [];
+public const VARIANCETHRESHOLD = 10; // percent
+---
+ItemRequests.php
+🔴 NEEDS IMPLEMENTATION - Full Approval Workflow
+Current Status: Audit logging only, pure request system
+Recommended Implementation
+This should be a multi-stage workflow:
+Stage 1: Request Creation (Employee)
+php
+public function submitRequest()
+{
+    $this->validate($this->rules);
+    
+    // Store request (creates ItemRequest record)
+    $itemRequest = ItemRequest::create([
+        'branchid' => $this->getBranchId(),
+        'requestedbyid' => Auth::guard('employees')->id(),
+        'departmentid' => $this->departmentid,
+        'requestdate' => $this->requestdate,
+        'status' => 'pending',
+        'notes' => $this->notes,
+    ]);
+    
+    // Create detail records
+    foreach ($this->requestItems as $item) {
+        ItemRequestDetail::create([
+            'itemrequestid' => $itemRequest->id,
+            'itemid' => $item['itemid'],
+            'quantityrequested' => $item['quantityrequested'],
+            'quantityapproved' => null,
+            'status' => 'pending',
+        ]);
+    }
+    
+    AuditService::log(..., 'pendingapproval');
+}
+Stage 2: Manager Approval
+php
+public function approveRequest($requestId, $approvalData)
+{
+    $request = ItemRequest::findOrFail($requestId);
+    
+    // Update detail quantities
+    foreach ($approvalData['items'] as $itemId => $approvedqty) {
+        ItemRequestDetail::where('itemrequestid', $requestId)
+            ->where('itemid', $itemId)
+            ->update(['quantityapproved' => $approvedqty]);
+    }
+    
+    $request->update(['status' => 'approved', 'approvedbyid' => Auth::id()]);
+    
+    AuditService::log(..., 'completed');
+}
+Stage 3: Fulfillment (Inventory)
+Request Status Workflow:
+pending → approved → fulfilled → completed
+OR
+pending → rejected → rejected
+---
+Service Layer Pattern Summary
+For Each Component Needing Approval:
+Create Request Method
+   php
+   public static function requestAction: ApprovalAuditRequest
+   
+Execute Method
+   php
+   public static function executeAction: Model
+   
+Reject Method
+   php
+   public static function rejectAction: void
+   
+Payload Structure Requirements
+Always include complete dataset needed for execution
+Include IDs and references
+Include timestamps and metadata
+Allow null coalescing in execution
+---
+Testing Strategy
+For Each Component Implementation
+Test Case Template:
+gherkin
+Scenario: Non-admin user requests action
+  Given I am a non-admin employee
+  When I submit [action]
+  Then approval modal appears
+  And I enter reason
+  And approval request is created
+  And status is 'pending'
+Scenario: Super-admin performs action
+  Given I am a super-admin
+  When I submit [action]
+  Then changes apply immediately
+  And audit log shows 'completed'
+---
+Implementation Priority
+Week 1-2: Fix Purchases.php (financial impact)
+Week 2-3: Implement HealthChecks & StockTakes approval
+Week 3-4: ItemRequests workflow
+Week 4+: Enhancements and SLA tracking

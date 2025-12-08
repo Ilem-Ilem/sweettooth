@@ -52,10 +52,36 @@ class Login extends Component
 
         RateLimiter::clear($this->throttleKey());
         Session::regenerate();
-        $branch = Branch::firstOrFail();
-    
+        
+        // Get branch for super-admin redirect
+        // Preference: intended URL > user's default branch > first branch
+        $branch = $this->getUserBranch($user);
+        
+        if (!$branch) {
+            // No branches available, redirect to branch selection
+            $this->redirect(route('branch-select'), navigate: true);
+            return;
+        }
 
-        $this->redirectIntended(default: route('branch-dashboard.index', ['b_id'=>$branch->id],  absolute: false), navigate: true);
+        $this->redirectIntended(default: route('branch-dashboard.index', ['b_id' => $branch->id], absolute: false), navigate: true);
+    }
+
+    /**
+     * Get the branch for super-admin redirect
+     * Priority: user's last accessed branch > first available branch
+     */
+    protected function getUserBranch(User $user): ?Branch
+    {
+        // If user has a last accessed branch, use it (better UX)
+        if ($user->last_accessed_branch_id) {
+            $branch = Branch::find($user->last_accessed_branch_id);
+            if ($branch) {
+                return $branch;
+            }
+        }
+
+        // Otherwise, get the first available branch
+        return Branch::orderBy('created_at')->first();
     }
 
     /**

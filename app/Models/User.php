@@ -24,6 +24,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'last_accessed_branch_id',
     ];
 
     /**
@@ -47,6 +48,14 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Get the branch this user last accessed
+     */
+    public function lastAccessedBranch()
+    {
+        return $this->belongsTo(Branch::class, 'last_accessed_branch_id');
     }
 
     public function getMorphClass()

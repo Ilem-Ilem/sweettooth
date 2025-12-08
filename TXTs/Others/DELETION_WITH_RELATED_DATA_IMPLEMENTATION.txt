@@ -1,0 +1,138 @@
+Item Deletion with Related Data Display Implementation
+Overview
+This implementation adds a comprehensive feature that displays related data to be deleted when an item is deleted, with dialog confirmations for users and detailed display in the audit approval system.
+Changes Made
+Items Livewire Component (app/Livewire/BranchDashboard/Inventory/Items.php)
+Added Properties:
+relatedDataToDelete: Array to store related data that will be deleted when an item is removed
+New Methods:
+gatherRelatedDataForDeletion($item)
+Collects all related data that will be deleted when an item is removed
+Gathers:
+  - Recipes: All recipes using this item as an ingredient (via RecipeIngredient)
+  - Stocks: Stock records across all branches
+  - Purchases: Purchase orders containing this item
+  - Stock Movements: Historical stock movement records
+Returns structured array with:
+php
+[
+    'item' => [...],
+    'recipes' => ['count' => int, 'items' => [...], 'description' => string],
+    'stocks' => ['count' => int, 'items' => [...], 'description' => string],
+    'purchases' => ['count' => int, 'items' => [...], 'description' => string],
+    'stockmovements' => ['count' => int, 'description' => string]
+]
+showDeletionConfirmationDialog($item)
+Displays dialog to super admins showing what related data will be deleted
+Uses buildDeletionSummary() to format the information
+buildDeletionSummary()
+Formats related data summary for display in confirmation dialog
+Shows counts and details of recipes, stocks, purchases, and stock movements
+Modified Methods:
+delete($id)
+Now gathers related data before showing confirmation
+Calls gatherRelatedDataForDeletion() to collect data
+For super admins: shows enhanced confirmation dialog with related data
+For non-admins: proceeds to audit modal (which shows related data in the modal)
+submitItemDeletionRequest()
+Now passes relatedDataToDelete to the approval service
+Related data is included in the deletion request payload
+closeAuditModal()
+Clears relatedDataToDelete when modal closes
+InventoryApprovalService (app/Services/InventoryApprovalService.php)
+Modified Method: requestItemDeletion()
+Signature Change:
+php
+public static function requestItemDeletion(
+    Employee $requester, 
+    int $itemId, 
+    string $reason, 
+    array $deletionData = []  // NEW PARAMETER
+): ApprovalAuditRequest
+Functionality:
+Accepts optional $deletionData parameter containing related data
+Stores related data in the approval request payload under payload['relateddata']
+Enhanced audit logging that includes summary of related data:
+  - Number of recipes
+  - Number of stock records
+  - Number of purchase orders
+  - Number of stock movements
+Audit Modal (resources/views/livewire/branch-dashboard/inventory/partials/audit-modal.blade.php)
+Added Features:
+Related Data Display Section (for deleteitem actions only)
+Red warning box showing related data that will be deleted
+Displays:
+  - Recipes: Count and names (if ≤3 recipes)
+  - Stocks: Count and branch details
+  - Purchases: Count and purchase order details (if ≤5 purchases)
+  - Stock Movements: Count of records
+Layout Improvements:
+Added max-h-96 overflow-y-auto to modal body for better scrolling
+Changed textarea rows from 5 to 4 to accommodate the new warning box
+Inventory Approvals View (resources/views/livewire/branch-dashboard/audit-management/inventory-approvals.blade.php)
+Added Section in Details Modal:
+Related Data to Delete Display (appears before Request Data section for deleteitem actions)
+Shows:
+Recipes: 
+  - Count of recipes
+  - Recipe names (if ≤5)
+Stocks: 
+  - Count of stock records
+  - Details per branch (available, reserved, damaged quantities)
+Purchases: 
+  - Count of purchase orders
+  - PO numbers and quantities (if ≤5)
+Stock Movements: 
+  - Count of movement records
+Layout Improvements:
+Added max-h-40 overflow-y-auto to Request Data section to prevent modal overflow
+User Experience Flow
+For Non-Admin Users (Regular Employees):
+Delete Item Action
+   - User clicks delete button on an item
+   - Related data is gathered in the background
+Audit Modal Appears
+   - Modal shows:
+     - Red warning box with list of what will be deleted
+     - Reason textarea for explanation
+     - Submit button for approval request
+Approval Request Submitted
+   - Related data is included in the request payload
+   - Admin receives notification
+For Admins (Approval Process):
+View Pending Requests
+   - Admin navigates to Inventory Approvals
+   - Sees deletion requests in the table
+View Deletion Details
+   - Admin clicks "View Details"
+   - Details modal opens showing:
+     - Requester information
+     - Detailed Related Data Section
+       - Lists all recipes using the item
+       - Shows stock quantities across branches
+       - Lists affected purchase orders
+       - Shows count of stock movements
+     - Raw request payload (JSON)
+Make Approval Decision
+   - Informed by the related data display
+   - Can approve or reject with comment
+Data Integrity
+The implementation maintains data integrity by:
+Soft Deletes Not Used: The system cascades deletes to related tables as configured in models
+Audit Trail: All deletion requests are logged with related data summary
+No Data Loss: Related data information is preserved in the approval request for records
+Reversibility: Through audit logs, the exact impact of each deletion is documented
+Testing Checklist
+[ ] Delete an item used in multiple recipes (verify recipe names appear)
+[ ] Delete an item with stocks in multiple branches (verify branch details)
+[ ] Delete an item referenced in purchase orders (verify PO details)
+[ ] Verify non-admins see related data in audit modal
+[ ] Verify admins see related data in approval details modal
+[ ] Verify related data is included in audit logs
+[ ] Test with items having 0 related data (verify graceful handling)
+[ ] Test with items having many related records (verify scrolling works)
+Files Modified
+/app/Livewire/BranchDashboard/Inventory/Items.php - Component logic
+/app/Services/InventoryApprovalService.php - Service layer
+/resources/views/livewire/branch-dashboard/inventory/partials/audit-modal.blade.php - User modal
+/resources/views/livewire/branch-dashboard/audit-management/inventory-approvals.blade.php - Admin approval view

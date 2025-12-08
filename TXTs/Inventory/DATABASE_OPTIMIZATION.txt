@@ -1,0 +1,366 @@
+Database Optimization - Analytics Performance Guide
+Overview
+Performance optimization strategies for analytics queries, indexing improvements, and query efficiency enhancements.
+---
+Part 1: Missing Indexes
+Current Issue
+Analytics components run expensive queries without proper indexes:
+php
+// Current: Slow without indexes
+StockMovement::whereBetween('movementdate', [$from, $to])
+    ->where('type', 'adjustment')
+    ->where('shift', 'morning')
+    ->get();
+Solution: Add Strategic Indexes
+Migration: Create Indexes
+php
+// database/migrations/xxxxxxxxaddanalyticsindexes.php
+return new class extends Migration {
+    public function up(): void
+    {
+        Schema::table('stockmovements', function (Blueprint $table) {
+            // Single column indexes
+            $table->index('movementdate');
+            $table->index('type');
+            $table->index('referencetype');
+            $table->index('referenceid');
+            $table->index('stockid');
+            $table->index('movedbyid');
+            $table->index('shift');
+            $table->index('departmentid');
+            
+            // Composite indexes (for common filter combinations)
+            $table->index(['type', 'movementdate']);
+            $table->index(['stockid', 'movementdate']);
+            $table->index(['movementdate', 'shift']);
+            $table->index(['movementdate', 'departmentid']);
+            $table->index(['referencetype', 'referenceid']);
+            $table->index(['movedbyid', 'movedbytype']);
+            
+            // For range queries (date + other filter)
+            $table->index(['movementdate', 'type', 'stockid']);
+        });
+    }
+    public function down(): void
+    {
+        Schema::table('stockmovements', function (Blueprint $table) {
+            $table->dropIndex(['movementdate']);
+            $table->dropIndex(['type']);
+            $table->dropIndex(['referencetype']);
+            $table->dropIndex(['referenceid']);
+            $table->dropIndex(['stockid']);
+            $table->dropIndex(['movedbyid']);
+            $table->dropIndex(['shift']);
+            $table->dropIndex(['departmentid']);
+            
+            $table->dropIndex(['type', 'movementdate']);
+            $table->dropIndex(['stockid', 'movementdate']);
+            $table->dropIndex(['movementdate', 'shift']);
+            $table->dropIndex(['movementdate', 'departmentid']);
+            $table->dropIndex(['referencetype', 'referenceid']);
+            $table->dropIndex(['movedbyid', 'movedbytype']);
+            
+            $table->dropIndex(['movementdate', 'type', 'stockid']);
+        });
+    }
+};
+Index Strategy Explanation
+| Index | Purpose | Query Pattern |
+|-------|---------|---------------|
+| movementdate | Date range filtering | WHERE movementdate BETWEEN |
+| type | Movement type filtering | WHERE type = 'in' |
+| stockid | Item selection filtering | WHERE stockid = X |
+| movedbyid | User activity tracking | WHERE movedbyid = X |
+| (type, movementdate) | Type + date filtering | WHERE type = 'in' AND movementdate BETWEEN |
+| (stockid, movementdate) | Item trends over time | For getDailyBreakdown() |
+| (movementdate, shift) | Shift-based analytics | WHERE shift = 'morning' AND movementdate BETWEEN |
+---
+Part 2: Query Optimization
+Issue 1: N+1 Query Problem in getAnalyticsSummary()
+Current Code (BAD - 6+ queries):
+php
+private function getAnalyticsSummary($branchId)
+{
+    $baseQuery = StockMovement::query()
+        ->whereHas('stock', fn ($q) => $q->where('branchid', $branchId))
+        ->whereBetween('movementdate', [$dateFrom, $dateTo]);
+    // ❌ Clones and executes 6 separate queries
+    $stockin = $baseQuery->clone()->whereIn('type', ['in', 'return'])->sum('quantity');
+    $stockout = $baseQuery->clone()->whereIn('type', ['out', 'damaged'])->sum('quantity');
+    // ... 4 more queries
+}
+Optimized Code (GOOD - 1 query):
+php
+private function getAnalyticsSummary($branchId)
+{
+    $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
+    $dateTo = Carbon::parse($this->dateTo)->endOfDay();
+    // ✅ Single query with all aggregations
+    $results = StockMovement::query()
+        ->whereHas('stock', fn ($q) => $q->where('branchid', $branchId))
+        ->whereBetween('movementdate', [$dateFrom, $dateTo])
+        ->selectRaw(
+            'SUM(CASE WHEN type IN ("in", "return") THEN quantity ELSE 0 END) as stockin,
+             SUM(CASE WHEN type IN ("out", "damaged", "transfer") THEN quantity ELSE 0 END) as stockout,
+             SUM(CASE WHEN type = "transfer" THEN 1 ELSE 0 END) as transfers,
+             COUNT() as totalmovements,
+             SUM(CASE WHEN type = "adjustment" THEN 1 ELSE 0 END) as adjustments,
+             ABS(SUM(CASE WHEN type = "damaged" THEN quantity ELSE 0 END)) as damaged'
+        )
+        ->first();
+    return [
+        'today' => [...],  // Calculate from today's specific query
+        'period' => [
+            'stockin' => $results->stockin ?? 0,
+            'stockout' => $results->stockout ?? 0,
+            'transfers' => $results->transfers ?? 0,
+            'totalmovements' => $results->totalmovements ?? 0,
+            'adjustments' => $results->adjustments ?? 0,
+            'damaged' => $results->damaged ?? 0,
+        ],
+        // ... rest of summary
+    ];
+}
+Impact:
+Before: 6 queries = ~15ms
+After: 1 query = ~3ms
+Improvement: 5x faster
+---
+Issue 2: Inefficient Daily Breakdown Query
+Current (Acceptable but can be faster):
+php
+private function getDailyBreakdown($branchId)
+{
+    return StockMovement::query()
+        ->whereHas('stock', fn ($q) => $q->where('branchid', $branchId))
+        ->whereBetween('movementdate', [$dateFrom, $dateTo])
+        ->selectRaw(...)
+        ->groupBy('date')
+        ->limit(7)
+        ->get();
+}
+Optimized (Better execution plan):
+php
+private function getDailyBreakdown($branchId)
+{
+    return StockMovement::query()
+        ->join('stocks', 'stockmovements.stockid', '=', 'stocks.id')
+        ->where('stocks.branchid', $branchId)
+        ->whereBetween('stockmovements.movementdate', [$dateFrom, $dateTo])
+        ->selectRaw('DATE(stockmovements.movementdate) as date, ...')
+        ->groupBy('date')
+        ->orderBy('date', 'desc')
+        ->limit(7)
+        ->get();
+}
+Why Better:
+Uses join instead of whereHas (better execution plan)
+Avoids subquery
+Indexes used more efficiently
+---
+Issue 3: Type Casting Inefficiency
+Current (String comparisons):
+php
+->whereIn('type', ['in', 'return', 'adjustment'])
+Better (If type has enum - future):
+php
+// Consider migrating to database enum type
+$table->enum('type', ['in', 'out', 'adjustment', 'transfer', 'damaged', 'return']);
+---
+Part 3: Query Caching Strategy
+Implementation: Cache Analytics Summary
+php
+// app/Livewire/BranchDashboard/Analytics/StockMovementAnalytics.php
+private function getAnalyticsSummary($branchId)
+{
+    // Cache key includes date range (5 minute TTL)
+    $cacheKey = "analytics:summary:{$branchId}:{$this->dateFrom}:{$this->dateTo}";
+    
+    return Cache::remember($cacheKey, now()->addMinutes(5), function () use ($branchId) {
+        // Complex query only runs if cache misses
+        return [/ analytics data /];
+    });
+}
+// Clear cache when data changes
+public function updated($property)
+{
+    if (inarray($property, ['dateFrom', 'dateTo'])) {
+        // Clear relevant cache entries
+        $branchId = Auth::guard('employees')->user()?->branchid;
+        Cache::forget("analytics:summary:{$branchId}:{$this->dateFrom}:{$this->dateTo}");
+    }
+    
+    $this->resetPage();
+}
+Benefits:
+First user: 100ms (query runs)
+Subsequent users (5 min): 5ms (from cache)
+Auto-clear on date change
+---
+Part 4: Materialized Views (Advanced)
+For heavy usage, consider materialized views for pre-computed analytics:
+sql
+-- Create materialized view for daily analytics
+CREATE MATERIALIZED VIEW stockmovementdailyanalytics AS
+SELECT
+    DATE(sm.movementdate) as date,
+    s.branchid,
+    sm.type,
+    COUNT() as movementcount,
+    SUM(ABS(sm.quantity)) as totalquantity,
+    COUNT(DISTINCT sm.stockid) as uniqueitems
+FROM stockmovements sm
+JOIN stocks s ON sm.stockid = s.id
+WHERE sm.movementdate >= DATESUB(NOW(), INTERVAL 90 DAY)
+GROUP BY date, s.branchid, sm.type;
+-- Create index on materialized view
+CREATE INDEX idxmaterializedanalytics 
+ON stockmovementdailyanalytics(branchid, date);
+-- Refresh view daily (add to scheduler)
+REFRESH MATERIALIZED VIEW stockmovementdailyanalytics;
+Use in code:
+php
+public function getDailyBreakdown($branchId)
+{
+    return DB::table('stockmovementdailyanalytics')
+        ->where('branchid', $branchId)
+        ->whereBetween('date', [$dateFrom, $dateTo])
+        ->orderBy('date', 'desc')
+        ->limit(7)
+        ->get();
+}
+---
+Part 5: Connection Pooling for Heavy Queries
+For very large datasets, implement connection pooling:
+php
+// config/database.php
+'mysql' => [
+    'driver' => 'mysql',
+    // ... existing config ...
+    'options' => [
+        PDO::MYSQLATTRINITCOMMAND => "SET SESSION sqlmode='STRICTTRANSTABLES'",
+    ],
+],
+// Add for readonly replica (if using):
+'mysqlread' => [
+    'driver' => 'mysql',
+    'host' => env('DBREADHOST', '127.0.0.1'),
+    // Use for analytics queries only
+],
+---
+Part 6: Pagination Optimization
+Current Issue
+php
+// Slow: Calculates total even when not needed
+$movements->paginate(15);  // Runs COUNT query
+Solution: Use Cursor Pagination for Large Datasets
+php
+// Better for analytics tables
+$movements = StockMovement::with(['stock.item', 'mover'])
+    ->whereHas('stock', fn ($q) => $q->where('branchid', $branchId))
+    ->orderBy('movementdate', 'desc')
+    ->cursorPaginate(15);  // No total count
+Benefits:
+No COUNT query (expensive on large tables)
+Better performance
+Still shows next/previous
+When to use:
+Analytics tables (stockmovements table grows large)
+Real-time feeds
+When total count not needed
+---
+Part 7: Batch Operations
+For bulk updates (e.g., denormalizing data):
+php
+// BAD: N queries
+foreach ($stockMovements as $movement) {
+    $movement->update(['shift' => $movement->reference->shift]);
+}
+// GOOD: Single query
+StockMovement::query()
+    ->where('referencetype', 'App\Models\ItemRequest')
+    ->whereNull('shift')
+    ->get()
+    ->each(function ($movement) {
+        $shift = $movement->reference?->shift;
+        if ($shift) {
+            $movement->update(['shift' => $shift]);
+        }
+    });
+// BETTER: Batch update with raw SQL
+DB::statement(
+    'UPDATE stockmovements sm
+     INNER JOIN itemrequests ir ON sm.referenceid = ir.id
+     SET sm.shift = ir.shift
+     WHERE sm.referencetype = ? AND sm.shift IS NULL',
+    ['App\Models\ItemRequest']
+);
+---
+Part 8: Monitoring & Profiling
+Enable Query Logging (Development)
+php
+// In development:
+DB::listen(function ($query) {
+    if ($query->time > 1000) {  // Log queries > 1 second
+        Log::warning('Slow query: ' . $query->sql, ['time' => $query->time]);
+    }
+});
+Use Laravel Debugbar
+composer require barryvdh/laravel-debugbar --dev
+Provides:
+Query time profiling
+Query count
+Database queries tab
+Check Execution Plans
+sql
+EXPLAIN SELECT ... -- Before optimization
+EXPLAIN SELECT ... -- After optimization
+-- Look for:
+-- ✓ Type: ref (using index)
+-- ✗ Type: ALL (full table scan)
+-- ✓ Rows: low number
+-- ✗ Extra: Using filesort (no ORDER BY index)
+---
+Implementation Checklist
+[ ] Create indexes migration
+[ ] Run migration on production
+[ ] Analyze query plans
+[ ] Implement rawSQL aggregations
+[ ] Update StockMovementAnalytics query
+[ ] Test performance
+[ ] Add cache layer
+[ ] Monitor slow queries
+[ ] Document in code
+---
+Performance Targets
+| Query | Before | After | Target |
+|-------|--------|-------|--------|
+| getAnalyticsSummary | 15ms | 3ms | < 5ms |
+| getDailyBreakdown | 20ms | 8ms | < 10ms |
+| getTopMovedItems | 25ms | 10ms | < 15ms |
+| Full page load | 150ms | 50ms | < 100ms |
+---
+Monitoring Queries (SQL)
+sql
+-- Find slowest queries
+SELECT  FROM mysql.slowlog ORDER BY querytime DESC LIMIT 10;
+-- Check table sizes
+SELECT tablename, ROUND(((datalength + indexlength) / 1024 / 1024), 2) AS sizemb
+FROM informationschema.TABLES
+WHERE tableschema = 'sweettooth'
+ORDER BY sizemb DESC;
+-- Check index usage
+SELECT  FROM informationschema.STATISTICS
+WHERE tableschema = 'sweettooth'
+AND tablename = 'stockmovements';
+---
+Rollback Plan
+If indexes cause issues:
+Revert migration (drops indexes)
+Queries slower but still work
+No data loss
+---
+Related Documentation
+Production deployment checklist (include index creation)
+Query optimization standards (code style)
+Performance monitoring setup

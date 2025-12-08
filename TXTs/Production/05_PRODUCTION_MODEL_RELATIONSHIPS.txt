@@ -1,0 +1,744 @@
+PRODUCTION MODULE - MODEL RELATIONSHIPS
+=======================================
+
+COMPLETE MODEL DOCUMENTATION
+=============================
+
+MODEL: ProductionCallback
+=========================
+
+File: app/Models/ProductionCallback.php
+Table: production_callbacks
+Purpose: Track damaged/defective items reported from production to inventory
+
+DATABASE COLUMNS:
+-----------------
+id                      BIGINT PRIMARY KEY
+shift_id               BIGINT FK → shifts.id
+source_type            VARCHAR (raw_material_from_stock | finished_product_reject)
+item_id                UUID FK → items.id (nullable)
+product_id             UUID FK → products.id (nullable)
+recorded_by_id         UUID (polymorphic FK)
+recorded_by_type       VARCHAR (polymorphic - App\Models\Employee or App\Models\User)
+quantity               DECIMAL(12,2)
+uom                    VARCHAR (unit of measure)
+reason                 VARCHAR (ENUM value: damage|expired|quality|contamination|etc)
+status                 VARCHAR (pending|approved_by_inventory|rejected|completed)
+approved_by_id         UUID (nullable, polymorphic FK)
+approved_by_type       VARCHAR (nullable, polymorphic)
+approved_at            TIMESTAMP (nullable)
+notes                  LONGTEXT (nullable)
+callback_time          TIMESTAMP (when callback was created)
+created_at             TIMESTAMP
+updated_at             TIMESTAMP
+
+FILLABLE PROPERTIES:
+--------------------
+protected $fillable = [
+    'shift_id',
+    'source_type',
+    'item_id',
+    'product_id',
+    'recorded_by_id',
+    'recorded_by_type',
+    'quantity',
+    'uom',
+    'reason',
+    'status',
+    'approved_by_id',
+    'approved_by_type',
+    'approved_at',
+    'notes',
+    'callback_time',
+];
+
+CASTS:
+------
+protected $casts = [
+    'quantity' => 'decimal:2',
+    'callback_time' => 'datetime',
+    'approved_at' => 'datetime',
+    'status' => CallbackStatus::class,  // ← Enum casting
+];
+
+RELATIONSHIPS:
+---------------
+
+1. shift() → BelongsTo
+   Purpose: Link to production shift
+   Usage: $callback->shift->department->name
+   
+   public function shift(): BelongsTo
+   {
+       return $this->belongsTo(Shift::class);
+   }
+
+2. item() → BelongsTo
+   Purpose: Link to raw material item (if source_type = raw_material_from_stock)
+   Usage: $callback->item->name
+   Nullable: Yes (only set if source_type = raw_material_from_stock)
+   
+   public function item(): BelongsTo
+   {
+       return $this->belongsTo(Item::class);
+   }
+
+3. product() → BelongsTo
+   Purpose: Link to finished product (if source_type = finished_product_reject)
+   Usage: $callback->product->name
+   Nullable: Yes (only set if source_type = finished_product_reject)
+   
+   public function product(): BelongsTo
+   {
+       return $this->belongsTo(Product::class);
+   }
+
+4. recipe() → BelongsTo
+   Purpose: Link to recipe for the product
+   Usage: $callback->recipe->name
+   Foreign Key: product_id (custom foreign key)
+   
+   public function recipe(): BelongsTo
+   {
+       return $this->belongsTo(Recipe::class, 'product_id');
+   }
+
+5. recordedBy() → MorphTo [POLYMORPHIC]
+   Purpose: Track who created the callback (Employee or User)
+   Usage: $callback->recordedBy->name
+   Type Handling: Automatically resolves to correct model
+   
+   public function recordedBy(): MorphTo
+   {
+       return $this->morphTo('recorded_by', 'recorded_by_type', 'recorded_by_id');
+   }
+
+   Possible values:
+     - App\Models\Employee
+     - App\Models\User
+   
+   Implementation Note:
+     Both Employee and User models must have morphMany relationship defined:
+     public function productionCallbacks()
+     {
+         return $this->morphMany(ProductionCallback::class, 'recorded_by');
+     }
+
+6. approvedBy() → MorphTo [POLYMORPHIC]
+   Purpose: Track who approved the callback (Employee or User)
+   Usage: $callback->approvedBy->name
+   Nullable: Yes (only set after approval)
+   
+   public function approvedBy(): MorphTo
+   {
+       return $this->morphTo('approved_by', 'approved_by_type', 'approved_by_id');
+   }
+
+   Typically: Inventory employee who approves
+   But can be: Super admin User who approves
+
+
+SCOPES:
+-------
+
+pending()
+  Description: Get callbacks awaiting approval
+  Usage: ProductionCallback::pending()->get()
+  SQL: WHERE status = 'pending'
+  
+  public function scopePending($query)
+  {
+      return $query->where('status', 'pending');
+  }
+
+approved()
+  Description: Get approved callbacks
+  Usage: ProductionCallback::approved()->get()
+  SQL: WHERE status = 'approved_by_inventory'
+  
+  public function scopeApproved($query)
+  {
+      return $query->where('status', 'approved_by_inventory');
+  }
+
+completed()
+  Description: Get completed callbacks
+  Usage: ProductionCallback::completed()->get()
+  SQL: WHERE status = 'completed'
+  
+  public function scopeCompleted($query)
+  {
+      return $query->where('status', 'completed');
+  }
+
+rejected()
+  Description: Get rejected callbacks
+  Usage: ProductionCallback::rejected()->get()
+  SQL: WHERE status = 'rejected'
+  
+  public function scopeRejected($query)
+  {
+      return $query->where('status', 'rejected');
+  }
+
+byShift($shiftId)
+  Description: Filter by production shift
+  Usage: ProductionCallback::byShift($shiftId)->get()
+  SQL: WHERE shift_id = ?
+  
+  public function scopeByShift($query, $shiftId)
+  {
+      return $query->where('shift_id', $shiftId);
+  }
+
+rawMaterial()
+  Description: Get callbacks for raw materials
+  Usage: ProductionCallback::rawMaterial()->get()
+  SQL: WHERE source_type = 'raw_material_from_stock'
+  
+  public function scopeRawMaterial($query)
+  {
+      return $query->where('source_type', 'raw_material_from_stock');
+  }
+
+finishedProduct()
+  Description: Get callbacks for finished products
+  Usage: ProductionCallback::finishedProduct()->get()
+  SQL: WHERE source_type = 'finished_product_reject'
+  
+  public function scopeFinishedProduct($query)
+  {
+      return $query->where('source_type', 'finished_product_reject');
+  }
+
+CHAINING SCOPES:
+  ProductionCallback::rawMaterial()
+      ->pending()
+      ->byShift($shiftId)
+      ->get()
+
+
+METHODS:
+--------
+
+TYPE CHECKERS:
+  
+  isRawMaterial(): bool
+    - Returns true if source_type === 'raw_material_from_stock'
+    - Usage: if ($callback->isRawMaterial()) { ... }
+  
+  isFinishedProduct(): bool
+    - Returns true if source_type === 'finished_product_reject'
+    - Usage: if ($callback->isFinishedProduct()) { ... }
+
+STATE CHECKERS:
+
+  canBeApproved(): bool
+    - Returns true if status === 'pending'
+    - Usage: if ($callback->canBeApproved()) { ... }
+    - Prevents invalid state transitions
+
+ACTIONS:
+
+  approve($actor = null): bool
+    Purpose: Approve callback and update stock
+    Parameters:
+      - $actor (optional): User or Employee object
+      - If not provided, uses current_actor()
+    Returns: true on success, false if can't be approved
+    Side Effects:
+      - Updates stock (raw material or finished product)
+      - Sets status to 'approved_by_inventory'
+      - Records approved_by_id, approved_by_type
+      - Records approved_at timestamp
+    
+    Throws:
+      - RuntimeException if no actor and current_actor() is null
+      - InvalidArgumentException if missing item_id or product_id
+      - RuntimeException if Stock/DailyProduce not found
+    
+    Usage:
+      $actor = current_actor();
+      $callback->approve($actor);
+      // or
+      $callback->approve();  // Uses current_actor()
+
+  reject($actor = null, $reason = null): bool
+    Purpose: Reject callback (don't update stock)
+    Parameters:
+      - $actor (optional): User or Employee object
+      - $reason (optional): String explanation for rejection
+    Returns: true on success, false if can't be rejected
+    Side Effects:
+      - Sets status to 'rejected'
+      - Appends rejection reason to notes
+      - Records approved_by_id, approved_by_type
+      - Records approved_at timestamp
+    
+    Usage:
+      $callback->reject(current_actor(), 'Already processed');
+
+  complete(): bool
+    Purpose: Mark callback as completed (can't update stock anymore)
+    Returns: true on success, false if status isn't 'approved_by_inventory'
+    Side Effects:
+      - Sets status to 'completed'
+    
+    Note: For finished products, completion is automatic with approval
+    
+    Usage:
+      $callback->complete();
+
+STOCK UPDATE METHODS (Private, called from approve()):
+
+  updateRawMaterialStock(): void
+    Purpose: Adjust Stock table for raw material callbacks
+    Implementation:
+      - Finds Stock record by item_id and branch_id
+      - Decreases quantity_available
+      - Increases quantity_damaged
+      - Creates StockMovement record for audit trail
+    
+    Throws:
+      - InvalidArgumentException if item_id is missing
+      - RuntimeException if Stock record not found
+    
+    Example impact:
+      Before: quantity_available = 100, quantity_damaged = 10
+      After:  quantity_available = 95,  quantity_damaged = 15
+      (if callback quantity = 5)
+
+  updateFinishedProductStock(): void
+    Purpose: Adjust DailyProduce for finished product callbacks
+    Implementation:
+      - Finds DailyProduce by shift_id and recipe_id
+      - Increases callback_quantity
+      - Recalculates closing_quantity and variance
+    
+    Throws:
+      - InvalidArgumentException if product_id is missing
+      - RuntimeException if Recipe or DailyProduce not found
+    
+    Example impact:
+      Before: callback_quantity = 0,  closing_quantity = 100
+      After:  callback_quantity = 5,  closing_quantity = 105
+
+VALIDATION METHODS:
+
+  validateQuantity(): bool
+    Purpose: Ensure callback quantity doesn't exceed limits
+    Behavior:
+      - Raw materials: No validation (may be partially used)
+      - Finished products: Must not exceed produced_quantity
+    
+    Throws:
+      - InvalidArgumentException if product_id missing
+      - RuntimeException if DailyProduce not found
+      - ValidationException if quantity exceeds limit
+    
+    Called automatically on create/update via boot() method
+
+ATTRIBUTE ACCESSORS:
+
+  $callback->formatted_source_type
+    Returns: "Raw Material From Stock" or "Finished Product Reject"
+    Implementation: ucwords(str_replace('_', ' ', $source_type))
+
+  $callback->formatted_reason
+    Returns: "Damage" or "Quality Issue"
+    Implementation: ucwords(str_replace('_', ' ', $reason))
+
+  $callback->formatted_status
+    Returns: "Pending" or "Approved By Inventory"
+    Implementation: ucwords(str_replace('_', ' ', $status))
+
+  $callback->item_name
+    Returns: Item name or Product name (depending on type)
+    Logic:
+      - If raw_material: returns $callback->item->name
+      - If finished_product: returns $callback->product->name
+      - Otherwise: returns "Unknown"
+
+
+---
+
+MODEL: ProductDispatchCallback
+==============================
+
+File: app/Models/ProductDispatchCallback.php
+Table: product_dispatch_callbacks
+Purpose: Track products returned from Sales to Production
+
+DATABASE COLUMNS:
+-----------------
+id                      BIGINT PRIMARY KEY
+product_dispatch_id     BIGINT FK → product_dispatches.id (NULLABLE)
+sales_shift_id          BIGINT FK → sales_shifts.id
+product_id              UUID FK → products.id
+recorded_by_id          UUID (polymorphic FK)
+recorded_by_type        VARCHAR (polymorphic)
+quantity                DECIMAL(12,2)
+uom                     VARCHAR
+reason                  VARCHAR (ENUM: expired|damaged|quality_issue|customer_return|overreceived|wrong_item|other)
+status                  VARCHAR (pending|approved_by_production|received_by_production|completed)
+approved_by_id          UUID (nullable, polymorphic FK)
+approved_by_type        VARCHAR (nullable, polymorphic)
+approved_at             TIMESTAMP (nullable)
+received_by_id          UUID (nullable, polymorphic FK)
+received_by_type        VARCHAR (nullable, polymorphic)
+received_at             TIMESTAMP (nullable)
+notes                   LONGTEXT (nullable)
+callback_time           TIMESTAMP
+created_at              TIMESTAMP
+updated_at              TIMESTAMP
+
+FILLABLE PROPERTIES:
+--------------------
+protected $fillable = [
+    'product_dispatch_id',
+    'sales_shift_id',
+    'product_id',
+    'recorded_by_id',
+    'recorded_by_type',
+    'quantity',
+    'uom',
+    'reason',
+    'status',
+    'approved_by_id',
+    'approved_by_type',
+    'approved_at',
+    'received_by_id',
+    'received_by_type',
+    'received_at',
+    'notes',
+    'callback_time',
+];
+
+CASTS:
+------
+protected $casts = [
+    'quantity' => 'decimal:2',
+    'callback_time' => 'datetime',
+    'approved_at' => 'datetime',
+    'received_at' => 'datetime',
+    'status' => CallbackStatus::class,
+];
+
+RELATIONSHIPS:
+---------------
+
+1. productDispatch() → BelongsTo
+   Purpose: Link to original product dispatch
+   Nullable: Yes (orphaned callback scenario)
+   Usage: $callback->productDispatch->shift_id
+   
+   public function productDispatch(): BelongsTo
+   {
+       return $this->belongsTo(ProductDispatch::class);
+   }
+
+2. salesShift() → BelongsTo
+   Purpose: Link to sales shift sending product back
+   Usage: $callback->salesShift->branch_id
+   
+   public function salesShift(): BelongsTo
+   {
+       return $this->belongsTo(SalesShift::class);
+   }
+
+3. product() → BelongsTo
+   Purpose: Link to the product being returned
+   Usage: $callback->product->name
+   
+   public function product(): BelongsTo
+   {
+       return $this->belongsTo(Product::class);
+   }
+
+4. recordedBy() → MorphTo [POLYMORPHIC]
+   Purpose: Sales employee who created the return callback
+   Usage: $callback->recordedBy->name
+   
+   public function recordedBy(): MorphTo
+   {
+       return $this->morphTo('recorded_by', 'recorded_by_type', 'recorded_by_id');
+   }
+
+5. approvedBy() → MorphTo [POLYMORPHIC]
+   Purpose: Production employee who approved the return
+   Nullable: Yes
+   Usage: $callback->approvedBy->name
+   
+   public function approvedBy(): MorphTo
+   {
+       return $this->morphTo('approved_by', 'approved_by_type', 'approved_by_id');
+   }
+
+6. receivedBy() → MorphTo [POLYMORPHIC]
+   Purpose: Production employee who marked as received
+   Nullable: Yes
+   Usage: $callback->receivedBy->name
+   
+   public function receivedBy(): MorphTo
+   {
+       return $this->morphTo('received_by', 'received_by_type', 'received_by_id');
+   }
+
+
+SCOPES:
+-------
+
+pending()
+  SQL: WHERE status = 'pending'
+
+approved()
+  SQL: WHERE status = 'approved_by_production'
+
+received()
+  SQL: WHERE status = 'received_by_production'
+
+completed()
+  SQL: WHERE status = 'completed'
+
+bySalesShift($salesShiftId)
+  SQL: WHERE sales_shift_id = ?
+
+byProduct($productId)
+  SQL: WHERE product_id = ?
+
+
+METHODS:
+--------
+
+STATE CHECKERS:
+
+  canBeApproved(): bool
+    - Returns true if status === 'pending'
+
+  canBeReceived(): bool
+    - Returns true if status === 'approved_by_production'
+
+ACTIONS:
+
+  approve($actor = null): bool
+    Purpose: Approve return from sales
+    Updates:
+      - status → 'approved_by_production'
+      - approved_by_id, approved_by_type, approved_at
+    
+    Usage:
+      $callback->approve(current_actor());
+
+  markAsReceived($actor = null): bool
+    Purpose: Production marks return as received
+    Updates:
+      - status → 'received_by_production'
+      - received_by_id, received_by_type, received_at
+    
+    Usage:
+      $callback->markAsReceived(current_actor());
+
+  complete(): bool
+    Purpose: Mark completion (without stock update)
+    Updates:
+      - status → 'completed'
+    
+    Note: Don't use this directly! Use completeWithStockUpdate()
+
+  completeWithStockUpdate(): bool [IMPORTANT]
+    Purpose: Complete callback AND update stock records
+    Side Effects:
+      1. Updates ProductStock (sales inventory)
+         - Increments callback_quantity
+      2. Updates DailyProduce (production inventory)
+         - Increments callback_quantity
+         - Increments closing_quantity
+         - Recalculates variance
+      3. Sets status to 'completed'
+    
+    Throws:
+      - RuntimeException if status isn't 'received_by_production'
+      - RuntimeException if ProductStock not found
+      - RuntimeException if DailyProduce not found
+    
+    Usage:
+      $callback->completeWithStockUpdate();
+
+VALIDATION METHODS:
+
+  validateQuantity(): bool
+    Purpose: Ensure callback quantity doesn't exceed dispatch quantity
+    Logic:
+      - If product_dispatch_id is NULL (orphaned): return true
+      - Sum all other callbacks for same dispatch
+      - Check: total_callbacks + new_quantity <= received_quantity
+    
+    Throws:
+      - RuntimeException if dispatch not found
+      - ValidationException if quantity exceeds available
+    
+    Called automatically on create/update
+
+STOCK UPDATE METHODS (Private):
+
+  updateProductStock(): void
+    Purpose: Increase callback_quantity in ProductStock
+    Implementation:
+      - Finds ProductStock by sales_shift_id and product_id
+      - Increments callback_quantity by callback quantity
+      - Uses lockForUpdate() to prevent race conditions
+
+  updateDailyProduce(): void
+    Purpose: Increase callback_quantity in DailyProduce
+    Implementation:
+      - Finds DailyProduce by original shift and recipe
+      - Increments callback_quantity and closing_quantity
+      - Calls updateCalculations() to recalculate variance
+      - Logs warning if DailyProduce not found (doesn't fail)
+
+ATTRIBUTE ACCESSORS:
+
+  $callback->formatted_reason
+    Returns: "Expired" or "Quality Issue"
+
+  $callback->formatted_status
+    Returns: "Pending" or "Approved By Production"
+
+
+---
+
+RELATIONSHIP DIAGRAM
+====================
+
+                    ProductionCallback
+                    ├─ shift (Shift)
+                    │  └─ department (Department)
+                    │     └─ category (DepartmentCategory)
+                    ├─ item (Item) [nullable]
+                    │  └─ stock (Stock)
+                    ├─ product (Product)
+                    │  ├─ recipe (Recipe)
+                    │  │  └─ dailyProduce (DailyProduce)
+                    │  └─ productDispatch (ProductDispatch)
+                    ├─ recordedBy (MorphTo: Employee|User)
+                    └─ approvedBy (MorphTo: Employee|User)
+
+                    ProductDispatchCallback
+                    ├─ productDispatch (ProductDispatch) [nullable]
+                    │  ├─ shift (Shift)
+                    │  └─ product (Product)
+                    ├─ salesShift (SalesShift)
+                    │  └─ branch (Branch)
+                    ├─ product (Product)
+                    │  └─ productStock (ProductStock)
+                    ├─ recordedBy (MorphTo: Employee|User)
+                    ├─ approvedBy (MorphTo: Employee|User)
+                    └─ receivedBy (MorphTo: Employee|User)
+
+
+---
+
+POLYMORPHIC RELATIONSHIPS DETAILED
+===================================
+
+What is Polymorphic?
+  Multiple models can be associated through the same relationship.
+  Example: Both Employee and User can approve a callback.
+
+Implementation in ProductionCallback:
+
+  Column: recorded_by_type + recorded_by_id
+  
+  Schema:
+    recorded_by_id INT        -- The ID of the approver
+    recorded_by_type VARCHAR  -- The class name: App\Models\Employee or App\Models\User
+
+  Model:
+    public function recordedBy(): MorphTo
+    {
+        return $this->morphTo('recorded_by', 'recorded_by_type', 'recorded_by_id');
+    }
+
+  Usage:
+    $callback = ProductionCallback::first();
+    $callback->recorded_by_type;  // "App\Models\Employee"
+    $callback->recordedBy;        // Employee object
+    $callback->recordedBy->name;  // "John Doe"
+
+  Storage:
+    Insert:
+      recorded_by_id = 123
+      recorded_by_type = "App\Models\Employee"
+    
+    Or:
+      recorded_by_id = 456
+      recorded_by_type = "App\Models\User"
+
+  Querying:
+    // Get all callbacks recorded by any Employee
+    $callbacks = ProductionCallback::where('recorded_by_type', Employee::class)
+        ->get();
+
+Inverse Relationship (in Employee and User models):
+
+  In Employee:
+    public function productionCallbacks()
+    {
+        return $this->morphMany(ProductionCallback::class, 'recorded_by');
+    }
+  
+  In User:
+    public function productionCallbacks()
+    {
+        return $this->morphMany(ProductionCallback::class, 'recorded_by');
+    }
+
+  Usage:
+    $employee = Employee::find(123);
+    $callbacks = $employee->productionCallbacks()->get();
+
+
+---
+
+RELATIONSHIP QUERYING EXAMPLES
+==============================
+
+EAGER LOADING:
+  ProductionCallback::with(['shift', 'item', 'product', 'recordedBy', 'approvedBy'])->get();
+
+FILTERING:
+  ProductionCallback::whereHas('shift', function ($q) {
+      $q->where('branch_id', 1);
+  })->get();
+
+CHAINING:
+  ProductionCallback::pending()
+      ->rawMaterial()
+      ->byShift($shiftId)
+      ->with('item', 'recordedBy')
+      ->orderBy('callback_time', 'desc')
+      ->paginate(20);
+
+COUNTING:
+  ProductionCallback::pending()->count()
+  ProductionCallback::where('status', 'pending')->count()
+
+AGGREGATION:
+  ProductionCallback::where('source_type', 'raw_material_from_stock')
+      ->sum('quantity');
+
+POLYMORPHIC QUERYING:
+  // Get callbacks recorded by Employees
+  ProductionCallback::where('recorded_by_type', Employee::class)->get();
+  
+  // Get callbacks approved by Users
+  ProductionCallback::where('approved_by_type', User::class)->whereNotNull('approved_by_id')->get();
+
+
+---
+
+NEXT FILES
+==========
+
+See 06_PRODUCTION_QUICK_REFERENCE.txt for quick syntax and lookup
+See 04_PRODUCTION_CODE_PATTERNS.txt for implementation examples

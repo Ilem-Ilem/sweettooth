@@ -1,0 +1,450 @@
+PRODUCTION MODULE - SYSTEM OVERVIEW
+====================================
+
+QUICK SUMMARY
+=============
+The Production module is a complex system managing kitchen operations, raw material tracking, 
+recipe management, and product callbacks. It uses department-based routing and integrates 
+with inventory & sales through multi-stage callback workflows.
+
+System has GOOD callback model implementations but INCONSISTENT Livewire integration patterns.
+
+
+SYSTEM ARCHITECTURE
+===================
+
+┌─────────────────────────────────────────────────────────────────┐
+│                       PRODUCTION SYSTEM                         │
+└─────────────────────────────────────────────────────────────────┘
+              │                  │                  │
+        ┌─────▼─────┐     ┌─────▼─────┐     ┌─────▼─────┐
+        │  Kitchen  │     │  Recipe   │     │ Callbacks │
+        │  Module   │     │  System   │     │ (3 types) │
+        └───────────┘     └───────────┘     └─────┬─────┘
+              │                  │                  │
+        ┌─────▼─────────────────▼──────────────┬───▼───────┐
+        │     Daily Produce & Stock            │ Workflow  │
+        │     (Shift-based tracking)           │ Mgmt      │
+        └─────┬──────────────────────────────────┴───┬───────┘
+              │                                      │
+        ┌─────▼──────────────┐            ┌─────────▼─────────┐
+        │ Inventory System   │            │ Sales System      │
+        │ (raw materials)    │            │ (product stock)   │
+        └────────────────────┘            └───────────────────┘
+
+
+CORE ENTITIES
+=============
+
+1. SHIFT (Production Shift)
+   - Employee's work session in production
+   - Links to Department (Production category)
+   - Has many: DailyProduce, ProductionCallback, ProductionRequest
+
+2. RECIPE
+   - Formula for making products
+   - Links: Product, Ingredients (through RecipeIngredient)
+   - Used in DailyProduce tracking
+
+3. DAILY PRODUCE
+   - Production output per recipe per shift
+   - Tracks: produced, consumed, spoiled, callback quantities
+   - Auto-calculates: closing_quantity, variance
+
+4. PRODUCT DISPATCH
+   - Finished product sent from production to sales
+   - Links: Shift, Recipe, Product
+   - References original production
+
+5. CALLBACKS (3 Types)
+
+   A) ProductionCallback
+      Purpose: Report damaged/defective items to inventory
+      Source: Raw materials OR finished products
+      Flow: pending → approved_by_inventory → completed (or rejected)
+      Actor: Inventory approves
+      Status enum: pending, approved_by_inventory, rejected, completed
+
+   B) ProductDispatchCallback  
+      Purpose: Return products from sales back to production
+      Source: Sales returns from customer/damage
+      Flow: pending → approved_by_production → received_by_production → completed
+      Actor: Production approves, then marks received
+      Status enum: pending, approved_by_production, received_by_production, completed
+
+   C) ProductCallback (LEGACY - NOT ACTIVELY USED)
+      Status: Deprecated, review for removal
+
+
+ROUTING ARCHITECTURE
+====================
+
+BASE: /branch-dashboard/production
+
+Dynamic Department Routes (via deptSlug):
+  /product-types/{deptSlug}
+  /products/{deptSlug}
+  /request/{deptSlug}
+  /daily-produce/{deptSlug}
+  /shift-closing/{deptSlug}
+  /recipes/{deptSlug}
+
+Callback Routes (NO department slug - branch-wide):
+  /callbacks/                           → Index (view all callbacks)
+  /callbacks/create-inventory           → Create Production→Inventory callback
+  /callbacks/approve-sales-callbacks    → Approve Sales→Production returns
+
+Kitchen Module:
+  /module/                              → Index
+  /module/stock-monitor
+
+Raw Material Tracking:
+  /raw-material-tracking
+
+Reports:
+  /reports/efficiency
+  /reports/quality
+  /reports/waste
+  /reports/cost
+  /reports/recipe-performance
+  /reports/shift-summary
+  /reports/ingredient-utilization
+  /reports/pipeline
+  /reports/capacity
+
+
+KEY LIVEWIRE COMPONENTS
+=======================
+
+CALLBACK COMPONENTS:
+1. Index.php
+   - Lists all ProductionCallback records
+   - Filter: status, date range, shift, search
+   - Shows raw material + finished product callbacks
+   ⚠️ ISSUE: Uses getEmployeeId() instead of current_actor()
+
+2. CreateInventoryCallback.php
+   - Create ProductionCallback (production→inventory)
+   - Two sections: raw materials, finished products
+   - Modal-based creation
+   ⚠️ ISSUE: Uses auth('employees')->user() directly
+
+3. ApproveCallbacks.php
+   - Approve ProductDispatchCallback (sales→production)
+   - Three stages: approve, receive, complete
+   - Stock impact handling on completion
+   ⚠️ ISSUE: Uses getEmployeeId() instead of current_actor()
+   ⚠️ ISSUE: handleStockImpact() logic NOT moved to model method
+
+OTHER KEY COMPONENTS:
+- KitchenModule/Index.php
+- Recipes/Add.php, Edit.php
+- Products.php, ProductTypes.php
+- DailyProduce/Index.php
+- ShiftClosing/Index.php
+- Reports/* (multiple)
+
+
+DATABASE SCHEMA
+===============
+
+productioncallbacks table:
+  - shift_id (FK → shifts)
+  - source_type (raw_material_from_stock | finished_product_reject)
+  - item_id (FK → items) - for raw materials
+  - product_id (FK → products) - for finished products
+  - recorded_by_id (UUID, polymorphic)
+  - recorded_by_type (string, polymorphic) - App\Models\Employee or App\Models\User
+  - quantity (decimal:2)
+  - uom (varchar)
+  - reason (enum)
+  - status (pending | approved_by_inventory | rejected | completed)
+  - approved_by_id, approved_by_type (polymorphic)
+  - approved_at (timestamp)
+  - notes (text)
+  - callback_time (timestamp)
+
+productdispatchcallbacks table:
+  - product_dispatch_id (FK → productdispatches, NULLABLE)
+  - sales_shift_id (FK → salesshifts)
+  - product_id (FK → products)
+  - recorded_by_id, recorded_by_type (polymorphic)
+  - quantity (decimal:2)
+  - uom (varchar)
+  - reason (enum)
+  - status (pending | approved_by_production | received_by_production | completed)
+  - approved_by_id, approved_by_type (polymorphic)
+  - approved_at (timestamp)
+  - received_by_id, received_by_type (polymorphic)
+  - received_at (timestamp)
+  - notes (text)
+  - callback_time (timestamp)
+
+
+MODEL RELATIONSHIP PATTERNS
+===========================
+
+POLYMORPHIC RELATIONSHIPS (properly implemented):
+  ProductionCallback:
+    - recordedBy() → morphTo() [Employee or User]
+    - approvedBy() → morphTo() [Employee or User]
+
+  ProductDispatchCallback:
+    - recordedBy() → morphTo() [Employee or User]
+    - approvedBy() → morphTo() [Employee or User]
+    - receivedBy() → morphTo() [Employee or User]
+
+This is CORRECT - both models use morphTo() with proper column naming:
+  - recorded_by_id, recorded_by_type
+  - approved_by_id, approved_by_type
+  - received_by_id, received_by_type
+
+✅ Models correctly implement polymorphic relationships
+
+
+CURRENT ACTOR USAGE PATTERNS
+============================
+
+Throughout codebase, current_actor() is used in:
+  - Approval workflows (ApproveLeave)
+  - Role assignments (RolePermission)
+  - Audit logging (AuditService)
+  - Item management (Items, HealthChecks)
+  - Employee management (Create, Edit)
+
+PATTERN:
+  $actor = current_actor();
+  // Store actor type for polymorphic relationships
+  ['recorded_by_id' => $actor->id, 'recorded_by_type' => get_class($actor)]
+
+INCONSISTENCY IN PRODUCTION:
+  ApproveCallbacks.php uses:
+    protected function getEmployeeId()
+    {
+        return session('employee_id') ?? auth()->user()?->employee_id ?? null;
+    }
+  
+  This is WRONG - doesn't follow current_actor() pattern
+  ✅ Should be: $actor = current_actor()
+
+
+STOCK UPDATE LOGIC
+==================
+
+ProductionCallback.approve():
+  ✅ CORRECT: Stock updates in model method using polymorphic actor
+  - Raw material: decrease quantity_available, increase quantity_damaged in Stock
+  - Finished product: update DailyProduce callback_quantity
+
+ProductDispatchCallback.completeWithStockUpdate():
+  ✅ CORRECT: Stock updates in model method
+  - Sales: increment ProductStock.callback_quantity
+  - Production: increment DailyProduce.callback_quantity and closing_quantity
+
+BUT ApproveCallbacks.php line 267-312:
+  ❌ WRONG: Stock logic is ALSO in Livewire component (handleStockImpact)
+  - Duplicates what completeWithStockUpdate() does
+  - Won't be called from API/jobs
+  - Difficult to test
+
+
+DEPENDENCY RELATIONSHIPS
+========================
+
+1. Department System
+   - Production department must have category_id pointing to "Production"
+   - Shifts filtered by: department.category.name = "Production"
+   - deptSlug used for department-specific routes
+
+2. Shift System
+   - Production shifts linked to Production department
+   - Employee must have active shift to create callbacks
+   - Branch context passed via query parameter (b_id)
+
+3. Inventory System
+   - ProductionCallback requires Stock/Item records
+   - Stock table must have branch_id alignment
+   - StockMovement logged for audit trail
+
+4. Sales System
+   - ProductDispatchCallback linked to SalesShift
+   - ProductStock tracks callback_quantity received back
+   - DailyProduce updated for both production & sales side
+
+5. Employee Authentication
+   - All callbacks require auth('employees')->user() OR polymorphic User
+   - current_actor() returns currently authenticated actor
+   - Polymorphic columns track who performed action
+
+
+APPROVAL WORKFLOW
+=================
+
+Production → Inventory Callback:
+  1. Production employee creates callback (pending)
+  2. Inventory approves → stock updated, status: approved_by_inventory
+  3. Inventory marks as completed → status: completed
+  (Optional) Inventory rejects → status: rejected
+
+Sales → Production Callback:
+  1. Sales employee creates callback (pending)
+  2. Production approves → status: approved_by_production
+  3. Production marks as received → status: received_by_production
+  4. Production completes → stock updated, status: completed
+
+Key difference:
+  - Production→Inventory: approval AND stock update happen together
+  - Sales→Production: approval and receipt are separate, completion triggers stock update
+
+
+ENUM/STATUS DEFINITIONS
+=======================
+
+CallbackStatus (App\Enums\CallbackStatus):
+  - pending
+  - approved_by_inventory
+  - approved_by_production
+  - received_by_production
+  - rejected
+  - completed
+
+Reason Enums (in Livewire components):
+  Production→Inventory (raw material):
+    - damaged
+    - expired
+    - quality_issue
+    - wrong_batch
+    - contamination
+    - other
+
+  Production→Inventory (finished product):
+    - damaged
+    - quality_issue
+    - contamination
+    - other
+
+  Sales→Production:
+    - expired
+    - damaged
+    - quality_issue
+    - customer_return
+    - overreceived
+    - wrong_item
+    - other
+
+
+INTEGRATION POINTS
+==================
+
+1. With Inventory Module
+   Location: /branch-dashboard/inventory/callbacks/
+   Component: ApproveCallbacks (Inventory side approves Production callbacks)
+   Related: Stock, StockMovement models
+
+2. With Sales Module
+   Location: /branch-dashboard/sales-dashboard/callbacks/
+   Component: CreateDispatchCallback (sales creates returns)
+   Related: SalesShift, ProductStock models
+
+3. With Approval Workflow System
+   Uses: ApprovalAuditRequest model
+   Pattern: Polymorphic actor tracking (current_actor())
+   Location: TXTs/APPROVAL_WORKFLOW_*
+
+4. With Department System
+   Uses: dynamic deptSlug routing
+   Pattern: Department filtering through shifts
+   Constraint: Must have Production category_id
+
+
+MENU STRUCTURE
+==============
+
+ProductionSidebar.blade.php is EMPTY - just comments
+Menu structure defined in main layout or navigation component
+
+Production Routes accessible via:
+  /branch-dashboard/production/...
+
+Callbacks subsection:
+  - View all callbacks
+  - Create inventory callback
+  - Approve sales callbacks
+
+
+FILE LOCATIONS SUMMARY
+======================
+
+Components:
+  app/Livewire/BranchDashboard/Production/
+    ├── Callbacks/
+    │   ├── Index.php
+    │   ├── CreateInventoryCallback.php
+    │   └── ApproveCallbacks.php
+    ├── KitchenModule/
+    ├── Recipes/
+    ├── DailyProduce/
+    ├── ShiftClosing/
+    ├── Reports/
+    └── ... others
+
+Models:
+  app/Models/
+    ├── ProductionCallback.php
+    ├── ProductDispatchCallback.php
+    ├── ProductDispatch.php
+    ├── Recipe.php
+    ├── DailyProduce.php
+    └── ... others
+
+Views:
+  resources/views/livewire/branch-dashboard/production/
+    ├── callbacks/
+    │   ├── index.blade.php
+    │   ├── create-inventory-callback.blade.php
+    │   └── approve-callbacks.blade.php
+    ├── recipes/
+    ├── kitchen-module/
+    └── ... others
+
+Routes:
+  routes/branch-route.php (lines 71-133)
+
+
+RELATED DOCUMENTATION
+====================
+
+TXTs/CALLBACK/ - Main callback system docs
+TXTs/APPROVAL_WORKFLOW_* - Approval system integration
+TXTs/Production/ - This module's detailed analysis
+
+
+STATUS ASSESSMENT
+=================
+
+✅ WORKING:
+  - Callback models well-structured with proper polymorphic relationships
+  - Stock update logic correctly in models
+  - Status enums properly defined
+  - Shift-based filtering works correctly
+  - Department-based routing functional
+
+⚠️ NEEDS FIXING:
+  - Livewire components use inconsistent actor patterns (getEmployeeId vs current_actor)
+  - Duplicate stock logic in ApproveCallbacks.php
+  - ProductionSidebar.blade.php is empty
+  - No menu integration visible
+  - CreateInventoryCallback uses direct auth() instead of current_actor()
+
+❌ BROKEN/MISSING:
+  - Dynamic menu for production department sections
+  - Sidebar navigation not implemented
+  - No visible navigation between callback types
+
+
+NEXT STEPS
+==========
+
+See 02_PRODUCTION_INCONSISTENCIES.txt for detailed issues
+See 03_PRODUCTION_IMPROVEMENTS.txt for recommended fixes
+See 04_PRODUCTION_CODE_PATTERNS.txt for implementation patterns

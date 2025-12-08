@@ -1,0 +1,580 @@
+Inventory Module - Approval Workflow Integration Guide
+Status: Integration Implementation  
+Created: December 2, 2025  
+Purpose: Complete the inventory module approval system using the universal workflow
+---
+📋 Overview
+Your Inventory module already has a partial implementation of the approval system:
+✅ Existing:
+InventoryApprovalService.php - Service layer for approvals
+Items.php - Component with approval hooks
+Stocks.php - Stock adjustment approval system
+Purchases.php - Purchase tracking
+AuditManagement/InventoryApprovals.php - Approval dashboard
+⚠️ Needs Integration:
+Migrate from custom service to unified RequiresApprovalWorkflow trait
+Standardize approval patterns across all inventory actions
+Ensure consistent audit logging
+Complete UI/UX for all components
+---
+🎯 Current State Analysis
+What's Already There
+InventoryApprovalService provides:
+php
+// Stock adjustments
+requestStockAdjustment($requester, $stockId, $adjustments, $reason)
+executeStockAdjustment($request, $approver)
+// Item creation
+requestItemCreation($requester, $itemData, $reason)
+executeItemCreation($request, $approver)
+// Item updates
+requestItemUpdate($requester, $itemId, $updateData, $reason)
+executeItemUpdate($request, $approver)
+// Item deletion
+requestItemDeletion($requester, $itemId, $reason)
+executeItemDeletion($request, $approver)
+Items.php has:
+Form for creating/editing items
+Audit modal for approval reason
+Methods: save(), submitForAudit(), updateItem()
+Stocks.php has:
+Stock adjustment modal
+Audit modal for approval reason
+Method: submitStockAdjustment()
+---
+🔄 Migration Path
+Option A: Keep Service + Use Trait (Recommended)
+Keep InventoryApprovalService for complex inventory-specific logic, but wrap calls in the trait for consistency.
+Option B: Full Trait Integration
+Migrate all approval logic to RequiresApprovalWorkflow trait, simplify the service.
+We'll use Option A - it maintains your existing investment while gaining trait benefits.
+---
+📝 Inventory Resource Types
+The inventory module covers:
+| Resource | Current | Action |
+|----------|---------|--------|
+| Item | ✅ Exists | create, update, delete |
+| Stock | ✅ Exists | adjust (primary action) |
+| Purchase | ⚠️ Partial | create, approve payment |
+| Supplier | ❌ Missing | create, update, delete |
+| Stock Take | ❌ Missing | create, adjust, close |
+| Dispatch | ⚠️ Exists | create, update |
+---
+🏗️ Implementation Plan
+Phase 1: Integrate Items Component (45 minutes)
+File: app/Livewire/BranchDashboard/Inventory/Items.php
+Step 1: Add Trait
+php
+use App\Traits\RequiresApprovalWorkflow;
+class Items extends BaseComponent
+{
+    use RequiresApprovalWorkflow;
+    
+    // existing code...
+}
+Step 2: Update Save Method
+Replace current save() with approval-aware version:
+php
+public function save()
+{
+    $this->validate($this->itemValidationRules());
+    $itemData = [
+        'branchid' => $this->getBranchId(),
+        'name' => $this->name,
+        'sku' => $this->sku,
+        'category' => $this->category,
+        'uom' => $this->uom,
+        'reorderlevel' => $this->reorderlevel,
+        'maxstocklevel' => $this->maxstocklevel,
+        'status' => $this->status,
+    ];
+    // Check if creating or updating
+    if ($this->isEditing) {
+        // UPDATE ACTION
+        if ($this->isSuperAdmin()) {
+            $this->executeUpdate('item', $this->itemId, $itemData);
+            $this->dispatch('toast', message: 'Item updated successfully', type: 'success');
+            $this->resetForm();
+        } else {
+            // Show reason modal
+            $this->auditAction = 'update';
+            $this->pendingItemData = $itemData;
+            $this->showAuditModal = true;
+        }
+    } else {
+        // CREATE ACTION
+        if ($this->isSuperAdmin()) {
+            $this->executeCreate('item', $itemData);
+            $this->dispatch('toast', message: 'Item created successfully', type: 'success');
+            $this->resetForm();
+        } else {
+            // Show reason modal
+            $this->auditAction = 'create';
+            $this->pendingItemData = $itemData;
+            $this->showAuditModal = true;
+        }
+    }
+}
+// New method: Submit for approval
+public function submitForAudit()
+{
+    $this->validate(['auditReason' => 'required|string|min:10|max:500']);
+    try {
+        $result = $this->submitForApproval(
+            $this->auditAction,  // 'create' or 'update'
+            'item',              // resource type
+            $this->isEditing ? $this->itemId : null,
+            $this->pendingItemData,
+            $this->auditReason
+        );
+        $this->dispatch('toast', message: $result['message'], type: 'success');
+        $this->resetForm();
+    } catch (\Exception $e) {
+        $this->dispatch('toast', message: $e->getMessage(), type: 'error');
+    }
+}
+// New method: Delete with approval
+public function delete($itemId)
+{
+    $item = Item::findOrFail($itemId);
+    if ($this->isSuperAdmin()) {
+        $item->delete();
+        $this->dispatch('toast', message: 'Item deleted successfully', type: 'success');
+    } else {
+        // Show reason modal for deletion
+        $this->auditAction = 'delete';
+        $this->pendingItemId = $itemId;
+        $this->pendingItemData = ['id' => $itemId, 'name' => $item->name];
+        $this->showAuditModal = true;
+    }
+}
+// Submit deletion for approval
+public function submitDelete()
+{
+    $this->validate(['auditReason' => 'required|string|min:10|max:500']);
+    try {
+        $result = $this->submitForApproval(
+            'delete',
+            'item',
+            $this->pendingItemId,
+            $this->pendingItemData,
+            $this->auditReason
+        );
+        $this->dispatch('toast', message: $result['message'], type: 'success');
+        $this->resetForm();
+    } catch (\Exception $e) {
+        $this->dispatch('toast', message: $e->getMessage(), type: 'error');
+    }
+}
+private function resetForm()
+{
+    $this->reset([
+        'itemId', 'name', 'sku', 'category', 'uom', 
+        'reorderlevel', 'maxstocklevel', 'status',
+        'isEditing', 'showModal', 'showAuditModal',
+        'auditAction', 'auditReason', 'pendingItemData'
+    ]);
+}
+---
+Phase 2: Integrate Stocks Component (45 minutes)
+File: app/Livewire/BranchDashboard/Inventory/Stocks.php
+Step 1: Add Trait
+php
+use App\Traits\RequiresApprovalWorkflow;
+class Stocks extends Component
+{
+    use RequiresApprovalWorkflow;
+    
+    // existing code...
+}
+Step 2: Update Stock Adjustment Method
+php
+public function submitStockAdjustment()
+{
+    $this->validate([
+        'quantityavailable' => 'required|numeric|min:0',
+        'quantityreserved' => 'required|numeric|min:0',
+        'quantitydamaged' => 'required|numeric|min:0',
+        'auditReason' => 'required|string|min:10|max:500',
+    ]);
+    try {
+        $stock = Stock::findOrFail($this->editingStockId);
+        $adjustmentData = [
+            'quantityavailable' => $this->quantityavailable,
+            'quantityreserved' => $this->quantityreserved,
+            'quantitydamaged' => $this->quantitydamaged,
+            'notes' => $this->notes,
+        ];
+        if ($this->isSuperAdmin()) {
+            // Direct execution for super admin
+            $this->executeAction('adjust', 'stock', $this->editingStockId, $adjustmentData);
+            $this->dispatch('toast', message: 'Stock adjusted successfully', type: 'success');
+            $this->resetForm();
+        } else {
+            // Submit for approval
+            $result = $this->submitForApproval(
+                'adjust',
+                'stock',
+                $this->editingStockId,
+                $adjustmentData,
+                $this->auditReason
+            );
+            $this->dispatch('toast', message: $result['message'], type: 'success');
+            $this->resetForm();
+        }
+    } catch (\Exception $e) {
+        $this->dispatch('toast', message: $e->getMessage(), type: 'error');
+    }
+}
+// Override adjust handler for stock-specific logic
+protected function handleAdjust(string $resourceType, ?string $resourceId, array $payload): void
+{
+    if ($resourceType !== 'stock' || !$resourceId) {
+        throw new \Exception("Invalid resource for adjust action");
+    }
+    $stock = Stock::findOrFail($resourceId);
+    // Update stock quantities
+    $stock->update([
+        'quantityavailable' => $payload['quantityavailable'] ?? $stock->quantityavailable,
+        'quantityreserved' => $payload['quantityreserved'] ?? $stock->quantityreserved,
+        'quantitydamaged' => $payload['quantitydamaged'] ?? $stock->quantitydamaged,
+    ]);
+    // Log stock movement
+    $oldQuantity = $stock->getOriginal('quantityavailable');
+    $newQuantity = $payload['quantityavailable'] ?? $oldQuantity;
+    StockMovement::create([
+        'stockid' => $stock->id,
+        'type' => 'adjustment',
+        'quantity' => abs($newQuantity - $oldQuantity),
+        'quantitybefore' => $oldQuantity,
+        'quantityafter' => $newQuantity,
+        'referencetype' => 'approvaladjustment',
+        'movedbyid' => $this->getCurrentActor()->id,
+        'movedbytype' => getclass($this->getCurrentActor()),
+        'notes' => $payload['notes'] ?? 'Approved adjustment',
+        'movementdate' => now(),
+    ]);
+}
+private function resetForm()
+{
+    $this->reset([
+        'editingStockId', 'quantityavailable', 'quantityreserved', 
+        'quantitydamaged', 'notes', 'showEditModal', 'showAuditModal',
+        'auditReason', 'auditAction'
+    ]);
+}
+---
+Phase 3: Update Purchases Component (30 minutes)
+File: app/Livewire/BranchDashboard/Inventory/Purchases.php
+Add trait and methods for create/update with approval:
+php
+use App\Traits\RequiresApprovalWorkflow;
+class Purchases extends Component
+{
+    use RequiresApprovalWorkflow;
+    
+    // existing code...
+    
+    public bool $showAuditModal = false;
+    public string $auditReason = '';
+    public ?string $auditAction = null;
+    public array $pendingPurchaseData = [];
+    public function savePurchase()
+    {
+        // Validation...
+        
+        $purchaseData = [
+            'purchasedate' => $this->purchasedate,
+            'suppliername' => $this->suppliername,
+            'suppliercontact' => $this->suppliercontact,
+            'currency' => $this->currency,
+            'exchangerate' => $this->exchangerate,
+            'othercosts' => $this->othercosts,
+            'paymentstatus' => $this->paymentstatus,
+            'notes' => $this->notes,
+        ];
+        if ($this->isSuperAdmin()) {
+            $this->executePurchaseSave($purchaseData);
+        } else {
+            $this->pendingPurchaseData = $purchaseData;
+            $this->auditAction = $this->isEditing ? 'update' : 'create';
+            $this->showAuditModal = true;
+        }
+    }
+    public function submitPurchaseForApproval()
+    {
+        $this->validate(['auditReason' => 'required|string|min:10']);
+        try {
+            $result = $this->submitForApproval(
+                $this->auditAction,
+                'purchase',
+                $this->isEditing ? $this->purchaseId : null,
+                $this->pendingPurchaseData,
+                $this->auditReason
+            );
+            $this->dispatch('toast', message: $result['message'], type: 'success');
+            $this->resetForm();
+        } catch (\Exception $e) {
+            $this->dispatch('toast', message: $e->getMessage(), type: 'error');
+        }
+    }
+    private function executePurchaseSave($data)
+    {
+        // Direct save logic for super admin
+        // ... implementation ...
+    }
+}
+---
+Phase 4: Update InventoryApprovals Dashboard (30 minutes)
+File: app/Livewire/BranchDashboard/AuditManagement/InventoryApprovals.php
+This already exists and handles:
+✅ Pending request display
+✅ Approval/rejection
+✅ Status tracking
+Keep it as-is, it integrates with the approval system.
+---
+Phase 5: Update Views (30 minutes)
+Add audit modals to each component view:
+For Items:
+blade
+@if($showAuditModal)
+<div class="modal show">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Why {{ ucfirst($auditAction) }} This Item?</h5>
+            </div>
+            
+            <div class="modal-body">
+                <textarea 
+                    wire:model="auditReason"
+                    class="form-control"
+                    rows="4"
+                    placeholder="Explain your reason..."
+                ></textarea>
+                @error('auditReason')
+                    <small class="text-danger d-block mt-2">{{ $message }}</small>
+                @enderror
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" 
+                    @click="$wire.showAuditModal = false"
+                    class="btn btn-secondary">
+                    Cancel
+                </button>
+                <button type="button" 
+                    wire:click="submitForAudit"
+                    class="btn btn-primary">
+                    Submit for Approval
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+For Stocks (similar pattern):
+blade
+@if($showAuditModal)
+<div class="modal show">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Why Adjust This Stock?</h5>
+            </div>
+            
+            <div class="modal-body">
+                <textarea 
+                    wire:model="auditReason"
+                    class="form-control"
+                    rows="4"
+                    placeholder="Explain the adjustment reason..."
+                ></textarea>
+                @error('auditReason')
+                    <small class="text-danger d-block mt-2">{{ $message }}</small>
+                @enderror
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" 
+                    @click="$wire.showAuditModal = false"
+                    class="btn btn-secondary">
+                    Cancel
+                </button>
+                <button type="button" 
+                    wire:click="submitStockAdjustment"
+                    class="btn btn-primary">
+                    Submit Adjustment
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+---
+🔄 How It Integrates with Trait
+The Flow
+User in Inventory
+│
+├─ super admin?
+│  ├─ YES → Direct execution
+│  │      → executeCreate/Update/Delete/Adjust
+│  │      → Logged to auditlogs
+│  └─ NO  → Reason modal shown
+│          → submitForApproval() called
+│          → Stored in approvalauditrequests
+│          │
+│          └─ Admin reviews in InventoryApprovals
+│             │
+│             └─ Approves
+│                └─ executeApprovedAction() called
+│                   └─ Trait's executeAction() runs
+│                      └─ Action completes
+│                         └─ Logged to auditlogs
+---
+📊 Testing Checklist
+Items Component
+[ ] Create Item (Employee)
+  - [ ] Fill form
+  - [ ] Click Save
+  - [ ] See reason modal
+  - [ ] Submit
+  - [ ] Check approvalauditrequests table
+  - [ ] Login as admin
+  - [ ] Approve
+  - [ ] Verify item created
+[ ] Create Item (Super Admin)
+  - [ ] Fill form
+  - [ ] Click Save
+  - [ ] NO modal
+  - [ ] Item created immediately
+[ ] Edit Item (Employee)
+  - [ ] Edit existing item
+  - [ ] Change details
+  - [ ] Click Save
+  - [ ] See reason modal
+  - [ ] Submit
+  - [ ] Admin approves
+  - [ ] Verify changes applied
+[ ] Delete Item (Employee)
+  - [ ] Click delete
+  - [ ] See reason modal
+  - [ ] Submit
+  - [ ] Admin approves
+  - [ ] Verify item deleted
+Stocks Component
+[ ] Adjust Stock (Employee)
+  - [ ] Open edit modal
+  - [ ] Change quantities
+  - [ ] Click Save
+  - [ ] See adjustment reason modal
+  - [ ] Submit
+  - [ ] Admin approves
+  - [ ] Verify stock updated
+  - [ ] Check stock movement logged
+[ ] Adjust Stock (Super Admin)
+  - [ ] Open edit modal
+  - [ ] Change quantities
+  - [ ] Click Save
+  - [ ] NO modal
+  - [ ] Stock updated immediately
+Purchases Component
+[ ] Create Purchase (Employee)
+  - [ ] Fill purchase form
+  - [ ] Click Save
+  - [ ] See reason modal
+  - [ ] Submit
+  - [ ] Admin approves
+  - [ ] Verify purchase created
+General
+[ ] Audit Logs
+  - [ ] Check all actions logged
+  - [ ] Verify causer is correct
+  - [ ] Verify auditable is correct
+  - [ ] Verify action names correct
+[ ] Approval Dashboard
+  - [ ] See pending requests
+  - [ ] Approve requests
+  - [ ] Reject requests
+  - [ ] See historical approvals
+---
+🚀 Implementation Order
+Start with Items (lowest risk, most critical)
+   - Add trait
+   - Update save/delete
+   - Add modal to view
+   - Test thoroughly
+Then Stocks (high usage)
+   - Add trait
+   - Update adjustment method
+   - Add modal to view
+   - Test thoroughly
+Then Purchases (moderate usage)
+   - Add trait
+   - Update save method
+   - Test
+Other components (as needed)
+   - Dispatches
+   - Stock Takes
+   - Others
+---
+✅ Success Criteria
+✅ All inventory actions use unified approval pattern  
+✅ Regular employees see reason modal  
+✅ Super admins bypass approval  
+✅ Admins can approve/reject  
+✅ All actions logged to auditlogs  
+✅ Approval dashboard shows all requests  
+✅ Stock movements tracked  
+✅ No double-processing possible  
+✅ Graceful error handling  
+✅ Consistent UX across all components  
+---
+📝 Migration from InventoryApprovalService
+What to Keep
+InventoryApprovalService for complex logic
+Request/rejection methods
+Service methods can coexist with trait
+What to Change
+Component approval flow → use trait
+Modal handling → use trait
+Reason capture → use trait's pattern
+Both Can Coexist
+php
+// Service still used for complex scenarios
+InventoryApprovalService::executeStockAdjustment($request, $approver);
+// Trait used for standard flows
+$this->submitForApproval('adjust', 'stock', $id, [...], $reason);
+---
+🔧 Configuration
+Model Class Mapping
+Already registered in trait (line 415-432):
+php
+'item' => \App\Models\Item::class,
+'stock' => \App\Models\Stock::class,
+// ... others
+If you add purchase, ensure it's in trait's getModelClass() method.
+---
+📖 Reference Files
+Trait: app/Traits/RequiresApprovalWorkflow.php
+Service: app/Services/InventoryApprovalService.php (keep, but don't duplicate)
+Dashboard: app/Livewire/BranchDashboard/AuditManagement/InventoryApprovals.php
+Models: Items, Stock, Purchase, etc.
+Audit: app/Services/AuditService.php
+---
+🎯 Summary
+The inventory module is 70% ready for approval workflow integration:
+✅ Already Complete:
+Data model support
+Approval table
+Dashboard for admins
+Service layer for complex logic
+⚠️ Needs Integration:
+Components → add trait
+Views → add reason modals
+Methods → use submitForApproval()
+✅ Estimated Time: 3 hours total
+Start with Items component, then expand to others.
+---
+Last Updated: December 2, 2025  
+Ready for Implementation: ✅ Yes

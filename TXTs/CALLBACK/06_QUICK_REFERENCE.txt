@@ -1,0 +1,345 @@
+Callback System - Quick Reference
+File Structure
+app/
+├── Models/
+│   ├── ProductDispatchCallback.php      (Sales → Production returns)
+│   ├── ProductionCallback.php           (Production → Inventory issues)
+│   └── ProductCallback.php              (LEGACY - not used)
+│
+├── Livewire/BranchDashboard/
+│   ├── SalesDashboard/Callbacks/
+│   │   └── CreateDispatchCallback.php   (Sales creates return)
+│   │
+│   ├── Production/Callbacks/
+│   │   ├── CreateInventoryCallback.php  (Production reports issue)
+│   │   └── ApproveCallbacks.php         (Production approves sales returns)
+│   │
+│   └── Inventory/Callbacks/
+│       └── ApproveCallbacks.php         (Inventory approves production issues)
+│
+├── Views/livewire/branch-dashboard/
+│   ├── sales-dashboard/callbacks/
+│   │   └── create-dispatch-callback.blade.php
+│   ├── production/callbacks/
+│   │   ├── create-inventory-callback.blade.php
+│   │   └── approve-callbacks.blade.php
+│   └── inventory/callbacks/
+│       └── approve-callbacks.blade.php
+│
+database/migrations/
+├── 20251021073703createproductcallbackstable.php         (LEGACY)
+├── 20251102021715createproductdispatchcallbackstable.php
+├── 20251102104432createproductioncallbackstable.php
+└── 20251106175546makeproductdispatchidnullable...php
+---
+Database Tables
+productdispatchcallbacks
+Rows: Sales → Production returns
+| Column | Type | Purpose |
+|--------|------|---------|
+| id | PK | Unique ID |
+| productdispatchid | FK (nullable) | Original dispatch |
+| salesshiftid | FK | Sales shift returning |
+| productid | FK | Product being returned |
+| recordedby | UUID | Who in sales reported |
+| quantity | DECIMAL | How much |
+| uom | VARCHAR | Unit |
+| reason | ENUM | Why (expired, damaged, etc.) |
+| status | ENUM | Current state (pending → completed) |
+| approvedby | UUID (nullable) | Production who approved |
+| approvedat | TIMESTAMP | When approved |
+| receivedby | UUID (nullable) | Production who received |
+| receivedat | TIMESTAMP | When received |
+| notes | TEXT | Additional info |
+| callbacktime | TIMESTAMP | When reported |
+| createdat, updatedat | | Standard timestamps |
+Indexes: (productdispatchid, status), (salesshiftid, callbacktime), (status, callbacktime)
+productioncallbacks
+Rows: Production → Inventory damage/quality reports
+| Column | Type | Purpose |
+|--------|------|---------|
+| id | PK | Unique ID |
+| shiftid | FK | Production shift |
+| sourcetype | ENUM | Type: rawmaterialfromstock or finishedproductreject |
+| itemid | FK (nullable) | Raw material ID |
+| productid | FK (nullable) | Finished product ID |
+| recordedby | UUID | Who in production reported |
+| quantity | DECIMAL | Amount damaged |
+| uom | VARCHAR | Unit |
+| reason | ENUM | Why (damaged, expired, contamination, etc.) |
+| status | ENUM | Current state (pending, approvedbyinventory, completed, rejected) |
+| approvedby | UUID (nullable) | Inventory who approved |
+| approvedat | TIMESTAMP | When approved |
+| notes | TEXT | Additional info |
+| callbacktime | TIMESTAMP | When reported |
+| createdat, updatedat | | Standard timestamps |
+Indexes: (shiftid, callbacktime), (status, callbacktime), (sourcetype, itemid)
+---
+Status Flows
+ProductDispatchCallback
+pending
+  ↓ approve()
+approvedbyproduction
+  ↓ markAsReceived()
+receivedbyproduction
+  ↓ complete()
+completed
+ProductionCallback
+pending
+  ├─ approve() → approvedbyinventory
+  │               ↓ complete()
+  │              completed
+  │
+  └─ reject() → rejected
+---
+Key Methods
+ProductDispatchCallback
+| Method | Parameters | Returns | Purpose |
+|--------|-----------|---------|---------|
+| canBeApproved() | - | bool | Check if can approve |
+| canBeReceived() | - | bool | Check if can receive |
+| approve() | $employeeId | bool | Set to approvedbyproduction |
+| markAsReceived() | $employeeId | bool | Set to receivedbyproduction |
+| complete() | - | bool | Set to completed |
+| formattedreason | - | string | Human-readable reason |
+| formattedstatus | - | string | Human-readable status |
+| Scope: pending() | - | Builder | Get pending callbacks |
+| Scope: approved() | - | Builder | Get approved callbacks |
+| Scope: received() | - | Builder | Get received callbacks |
+| Scope: completed() | - | Builder | Get completed callbacks |
+| Scope: bySalesShift($id) | $id | Builder | Filter by shift |
+| Scope: byProduct($id) | $id | Builder | Filter by product |
+ProductionCallback
+| Method | Parameters | Returns | Purpose |
+|--------|-----------|---------|---------|
+| isRawMaterial() | - | bool | Check type |
+| isFinishedProduct() | - | bool | Check type |
+| canBeApproved() | - | bool | Check if pending |
+| approve() | $employeeId | bool | Set to approvedbyinventory |
+| reject() | $employeeId, $reason | bool | Set to rejected |
+| complete() | - | bool | Set to completed |
+| formattedsourcetype | - | string | Human-readable type |
+| formattedreason | - | string | Human-readable reason |
+| itemname | - | string | Item or product name |
+| Scope: pending() | - | Builder | Get pending |
+| Scope: approved() | - | Builder | Get approved |
+| Scope: completed() | - | Builder | Get completed |
+| Scope: rejected() | - | Builder | Get rejected |
+| Scope: rawMaterial() | - | Builder | Get raw material returns |
+| Scope: finishedProduct() | - | Builder | Get product rejects |
+| Scope: byShift($id) | $id | Builder | Filter by shift |
+---
+Relationships
+ProductDispatchCallback Relations
+php
+$callback->productDispatch    // ProductDispatch
+$callback->salesShift         // SalesShift
+$callback->product            // Product
+$callback->recordedBy         // Employee
+$callback->approvedBy         // Employee
+$callback->receivedBy         // Employee
+ProductionCallback Relations
+php
+$callback->shift              // Shift
+$callback->item               // Item (raw material)
+$callback->product            // Product (finished)
+$callback->recipe             // Recipe
+$callback->recordedBy         // Employee
+$callback->approvedBy         // Employee
+---
+Reason Options
+ProductDispatchCallback Reasons
+expired - Product expired
+damaged - Physical damage
+qualityissue - Quality problems
+customerreturn - Returned by customer
+overreceived - Received more than expected
+wrongitem - Wrong product received
+other - Other reasons
+ProductionCallback Reasons
+Raw Material:
+damaged - Damage
+expired - Expired
+qualityissue - Quality
+wrongbatch - Wrong batch
+contamination - Contaminated
+other - Other
+Finished Product:
+damaged - Damage
+qualityissue - Quality
+contamination - Contaminated
+other - Other
+---
+Common Queries
+Get Pending Approvals
+php
+// Production approving sales returns
+ProductDispatchCallback::pending()->get();
+// Inventory approving production issues
+ProductionCallback::pending()->get();
+Get By Status
+php
+ProductDispatchCallback::where('status', 'approvedbyproduction')->get();
+ProductionCallback::approved()->get();  // approvedbyinventory
+Get By Type
+php
+ProductionCallback::rawMaterial()->get();
+ProductionCallback::finishedProduct()->get();
+Get For Shift
+php
+ProductDispatchCallback::bySalesShift($shiftId)->get();
+ProductionCallback::byShift($shiftId)->get();
+Get By Product
+php
+ProductDispatchCallback::byProduct($productId)->get();
+Get Completed This Week
+php
+ProductDispatchCallback::completed()
+    ->where('callbacktime', '>=', now()->subWeek())
+    ->get();
+Get With Relationships (Eager Load)
+php
+ProductDispatchCallback::with([
+    'productDispatch.salesShift',
+    'product',
+    'recordedBy',
+    'approvedBy',
+    'receivedBy'
+])->get();
+ProductionCallback::with([
+    'shift',
+    'item',
+    'product',
+    'recordedBy',
+    'approvedBy'
+])->get();
+---
+Workflow Examples
+Example 1: Sales Returns Damaged Product
+php
+// 1. Sales creates callback
+$callback = ProductDispatchCallback::create([
+    'productdispatchid' => 123,
+    'salesshiftid' => 456,
+    'productid' => 'uuid-xxx',
+    'recordedby' => 'emp-id',
+    'quantity' => 10,
+    'uom' => 'KG',
+    'reason' => 'damaged',
+    'status' => 'pending',
+    'callbacktime' => now(),
+]);
+// 2. Production approves
+$callback->approve('emp-production-id');
+// Now status = 'approvedbyproduction'
+// 3. Production marks received
+$callback->markAsReceived('emp-production-id');
+// Now status = 'receivedbyproduction'
+// 4. Production completes and updates stock
+$callback->complete();
+// Manually call stock update (see improvements)
+// Now status = 'completed'
+Example 2: Production Reports Damaged Raw Material
+php
+// 1. Production creates callback
+$callback = ProductionCallback::create([
+    'shiftid' => 789,
+    'sourcetype' => 'rawmaterialfromstock',
+    'itemid' => 100,
+    'recordedby' => 'emp-prod-id',
+    'quantity' => 5,
+    'uom' => 'KG',
+    'reason' => 'contamination',
+    'status' => 'pending',
+    'callbacktime' => now(),
+]);
+// 2. Inventory approves (and stock updates)
+$callback->approve('emp-inventory-id');
+// Manually update stock (see improvements)
+// Now status = 'approvedbyinventory'
+// 3. Inventory completes
+$callback->complete();
+// Now status = 'completed'
+Example 3: Inventory Rejects Callback
+php
+// 1. Callback created
+$callback = ProductionCallback::create([
+    'shiftid' => 789,
+    'sourcetype' => 'finishedproductreject',
+    'productid' => 'uuid-yyy',
+    'recordedby' => 'emp-prod-id',
+    'quantity' => 20,
+    'reason' => 'qualityissue',
+    'status' => 'pending',
+]);
+// 2. Inventory rejects
+$callback->reject('emp-inventory-id', 'Quality standards were actually met, product is acceptable');
+// Now status = 'rejected'
+// Notes include rejection reason
+// 3. Production sees rejection and investigates
+---
+Important Notes
+⚠️ CRITICAL ISSUES (See 04ISSUESANDINCONSISTENCIES.md):
+Polymorphic type mismatch in migrations
+Stock logic in Livewire, not models
+No automatic stock updates
+Missing quantity validation
+✅ WORKING WELL:
+Multi-stage approval workflow
+Employee tracking
+Status transitions
+Detailed reason tracking
+Views have good null handling
+⚠️ NEEDS DOCUMENTATION:
+When productdispatchid is NULL (orphaned callbacks)
+How stock is calculated
+Branch filtering approach
+---
+Testing Commands
+bash
+Check pending approvals
+php artisan tinker
+>>> ProductDispatchCallback::pending()->count()
+Check specific status
+>>> ProductionCallback::where('status', 'rejected')->get()
+Eager load with relationships
+>>> ProductDispatchCallback::with('productDispatch', 'recordedBy')->first()
+Get statistics
+>>> ProductDispatchCallback::selectRaw('status, COUNT() as count')->groupBy('status')->get()
+---
+Debugging
+If Callbacks Aren't Showing
+php
+// Check branch filtering
+ProductDispatchCallback::whereHas('productDispatch.salesShift', function ($q) {
+    $q->where('branchid', $branchId);
+})->count();
+// Check status
+ProductDispatchCallback::where('status', 'pending')->count();
+// Check with eager load
+ProductDispatchCallback::with('productDispatch')->first()->productDispatch;
+If Stock Isn't Updating
+php
+// Check if callback completed
+$callback = ProductDispatchCallback::find($id);
+dd($callback->status);  // Should be 'completed'
+// Check ProductStock
+ProductStock::where('salesshiftid', $callback->salesshiftid)
+            ->where('productid', $callback->productid)
+            ->first();
+// Check DailyProduce
+DailyProduce::where('shiftid', $productDispatch->shiftid)->first();
+If Relationship Missing
+php
+// Verify polymorphic setup
+$callback = ProductDispatchCallback::first();
+dd($callback->recordedbyid, $callback->recordedbytype);
+// Or simple FK
+dd($callback->recordedby);
+---
+Related Documentation
+01SYSTEMOVERVIEW.md - High-level architecture
+02MODELANALYSIS.md - Detailed model documentation
+03WORKFLOWDETAILS.md - Step-by-step workflows
+04ISSUESANDINCONSISTENCIES.md - Problems found
+05CRITICALIMPROVEMENTS.md - How to fix issues

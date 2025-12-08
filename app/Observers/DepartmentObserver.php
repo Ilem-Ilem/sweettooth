@@ -147,69 +147,108 @@ class DepartmentObserver
                 'order' => 10,
             ],
 
+            // Callbacks Section
+            [
+                'name' => 'View Callbacks',
+                'slug' => 'callbacks-index',
+                'route_name' => "branch-dashboard.production.callbacks.index",
+                'icon' => 'arrow-path',
+                'order' => 11,
+            ],
+            [
+                'name' => 'Create Inventory Callback',
+                'slug' => 'callbacks-create',
+                'route_name' => "branch-dashboard.production.callbacks.create-inventory",
+                'icon' => 'plus-circle',
+                'order' => 12,
+            ],
+            [
+                'name' => 'Approve Sales Callbacks',
+                'slug' => 'callbacks-approve',
+                'route_name' => "branch-dashboard.production.callbacks.approve-sales-callbacks",
+                'icon' => 'check-circle',
+                'order' => 13,
+            ],
+
+            // Kitchen Module
+            [
+                'name' => 'Kitchen Dashboard',
+                'slug' => 'kitchen-module',
+                'route_name' => "branch-dashboard.production.module.index",
+                'icon' => 'home',
+                'order' => 14,
+            ],
+            [
+                'name' => 'Stock Monitor',
+                'slug' => 'stock-monitor',
+                'route_name' => "branch-dashboard.production.module.stock-monitor",
+                'icon' => 'chart-bar',
+                'order' => 15,
+            ],
+
             // Production Reports Section
             [
                 'name' => 'Production Efficiency Report',
                 'slug' => 'report-efficiency',
                 'route_name' => "branch-dashboard.production.reports.efficiency",
                 'icon' => 'chart-bar',
-                'order' => 11,
+                'order' => 16,
             ],
             [
                 'name' => 'Quality Metrics Report',
                 'slug' => 'report-quality',
                 'route_name' => "branch-dashboard.production.reports.quality",
                 'icon' => 'shield-check',
-                'order' => 12,
+                'order' => 17,
             ],
             [
                 'name' => 'Waste Analysis Report',
                 'slug' => 'report-waste',
                 'route_name' => "branch-dashboard.production.reports.waste",
                 'icon' => 'trash',
-                'order' => 13,
+                'order' => 18,
             ],
             [
                 'name' => 'Cost Analysis Report',
                 'slug' => 'report-cost',
                 'route_name' => "branch-dashboard.production.reports.cost",
                 'icon' => 'currency-dollar',
-                'order' => 14,
+                'order' => 19,
             ],
             [
                 'name' => 'Recipe Performance Report',
                 'slug' => 'report-recipe-performance',
                 'route_name' => "branch-dashboard.production.reports.recipe-performance",
                 'icon' => 'star',
-                'order' => 15,
+                'order' => 20,
             ],
             [
                 'name' => 'Shift Summary Report',
                 'slug' => 'report-shift-summary',
                 'route_name' => "branch-dashboard.production.reports.shift-summary",
                 'icon' => 'clock',
-                'order' => 16,
+                'order' => 21,
             ],
             [
                 'name' => 'Ingredient Utilization Report',
                 'slug' => 'report-ingredient-utilization',
                 'route_name' => "branch-dashboard.production.reports.ingredient-utilization",
                 'icon' => 'beaker',
-                'order' => 17,
+                'order' => 22,
             ],
             [
                 'name' => 'Pipeline Status Report',
                 'slug' => 'report-pipeline',
                 'route_name' => "branch-dashboard.production.reports.pipeline",
                 'icon' => 'arrow-right-circle',
-                'order' => 18,
+                'order' => 23,
             ],
             [
                 'name' => 'Capacity Planning Report',
                 'slug' => 'report-capacity',
                 'route_name' => "branch-dashboard.production.reports.capacity",
                 'icon' => 'server',
-                'order' => 19,
+                'order' => 24,
             ],
         ];
     }

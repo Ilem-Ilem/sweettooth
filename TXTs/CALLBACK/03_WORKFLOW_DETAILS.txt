@@ -1,0 +1,406 @@
+Callback Workflows - Detailed Process
+Workflow 1: ProductDispatchCallback (Sales → Production)
+Scenario: Sales Department Returns Damaged Products
+SALES TEAM                          PRODUCTION TEAM
+    │                                    │
+    │  1. Receives dispatch             │
+    │  2. Detects damage/issue          │
+    │  3. Creates callback ──────────→  │
+    │     (Status: PENDING)              │
+    │                                    │
+    │                        4. Reviews callback
+    │                        5. Approves return
+    │                     (Status: APPROVEDBYPRODUCTION)
+    │                                    │
+    │  6. Receives approval notice       │
+    │  7. Updates sales stock            │
+    │                        8. Marks as received
+    │                     (Status: RECEIVEDBYPRODUCTION)
+    │                                    │
+    │  9. Stock finalized               │
+    │                        10. Completes callback
+    │                     (Status: COMPLETED)
+Implementation: CreateDispatchCallback.php
+File: /app/Livewire/BranchDashboard/SalesDashboard/Callbacks/CreateDispatchCallback.php
+Component Properties
+php
+selectedSalesShiftId      // Currently selected shift
+currentSalesShiftId       // Active shift for employee
+availableShifts[]         // Last 30 days of shifts
+callbackQuantity          // How much to return
+callbackReason            // Why returning (enum)
+callbackNotes             // Free text notes
+selectedDispatch          // Which dispatch to return from
+showCallbackModal          // Modal visibility
+Key Methods
+Mount Process
+php
+mount() {
+    $this->loadAvailableShifts()    // Get last 30 days
+    $this->loadCurrentSalesShift()  // Find active shift
+    // Priority: active shift > first in list
+}
+Data Retrieval
+php
+getRowsProperty() {
+    // Get dispatches from selected shift
+    // Filter by status = 'received' (only received items can be returned)
+    // Allow search by product name/SKU
+    // Paginate results
+}
+getAvailableQuantity($dispatch) {
+    // Calculate: receivedqty - sum(existing callbacks)
+    // Prevents over-returning
+}
+Callback Creation
+php
+submitCallback() {
+    // Validate quantity > 0
+    // Validate reason in allowed options
+    // Check quantity doesn't exceed available
+    
+    ProductDispatchCallback::create([
+        'productdispatchid' => $dispatch->id,
+        'salesshiftid'      => $shift->id,
+        'productid'          => $dispatch->productid,
+        'recordedby'         => $employee->id,
+        'quantity'            => $this->callbackQuantity,
+        'uom'                 => $dispatch->uom,
+        'reason'              => $this->callbackReason,
+        'status'              => 'pending',              // Initial status
+        'notes'               => $this->callbackNotes,
+        'callbacktime'       => now(),
+    ]);
+}
+Reason Options
+php
+'expired'           // Product expired
+'damaged'           // Physical damage
+'qualityissue'     // Quality problems
+'customerreturn'   // Customer returned it
+'overreceived'     // Received more than ordered
+'wrongitem'        // Wrong product received
+'other'             // Other reasons
+Availability Calculation Example
+Dispatch received: 100 units
+Callback #1 (pending): 20 units
+Callback #2 (approved): 15 units
+Callback #3 (completed): 10 units
+────────────────────────
+Available to return: 100 - (20+15+10) = 55 units
+---
+Workflow 2: ProductionCallback (Production → Inventory)
+Scenario A: Raw Material Damage Report
+PRODUCTION TEAM                     INVENTORY TEAM
+    │                                    │
+    │  1. Discovers damaged materials   │
+    │  2. Creates raw material callback │
+    │     (Status: PENDING)              │
+    │                                    │
+    │                        3. Reviews details
+    │                        4. Approves return
+    │                     (Status: APPROVEDBYINVENTORY)
+    │                        5. Updates Stock:
+    │                           - Decreases quantityavailable
+    │                           - Increases quantitydamaged
+    │                           - Creates StockMovement log
+    │                                    │
+    │  6. Notified of approval          │
+    │  7. Production continues...       │
+    │                        8. Marks as completed
+    │                     (Status: COMPLETED)
+Scenario B: Finished Product Reject Report
+PRODUCTION TEAM                     INVENTORY TEAM
+    │                                    │
+    │  1. Finds quality issues          │
+    │     in produced batch             │
+    │  2. Creates finished product      │
+    │     callback (Status: PENDING)    │
+    │                                    │
+    │                        3. Approves rejection
+    │                     (Status: APPROVEDBYINVENTORY)
+    │                        4. Updates DailyProduce:
+    │                           - Increases callbackqty
+    │                           - Updates closingqty
+    │                           - Recalculates variance
+    │                                    │
+    │  5. Stock adjusted automatically  │
+    │                        6. Completes callback
+    │                     (Status: COMPLETED)
+Alternative: Rejection Path
+PRODUCTION REQUESTS → INVENTORY TEAM
+                           │
+                    Reviews callback
+                    ↓
+                Finds it acceptable
+                    ↓
+           Rejects with reason
+           │
+    (Status: REJECTED)
+           │
+    Production receives notification
+    Production can investigate reason
+Implementation: CreateInventoryCallback.php
+File: /app/Livewire/BranchDashboard/Production/Callbacks/CreateInventoryCallback.php
+Component Properties
+php
+selectedShiftId         // Production shift being reported
+callbackType            // 'rawmaterial' or 'finishedproduct'
+selectedItemId          // For raw materials (nullable)
+selectedProductId       // For finished products (nullable)
+callbackQuantity        // How much damaged
+callbackReason          // Why (enum based on type)
+callbackNotes           // Free text description
+showCallbackModal        // Modal visibility
+Callback Type Options
+Raw Material
+php
+'damaged'           // Physically damaged
+'expired'           // Expiration date passed
+'qualityissue'     // Quality standards not met
+'wrongbatch'       // Incorrect batch received
+'contamination'     // Contaminated/unfit for use
+'other'             // Other issues
+Finished Product
+php
+'damaged'           // Physical damage
+'qualityissue'     // Doesn't meet specs
+'contamination'     // Contaminated batch
+'other'             // Other issues
+Data Retrieval
+Raw Materials
+php
+getRawMaterialsProperty() {
+    // Get ItemRequests for this shift
+    // Get ItemDispatches with receivedtime not null
+    // Show dispatched items available for return
+    // Pagination support
+}
+Finished Products
+php
+getFinishedProductsProperty() {
+    // Get DailyProduce records for shift
+    // Only where producedquantity > 0
+    // Pagination support
+}
+Callback Creation
+php
+submitCallback() {
+    // Type-specific validation
+    
+    if (rawmaterial) {
+        // No strict quantity limit (may have been partially used)
+    }
+    
+    if (finishedproduct) {
+        // Check: quantity <= dailyproduce.producedquantity
+    }
+    
+    ProductionCallback::create([
+        'shiftid'      => $shift->id,
+        'sourcetype'   => $sourceType,          // rawmaterialfromstock | finishedproductreject
+        'itemid'       => $itemid,             // if raw material
+        'productid'    => $productid,          // if finished product
+        'recordedby'   => $employee->id,
+        'quantity'      => $callbackQuantity,
+        'uom'           => $uom,
+        'reason'        => $callbackReason,
+        'status'        => 'pending',
+        'notes'         => $callbackNotes,
+        'callbacktime' => now(),
+    ]);
+}
+Implementation: ApproveCallbacks.php (Inventory)
+File: /app/Livewire/BranchDashboard/Inventory/Callbacks/ApproveCallbacks.php
+Approval Methods
+Approve Callback
+php
+approveCallback($id) {
+    $callback = ProductionCallback::find($id);
+    
+    if ($callback->isRawMaterial()) {
+        handleRawMaterialCallback($callback);
+    } elseif ($callback->isFinishedProduct()) {
+        handleFinishedProductCallback($callback);
+    }
+    
+    $callback->approve($employeeId);  // Sets status & timestamps
+}
+Stock Impact: Raw Material
+php
+handleRawMaterialCallback($callback) {
+    $stock = Stock::where('itemid', $callback->itemid)
+                  ->where('branchid', $branchid)
+                  ->first();
+    
+    $stock->update([
+        'quantityavailable' => max(0, $stock->quantityavailable - $callback->quantity),
+        'quantitydamaged'   => $stock->quantitydamaged + $callback->quantity,
+    ]);
+    
+    StockMovement::create([
+        'stockid'      => $stock->id,
+        'type'          => 'callback',
+        'quantity'      => -$callback->quantity,
+        'referencetype'=> 'productioncallback',
+        'referenceid'  => $callback->id,
+        'notes'         => 'Production callback: ' . $callback->reason,
+        'movementdate' => now(),
+    ]);
+}
+Stock Impact: Finished Product
+php
+handleFinishedProductCallback($callback) {
+    $recipe = Recipe::where('productid', $callback->productid)->first();
+    
+    $dailyProduce = DailyProduce::where('shiftid', $callback->shiftid)
+                               ->where('recipeid', $recipe->id)
+                               ->first();
+    
+    if ($dailyProduce) {
+        $dailyProduce->callbackquantity += $callback->quantity;
+        $dailyProduce->updateCalculations();  // Recalculate variance
+    }
+}
+Rejection Path
+php
+rejectCallback($id, $reason) {
+    $callback = ProductionCallback::find($id);
+    
+    $callback->reject($employeeId, $reason);  // Sets status='rejected'
+    
+    // Appends rejection reason to notes
+    // Production can see why it was rejected
+}
+---
+Workflow 3: Production Approves Sales Returns
+Process
+SALES RETURNS CALLBACK                PRODUCTION APPROVES
+    (Status: PENDING)                       │
+         │                                  │
+         └──→ Production receives notice   │
+              Reviews product condition    │
+                 │                          │
+                 ├─→ Approves              │ → Status: APPROVEDBYPRODUCTION
+                 │     ├─ Receives         → Status: RECEIVEDBYPRODUCTION
+                 │     └─ Completes       → Status: COMPLETED
+                 │
+                 └─→ Rejects (future)     → Status: REJECTED
+Implementation: ApproveCallbacks.php (Production)
+File: /app/Livewire/BranchDashboard/Production/Callbacks/ApproveCallbacks.php
+Approval Process
+php
+approveCallback($id) {
+    $callback = ProductDispatchCallback::find($id);
+    
+    // Status: pending → approvedbyproduction
+    $callback->approve($employeeId);  // Sets approvedby, approvedat
+}
+Receipt Process
+php
+receiveCallback($id) {
+    $callback = ProductDispatchCallback::find($id);
+    
+    // Status: approvedbyproduction → receivedbyproduction
+    $callback->markAsReceived($employeeId);  // Sets receivedby, receivedat
+}
+Completion Process
+php
+completeCallback($id) {
+    $callback = ProductDispatchCallback::find($id);
+    
+    // Status: receivedbyproduction → completed
+    handleStockImpact($callback);  // Update ProductStock and DailyProduce
+    $callback->complete();
+}
+Stock Impact for Sales Return Completion
+php
+handleStockImpact($callback) {
+    // 1. Update ProductStock (Sales inventory)
+    $productStock = ProductStock::where('salesshiftid', $callback->salesshiftid)
+                               ->where('productid', $callback->productid)
+                               ->first();
+    
+    // Increase callbackquantity (for returned items)
+    $productStock->callbackquantity += $callback->quantity;
+    $productStock->save();  // Triggers calculation of totalavailable
+    
+    // 2. Update DailyProduce (Production inventory)
+    // Find original production shift that created this product
+    $productDispatch = $callback->productDispatch;
+    $recipe = Recipe::where('productid', $callback->productid)->first();
+    
+    $dailyProduce = DailyProduce::where('shiftid', $productDispatch->shiftid)
+                               ->where('recipeid', $recipe->id)
+                               ->first();
+    
+    if ($dailyProduce) {
+        $dailyProduce->callbackquantity += $callback->quantity;
+        $dailyProduce->closingquantity += $callback->quantity;
+        $dailyProduce->updateCalculations();
+    }
+}
+---
+Status Progression Summary
+ProductDispatchCallback
+pending
+   ↓ (Production approves)
+approvedbyproduction
+   ↓ (Production receives)
+receivedbyproduction
+   ↓ (Production completes - updates stock)
+completed
+Cannot Skip Stages: Must follow sequence
+ProductionCallback
+pending
+   ├─ (Inventory approves) → approvedbyinventory
+   │                           ↓ (Inventory completes)
+   │                        completed
+   │
+   └─ (Inventory rejects) → rejected
+                             (No further action)
+Two Outcomes: Approve & Complete OR Reject
+---
+Critical Data Mappings
+When Sales Returns Product to Production
+ProductDispatchCallback
+├─ productdispatchid → Points to original dispatch
+├─ salesshiftid → Which sales shift is returning
+├─ productid → What product
+├─ recordedby → Who in sales reported it
+├─ reason → Why returning (expired, damaged, etc.)
+└─ status → Current stage in approval
+↓ (When Production approves)
+ProductStock (Sales)
+├─ callbackquantity += returnedquantity
+└─ totalavailable = auto-calculated
+DailyProduce (Production)
+├─ callbackquantity += returnedquantity
+├─ closingquantity += returnedquantity
+└─ variance = recalculated
+When Production Reports Damage to Inventory
+ProductionCallback (Raw Material)
+├─ shiftid → Production shift
+├─ sourcetype = 'rawmaterialfromstock'
+├─ itemid → Which raw material
+├─ quantity → How much damaged
+├─ reason → Why (damaged, expired, etc.)
+└─ status → Current approval stage
+↓ (When Inventory approves)
+Stock (Inventory)
+├─ quantityavailable -= damagedquantity
+├─ quantitydamaged += damagedquantity
+└─ StockMovement created for audit
+────────────────────────
+ProductionCallback (Finished Product)
+├─ shiftid → Production shift
+├─ sourcetype = 'finishedproductreject'
+├─ productid → Which product
+├─ quantity → How much rejected
+├─ reason → Why (damaged, quality, etc.)
+└─ status → Approval stage
+↓ (When Inventory approves)
+DailyProduce
+├─ callbackquantity += rejectedquantity
+├─ expectedclosing = recalculated
+└─ variance = recalculated

@@ -1,0 +1,564 @@
+Critical Improvements & Implementation Guide
+Priority 1: Fix Polymorphic Type Mismatch (BLOCKING)
+Investigation Required
+First, check the actual database schema:
+bash
+DESCRIBE productdispatchcallbacks;
+DESCRIBE productioncallbacks;
+If Polymorphic (Current Issue)
+Problem: Migrations create polymorphic columns but models don't handle them.
+Solution A: Use Polymorphic Relationship
+php
+// In ProductDispatchCallback.php
+public function recordedBy()
+{
+    return $this->morphTo(
+        'recordedby',           // Relationship name
+        'recordedbytype',      // Type column
+        'recordedbyid'         // ID column
+    );
+}
+public function approvedBy()
+{
+    return $this->morphTo(
+        'approvedby',
+        'approvedbytype',
+        'approvedbyid'
+    );
+}
+public function receivedBy()
+{
+    return $this->morphTo(
+        'receivedby',
+        'receivedbytype',
+        'receivedbyid'
+    );
+}
+// Update fillable:
+protected $fillable = [
+    // ... existing fields ...
+    'recordedbyid',
+    'recordedbytype',
+    'approvedbyid',
+    'approvedbytype',
+    'receivedbyid',
+    'receivedbytype',
+];
+Usage:
+php
+$callback->recordedBy;   // Returns Employee instance
+$callback->approvedBy;   // Returns Employee instance
+Solution B: Simplify to Direct Foreign Key
+Migration:
+php
+public function up(): void
+{
+    // Create new columns
+    Schema::table('productdispatchcallbacks', function (Blueprint $table) {
+        $table->uuid('recordedbyemployeeid')->nullable();
+        $table->uuid('approvedbyemployeeid')->nullable();
+        $table->uuid('receivedbyemployeeid')->nullable();
+        
+        $table->foreign('recordedbyemployeeid')
+            ->references('id')->on('employees')
+            ->onDelete('set null');
+        $table->foreign('approvedbyemployeeid')
+            ->references('id')->on('employees')
+            ->onDelete('set null');
+        $table->foreign('receivedbyemployeeid')
+            ->references('id')->on('employees')
+            ->onDelete('set null');
+    });
+    
+    // Migrate data from polymorphic
+    DB::statement("
+        UPDATE productdispatchcallbacks
+        SET recordedbyemployeeid = recordedbyid
+        WHERE recordedbytype = 'App\\Models\\Employee'
+    ");
+    
+    // Drop old columns
+    Schema::table('productdispatchcallbacks', function (Blueprint $table) {
+        $table->dropColumn(['recordedbyid', 'recordedbytype', 'approvedbyid', 'approvedbytype', 'receivedbyid', 'receivedbytype']);
+    });
+}
+Model (Simplified):
+php
+public function recordedBy(): BelongsTo
+{
+    return $this->belongsTo(Employee::class, 'recordedbyemployeeid');
+}
+public function approvedBy(): BelongsTo
+{
+    return $this->belongsTo(Employee::class, 'approvedbyemployeeid');
+}
+public function receivedBy(): BelongsTo
+{
+    return $this->belongsTo(Employee::class, 'receivedbyemployeeid');
+}
+Recommendation: Solution B is simpler and more maintainable. Use Solution A only if you need polymorphic relationships to other models.
+---
+Priority 2: Move Stock Logic to Models
+Current Problem
+Stock updates are in Livewire components - not reusable, not testable, breaks API consistency.
+Solution: Extract to Model Methods
+File: /app/Models/ProductDispatchCallback.php
+php
+class ProductDispatchCallback extends Model
+{
+    // ... existing code ...
+    
+    /
+      Complete the callback and update all related stock
+      
+      @throws InvalidStateException
+     /
+    public function completeWithStockUpdate(): bool
+    {
+        if ($this->status !== 'receivedbyproduction') {
+            throw new InvalidStateException(
+                'Callback must be received before completion. Current status: ' . $this->status
+            );
+        }
+        
+        return DB::transaction(function () {
+            $this->updateProductStock();
+            $this->updateDailyProduce();
+            $this->update(['status' => 'completed']);
+            return true;
+        });
+    }
+    
+    /
+      Update ProductStock when product is returned to sales
+     /
+    private function updateProductStock(): void
+    {
+        $productStock = ProductStock::where('salesshiftid', $this->salesshiftid)
+            ->where('productid', $this->productid)
+            ->lockForUpdate()
+            ->first();
+        
+        if (!$productStock) {
+            throw new RuntimeException(
+                'Product stock record not found for sales shift: ' . $this->salesshiftid
+            );
+        }
+        
+        $productStock->increment('callbackquantity', $this->quantity);
+        // This should trigger ProductStock::booted() to recalculate totalavailable
+    }
+    
+    /
+      Update DailyProduce when product is returned to production
+     /
+    private function updateDailyProduce(): void
+    {
+        // Find the original production that created this product
+        $productDispatch = $this->productDispatch;
+        if (!$productDispatch || !$productDispatch->shiftid) {
+            throw new RuntimeException('Product dispatch or shift not found for callback');
+        }
+        
+        $recipe = Recipe::where('productid', $this->productid)->first();
+        if (!$recipe) {
+            throw new RuntimeException('Recipe not found for product: ' . $this->productid);
+        }
+        
+        $dailyProduce = DailyProduce::where('shiftid', $productDispatch->shiftid)
+            ->where('recipeid', $recipe->id)
+            ->lockForUpdate()
+            ->first();
+        
+        if ($dailyProduce) {
+            $dailyProduce->increment('callbackquantity', $this->quantity);
+            $dailyProduce->increment('closingquantity', $this->quantity);
+            $dailyProduce->updateCalculations();
+        } else {
+            Log::warning('DailyProduce not found for callback', [
+                'callbackid' => $this->id,
+                'shiftid' => $productDispatch->shiftid,
+                'recipeid' => $recipe->id,
+            ]);
+        }
+    }
+}
+File: /app/Models/ProductionCallback.php
+php
+class ProductionCallback extends Model
+{
+    // ... existing code ...
+    
+    /
+      Approve callback with automatic stock updates
+     /
+    public function approveWithStockUpdate(string $employeeId): bool
+    {
+        return DB::transaction(function () use ($employeeId) {
+            // Update stock based on type
+            if ($this->isRawMaterial()) {
+                $this->updateRawMaterialStock();
+            } elseif ($this->isFinishedProduct()) {
+                $this->updateFinishedProductStock();
+            }
+            
+            // Then approve
+            $this->approve($employeeId);
+            return true;
+        });
+    }
+    
+    /
+      Update stock for raw material callbacks
+     /
+    private function updateRawMaterialStock(): void
+    {
+        if (!$this->itemid) {
+            throw new InvalidArgumentException('Raw material callback missing itemid');
+        }
+        
+        $stock = Stock::where('itemid', $this->itemid)
+            ->where('branchid', $this->shift->branchid)
+            ->lockForUpdate()
+            ->first();
+        
+        if (!$stock) {
+            throw new RuntimeException(
+                'Stock record not found for item: ' . $this->itemid
+            );
+        }
+        
+        // Decrease available, increase damaged
+        $stock->quantityavailable = max(0, $stock->quantityavailable - $this->quantity);
+        $stock->quantitydamaged += $this->quantity;
+        $stock->save();
+        
+        // Log the movement
+        StockMovement::create([
+            'stockid' => $stock->id,
+            'type' => 'callback',
+            'quantity' => -$this->quantity,
+            'referencetype' => 'productioncallback',
+            'referenceid' => $this->id,
+            'notes' => 'Production callback: ' . $this->reason,
+            'movementdate' => now(),
+        ]);
+    }
+    
+    /
+      Update stock for finished product callbacks
+     /
+    private function updateFinishedProductStock(): void
+    {
+        if (!$this->productid) {
+            throw new InvalidArgumentException('Finished product callback missing productid');
+        }
+        
+        $recipe = Recipe::where('productid', $this->productid)->first();
+        if (!$recipe) {
+            throw new RuntimeException('Recipe not found for product: ' . $this->productid);
+        }
+        
+        $dailyProduce = DailyProduce::where('shiftid', $this->shiftid)
+            ->where('recipeid', $recipe->id)
+            ->lockForUpdate()
+            ->first();
+        
+        if (!$dailyProduce) {
+            throw new RuntimeException(
+                'DailyProduce not found for shift: ' . $this->shiftid . 
+                ', recipe: ' . $recipe->id
+            );
+        }
+        
+        $dailyProduce->callbackquantity += $this->quantity;
+        $dailyProduce->updateCalculations();
+    }
+}
+Update Livewire Components:
+php
+// Before:
+public function completeCallback($id)
+{
+    try {
+        DB::beginTransaction();
+        $callback = ProductDispatchCallback::find($id);
+        $this->handleStockImpact($callback);  // Manual update
+        $callback->complete();
+        DB::commit();
+    } catch (Exception $e) {
+        DB::rollBack();
+    }
+}
+// After:
+public function completeCallback($id)
+{
+    try {
+        $callback = ProductDispatchCallback::find($id);
+        $callback->completeWithStockUpdate();  // Model handles all
+        $this->toast()->success('Callback completed successfully!')->send();
+    } catch (Exception $e) {
+        $this->toast()->error('Failed: ' . $e->getMessage())->send();
+    }
+}
+---
+Priority 3: Add Comprehensive Validation
+ProductDispatchCallback Validation
+php
+class ProductDispatchCallback extends Model
+{
+    /
+      Validate callback quantity against available quantity
+     /
+    public function validateQuantity(): bool
+    {
+        if (!$this->productDispatch) {
+            throw new RuntimeException('No dispatch found for callback');
+        }
+        
+        $totalCallbacks = self::where('productdispatchid', $this->productdispatchid)
+            ->where('id', '!=', $this->id ?? 'fake')
+            ->whereIn('status', ['pending', 'approvedbyproduction', 'receivedbyproduction', 'completed'])
+            ->sum('quantity');
+        
+        $available = $this->productDispatch->receivedquantity - $totalCallbacks;
+        
+        if ($this->quantity > $available) {
+            throw new ValidationException(
+                "Callback quantity ({$this->quantity}) exceeds available ({$available})"
+            );
+        }
+        
+        return true;
+    }
+    
+    /
+      Boot method with validation
+     /
+    protected static function boot()
+    {
+        parent::boot();
+        
+        static::creating(function ($callback) {
+            $callback->validateQuantity();
+        });
+        
+        static::updating(function ($callback) {
+            // Only validate quantity if quantity changed
+            if ($callback->isDirty('quantity')) {
+                $callback->validateQuantity();
+            }
+        });
+    }
+}
+ProductionCallback Validation
+php
+class ProductionCallback extends Model
+{
+    /
+      Validate finished product quantity
+     /
+    public function validateFinishedProductQuantity(): bool
+    {
+        if (!$this->isFinishedProduct()) {
+            return true;
+        }
+        
+        $dailyProduce = DailyProduce::whereHas('recipe', function ($q) {
+            $q->where('productid', $this->productid);
+        })
+        ->where('shiftid', $this->shiftid)
+        ->first();
+        
+        if (!$dailyProduce) {
+            throw new RuntimeException(
+                'DailyProduce not found for product and shift'
+            );
+        }
+        
+        if ($this->quantity > $dailyProduce->producedquantity) {
+            throw new ValidationException(
+                "Callback quantity ({$this->quantity}) exceeds produced ({$dailyProduce->producedquantity})"
+            );
+        }
+        
+        return true;
+    }
+    
+    protected static function boot()
+    {
+        parent::boot();
+        
+        static::creating(function ($callback) {
+            $callback->validateFinishedProductQuantity();
+        });
+    }
+}
+---
+Priority 4: Improve Status Management
+Create Status Enum
+php
+// app/Enums/CallbackStatus.php
+enum CallbackStatus: string
+{
+    case PENDING = 'pending';
+    case APPROVEDBYPRODUCTION = 'approvedbyproduction';
+    case RECEIVEDBYPRODUCTION = 'receivedbyproduction';
+    case COMPLETED = 'completed';
+    case REJECTED = 'rejected';
+    
+    public function canTransitionTo(CallbackStatus $target): bool
+    {
+        return match($this) {
+            self::PENDING => inarray($target, [
+                self::APPROVEDBYPRODUCTION,
+                self::REJECTED,
+            ]),
+            self::APPROVEDBYPRODUCTION => inarray($target, [
+                self::RECEIVEDBYPRODUCTION,
+            ]),
+            self::RECEIVEDBYPRODUCTION => inarray($target, [
+                self::COMPLETED,
+            ]),
+            default => false,
+        };
+    }
+    
+    public function getLabel(): string
+    {
+        return match($this) {
+            self::PENDING => 'Pending Approval',
+            self::APPROVEDBYPRODUCTION => 'Approved - Awaiting Receipt',
+            self::RECEIVEDBYPRODUCTION => 'Received - Awaiting Completion',
+            self::COMPLETED => 'Completed',
+            self::REJECTED => 'Rejected',
+        };
+    }
+}
+Use in Model
+php
+class ProductDispatchCallback extends Model
+{
+    protected $casts = [
+        'status' => CallbackStatus::class,
+        // ... other casts
+    ];
+    
+    /
+      Ensure valid status transitions
+     /
+    public function setStatusAttribute(CallbackStatus|string $value)
+    {
+        $newStatus = $value instanceof CallbackStatus ? $value : CallbackStatus::from($value);
+        $currentStatus = $this->status ?? CallbackStatus::PENDING;
+        
+        if (!$currentStatus->canTransitionTo($newStatus)) {
+            throw new InvalidStateException(
+                "Cannot transition from {$currentStatus->value} to {$newStatus->value}"
+            );
+        }
+        
+        $this->attributes['status'] = $newStatus->value;
+    }
+}
+---
+Priority 5: Add Event Listeners for Audit Trail
+Create Event Classes
+php
+// app/Events/CallbackApproved.php
+class CallbackApproved
+{
+    public function construct(
+        public ProductDispatchCallback $callback,
+        public Employee $approvedBy,
+    ) {}
+}
+// app/Events/CallbackCompleted.php
+class CallbackCompleted
+{
+    public function construct(
+        public ProductDispatchCallback $callback,
+        public Employee $completedBy,
+    ) {}
+}
+Create Listener
+php
+// app/Listeners/LogCallbackStatusChange.php
+class LogCallbackStatusChange
+{
+    public function handle(CallbackApproved $event)
+    {
+        CallbackAudit::create([
+            'callbackid' => $event->callback->id,
+            'action' => 'approved',
+            'oldstatus' => 'pending',
+            'newstatus' => 'approvedbyproduction',
+            'performedby' => $event->approvedBy->id,
+            'notes' => null,
+            'timestamp' => now(),
+        ]);
+    }
+}
+Register in Model
+php
+class ProductDispatchCallback extends Model
+{
+    protected static function boot()
+    {
+        parent::boot();
+        
+        static::updating(function ($callback) {
+            if ($callback->isDirty('status') && $callback->status === 'approvedbyproduction') {
+                event(new CallbackApproved($callback, Auth::user()));
+            }
+        });
+    }
+}
+---
+Priority 6: Add Database Indexes
+php
+// database/migrations/XXXXXXXXaddcallbackindexes.php
+Schema::table('productdispatchcallbacks', function (Blueprint $table) {
+    // Branch filtering optimization
+    $table->index(['salesshiftid', 'callbacktime']);
+    
+    // Quick status reports
+    $table->index(['status', 'callbacktime']);
+    
+    // Product-specific queries
+    $table->index(['productid', 'callbacktime']);
+});
+Schema::table('productioncallbacks', function (Blueprint $table) {
+    // Branch filtering
+    $table->index(['shiftid', 'callbacktime']);
+    
+    // Status reports
+    $table->index(['status', 'callbacktime']);
+    
+    // Type-specific queries
+    $table->index(['sourcetype', 'callbacktime']);
+});
+---
+Implementation Timeline
+| Week | Task | Priority | Effort |
+|------|------|----------|--------|
+| 1 | Fix polymorphic types | CRITICAL | 4h |
+| 1 | Move stock logic to models | CRITICAL | 8h |
+| 2 | Add validation | HIGH | 4h |
+| 2 | Status enums | HIGH | 3h |
+| 3 | Event listeners | MEDIUM | 4h |
+| 3 | Database indexes | MEDIUM | 2h |
+| 4 | Testing & documentation | HIGH | 8h |
+Total: ~33 hours
+---
+Testing Checklist
+[ ] Stock updates work via model method
+[ ] Validation prevents invalid quantities
+[ ] Status transitions are enforced
+[ ] Callbacks can't be over-approved
+[ ] Audit trail captures all changes
+[ ] APIs work with new methods
+[ ] Livewire components updated
+[ ] Tests pass (unit + feature)
+[ ] No data integrity issues
+[ ] Performance improved with indexes

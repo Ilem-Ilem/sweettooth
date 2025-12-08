@@ -42,7 +42,7 @@ class Index extends BaseComponent
     // Status options for filter
     public array $statusOptions = [
         'pending' => 'Pending',
-        'approved' => 'Approved',
+        'approved_by_inventory' => 'Approved by Inventory',
         'rejected' => 'Rejected',
         'completed' => 'Completed',
     ];

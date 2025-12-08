@@ -8,6 +8,7 @@ use App\Models\Item;
 use App\Models\Product;
 use App\Models\Recipe;
 use App\Models\RecipeIngredient;
+use App\Services\ProductionAuditService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\{Layout, On, Url};
@@ -213,6 +214,14 @@ class Recipes extends BaseComponent
     {
         if ($this->recipeId) {
             $recipe = Recipe::findOrFail($this->recipeId);
+            
+            // Log recipe deletion to audit trail using actor pattern
+            ProductionAuditService::logRecipeDeleted(
+                current_actor(),
+                $recipe,
+                'User confirmed deletion'
+            );
+
             $recipe->ingredients()->delete();
             $recipe->delete();
             $this->dialog()->success('Success', 'Recipe deleted successfully!')->send();
@@ -237,9 +246,18 @@ class Recipes extends BaseComponent
 
     public function confirmedBulkDelete(string $message): void
     {
+        $actor = current_actor();
+        
         foreach ($this->selectedIds as $id) {
             $recipe = Recipe::find($id);
             if ($recipe) {
+                // Log recipe deletion to audit trail using actor pattern
+                ProductionAuditService::logRecipeDeleted(
+                    $actor,
+                    $recipe,
+                    'Bulk deletion - User confirmed'
+                );
+
                 $recipe->ingredients()->delete();
                 $recipe->delete();
             }

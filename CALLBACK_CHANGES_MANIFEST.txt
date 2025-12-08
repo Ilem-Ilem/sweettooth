@@ -1,0 +1,446 @@
+CALLBACK SYSTEM IMPLEMENTATION - CHANGES MANIFEST
+====================================================
+Date: December 7, 2025
+Total Changes: 7 tasks completed
+Migration Files: 1
+Model Files Modified: 2
+Enum Files Created: 1
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MIGRATION FILES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ database/migrations/2025_12_07_000002_add_callback_indexes.php
+   Status: Created
+   Purpose: Add performance indexes to callback tables
+   Tables Affected:
+   - product_dispatch_callbacks (3 indexes)
+   - production_callbacks (3 indexes)
+   
+   Up Migration:
+   ```
+   product_dispatch_callbacks:
+   - (sales_shift_id, callback_time)
+   - (status, callback_time)
+   - (product_id, callback_time)
+   
+   production_callbacks:
+   - (shift_id, callback_time)
+   - (status, callback_time)
+   - (source_type, callback_time)
+   ```
+   
+   Down Migration: All indexes dropped
+   
+   Run Command: php artisan migrate
+   Test Command: php artisan migrate:refresh --seed
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ENUM FILES CREATED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ app/Enums/CallbackStatus.php
+   Status: Created
+   Namespace: App\Enums
+   Type: PHP 8.1+ Backed Enum (string)
+   
+   Cases Defined:
+   - PENDING = 'pending'
+   - APPROVED_BY_PRODUCTION = 'approved_by_production'
+   - RECEIVED_BY_PRODUCTION = 'received_by_production'
+   - COMPLETED = 'completed'
+   - APPROVED_BY_INVENTORY = 'approved_by_inventory'
+   - REJECTED = 'rejected'
+   
+   Methods Added:
+   - canTransitionTo(CallbackStatus $target): bool
+     * Validates state machine transitions
+     * PENDING → APPROVED_BY_PRODUCTION | APPROVED_BY_INVENTORY | REJECTED
+     * APPROVED_BY_PRODUCTION → RECEIVED_BY_PRODUCTION
+     * RECEIVED_BY_PRODUCTION → COMPLETED
+     * APPROVED_BY_INVENTORY → COMPLETED
+   
+   - getLabel(): string
+     * Returns human-readable status name
+     * For UI display and reporting
+   
+   - getBadgeColor(): string
+     * Returns Tailwind CSS color classes
+     * For Blade template badge components
+   
+   Integration Points:
+   - app/Models/ProductDispatchCallback.php: casts status
+   - app/Models/ProductionCallback.php: casts status
+   
+   Usage Example:
+   ```php
+   $callback->status; // Returns CallbackStatus enum
+   $callback->status->value; // Returns string value
+   $callback->status->getLabel(); // Returns "Pending Approval"
+   $callback->status->getBadgeColor(); // Returns Tailwind classes
+   $callback->status->canTransitionTo(CallbackStatus::COMPLETED); // true/false
+   ```
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MODEL FILES MODIFIED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ app/Models/ProductDispatchCallback.php
+   Status: Modified
+   Lines Changed: ~140 lines added
+   
+   FILLABLE ARRAY (Updated):
+   - Added: 'recorded_by_id', 'recorded_by_type'
+   - Added: 'approved_by_id', 'approved_by_type'
+   - Added: 'received_by_id', 'received_by_type'
+   
+   CASTS (Updated):
+   - Added: 'status' => CallbackStatus::class
+   
+   RELATIONSHIPS (Modified):
+   - recordedBy(): Changed from BelongsTo to MorphTo
+   - approvedBy(): Changed from BelongsTo to MorphTo
+   - receivedBy(): Changed from BelongsTo to MorphTo
+   - All now use morphTo() for polymorphic User/Employee support
+   
+   METHODS UPDATED:
+   
+   approve($actor = null): bool
+   - Now uses current_actor() if no actor provided
+   - Sets approved_by_id and approved_by_type
+   - Throws RuntimeException if no actor found
+   
+   markAsReceived($actor = null): bool
+   - Now uses current_actor() if no actor provided
+   - Sets received_by_id and received_by_type
+   - Throws RuntimeException if no actor found
+   
+   METHODS ADDED:
+   
+   boot(): void
+   - Hooks validation on create and update
+   - Calls validateQuantity() automatically
+   - Only validates if quantity field changed
+   
+   validateQuantity(): bool
+   - Checks callback qty <= available qty
+   - Available = dispatch.received_qty - sum(other callbacks)
+   - Handles NULL product_dispatch_id (orphaned callbacks)
+   - Throws ValidationException if qty exceeds available
+   - Called automatically on create/update
+   
+   completeWithStockUpdate(): bool
+   - Completes callback and updates stock atomically
+   - Calls updateProductStock() and updateDailyProduce()
+   - Wrapped in DB::transaction()
+   - Throws RuntimeException if status != received_by_production
+   - Updates callback status to 'completed'
+   
+   updateProductStock(): void (private)
+   - Increments ProductStock.callback_quantity
+   - Uses lockForUpdate() for concurrent safety
+   - Automatically recalculates ProductStock.total_available
+   - Throws RuntimeException if ProductStock not found
+   
+   updateDailyProduce(): void (private)
+   - Increments DailyProduce.callback_quantity
+   - Increments DailyProduce.closing_quantity
+   - Calls DailyProduce.updateCalculations()
+   - Logs warning if DailyProduce not found
+   
+   IMPORTS ADDED:
+   - use App\Enums\CallbackStatus;
+   - use Illuminate\Support\Facades\DB;
+   - use Illuminate\Support\Facades\Log;
+   - use RuntimeException;
+   - use InvalidArgumentException;
+   - use Illuminate\Validation\ValidationException;
+
+---
+
+✅ app/Models/ProductionCallback.php
+   Status: Modified
+   Lines Changed: ~135 lines added
+   
+   FILLABLE ARRAY (Updated):
+   - Added: 'recorded_by_id', 'recorded_by_type'
+   - Added: 'approved_by_id', 'approved_by_type'
+   
+   CASTS (Updated):
+   - Added: 'status' => CallbackStatus::class
+   
+   RELATIONSHIPS (Modified):
+   - recordedBy(): Changed from BelongsTo to MorphTo
+   - approvedBy(): Changed from BelongsTo to MorphTo
+   - Removed: createdBy() (duplicate method)
+   - All now use morphTo() for polymorphic User/Employee support
+   
+   METHODS UPDATED:
+   
+   approve($actor = null): bool
+   - Now uses current_actor() if no actor provided
+   - CALLS STOCK UPDATES AUTOMATICALLY (critical change)
+   - Wrapped in DB::transaction()
+   - Sets approved_by_id and approved_by_type
+   - For raw materials: calls updateRawMaterialStock()
+   - For finished products: calls updateFinishedProductStock()
+   - Throws RuntimeException if no actor found
+   
+   reject($actor = null, $reason = null): bool
+   - Now uses current_actor() if no actor provided
+   - Sets approved_by_id and approved_by_type
+   - Appends rejection reason to notes
+   - Sets status to 'rejected'
+   - Throws RuntimeException if no actor found
+   
+   METHODS ADDED:
+   
+   boot(): void
+   - Hooks validation on create and update
+   - Calls validateQuantity() automatically
+   - Only validates if quantity field changed
+   
+   validateQuantity(): bool
+   - For raw materials: no strict limit (returns true)
+   - For finished products: qty <= produced_qty
+   - Throws InvalidArgumentException if product_id missing
+   - Throws RuntimeException if DailyProduce not found
+   - Throws ValidationException if qty exceeds produced
+   
+   updateRawMaterialStock(): void (private)
+   - Decreases Stock.quantity_available
+   - Increases Stock.quantity_damaged
+   - Uses lockForUpdate() for concurrent safety
+   - Creates StockMovement for audit trail
+   - Throws InvalidArgumentException if item_id missing
+   - Throws RuntimeException if Stock not found
+   
+   updateFinishedProductStock(): void (private)
+   - Increments DailyProduce.callback_quantity
+   - Calls DailyProduce.updateCalculations()
+   - Uses lockForUpdate() for concurrent safety
+   - Throws InvalidArgumentException if product_id missing
+   - Throws RuntimeException if Recipe or DailyProduce not found
+   
+   METHODS REMOVED:
+   
+   createdBy(): BelongsTo
+   - Removed (was duplicate of recordedBy())
+   
+   IMPORTS ADDED:
+   - use App\Enums\CallbackStatus;
+   - use Illuminate\Support\Facades\DB;
+   - use Illuminate\Support\Facades\Log;
+   - use RuntimeException;
+   - use InvalidArgumentException;
+   - use Illuminate\Validation\ValidationException;
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BEHAVIORAL CHANGES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Polymorphic Relationships:
+✅ OLD: approve($employeeId) - accepts only employee ID
+✅ NEW: approve($actor = null) - accepts User or Employee, auto-detects
+
+Stock Updates:
+✅ OLD: Livewire component manually called handleStockImpact()
+✅ NEW: Model auto-updates stock on approve() or completeWithStockUpdate()
+
+Quantity Validation:
+✅ OLD: No validation, could over-return products
+✅ NEW: Automatic validation prevents over-returns
+
+Status Casting:
+✅ OLD: String values like 'pending', 'approved_by_production'
+✅ NEW: CallbackStatus enum with type safety and helper methods
+
+Performance:
+✅ OLD: No composite indexes, slower queries
+✅ NEW: 6 new composite indexes for fast filtering
+
+Callbacks:
+✅ OLD: Must have product_dispatch_id
+✅ NEW: Supports orphaned callbacks (product_dispatch_id = NULL)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BACKWARD COMPATIBILITY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚠️ BREAKING CHANGES:
+
+1. Method Signatures Changed
+   OLD: approve($employeeId) - requires explicit ID
+   NEW: approve($actor = null) - optional actor
+   FIX: Update Livewire components to call without params
+   
+   Example:
+   // OLD
+   $callback->approve(auth('employees')->id());
+   
+   // NEW
+   $callback->approve(); // Uses current_actor() automatically
+
+2. Polymorphic Relationships
+   OLD: recordedBy/approvedBy return Employee only
+   NEW: Return User or Employee (polymorphic)
+   FIX: Check actual model type if needed
+   
+   Example:
+   $actor = $callback->recordedBy;
+   if ($actor instanceof Employee) { ... }
+   if ($actor instanceof User) { ... }
+
+3. Stock Updates Now Automatic
+   OLD: Must manually call handleStockImpact() in component
+   NEW: Stock updates on approve() automatically
+   FIX: Remove manual stock update calls from Livewire components
+   
+   Locations to Update:
+   - app/Livewire/BranchDashboard/Production/Callbacks/ApproveCallbacks.php
+   - app/Livewire/BranchDashboard/Inventory/Callbacks/ApproveCallbacks.php
+
+✅ NON-BREAKING CHANGES:
+
+1. New Methods Added (backwards compatible)
+   - validateQuantity()
+   - completeWithStockUpdate()
+   - updateProductStock()
+   - updateDailyProduce()
+   - updateRawMaterialStock()
+   - updateFinishedProductStock()
+
+2. Enum Casting (backwards compatible)
+   - String values still work, automatically cast to enum
+   - Can use $callback->status->value for string
+
+3. Database Changes (non-destructive)
+   - Only added indexes, no schema changes
+   - Can be rolled back with down migration
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COMPONENT UPDATES REQUIRED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+❌ MUST UPDATE:
+
+1. app/Livewire/BranchDashboard/Production/Callbacks/ApproveCallbacks.php
+   - Remove manual handleStockImpact() calls
+   - Change: $callback->approve($employeeId) → $callback->approve()
+   - Add: $callback->completeWithStockUpdate() for ProductDispatchCallback
+   
+2. app/Livewire/BranchDashboard/Inventory/Callbacks/ApproveCallbacks.php
+   - Remove manual handleRawMaterialCallback() calls
+   - Change: $callback->approve($employeeId) → $callback->approve()
+   - Stock updates now happen automatically in model.approve()
+
+⚠️ SHOULD VERIFY:
+
+1. SalesDashboard components may need review
+   - Check if they call approve() with parameters
+   - Verify polymorphic relationships work
+
+2. Any API endpoints that use these models
+   - Ensure they use new method signatures
+   - Test stock updates work via API
+
+3. Any console commands or background jobs
+   - Verify they work with new auto-validating models
+   - Test stock updates trigger correctly
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VALIDATION CHANGES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+NEW VALIDATION RULES ENFORCED:
+
+ProductDispatchCallback:
+- Quantity ≤ (dispatch.received_quantity - sum of other callbacks)
+- Triggers on: create, update (only if qty changed)
+- Exception: ValidationException
+
+ProductionCallback:
+- Raw Materials: No limit (may be partially used)
+- Finished Products: Quantity ≤ produced_quantity
+- Triggers on: create, update (only if qty changed)
+- Exception: ValidationException
+
+Error Messages:
+- "Callback quantity (X) exceeds available (Y)"
+- "Callback quantity (X) exceeds produced (Y)"
+- "No dispatch found for callback"
+- "DailyProduce not found for product and shift"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TRANSACTION SAFETY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ALL STOCK UPDATE METHODS ARE ATOMIC:
+
+productDispatchCallback->completeWithStockUpdate():
+- Wrapped in DB::transaction()
+- Updates ProductStock (atomic)
+- Updates DailyProduce (atomic)
+- Updates callback status (atomic)
+- All-or-nothing: rolls back on any error
+
+productionCallback->approve():
+- Wrapped in DB::transaction()
+- Updates Stock OR DailyProduce (atomic)
+- Creates StockMovement (atomic)
+- Updates callback status (atomic)
+- All-or-nothing: rolls back on any error
+
+lockForUpdate() used for:
+- ProductStock during update
+- DailyProduce during update
+- Stock during update
+- Prevents race conditions with concurrent requests
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DEPLOYMENT CHECKLIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Before Going to Production:
+
+[ ] Run migrations: php artisan migrate
+[ ] Test callback creation works
+[ ] Test stock updates trigger correctly
+[ ] Test validation prevents over-returns
+[ ] Test polymorphic relationships with both User and Employee
+[ ] Test completeWithStockUpdate() works
+[ ] Test enum status casting works
+[ ] Verify all tests pass: php artisan test
+[ ] Check database indexes created: SHOW INDEX FROM product_dispatch_callbacks;
+[ ] Check database indexes created: SHOW INDEX FROM production_callbacks;
+[ ] Update Livewire components (remove manual stock calls)
+[ ] Update API endpoints if any
+[ ] Test all workflows end-to-end
+[ ] Check for any data integrity issues
+[ ] Monitor performance with new indexes
+[ ] Deploy with confidence!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ROLLBACK PROCEDURE (If Needed)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+If issues occur, rollback is safe:
+
+1. Revert model changes:
+   git checkout app/Models/ProductDispatchCallback.php
+   git checkout app/Models/ProductionCallback.php
+
+2. Delete enum:
+   git rm app/Enums/CallbackStatus.php
+
+3. Rollback migration:
+   php artisan migrate:rollback --step=1
+
+4. Remove new files from git:
+   git reset HEAD database/migrations/2025_12_07_000002_*
+
+Note: No data loss - only indexes removed, code reverted
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+END OF MANIFEST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

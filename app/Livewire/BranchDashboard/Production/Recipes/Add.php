@@ -7,6 +7,7 @@ use App\Models\Item;
 use App\Models\Product;
 use App\Models\Recipe;
 use App\Models\RecipeIngredient;
+use App\Services\ProductionAuditService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
@@ -150,7 +151,10 @@ class Add extends Component
         $this->validate($rules);
 
         $message = '';
-        DB::transaction(function () use (&$message) {
+        // Get actor before transaction for audit logging
+        $actor = current_actor();
+        
+        DB::transaction(function () use (&$message, $actor) {
             $branchId = $this->getBranchId();
 
             // Calculate total cost from ingredients
@@ -178,7 +182,9 @@ class Add extends Component
                 'preparation_time' => $this->preparation_time,
                 'instructions' => !empty($this->instructions) ? json_encode(array_values($this->instructions)) : null,
                 'status' => $this->status,
-                'created_by' => Auth::guard('employees')->id(),
+                // Store actor info using polymorphic pattern
+                'created_by_id' => $actor->id,
+                'created_by_type' => get_class($actor),
             ];
 
             $recipe = Recipe::create($data);
@@ -200,6 +206,13 @@ class Add extends Component
                     ]);
                 }
             }
+
+            // Log recipe creation to audit trail using actor pattern
+            ProductionAuditService::logRecipeCreated(
+                $actor,
+                $recipe,
+                $this->ingredients
+            );
         });
 
         $this->toast()->success($message ?? 'Recipe saved successfully!')->send();

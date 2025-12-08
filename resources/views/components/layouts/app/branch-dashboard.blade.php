@@ -220,7 +220,18 @@
                         fn($d) => $d->pages->pluck('route_name')->contains($currentRoute),
                     )?->id;
 
-                    $OPEN_PRODUCTION = $departments->isNotEmpty() || $OPEN_DEPT !== null;
+                    // Check if viewing non-department-scoped production routes
+                    $nonDepartmentRoutes = [
+                        'branch-dashboard.production.callbacks.index',
+                        'branch-dashboard.production.callbacks.create-inventory',
+                        'branch-dashboard.production.callbacks.approve-sales-callbacks',
+                        'branch-dashboard.production.module.index',
+                        'branch-dashboard.production.module.stock-monitor',
+                    ];
+                    
+                    $isProductionRoute = in_array($currentRoute, $nonDepartmentRoutes);
+
+                    $OPEN_PRODUCTION = $departments->isNotEmpty() || $OPEN_DEPT !== null || $isProductionRoute;
                 }
             @endphp
 

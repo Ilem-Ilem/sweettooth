@@ -61,10 +61,19 @@ class ApproveCallbacks extends BaseComponent
 
     protected function getFilteredQuery()
     {
+        $branchId = $this->getBranchId();
+        
         $query = ProductDispatchCallback::query()
             ->with(['product', 'salesShift', 'productDispatch.salesShift', 'recordedBy', 'approvedBy', 'receivedBy'])
-            ->whereHas('productDispatch.salesShift', function ($q) {
-                $q->where('branch_id', $this->getBranchId());
+            ->where(function ($q) use ($branchId) {
+                // Filter by salesShift branch directly
+                $q->whereHas('salesShift', function ($sq) {
+                    $sq->where('branch_id', $branchId);
+                })
+                // Also handle case where productDispatch is NULL
+                ->orWhereHas('productDispatch.salesShift', function ($sq) {
+                    $sq->where('branch_id', $branchId);
+                });
             });
 
         return $query;
@@ -166,14 +175,13 @@ class ApproveCallbacks extends BaseComponent
                 return;
             }
 
-            // Get current employee ID
-            $employeeId = $this->getEmployeeId();
-            if (!$employeeId) {
-                $this->toast()->error('Employee not found. Please ensure you are logged in.')->send();
+            $actor = current_actor();
+            if (!$actor) {
+                $this->toast()->error('No authenticated actor found. Please ensure you are logged in.')->send();
                 return;
             }
 
-            $callback->approve($employeeId);
+            $callback->approve($actor);
 
             DB::commit();
 
@@ -203,14 +211,13 @@ class ApproveCallbacks extends BaseComponent
                 return;
             }
 
-            // Get current employee ID
-            $employeeId = $this->getEmployeeId();
-            if (!$employeeId) {
-                $this->toast()->error('Employee not found. Please ensure you are logged in.')->send();
+            $actor = current_actor();
+            if (!$actor) {
+                $this->toast()->error('No authenticated actor found. Please ensure you are logged in.')->send();
                 return;
             }
 
-            $callback->markAsReceived($employeeId);
+            $callback->markAsReceived($actor);
 
             DB::commit();
 
@@ -240,10 +247,8 @@ class ApproveCallbacks extends BaseComponent
                 return;
             }
 
-            // Handle stock impacts before completing
-            $this->handleStockImpact($callback);
-
-            $callback->complete();
+            // Use model's completeWithStockUpdate() instead
+            $callback->completeWithStockUpdate();
 
             DB::commit();
 
@@ -261,62 +266,7 @@ class ApproveCallbacks extends BaseComponent
         }
     }
 
-    /**
-     * Handle stock impact for Sales → Production callback completion
-     */
-    protected function handleStockImpact(ProductDispatchCallback $callback): void
-    {
-        // 1. Update ProductStock (Sales Side)
-        $productStock = \App\Models\ProductStock::where('sales_shift_id', $callback->sales_shift_id)
-            ->where('product_id', $callback->product_id)
-            ->first();
 
-        if ($productStock) {
-            // Increase callback_quantity (total_available will be auto-calculated)
-            $productStock->callback_quantity += $callback->quantity;
-            $productStock->save(); // This triggers the booted() method which updates calculated fields
-        } else {
-            throw new \Exception('Product stock record not found for sales shift ID: ' . $callback->sales_shift_id);
-        }
-
-        // 2. Update DailyProduce (Production Side)
-        // Find the production shift that created this product
-        $productDispatch = $callback->productDispatch;
-        if (!$productDispatch || !$productDispatch->shift_id) {
-            throw new \Exception('Product dispatch or production shift not found');
-        }
-
-        // Find the recipe for this product
-        $recipe = \App\Models\Recipe::where('product_id', $callback->product_id)->first();
-        if (!$recipe) {
-            throw new \Exception('Recipe not found for product ID: ' . $callback->product_id);
-        }
-
-        $dailyProduce = \App\Models\DailyProduce::where('shift_id', $productDispatch->shift_id)
-            ->where('recipe_id', $recipe->id)
-            ->first();
-
-        if ($dailyProduce) {
-            // Increase callback_quantity and closing_quantity
-            $dailyProduce->callback_quantity += $callback->quantity;
-            $dailyProduce->closing_quantity += $callback->quantity;
-            $dailyProduce->updateCalculations(); // Recalculate expected closing and variance
-        } else {
-            // Log warning but don't fail - the production might be from a different shift/system
-            \Log::warning('DailyProduce record not found for callback', [
-                'callback_id' => $callback->id,
-                'shift_id' => $productDispatch->shift_id,
-                'recipe_id' => $recipe->id
-            ]);
-        }
-    }
-
-    protected function getEmployeeId()
-    {
-        // Get the authenticated user's employee ID
-        // Assuming you have a method to get current employee from session or auth
-        return session('employee_id') ?? auth()->user()?->employee_id ?? null;
-    }
 
     public function getStatusBadgeClass($status)
     {

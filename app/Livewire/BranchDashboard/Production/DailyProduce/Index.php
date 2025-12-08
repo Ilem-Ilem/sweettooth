@@ -7,6 +7,7 @@ use App\Models\Shift;
 use App\Models\ProductionRequest;
 use App\Models\ProductDispatch;
 use App\Models\Department;
+use App\Services\ProductionAuditService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
@@ -372,13 +373,21 @@ class Index extends Component
     public function saveAllQuantities()
     {
         try {
-            DB::transaction(function () {
+            // Get actor before transaction for audit logging
+            $actor = current_actor();
+            
+            DB::transaction(function () use ($actor) {
                 foreach ($this->editingQuantities as $produceId => $quantities) {
                     $produce = DailyProduce::find($produceId);
 
                     if (!$produce) {
                         continue;
                     }
+
+                    // Store old values for audit trail
+                    $oldSentOut = $produce->sent_out_quantity;
+                    $oldOrder = $produce->order_quantity;
+                    $oldCallback = $produce->callback_quantity;
 
                     // Update ONLY editable quantities (produced is auto-calculated)
                     $produce->sent_out_quantity = (float) ($quantities['sent_out_quantity'] ?? 0);
@@ -397,6 +406,19 @@ class Index extends Component
 
                     // Recalculate expected closing and variance
                     $produce->updateCalculations();
+
+                    // Log significant quantity changes using actor pattern
+                    if ($oldSentOut != $produce->sent_out_quantity || 
+                        $oldOrder != $produce->order_quantity || 
+                        $oldCallback != $produce->callback_quantity) {
+                        ProductionAuditService::logVariance(
+                            $actor,
+                            $produce,
+                            $oldSentOut + $oldOrder + $oldCallback,
+                            $produce->sent_out_quantity + $produce->order_quantity + $produce->callback_quantity,
+                            "Updated quantities - Sent out: {$oldSentOut}→{$produce->sent_out_quantity}, Order: {$oldOrder}→{$produce->order_quantity}, Callback: {$oldCallback}→{$produce->callback_quantity}"
+                        );
+                    }
                 }
             });
 
@@ -541,12 +563,17 @@ class Index extends Component
             $batchCount = $produce->productionRecords()->count() + 1;
             $batchNumber = "Batch {$batchCount}";
 
+            // Get current actor for polymorphic relationship
+            $actor = current_actor();
+
             // Create production record
             $productionRecord = new \App\Models\ProductionRecord();
             $productionRecord->daily_produce_id = $produce->id;
             $productionRecord->recipe_id = $produce->recipe_id;
             $productionRecord->batch_number = $batchNumber;
-            $productionRecord->produced_by = Auth::guard('employees')->id();
+            // Use polymorphic pattern for actor tracking
+            $productionRecord->produced_by_id = $actor->id;
+            $productionRecord->produced_by_type = get_class($actor);
             $productionRecord->quantity_produced = $this->batchQuantityProduced;
             $productionRecord->quantity_approved = $this->batchQuantityApproved;
             $productionRecord->quantity_rejected = $this->batchQuantityRejected;
@@ -559,6 +586,13 @@ class Index extends Component
             $productionRecord->rejection_reason = $this->batchQuantityRejected > 0 ? $this->batchRejectionReason : null;
             $productionRecord->notes = $this->batchNotes;
             $productionRecord->save();
+
+            // Log batch production to audit trail
+            ProductionAuditService::logBatchProduced(
+                $actor,
+                $productionRecord,
+                $this->batchNotes
+            );
 
             // Track raw material utilization for this batch
             $this->trackRawMaterialUtilization($produce, $this->batchQuantityApproved);
@@ -598,8 +632,20 @@ class Index extends Component
                 return;
             }
 
+            $oldStatus = $produce->status;
+            $actor = current_actor();
+            
             $produce->status = 'completed';
             $produce->save();
+
+            // Log status change to audit trail using actor pattern
+            ProductionAuditService::logVariance(
+                $actor,
+                $produce,
+                $produce->expected_closing,
+                $produce->closing_quantity,
+                "Production marked as completed. Status changed from {$oldStatus} to completed."
+            );
 
             $this->toast()->success('Marked as completed.')->send();
             $this->loadDailyProduces();
@@ -619,8 +665,20 @@ class Index extends Component
                 return;
             }
 
+            $oldStatus = $produce->status;
+            $actor = current_actor();
+            
             $produce->status = 'in_progress';
             $produce->save();
+
+            // Log status change to audit trail using actor pattern
+            ProductionAuditService::logVariance(
+                $actor,
+                $produce,
+                $produce->expected_closing,
+                $produce->closing_quantity,
+                "Production reopened. Status changed from {$oldStatus} to in_progress."
+            );
 
             $this->toast()->success('Marked as in progress.')->send();
             $this->loadDailyProduces();

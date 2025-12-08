@@ -1,0 +1,605 @@
+PRODUCTION MODULE - IMPROVEMENTS & FIXES
+========================================
+
+PRIORITY 1: FIX ACTOR PATTERN (HIGH SEVERITY)
+==============================================
+
+Time: 2 hours
+Severity: HIGH
+Blocks: Proper polymorphic tracking, API compatibility
+
+STEP 1: Update ApproveCallbacks.php
+-----------------------------------
+
+Remove getEmployeeId() method (line 314-319):
+
+FROM:
+    protected function getEmployeeId()
+    {
+        return session('employee_id') ?? auth()->user()?->employee_id ?? null;
+    }
+
+TO: (DELETE)
+
+Update approveCallback() method (line 152-187):
+
+FROM:
+    public function approveCallback($callbackId)
+    {
+        try {
+            DB::beginTransaction();
+            $callback = ProductDispatchCallback::find($callbackId);
+            if (!$callback) {
+                $this->toast()->error('Callback not found.')->send();
+                return;
+            }
+            if (!$callback->canBeApproved()) {
+                $this->toast()->error('Callback cannot be approved. Current status: ' . $callback->formatted_status)->send();
+                return;
+            }
+            $employeeId = $this->getEmployeeId();  // ← WRONG
+            if (!$employeeId) {
+                $this->toast()->error('Employee not found. Please ensure you are logged in.')->send();
+                return;
+            }
+            $callback->approve($employeeId);  // ← Passing only ID, not actor
+            DB::commit();
+            $this->toast()->success('Callback approved successfully!')->send();
+            $this->dispatch('$refresh');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $this->toast()->error('Failed to approve callback: ' . $e->getMessage())->send();
+        }
+    }
+
+TO:
+    public function approveCallback($callbackId)
+    {
+        try {
+            DB::beginTransaction();
+
+            $callback = ProductDispatchCallback::find($callbackId);
+            if (!$callback) {
+                $this->toast()->error('Callback not found.')->send();
+                return;
+            }
+
+            if (!$callback->canBeApproved()) {
+                $this->toast()->error('Callback cannot be approved. Current status: ' . $callback->formatted_status)->send();
+                return;
+            }
+
+            $actor = current_actor();  // ← CORRECT
+            if (!$actor) {
+                $this->toast()->error('No authenticated actor found. Please ensure you are logged in.')->send();
+                return;
+            }
+
+            $callback->approve($actor);  // ← Pass actor object
+
+            DB::commit();
+            $this->toast()->success('Callback approved successfully!')->send();
+            $this->dispatch('$refresh');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $this->toast()->error('Failed to approve callback: ' . $e->getMessage())->send();
+        }
+    }
+
+Update receiveCallback() method (line 189-224):
+
+FROM:
+    $employeeId = $this->getEmployeeId();
+    if (!$employeeId) {
+        $this->toast()->error('Employee not found. Please ensure you are logged in.')->send();
+        return;
+    }
+    $callback->markAsReceived($employeeId);
+
+TO:
+    $actor = current_actor();
+    if (!$actor) {
+        $this->toast()->error('No authenticated actor found. Please ensure you are logged in.')->send();
+        return;
+    }
+    $callback->markAsReceived($actor);
+
+Update completeCallback() method (line 226-262):
+    Similar changes - replace getEmployeeId() with current_actor()
+
+
+STEP 2: Update CreateInventoryCallback.php
+-------------------------------------------
+
+Line 317, replace:
+    $employee = auth('employees')->user();
+
+    // Create callback record
+    $sourceType = $this->callbackType === 'raw_material'
+        ? 'raw_material_from_stock'
+        : 'finished_product_reject';
+
+    $shiftId = $this->selectedShiftId ?? $this->currentShiftId;
+
+    ProductionCallback::create([
+        'shift_id' => $shiftId,
+        'source_type' => $sourceType,
+        'item_id' => $this->selectedItemId,
+        'product_id' => $this->selectedProductId,
+        'recorded_by' => $employee->id,      // ← WRONG (missing type)
+        'quantity' => $this->callbackQuantity,
+        ...
+    ]);
+
+With:
+    $actor = current_actor();
+    if (!$actor) {
+        throw new Exception('No authenticated actor found');
+    }
+
+    $sourceType = $this->callbackType === 'raw_material'
+        ? 'raw_material_from_stock'
+        : 'finished_product_reject';
+
+    $shiftId = $this->selectedShiftId ?? $this->currentShiftId;
+
+    ProductionCallback::create([
+        'shift_id' => $shiftId,
+        'source_type' => $sourceType,
+        'item_id' => $this->selectedItemId,
+        'product_id' => $this->selectedProductId,
+        'recorded_by_id' => $actor->id,           // ← CORRECT
+        'recorded_by_type' => get_class($actor),  // ← CORRECT
+        'quantity' => $this->callbackQuantity,
+        ...
+    ]);
+
+Also update lines 138-155:
+    Replace all auth('employees')->user() with current_actor()
+
+
+STEP 3: Update ProductionCallback model (ALREADY CORRECT)
+-------------------------------------------
+
+Verify line 198 is being used correctly:
+    $actor = $actor ?? current_actor();
+    // Uses:
+    'recorded_by_id' => $actor->id,
+    'recorded_by_type' => get_class($actor),
+
+✅ This is already correct!
+
+
+Testing this fix:
+-----------------
+php artisan tinker
+>>> $callback = ProductionCallback::find(1);
+>>> $callback->recordedBy;  // Should work
+>>> $callback->approvedBy;  // Should work
+>>> get_class($callback->recordedBy);  // Should return App\Models\Employee or App\Models\User
+
+
+---
+
+PRIORITY 2: REMOVE DUPLICATE STOCK LOGIC (HIGH SEVERITY)
+=========================================================
+
+Time: 1 hour
+Severity: HIGH
+Blocks: API compatibility, testability
+
+In ApproveCallbacks.php, DELETE lines 267-312:
+
+FROM:
+    /**
+     * Handle stock impact for Sales → Production callback completion
+     */
+    protected function handleStockImpact(ProductDispatchCallback $callback): void
+    {
+        // 1. Update ProductStock (Sales Side)
+        $productStock = \App\Models\ProductStock::where('sales_shift_id', $callback->sales_shift_id)
+            ->where('product_id', $callback->product_id)
+            ->first();
+
+        if ($productStock) {
+            $productStock->callback_quantity += $callback->quantity;
+            $productStock->save();
+        } else {
+            throw new \Exception('Product stock record not found for sales shift ID: ' . $callback->sales_shift_id);
+        }
+
+        // 2. Update DailyProduce (Production Side)
+        $productDispatch = $callback->productDispatch;
+        if (!$productDispatch || !$productDispatch->shift_id) {
+            throw new \Exception('Product dispatch or production shift not found');
+        }
+
+        $recipe = \App\Models\Recipe::where('product_id', $callback->product_id)->first();
+        if (!$recipe) {
+            throw new \Exception('Recipe not found for product ID: ' . $callback->product_id);
+        }
+
+        $dailyProduce = \App\Models\DailyProduce::where('shift_id', $productDispatch->shift_id)
+            ->where('recipe_id', $recipe->id)
+            ->first();
+
+        if ($dailyProduce) {
+            $dailyProduce->callback_quantity += $callback->quantity;
+            $dailyProduce->closing_quantity += $callback->quantity;
+            $dailyProduce->updateCalculations();
+        } else {
+            \Log::warning('DailyProduce record not found for callback', [
+                'callback_id' => $callback->id,
+                'shift_id' => $productDispatch->shift_id,
+                'recipe_id' => $recipe->id
+            ]);
+        }
+    }
+
+TO: (DELETE - all of this)
+
+Update completeCallback() method (line 226-262):
+
+FROM:
+    $callback->status !== 'received_by_production') {
+        $this->toast()->error('Callback must be received before completion. Current status: ' . $callback->formatted_status)->send();
+        return;
+    }
+
+    // Handle stock impacts before completing
+    $this->handleStockImpact($callback);  // ← DELETE THIS LINE
+
+    $callback->complete();
+
+TO:
+    if ($callback->status !== 'received_by_production') {
+        $this->toast()->error('Callback must be received before completion. Current status: ' . $callback->formatted_status)->send();
+        return;
+    }
+
+    // Use model's completeWithStockUpdate() instead
+    $callback->completeWithStockUpdate();  // ← MODEL METHOD DOES EVERYTHING
+
+
+Testing:
+--------
+php artisan tinker
+>>> $callback = ProductDispatchCallback::find(1);
+>>> $callback->status;  // received_by_production
+>>> $callback->completeWithStockUpdate();
+>>> $callback->status;  // completed
+>>> $callback->fresh()->status;  // Verify persisted
+
+
+---
+
+PRIORITY 3: FIX STATUS FILTER OPTIONS (MEDIUM SEVERITY)
+=======================================================
+
+Time: 0.5 hours
+Severity: MEDIUM
+Blocks: Filtering functionality
+
+In Index.php, update statusOptions (line 43-48):
+
+FROM:
+    public array $statusOptions = [
+        'pending' => 'Pending',
+        'approved' => 'Approved',
+        'rejected' => 'Rejected',
+        'completed' => 'Completed',
+    ];
+
+TO:
+    public array $statusOptions = [
+        'pending' => 'Pending',
+        'approved_by_inventory' => 'Approved by Inventory',
+        'rejected' => 'Rejected',
+        'completed' => 'Completed',
+    ];
+
+
+---
+
+PRIORITY 4: ADD MISSING MODEL CONVENIENCE METHODS (MEDIUM SEVERITY)
+===================================================================
+
+Time: 1 hour
+Severity: MEDIUM
+Blocks: Better API design
+
+In ProductDispatchCallback.php, add after line 238:
+
+    /**
+     * Mark callback as approved and received (convenience method)
+     */
+    public function approveAndReceive($actor = null): bool
+    {
+        if (!$this->approve($actor)) {
+            return false;
+        }
+
+        return $this->markAsReceived($actor);
+    }
+
+    /**
+     * Mark callback as approved, received, and completed (full workflow)
+     */
+    public function approveReceiveAndComplete($actor = null): bool
+    {
+        if (!$this->approve($actor)) {
+            return false;
+        }
+
+        if (!$this->markAsReceived($actor)) {
+            return false;
+        }
+
+        return $this->completeWithStockUpdate();
+    }
+
+Usage in Livewire (optional, for convenience):
+    $callback->approveAndReceive(current_actor());
+    $callback->completeWithStockUpdate();
+
+
+---
+
+PRIORITY 5: CREATE PRODUCTION SIDEBAR (MEDIUM SEVERITY)
+=======================================================
+
+Time: 1 hour
+Severity: MEDIUM
+Blocks: Navigation, UX
+
+Create proper ProductionSidebar.blade.php:
+
+```blade
+<div class="space-y-1">
+    {{-- Callbacks Section --}}
+    <div class="mb-4">
+        <h3 class="px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+            Callbacks
+        </h3>
+        <nav class="space-y-1">
+            <a href="{{ route('branch-dashboard.production.callbacks.index', ['b_id' => request('b_id')]) }}"
+               @class([
+                   'px-4 py-2 text-sm rounded-md transition-colors',
+                   'bg-blue-100 text-blue-900 dark:bg-blue-900/30 dark:text-blue-400' => 
+                       request()->routeIs('branch-dashboard.production.callbacks.index'),
+                   'text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800' =>
+                       !request()->routeIs('branch-dashboard.production.callbacks.index'),
+               ])>
+                <svg class="inline-block w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M5 2a1 1 0 011-1h8a1 1 0 011 1v14a1 1 0 11-2 0V3H7v14a1 1 0 11-2 0V2z"/>
+                </svg>
+                View All Callbacks
+            </a>
+
+            <a href="{{ route('branch-dashboard.production.callbacks.create-inventory', ['b_id' => request('b_id')]) }}"
+               @class([
+                   'px-4 py-2 text-sm rounded-md transition-colors',
+                   'bg-blue-100 text-blue-900 dark:bg-blue-900/30 dark:text-blue-400' => 
+                       request()->routeIs('branch-dashboard.production.callbacks.create-inventory'),
+                   'text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800' =>
+                       !request()->routeIs('branch-dashboard.production.callbacks.create-inventory'),
+               ])>
+                <svg class="inline-block w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10.5 1.5H9V.5h1.5v1zm0 0h5v1h-5v-1zm-6 0h1.5V.5H4.5v1z"/>
+                </svg>
+                Create Inventory Callback
+            </a>
+
+            <a href="{{ route('branch-dashboard.production.callbacks.approve-sales-callbacks', ['b_id' => request('b_id')]) }}"
+               @class([
+                   'px-4 py-2 text-sm rounded-md transition-colors',
+                   'bg-blue-100 text-blue-900 dark:bg-blue-900/30 dark:text-blue-400' => 
+                       request()->routeIs('branch-dashboard.production.callbacks.approve-sales-callbacks'),
+                   'text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800' =>
+                       !request()->routeIs('branch-dashboard.production.callbacks.approve-sales-callbacks'),
+               ])>
+                <svg class="inline-block w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/>
+                </svg>
+                Approve Sales Callbacks
+            </a>
+        </nav>
+    </div>
+
+    {{-- Kitchen Module Section --}}
+    <div class="mb-4">
+        <h3 class="px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+            Kitchen
+        </h3>
+        <nav class="space-y-1">
+            <a href="{{ route('branch-dashboard.production.module.index', ['b_id' => request('b_id')]) }}"
+               @class([
+                   'px-4 py-2 text-sm rounded-md transition-colors',
+                   'bg-blue-100 text-blue-900 dark:bg-blue-900/30 dark:text-blue-400' => 
+                       request()->routeIs('branch-dashboard.production.module.index'),
+                   'text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800' =>
+                       !request()->routeIs('branch-dashboard.production.module.index'),
+               ])>
+                <svg class="inline-block w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M4 4a2 2 0 012-2h4a1 1 0 010 2H6v10h8V4h-2a1 1 0 010-2h4a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"/>
+                </svg>
+                Kitchen Dashboard
+            </a>
+
+            <a href="{{ route('branch-dashboard.production.module.stock-monitor', ['b_id' => request('b_id')]) }}"
+               @class([
+                   'px-4 py-2 text-sm rounded-md transition-colors',
+                   'bg-blue-100 text-blue-900 dark:bg-blue-900/30 dark:text-blue-400' => 
+                       request()->routeIs('branch-dashboard.production.module.stock-monitor'),
+                   'text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800' =>
+                       !request()->routeIs('branch-dashboard.production.module.stock-monitor'),
+               ])>
+                <svg class="inline-block w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm0 6a1 1 0 011-1h12a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6z"/>
+                </svg>
+                Stock Monitor
+            </a>
+        </nav>
+    </div>
+
+    {{-- Recipes Section --}}
+    <div class="mb-4">
+        <h3 class="px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+            Recipes
+        </h3>
+        <nav class="space-y-1">
+            <a href="{{ route('branch-dashboard.production.recipes.index', ['deptSlug' => $dept->slug ?? 'main', 'b_id' => request('b_id')]) }}"
+               @class([
+                   'px-4 py-2 text-sm rounded-md transition-colors',
+                   'bg-blue-100 text-blue-900 dark:bg-blue-900/30 dark:text-blue-400' => 
+                       request()->routeIs('branch-dashboard.production.recipes.index'),
+                   'text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800' =>
+                       !request()->routeIs('branch-dashboard.production.recipes.index'),
+               ])>
+                View Recipes
+            </a>
+
+            <a href="{{ route('branch-dashboard.production.recipes.add', ['deptSlug' => $dept->slug ?? 'main', 'b_id' => request('b_id')]) }}"
+               @class([
+                   'px-4 py-2 text-sm rounded-md transition-colors',
+                   'bg-blue-100 text-blue-900 dark:bg-blue-900/30 dark:text-blue-400' => 
+                       request()->routeIs('branch-dashboard.production.recipes.add'),
+                   'text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800' =>
+                       !request()->routeIs('branch-dashboard.production.recipes.add'),
+               ])>
+                Add Recipe
+            </a>
+        </nav>
+    </div>
+
+    {{-- Raw Materials Section --}}
+    <div class="mb-4">
+        <h3 class="px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+            Tracking
+        </h3>
+        <nav class="space-y-1">
+            <a href="{{ route('branch-dashboard.production.raw-material-tracking', ['b_id' => request('b_id')]) }}"
+               @class([
+                   'px-4 py-2 text-sm rounded-md transition-colors',
+                   'bg-blue-100 text-blue-900 dark:bg-blue-900/30 dark:text-blue-400' => 
+                       request()->routeIs('branch-dashboard.production.raw-material-tracking'),
+                   'text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800' =>
+                       !request()->routeIs('branch-dashboard.production.raw-material-tracking'),
+               ])>
+                Raw Material Tracking
+            </a>
+        </nav>
+    </div>
+
+    {{-- Reports Section --}}
+    <div class="mb-4">
+        <h3 class="px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+            Reports
+        </h3>
+        <nav class="space-y-1">
+            <a href="{{ route('branch-dashboard.production.reports.efficiency', ['b_id' => request('b_id')]) }}"
+               class="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 rounded-md transition-colors">
+                Efficiency
+            </a>
+            <a href="{{ route('branch-dashboard.production.reports.quality', ['b_id' => request('b_id')]) }}"
+               class="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 rounded-md transition-colors">
+                Quality
+            </a>
+            <a href="{{ route('branch-dashboard.production.reports.waste', ['b_id' => request('b_id')]) }}"
+               class="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 rounded-md transition-colors">
+                Waste
+            </a>
+        </nav>
+    </div>
+</div>
+```
+
+
+---
+
+PRIORITY 6: IMPROVE BRANCH FILTERING (MEDIUM SEVERITY)
+======================================================
+
+Time: 0.5 hours
+Severity: MEDIUM
+
+In ApproveCallbacks.php getFilteredQuery() (line 62-71):
+
+FROM:
+    protected function getFilteredQuery()
+    {
+        $query = ProductDispatchCallback::query()
+            ->with([...])
+            ->whereHas('productDispatch.salesShift', function ($q) {
+                $q->where('branch_id', $this->getBranchId());
+            });
+        return $query;
+    }
+
+TO:
+    protected function getFilteredQuery()
+    {
+        $branchId = $this->getBranchId();
+        
+        $query = ProductDispatchCallback::query()
+            ->with([...])
+            ->where(function ($q) use ($branchId) {
+                // Filter by salesShift branch directly
+                $q->whereHas('salesShift', function ($sq) {
+                    $sq->where('branch_id', $branchId);
+                })
+                // Also handle case where productDispatch is NULL
+                ->orWhereHas('productDispatch.salesShift', function ($sq) {
+                    $sq->where('branch_id', $branchId);
+                });
+            });
+
+        return $query;
+    }
+
+This ensures callbacks are found even if productDispatch is NULL.
+
+
+---
+
+SUMMARY TABLE
+=============
+
+| Priority | Issue | Time | Status |
+|----------|-------|------|--------|
+| 1 | Fix actor pattern | 2h | IN_PROGRESS |
+| 2 | Remove duplicate stock logic | 1h | IN_PROGRESS |
+| 3 | Fix status filter options | 0.5h | IN_PROGRESS |
+| 4 | Add model convenience methods | 1h | PENDING |
+| 5 | Create production sidebar | 1h | PENDING |
+| 6 | Improve branch filtering | 0.5h | PENDING |
+
+Total: 6 hours
+
+
+---
+
+TESTING CHECKLIST AFTER FIXES
+==============================
+
+[ ] current_actor() returns correct User/Employee object
+[ ] ProductionCallback stores polymorphic type correctly
+[ ] ProductDispatchCallback stores polymorphic type correctly
+[ ] Stock updates work via completeWithStockUpdate()
+[ ] Status filter shows correct options
+[ ] Branch filtering includes orphaned callbacks
+[ ] Sidebar navigation loads without errors
+[ ] All callback routes are accessible from sidebar
+[ ] Polymorphic relationships load correctly
+[ ] Concurrent approvals don't cause race conditions
+
+
+---
+
+NEXT FILES
+==========
+
+See 04_PRODUCTION_CODE_PATTERNS.txt for detailed code examples
+See 05_PRODUCTION_MODEL_RELATIONSHIPS.txt for complete relationship docs
+See 06_PRODUCTION_QUICK_REFERENCE.txt for quick lookups

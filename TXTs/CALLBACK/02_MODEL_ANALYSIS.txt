@@ -1,0 +1,242 @@
+Callback Models - Detailed Analysis
+ProductDispatchCallback Model
+File: /app/Models/ProductDispatchCallback.php  
+Table: productdispatchcallbacks  
+Purpose: Track products returned from Sales to Production
+Properties & Relationships
+Fillable Properties
+php
+'productdispatchid'    // Link to original dispatch
+'salesshiftid'         // Sales shift sending back
+'productid'             // Product being returned
+'recordedby'            // Sales employee ID
+'quantity'               // Quantity being returned
+'uom'                    // Unit of measure
+'reason'                 // Enum: Why it's being returned
+'status'                 // Current status
+'approvedby'            // Production employee ID
+'approvedat'            // When approved
+'receivedby'            // Production employee ID
+'receivedat'            // When received
+'notes'                  // Additional notes
+'callbacktime'          // When callback was created
+Casts (Type Conversions)
+php
+'quantity' => 'decimal:2'        // Money-safe precision
+'callbacktime' => 'datetime'    // ISO timestamp
+'approvedat' => 'datetime'
+'receivedat' => 'datetime'
+Relationships
+php
+productDispatch()     // BelongsTo ProductDispatch
+salesShift()          // BelongsTo SalesShift
+product()             // BelongsTo Product
+recordedBy()          // BelongsTo Employee (who created)
+approvedBy()          // BelongsTo Employee (who approved)
+receivedBy()          // BelongsTo Employee (who received)
+Scopes
+| Scope | Usage | Returns |
+|-------|-------|---------|
+| pending() | Get pending approvals | WHERE status = 'pending' |
+| approved() | Get approved callbacks | WHERE status = 'approvedbyproduction' |
+| received() | Get received items | WHERE status = 'receivedbyproduction' |
+| completed() | Get completed callbacks | WHERE status = 'completed' |
+| bySalesShift() | Filter by sales shift | WHERE salesshiftid = ? |
+| byProduct() | Filter by product | WHERE productid = ? |
+Methods
+State Checkers
+php
+canBeApproved()      // bool - Returns true if status === 'pending'
+canBeReceived()      // bool - Returns true if status === 'approvedbyproduction'
+Actions
+php
+approve($employeeId)          // Sets status to 'approvedbyproduction'
+markAsReceived($employeeId)   // Sets status to 'receivedbyproduction'
+complete()                    // Sets status to 'completed'
+Attributes
+php
+formattedreason      // Returns ucwords(strreplace('', ' ', $reason))
+formattedstatus      // Returns ucwords(strreplace('', ' ', $status))
+---
+ProductionCallback Model
+File: /app/Models/ProductionCallback.php  
+Table: productioncallbacks  
+Purpose: Track materials/products returned from Production to Inventory
+Properties & Relationships
+Fillable Properties
+php
+'shiftid'           // Production shift reporting the issue
+'sourcetype'        // Enum: 'rawmaterialfromstock' or 'finishedproductreject'
+'itemid'            // Raw material item ID (nullable)
+'productid'         // Finished product ID (nullable)
+'recordedby'        // Production employee ID
+'quantity'           // Quantity being reported
+'uom'                // Unit of measure
+'reason'             // Enum: Why it's defective
+'status'             // Current status
+'approvedby'        // Inventory employee ID
+'approvedat'        // When approved
+'notes'              // Additional notes
+'callbacktime'      // When callback was created
+Casts
+php
+'quantity' => 'decimal:2'
+'callbacktime' => 'datetime'
+'approvedat' => 'datetime'
+Relationships
+php
+shift()          // BelongsTo Shift (production shift)
+item()           // BelongsTo Item (raw material)
+product()        // BelongsTo Product (finished product)
+recipe()         // BelongsTo Recipe (for product callbacks)
+recordedBy()     // BelongsTo Employee (who reported)
+createdBy()      // BelongsTo Employee (who reported - DUPLICATE)
+approvedBy()     // BelongsTo Employee (who approved in inventory)
+Issues Found ⚠️
+Issue #1: Duplicate Relationship
+php
+// Both do the same thing:
+public function recordedBy()  -> BelongsTo(Employee, 'recordedby')
+public function createdBy()   -> BelongsTo(Employee, 'recordedby')
+Impact: Confusing API, redundant code  
+Fix: Remove createdBy(), use only recordedBy()
+Scopes
+| Scope | Usage | Returns |
+|-------|-------|---------|
+| pending() | Get pending approvals | WHERE status = 'pending' |
+| approved() | Get approved callbacks | WHERE status = 'approvedbyinventory' |
+| completed() | Get completed callbacks | WHERE status = 'completed' |
+| rejected() | Get rejected callbacks | WHERE status = 'rejected' |
+| byShift() | Filter by production shift | WHERE shiftid = ? |
+| rawMaterial() | Get raw material callbacks | WHERE sourcetype = 'rawmaterialfromstock' |
+| finishedProduct() | Get finished product callbacks | WHERE sourcetype = 'finishedproductreject' |
+Methods
+Type Checkers
+php
+isRawMaterial()       // bool - Checks sourcetype
+isFinishedProduct()   // bool - Checks sourcetype
+State Checkers
+php
+canBeApproved()       // bool - Returns true if status === 'pending'
+Actions
+php
+approve($employeeId)              // Sets to 'approvedbyinventory', timestamps
+reject($employeeId, $reason = null)  // Sets to 'rejected', appends reason to notes
+complete()                        // Sets to 'completed'
+Attributes
+php
+formattedsourcetype  // ucwords(strreplace('', ' ', $sourcetype))
+formattedreason       // ucwords(strreplace('', ' ', $reason))
+formattedstatus       // ucwords(strreplace('', ' ', $status))
+itemname              // Returns item->name or product->name dynamically
+---
+Database Migrations Analysis
+Migration 1: createproductdispatchcallbackstable
+File: 20251102021715createproductdispatchcallbackstable.php
+sql
+productdispatchid (UNSIGNED BIG INT, FK to productdispatches)
+salesshiftid (UNSIGNED BIG INT, FK to salesshifts)
+productid (UUID, FK to products)
+recordedby (UUID, polymorphic type)
+recordedbytype (string, polymorphic type)
+quantity (DECIMAL 12,2)
+uom (VARCHAR 50)
+reason (ENUM - 7 options)
+status (ENUM - 4 options, default 'pending')
+approvedbyid (UUID, nullable)
+approvedbytype (string, nullable)
+approvedat (TIMESTAMP, nullable)
+receivedbyid (UUID, nullable)
+receivedbytype (string, nullable)
+receivedat (TIMESTAMP, nullable)
+notes (TEXT, nullable)
+callbacktime (TIMESTAMP, nullable)
+timestamps (createdat, updatedat)
+Issues Found:
+Uses polymorphic types (recordedbyid, recordedbytype) but model uses simple foreign key
+Mismatch between model property name recordedby (int) and migration recordedbyid (uuid)
+Migration 2: createproductioncallbackstable
+File: 20251102104432createproductioncallbackstable.php
+sql
+shiftid (UNSIGNED BIG INT, FK to shifts)
+sourcetype (ENUM - 2 options)
+itemid (UNSIGNED BIG INT, FK to items, nullable)
+productid (UUID, FK to products, nullable)
+recordedby (UUID, polymorphic type)
+recordedbytype (string, polymorphic type)
+quantity (DECIMAL 12,2)
+uom (VARCHAR 50)
+reason (ENUM - 6 options)
+status (ENUM - 4 options, default 'pending')
+approvedbyid (UUID, nullable)
+approvedbytype (string, nullable)
+approvedat (TIMESTAMP, nullable)
+notes (TEXT, nullable)
+callbacktime (TIMESTAMP, nullable)
+timestamps (createdat, updatedat)
+Same Issue: Polymorphic types in schema don't match model usage
+Migration 3: makeproductdispatchidnullable
+File: 20251106175546makeproductdispatchidnullableinproductdispatchcallbackstable.php
+Purpose: Allow callbacks without dispatch reference + add 'overstock' reason
+Changes:
+php
+// productdispatchid now nullable
+$table->unsignedBigInteger('productdispatchid')->nullable()->change();
+// reason enum expanded
+ALTER TABLE productdispatchcallbacks MODIFY reason ENUM(
+    'expired', 'damaged', 'qualityissue', 'customerreturn', 
+    'overreceived', 'overstock', 'wrongitem', 'other'
+);
+Impact: Allows callbacks not tied to a specific dispatch (orphaned callbacks)
+Migration 4: createproductcallbackstable (Legacy)
+File: 20251021073703createproductcallbackstable.php
+Status: ⚠️ LEGACY - Not used in current system
+sql
+productstockid
+productid
+salesshiftid
+recordedby (UUID + type)
+quantity, reason, notes
+callbacktime
+timestamps
+Should be: Reviewed for deprecation or replaced with ProductDispatchCallback
+---
+Inconsistencies & Issues Summary
+| Issue | Severity | Location | Solution |
+|-------|----------|----------|----------|
+| Polymorphic type mismatch | MEDIUM | Migrations vs Models | Use simple foreign keys or update models |
+| Duplicate createdBy() method | LOW | ProductionCallback | Remove redundant method |
+| Legacy ProductCallback table | MEDIUM | Unused migration | Deprecate or document clearly |
+| Orphaned callbacks possible | MEDIUM | productdispatchcallbacks | Document implications |
+| No stock update trigger | MEDIUM | ProductDispatchCallback | Manual handling required |
+| Missing reason in ProductionCallback | LOW | Model | 'overstock' only in ProductDispatchCallback |
+---
+Critical Method Issues
+ProductDispatchCallback::completeCallback()
+Location: ApproveCallbacks.php line 267  
+Issue: Manually handles stock impact - should be in model method
+php
+// Current: Done in Livewire component
+protected function handleStockImpact(ProductDispatchCallback $callback)
+// Should be: Model method
+public function complete()  // with automatic stock handling
+ProductionCallback::approve()
+Issue: No automatic stock updates
+Current: Inventory must manually call handleRawMaterialCallback()
+Should: Auto-update in approve() method
+---
+Recommendations
+High Priority
+Fix polymorphic types: Align migrations with actual model usage
+Add stock update methods: Put in models, not Livewire
+Remove duplicate methods: Clean up createdBy()
+Document orphaned callbacks: Explain when productdispatchid is null
+Medium Priority
+Consolidate legacy table: Deprecate ProductCallback
+Add validation: Ensure quantity doesn't exceed available
+Add event listeners: Dispatch events on status changes
+Add scopes for branch filtering: Multi-branch support
+Nice to Have
+Add exportable trait: Excel/CSV export capability
+Add soft deletes: Archive instead of hard delete
+Add version tracking: Change history

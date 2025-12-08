@@ -1,0 +1,286 @@
+Purchase Audit Workflow Design
+Overview
+Implement a draft-and-request approval system for purchases where:
+For Regular Employees:
+User creates and saves a purchase → Stored as DRAFT (no stock changes)
+User reviews draft and requests approval → Request sent to auditor
+Auditor reviews and approves → Stock and inventory updated
+Auditor can reject → Draft remains for user to edit
+For Super Admins:
+User creates and saves a purchase → IMMEDIATELY creates purchase, updates stock and items in one go (no approval needed)
+No draft state, no approval request workflow
+---
+Workflow States
+Purchase States
+draft - Created but not submitted for approval, no stock changes
+pendingapproval - Submitted for approval, waiting for auditor
+approved - Approved by auditor, stock/inventory updated
+rejected - Rejected by auditor, returned to draft for editing
+---
+Database Changes
+Add status Column to purchases Table
+sql
+ALTER TABLE purchases ADD COLUMN status VARCHAR(20) DEFAULT 'draft';
+Create purchaseapprovalrequests Table
+Tracks approval requests separate from purchases
+Columns:
+id (UUID)
+purchaseid (UUID, foreign key)
+requestedbyid (UUID)
+requestedbytype (string) - morph
+approvedbyid (UUID, nullable)
+approvedbytype (string, nullable) - morph
+rejectionreason (text, nullable)
+status (enum: pending, approved, rejected)
+notes (text, nullable)
+createdat
+updatedat
+---
+Model Changes
+Purchase Model
+php
+// Add to fillable
+'status' // new column
+// Add to casts
+'status' => 'string'
+// Add relations
+public function approvalRequest()
+{
+    return $this->hasOne(PurchaseApprovalRequest::class);
+}
+// Add scopes
+public function scopeDrafts($query)
+{
+    return $query->where('status', 'draft');
+}
+public function scopeAwaitingApproval($query)
+{
+    return $query->where('status', 'pendingapproval');
+}
+public function scopeApproved($query)
+{
+    return $query->where('status', 'approved');
+}
+New Model: PurchaseApprovalRequest
+php
+namespace App\Models;
+class PurchaseApprovalRequest extends Model
+{
+    protected $fillable = [
+        'purchaseid',
+        'requestedbyid',
+        'requestedbytype',
+        'approvedbyid',
+        'approvedbytype',
+        'rejectionreason',
+        'status',
+        'notes',
+    ];
+    public function purchase()
+    {
+        return $this->belongsTo(Purchase::class);
+    }
+    public function requestedBy()
+    {
+        return $this->morphTo('requestedby');
+    }
+    public function approvedBy()
+    {
+        return $this->morphTo('approvedby');
+    }
+}
+---
+Component Changes: Purchases.php
+New Properties
+php
+public $showRequestModal = false;  // Modal to request approval
+public $requestNotes = '';         // Notes when requesting approval
+public $draftPurchaseId = null;    // Which draft to request approval for
+Modified Methods
+save()
+Validate purchase data
+If issuperadmin():
+  - Call executeImmediatePurchaseCreation() 
+  - Create purchase with status = 'approved'
+  - Create stock movements
+  - Update Stock table
+  - Audit log marked as 'completed'
+  - Show success message
+If regular employee:
+  - Store in $pendingPurchaseData
+  - Set $showRequestModal = true OR go directly to request
+  - Show modal for user to request approval
+requestPurchaseApproval($purchaseId)
+Validate the purchase exists and belongs to user's branch
+Validate purchase is in 'draft' status
+Show modal for confirmation and notes
+submitPurchaseApprovalRequest()
+Create PurchaseApprovalRequest record
+Update purchase.status to 'pendingapproval'
+Notify auditors
+Close modal
+Show success message
+New: approvePurchase($purchaseId) [Auditor Only]
+Verify user has auditor permission
+Load purchase with items
+Create stock movements
+Update Stock table with new quantities
+Update purchase.status to 'approved'
+Update PurchaseApprovalRequest.status to 'approved'
+Audit log
+Show success
+New: rejectPurchase($purchaseId, $reason) [Auditor Only]
+Verify user has auditor permission
+Update purchase.status back to 'draft'
+Update PurchaseApprovalRequest.status to 'rejected'
+Save rejectionreason
+Audit log
+Show success
+delete()
+Only allow deletion if status is 'draft'
+If status is 'pendingapproval' or 'approved', show error
+Delete if 'draft'
+---
+Blade Template Changes
+Purchase List Table
+Add status column showing badge:
+Draft → Gray badge
+Pending Approval → Yellow badge
+Approved → Green badge
+Rejected → Red badge
+Purchase List Actions
+Draft: "Edit" button (open modal), "Request Approval" button, "Delete" button
+Pending Approval: "View" button (read-only), "Cancel Request" button
+Approved: "View" button (read-only)
+Create/Edit Modal
+Modify to show:
+Purchase details
+List of items with quantities
+At bottom: "Save as Draft" button (don't close modal on validation errors)
+Status indicator
+New: Request Approval Modal
+Shows purchase summary
+Quantity: Item count
+Total Cost
+Optional notes field
+"Request Approval" button
+"Cancel" button
+Auditor Page (New or separate)
+Show:
+Pending Approval Purchases list
+For each: "Approve" and "Reject" buttons
+Approve modal: Confirm and apply changes
+Reject modal: Reason textarea required
+---
+Validation Rules
+Save as Draft
+Keep current rules but make less strict:
+Only validate presence and basic types
+Allow partial data if needed
+Request Approval
+Ensure purchase has:
+At least 1 item
+All items have valid itemid, quantity, unitfobfc
+quantity > 0
+Approve (Auditor)
+Purchase must exist
+Must be in 'pendingapproval' status
+User must have 'approve-purchases' permission
+---
+Stock Updates Logic
+Only happens when auditor approves:
+php
+foreach ($purchase->purchaseItems as $item) {
+    $quantity = $item->quantity;
+    $costPerUnit = $item->costperunit;
+    $stock = Stock::firstOrCreate([...], [...]);
+    $stock->updateAverageCost($quantity, $costPerUnit);
+    
+    $quantitybefore = $stock->quantityavailable;
+    $stock->quantityavailable += $quantity;
+    $stock->save();
+    StockMovement::create([...]);
+}
+---
+Audit Logging
+On Draft Save
+"Saved purchase draft #{purchasenumber} from {suppliername}. Total FOB NGN: {total}. Items: {count}"
+On Approval Request
+"Requested approval for purchase draft #{purchasenumber}. Notes: {notes}"
+On Approval Granted
+"Approved purchase #{purchasenumber} from {suppliername}. Stock updated. Items: {count}"
+On Approval Rejected
+"Rejected purchase approval #{purchasenumber}. Reason: {rejectionreason}"
+---
+File Changes Summary
+Files to Create
+database/migrations/20251204addstatustopurchases.php
+database/migrations/20251204createpurchaseapprovalrequeststable.php
+app/Models/PurchaseApprovalRequest.php
+Files to Modify
+app/Livewire/BranchDashboard/Inventory/Purchases.php - Add new methods and properties
+app/Models/Purchase.php - Add status to fillable, add relations
+resources/views/livewire/branch-dashboard/inventory/purchases.blade.php - Add modals and status column
+Permissions to Consider
+view-draft-purchases - Can see own draft purchases
+request-purchase-approval - Can submit drafts for approval
+approve-purchases - Can approve/reject purchase requests
+reject-purchase-requests - Can reject requests
+---
+UX Flow
+Super Admin
+Click "New Purchase"
+Fill in form
+Click "Save/Create Purchase"
+Purchase created immediately
+Stock updated automatically
+See status "Approved" in list
+Done - no approval needed
+Regular Employee
+Click "New Purchase"
+Fill in form
+Click "Save as Draft"
+See draft in list (status: Draft)
+Review draft
+Click "Request Approval"
+Add optional notes
+Click "Submit Request"
+Purchase status changes to "Pending Approval"
+Wait for auditor approval
+See status change to "Approved" (stock updated) or "Rejected" (can edit)
+Auditor
+Go to Purchases → Pending Approval tab/view
+See list of pending purchase approvals
+Click "Review" or "Approve"
+See full details
+Click "Approve" → Confirm → Stock updates
+Or click "Reject" → Add reason → Purchase returns to draft
+---
+Implementation Pattern (Follows Items.php Pattern)
+In save() method:
+php
+public function save()
+{
+    $this->validate();
+    
+    // Super admins bypass approval workflow
+    if (issuperadmin()) {
+        $this->executeImmediatePurchaseCreation(); // Creates with status='approved', updates stock
+        return;
+    }
+    
+    // Regular employees save as draft, then request approval
+    $this->savePurchaseDraft(); // Creates with status='draft', no stock changes
+    $this->showRequestModal = true; // Show modal to request approval
+}
+This pattern matches how Items.php works:
+Super admins call executeImmediateSave() which creates and logs as 'completed'
+Regular employees store pending data and show audit modal
+---
+Notes
+Drafts are per-user (tracked via recordedby morph)
+Super admins: Stock changes IMMEDIATELY (status = 'approved')
+Regular employees: No stock changes until approval (status = 'draft' → 'pendingapproval' → 'approved')
+Users can edit drafts before requesting approval
+Auditors can reject with reason, returns to draft
+Audit trail tracks all actions with status 'completed' (super admin) or 'pending' (employee)

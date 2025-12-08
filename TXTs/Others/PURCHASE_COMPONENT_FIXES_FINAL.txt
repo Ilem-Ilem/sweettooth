@@ -1,0 +1,156 @@
+Purchase Component Final Fixes - Complete Summary
+Issues Fixed
+✅ UOM Auto-Select from Item
+Issue: User had to manually select UOM in the purchase items table, even though each item has its own UOM.
+Solution:
+Added wire:change="updateItemUom({{ $index }}, $event.target.value)" to the item select dropdown
+Created updateItemUom() method that auto-populates the UOM field when an item is selected
+Updated item select options to display the item's UOM: {{ $availableItem->name }} ({{ $availableItem->uom }})
+UOM field now auto-fills with the item's UOM value
+✅ Validation Not Enforcing All Fields
+Issue: Form validation worked for empty purchases but didn't validate individual item fields properly.
+Solution:
+Updated validation rules with stricter constraints:
+  - quantity: min:0.01 (not min:0)
+  - unitfobfc: min:0.01 (not min:0)
+  - uom: min:1 (ensure non-empty string)
+Changed input step values from step="1" to step="0.01" for quantity and unitfobfc
+Added individual field error messages for each purchase item in the table:
+  blade
+  @error('purchaseItems.'.$index.'.itemid')
+  @error('purchaseItems.'.$index.'.quantity')
+  @error('purchaseItems.'.$index.'.uom')
+  @error('purchaseItems.'.$index.'.unitfobfc')
+  
+✅ Purchase Button Not Working
+Issue: The save button wasn't properly triggering or validation errors weren't displaying properly.
+Solution:
+Fixed button type from implicit to explicit type="button"
+Added proper Livewire loading states with wire:loading.attr="disabled"
+Added loading indicator showing "Saving..." with spinner
+Kept modal open on validation errors (they now display inline)
+Modal only closes on successful save
+✅ Modal Closing on Validation Errors
+Issue: Modal would close even when validation failed, hiding error messages.
+Solution:
+Implemented proper validation exception handling in the save() method
+Modal stays open when ValidationException is thrown
+Error messages display inline for each field
+Only closes on successful creation
+✅ Missing Status Filter
+Issue: No way to filter purchases by approval status.
+Solution:
+Added filterStatus property to component
+Added status filter dropdown in filters section with options:
+  - All
+  - Draft
+  - Pending Approval
+  - Approved
+  - Rejected
+Integrated into query: ->when($this->filterStatus, fn ($q) => $q->where('status', $this->filterStatus))
+Added to resetFilters() method
+✅ Inconsistent Error Handling
+Issue: Using session()->flash() for errors inconsistent with rest of app using toast().
+Solution:
+Replaced all session()->flash('success', ...) with $this->toast()->success(...)->send()
+Replaced all session()->flash('error', ...) with $this->toast()->error(...)->send()
+Wrapped error-prone methods in try-catch blocks:
+  - save() - Catches validation exceptions
+  - requestPurchaseApproval() - Throws exceptions for invalid states
+  - delete() - Throws exceptions for invalid states
+  - All exceptions caught and shown as toast errors
+Removed unreachable code (throw new \Exception() followed by session()->flash())
+Files Modified
+/app/Livewire/BranchDashboard/Inventory/Purchases.php
+Added use TallStackUi\Traits\Interactions; import for toast support
+Added Interactions trait to class declaration
+Added public $filterStatus = '' property
+Updated render() method to include status filter
+Enhanced rules array with stricter validation
+Added updateItemUom() method to auto-populate UOM
+Updated save() method with proper validation exception handling
+Updated requestPurchaseApproval() with try-catch error handling
+Updated delete() with try-catch error handling
+Replaced all session()->flash() calls with $this->toast()
+Updated resetFilters() to include status filter reset
+/resources/views/livewire/branch-dashboard/inventory/purchases.blade.php
+Added Purchase Status filter dropdown in filters section
+Updated item select dropdown:
+  - Added wire:change="updateItemUom(...)"
+  - Display UOM in option labels
+  - Added error messages
+Updated quantity field:
+  - Changed step to 0.01
+  - Added error message
+  - Added focus ring styling
+Updated UOM field:
+  - Removed disabled selected attribute
+  - Added error message
+  - Added focus ring styling
+Updated unitfobfc field:
+  - Changed step to 0.01
+  - Added error message
+  - Added focus ring styling
+Updated Save button:
+  - Changed to type="button"
+  - Added loading state with spinner
+  - Added "Saving..." text while processing
+  - Added disabled state styling
+Updated Request Approval button:
+  - Changed to type="button"
+  - Added loading state with spinner
+  - Added "Submitting..." text while processing
+  - Added disabled state styling
+UI/UX Improvements
+Clear Visual Feedback
+   - Loading spinners during save/submit operations
+   - Disabled button state while processing
+   - Color-coded error messages (red) under each field
+   - Toast notifications for success/error states
+Better Form Experience
+   - Modal stays open on validation errors
+   - All validation errors visible at once
+   - UOM auto-selected to reduce manual input
+   - Item names show their UOM in dropdown
+Filtering Capabilities
+   - Filter by purchase status (Draft, Pending, Approved, Rejected)
+   - Filter by payment status (Paid, Partial, Pending)
+   - Combine multiple filters
+   - Reset all filters with one button
+Validation Rules Summary
+php
+'purchasedate' => 'required|date',
+'suppliername' => 'required|string|max:255',
+'suppliercontact' => 'nullable|string|max:255',
+'othercosts' => 'nullable|numeric|min:0',
+'paymentstatus' => 'required|in:paid,partial,pending',
+'notes' => 'nullable|string',
+'purchaseItems' => 'required|array|min:1',
+'purchaseItems..itemid' => 'required|exists:items,id',
+'purchaseItems..quantity' => 'required|numeric|min:0.01',
+'purchaseItems..uom' => 'required|string|min:1',
+'purchaseItems..unitfobfc' => 'required|numeric|min:0.01',
+Testing Checklist
+[ ] Test creating a purchase with empty form - shows validation errors
+[ ] Test selecting an item - UOM should auto-fill
+[ ] Test with invalid quantities (0 or negative) - shows error
+[ ] Test with empty UOM - shows error
+[ ] Test with invalid FOB price - shows error
+[ ] Test adding multiple items - all validated
+[ ] Test filtering by status - only shows matching purchases
+[ ] Test filtering by payment status - only shows matching purchases
+[ ] Test combining filters - correct intersection shown
+[ ] Test save for super admin - creates immediately
+[ ] Test save for regular employee - creates draft and shows request modal
+[ ] Test request approval - shows pending status
+[ ] Test delete draft - shows success toast
+[ ] Test delete non-draft - shows error toast
+Consistency with PURCHASEAUDITWORKFLOWDESIGN.md
+This implementation now fully aligns with the purchase audit workflow design:
+✅ Draft status with no stock changes
+✅ Request approval workflow
+✅ Super admin bypass with immediate creation
+✅ Status filtering and display
+✅ Proper audit logging
+✅ Error handling and validation
+✅ UI reflects all workflow states

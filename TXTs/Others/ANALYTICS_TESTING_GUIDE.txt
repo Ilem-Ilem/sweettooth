@@ -1,0 +1,225 @@
+Stock Movement Analytics - Testing Guide
+Quick Test Checklist
+Basic Navigation
+[ ] Open Stock Movement Analytics page
+[ ] See "Analytics" and "Charts" tabs
+[ ] Click "Charts" tab - charts should render
+[ ] Click "Analytics" tab - original data should show
+[ ] No console errors in browser DevTools
+Charts Rendering
+[ ] Pie Chart (Movement Type Distribution) renders
+  - Check: Shows all movement types with colors
+  - Check: Data labels visible
+  - Check: Responsive to window size
+  
+[ ] Line Chart (Daily Movement Trend) renders
+  - Check: Shows Stock In (green) and Stock Out (red) lines
+  - Check: X-axis has dates
+  - Check: Tooltip appears on hover
+  
+[ ] Bar Chart (Top 10 Items) renders
+  - Check: Shows item names on Y-axis
+  - Check: Quantities on X-axis
+  - Check: Scrollable if many items
+  
+[ ] Column Chart (Peak Hours) renders
+  - Check: Shows hours of day
+  - Check: Shows movement counts
+  - Check: Bar heights proportional
+Real-Time Reactivity (CRITICAL)
+Test all these filter changes - charts should update instantly:
+Date Range Changes
+[ ] Change "From" date - charts update immediately
+[ ] Change "To" date - charts update immediately
+[ ] Swap invalid dates (From > To) - dates auto-correct and message shows
+[ ] Very large date range - warning appears
+Movement Type Filter
+[ ] Select "In" only - pie chart shows only "In"
+[ ] Select "Out" only - all charts filtered to "Out"
+[ ] Clear selection - all charts restore to full data
+[ ] Each selection triggers instant chart update
+Item Selection
+[ ] Select an item - charts filtered to that item
+[ ] Deselect item - charts restore to all items
+[ ] Charts update immediately on selection change
+Search Term
+[ ] Type search term - charts filtered
+[ ] Clear search - charts restore
+[ ] Each keystroke updates charts
+Shift Filter
+[ ] Select "Morning" - charts updated
+[ ] Select "Afternoon" - charts updated
+[ ] Select "Night" - charts updated
+[ ] Clear shift - charts restore
+Department Filter
+[ ] Select department - charts updated
+[ ] Change department - charts updated immediately
+[ ] Clear department - charts restore
+Filter Display & Reset
+[ ] When filter active: "Active Filters" section appears
+[ ] Each active filter shows as colored tag
+[ ] Click × on tag - removes that filter only
+[ ] "Reset Filters" button appears only when filters active
+[ ] Click "Reset Filters" - all filters cleared, success message shows
+Performance
+[ ] Charts respond within 2 seconds of any filter change
+[ ] No lag or delay when typing in search
+[ ] Date range changes are instant
+[ ] Drop-down selections update immediately
+[ ] No console warnings or errors
+Dark Mode
+[ ] Switch to dark mode - charts adjust colors
+[ ] Text is readable on dark background
+[ ] Chart colors still distinct
+[ ] All UI elements visible in dark mode
+Mobile Responsiveness
+On mobile device or mobile view:
+[ ] Charts stack vertically
+[ ] Tab buttons clickable
+[ ] Filter inputs accessible
+[ ] Charts readable at mobile size
+[ ] No horizontal scrolling issues
+Data Accuracy
+[ ] Pie chart percentages add up to 100%
+[ ] Line chart values match Summary cards above
+[ ] Bar chart shows top 10 items correctly
+[ ] Column chart hours match peak hours in summary
+[ ] Chart numbers match table data below
+Original Features Still Work
+[ ] Table view shows all movements
+[ ] Activity feed works
+[ ] CSV export works with filters
+[ ] Pagination works
+[ ] Item search dropdown works
+[ ] All existing buttons functional
+Edge Cases
+[ ] Empty date range (no data) - charts handle gracefully
+[ ] Very large data set - charts still responsive
+[ ] No movements in selected period - no errors
+[ ] Filter that returns 0 results - charts show empty state
+[ ] Rapid filter changes - no crash or lag
+---
+Performance Benchmarks
+Expected performance:
+| Action | Expected Time |
+|--------|---|
+| Change date range | < 500ms |
+| Select item | < 500ms |
+| Change movement type | < 500ms |
+| Type in search | < 1000ms |
+| Tab switch | < 100ms |
+| Reset filters | < 500ms |
+| Initial page load | < 3000ms |
+| Full page re-render | < 2000ms |
+---
+Common Issues & Solutions
+Issue: Charts don't update when filter changes
+Solution: 
+Check browser console for JavaScript errors
+Verify Livewire is initialized
+Check that livewire:updated event fires
+Reload page and try again
+Issue: Charts load but show wrong data
+Solution:
+Verify filter values in browser DevTools
+Check that data methods are called with filters
+Ensure database has movement records for selected filters
+Issue: Charts are slow to update
+Solution:
+Check database query performance
+Verify indexes are in place (see DATABASEOPTIMIZATION.md)
+Reduce date range to improve performance
+Check browser DevTools performance tab
+Issue: Charts don't show up at all
+Solution:
+Check that Highcharts CDN is loaded (Network tab)
+Verify chart div IDs exist in DOM
+Check browser console for Highcharts errors
+Try hard refresh (Ctrl+Shift+R)
+Issue: Charts appear but styled incorrectly
+Solution:
+Clear browser cache
+Hard refresh page
+Verify dark mode CSS loads
+Check browser zoom level (try 100%)
+---
+Browser Console Commands
+Test charts manually in browser console:
+javascript
+// Update all charts manually
+updateCharts();
+// Check if Highcharts is loaded
+console.log(Highcharts);
+// Check if charts exist
+console.log(chartInstances);
+// Force chart update
+Livewire.dispatch('chartsNeedUpdate');
+---
+Database Performance Testing
+To check if database queries are fast:
+bash
+In Laravel tinker
+>>> \App\Models\StockMovement::whereHas('stock', fn($q) => $q->where('branchid', 1))
+...->selectRaw('type, COUNT() as count')
+...->groupBy('type')
+...->toSql()
+Should execute in < 100ms
+---
+Regression Testing
+Make sure these existing features still work:
+[ ] Table view pagination
+[ ] CSV export
+[ ] Activity feed
+[ ] Search functionality
+[ ] Item selection
+[ ] Movement type filter
+[ ] Date range filter
+[ ] Shift filter (ItemRequest only)
+[ ] Department filter (ItemRequest only)
+---
+Sign-Off Checklist
+[ ] All 10 test categories pass
+[ ] No console errors
+[ ] Charts update instantly on filter change
+[ ] Performance acceptable (< 2s)
+[ ] Dark mode works
+[ ] Mobile responsive
+[ ] Original features preserved
+[ ] Data accuracy verified
+[ ] Ready for production
+---
+Rollback Instructions
+If issues found, rollback is simple:
+Revert component changes:
+   bash
+   git checkout app/Livewire/BranchDashboard/Analytics/StockMovementAnalytics.php
+   
+Revert blade changes:
+   bash
+   git checkout resources/views/livewire/branch-dashboard/analytics/stock-movement-analytics.blade.php
+   
+Clear cache:
+   bash
+   php artisan cache:clear
+   php artisan view:clear
+   
+Refresh browser: Ctrl+Shift+R
+No database changes were made, so no migrations to rollback.
+---
+Performance Profiling
+To profile chart update performance:
+Open DevTools Performance tab
+Click Record
+Change a filter
+Click Stop
+Analyze:
+   - Look for updateCharts() function
+   - Check Livewire update time
+   - Check chart rendering time
+   - Total time should be < 2 seconds
+---
+Questions?
+Refer to:
+STOCKMOVEMENTANALYTICSFIXES.md - What was changed
+MDs/Inventory/README.md - Overview of all analytics
+MDs/Inventory/IMPLEMENTATIONSTOCKMOVEMENTCHARTS.md - Chart details

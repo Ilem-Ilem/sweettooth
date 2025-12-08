@@ -1,0 +1,257 @@
+Item Deletion with Relationship Handling
+Problem Statement
+Items are used in recipes, which are associated with products. When deleting an item, we need to:
+Show what will be deleted to requesters and approvers
+Handle the complex cascade intelligently:
+   - Delete RecipeIngredients (ingredients of recipes)
+   - Handle recipes that lose all ingredients
+   - Keep Products (they should NOT be deleted)
+   - Cascade delete stock, purchases, and movements as configured
+Relationship Architecture
+Item (1) ←─── (Many) RecipeIngredient ──→ (1) Recipe ──→ (1) Product
+             [itemid]              [recipeid]         [productid]
+Key Points:
+Item is used as an ingredient in RecipeIngredient
+RecipeIngredient belongs to exactly one Recipe
+Recipe produces exactly one Product (via productid)
+Product can have multiple Recipes (for different production methods)
+Items are NOT directly related to Products
+Deletion Flow
+User Requests Deletion
+Location: Items.php::delete()
+php
+// Gather all related data BEFORE deletion
+$relatedDataToDelete = $this->gatherRelatedDataForDeletion($item);
+// Show confirmation dialog with related data
+$this->showDeletionConfirmationDialog($item);
+Related Data Gathering
+Location: Items.php::gatherRelatedDataForDeletion()
+Collects:
+A. Recipes (via RecipeIngredient inverse relationship)
+php
+$recipeIngredients = RecipeIngredient::where('itemid', $item->id)
+    ->with('recipe.product')
+    ->get();
+Returns:
+Recipe ID, name, product association
+Quantity used in each recipe
+UOM (unit of measurement)
+B. Affected Products
+php
+$affectedProducts = $recipeIngredients
+    ->map(fn($ri) => $ri->recipe->product)
+    ->filter()
+    ->unique('id');
+Returns:
+Product ID, name, SKU
+Note: Products are NOT deleted, only their recipes are affected
+Multiple products can use the same item in different recipes
+C. Stocks
+php
+$stocks = $item->stocks()->get();
+Returns:
+Stock records across all branches
+Quantities (available, reserved, damaged)
+D. Purchases
+php
+$purchases = $item->purchaseItems()->with('purchase')->get();
+Returns:
+Purchase orders referencing this item
+Quantity and status
+E. Stock Movements
+php
+$stockMovements = $item->stocks()
+    ->with(['stockMovements'])
+    ->get()
+    ->flatMap(fn($stock) => $stock->stockMovements);
+Returns:
+Historical movement records
+User Interface Display
+For Requesters (Audit Modal)
+Shows:
+Red Warning Box with:
+  - ✅ Number of recipes (with product names if ≤3)
+  - ⚠️ Number of affected products (with names and SKUs if ≤3)
+  - ❌ Stock records across branches
+  - ❌ Purchase orders
+  - ❌ Stock movements
+For Approvers (Approval Details Modal)
+Shows:
+Related Data Section with detailed information:
+  - Recipes: Product name and quantity per recipe
+  - Products: Full list with SKUs and warning about production capability loss
+  - Stocks: Branch-by-branch inventory
+  - Purchases: PO numbers and statuses
+  - Stock Movements: Count of affected movement records
+Approval Request Creation
+Location: Items.php::submitItemDeletionRequest()
+Calls:
+php
+InventoryApprovalService::requestItemDeletion(
+    $user,
+    $itemId,
+    $reason,
+    ['itemid' => $itemId, 'relateddata' => $relatedDataToDelete]
+);
+The relateddata is stored in the approval request payload for:
+Display to approvers
+Audit trail reference
+Completeness documentation
+Intelligent Deletion Execution
+Location: InventoryApprovalService::executeItemDeletion()
+Step-by-step process:
+Step 1: Identify Affected Recipes
+php
+$affectedRecipeIds = RecipeIngredient::where('itemid', $itemId)
+    ->pluck('recipeid')
+    ->unique()
+    ->toArray();
+Step 2: Delete Recipe Ingredients
+php
+RecipeIngredient::where('itemid', $itemId)->delete();
+This removes the item from all recipes it's used in.
+Step 3: Check Recipe Integrity
+php
+foreach ($affectedRecipeIds as $recipeId) {
+    $recipe = Recipe::find($recipeId);
+    if ($recipe && $recipe->ingredients()->count() === 0) {
+        // Recipe now has NO ingredients
+        AuditService::log(
+            $approver,
+            'update',
+            $recipe,
+            "Recipe marked incomplete - ingredient '{$itemName}' was deleted."
+        );
+    }
+}
+Why this matters:
+A recipe with 0 ingredients is incomplete
+Products using such recipes cannot be produced
+Audit log alerts admins to review and fix affected products
+Step 4: Delete Item
+php
+$item->delete();
+This cascades to:
+Stocks (via Item::stocks() HasMany) → Deletes all stock records
+StockMovements (via Stock cascade) → Deletes movement history
+PurchaseItems (via Item::purchaseItems() HasMany) → Removes from POs
+ItemRequestDetails, ItemDispatches, StockTakeDetails → As configured in model
+Step 5: Comprehensive Audit Logging
+php
+AuditService::log(
+    $approver,
+    'delete',
+    $item,
+    "Deleted item 'X' (SKU: Y). Related data: N recipe(s) affected. " .
+    "RecipeIngredients, Stocks, StockMovements, and PurchaseItems were cascaded deleted.",
+    'completed'
+);
+Data Integrity Guarantees
+What Gets Deleted ✅
+✅ RecipeIngredients using this item
+✅ Stock records in all branches
+✅ Stock movement history
+✅ Purchase item references
+✅ Item request and dispatch details
+✅ Stock take details
+What Gets AFFECTED (But NOT Deleted) ⚠️
+⚠️ Recipes using this item (become incomplete)
+⚠️ Products using affected recipes (lose production method)
+What Stays Intact ✔️
+✔️ Products themselves (soft deletes or stays active)
+✔️ Product metadata (price, description, etc.)
+✔️ Department-Product associations
+✔️ Other recipes/items for the same product
+Audit Trail
+Every action is logged:
+Item deletion request (with reason and related data summary)
+RecipeIngredient deletions
+Recipes marked as incomplete
+Final item deletion with cascade summary
+Handling Incomplete Recipes
+When a recipe loses all ingredients:
+Current Behavior
+Recipe record remains in database
+Status may remain unchanged
+Audit log created for manual review
+Recommended Follow-ups
+Admin Reviews affected products in Products > [Product] > Recipes
+Options:
+   - Re-add ingredient from different item
+   - Delete recipe if no longer needed (product will use other recipes)
+   - Deactivate product if it has no viable recipes
+Future Enhancement
+Could implement:
+Recipe status field (active/incomplete/disabled)
+Validation preventing production from incomplete recipes
+Automatic product status update when all recipes become incomplete
+Testing Scenarios
+Scenario 1: Item in Single Recipe
+Delete item used in 1 recipe for 1 product
+Expected: Recipe becomes incomplete, product unaffected, audit log created
+Scenario 2: Item in Multiple Recipes
+Delete item used in recipes for different products
+Expected: All 3 recipes affected, all products warned, multiple audit logs
+Scenario 3: Item with Active Stock
+Delete item with 100 units in stock
+Expected: Stock records deleted, movement history deleted, purchase orders unaffected
+Scenario 4: Item in Purchase Orders
+Delete item referenced in pending purchase orders
+Expected: PurchaseItem records deleted, Purchase order stays but shows item as deleted
+Scenario 5: Item with No Related Data
+Delete orphaned item with no recipes/stocks/purchases
+Expected: Clean deletion, minimal impact
+Files Modified
+app/Livewire/BranchDashboard/Inventory/Items.php
+   - Added gatherRelatedDataForDeletion() method
+   - Added showDeletionConfirmationDialog() method
+   - Added buildDeletionSummary() method
+   - Enhanced delete() method
+   - Enhanced submitItemDeletionRequest() method
+app/Services/InventoryApprovalService.php
+   - Enhanced requestItemDeletion() to accept and store related data
+   - Completely rewrote executeItemDeletion() with intelligent cascade handling
+resources/views/livewire/branch-dashboard/inventory/partials/audit-modal.blade.php
+   - Added related data display section
+   - Shows recipes, products, stocks, purchases, movements
+   - Color-coded warnings for different impact levels
+resources/views/livewire/branch-dashboard/audit-management/inventory-approvals.blade.php
+   - Added detailed related data display in approval details modal
+   - Shows product impact with production capability warnings
+   - Expandable details for recipes and affected products
+Configuration Notes
+Model Relationships to Verify
+Ensure these relationships are configured with proper cascading:
+php
+// In Item model
+public function stocks(): HasMany
+{
+    return $this->hasMany(Stock::class);
+    // Should cascade delete
+}
+public function purchaseItems(): HasMany
+{
+    return $this->hasMany(PurchaseItem::class);
+    // Should cascade delete
+}
+// In Stock model
+public function stockMovements(): HasMany
+{
+    return $this->hasMany(StockMovement::class);
+    // Should cascade delete with stock
+}
+If cascading is needed, add to migrations:
+php
+$table->foreign('itemid')
+    ->references('id')
+    ->on('items')
+    ->onDelete('cascade');
+Deployment Checklist
+[ ] Test deletion with recipes
+[ ] Test deletion with multiple products affected
+[ ] Verify audit logs are created
+[ ] Verify stock deletion cascades properly
+[ ] Verify purchase items are handled
+[ ] Test approval workflow end-to-end
+[ ] Verify product integrity after deletion
+[ ] Test with edge cases (orphaned items, etc.)

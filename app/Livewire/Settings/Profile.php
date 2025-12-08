@@ -62,7 +62,7 @@ class Profile extends Component
         $user = Auth::user();
 
         if ($user->hasVerifiedEmail()) {
-            $this->redirectIntended(default: route('dashboard', absolute: false));
+            $this->redirectIntended(default: $this->getRedirectUrl($user));
 
             return;
         }
@@ -70,5 +70,30 @@ class Profile extends Component
         $user->sendEmailVerificationNotification();
 
         Session::flash('status', 'verification-link-sent');
+    }
+
+    /**
+     * Get the redirect URL based on user type.
+     */
+    private function getRedirectUrl($user): string
+    {
+        // Super-admin (auth()->user()) - redirect to branch-dashboard with b_id
+        if ($user) {
+            $branch = \App\Models\Branch::where('id', $user->last_accessed_branch_id)
+                ->where('is_active', 1)
+                ->first();
+
+            if (!$branch) {
+                $branch = \App\Models\Branch::where('is_active', 1)
+                    ->orderBy('created_at')
+                    ->first();
+            }
+
+            if ($branch) {
+                return route('branch-dashboard.index', ['b_id' => $branch->id], absolute: false);
+            }
+        }
+
+        return route('branch-select', absolute: false);
     }
 }

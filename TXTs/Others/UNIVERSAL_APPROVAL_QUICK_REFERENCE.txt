@@ -1,0 +1,278 @@
+Universal Approval Workflow - Quick Reference
+The Pattern (Copy-Paste Template)
+Adding Approval to Any Component
+Step 1: Add Properties to Component
+php
+// In component class
+public $showAuditModal = false;
+public $auditReason = '';
+public $auditAction = null;
+public $pendingActionData = []; // Or specific field names
+public $pendingItemId = null;   // For single-item actions
+Step 2: Create Request Method
+php
+public function submitActionApprovalRequest()
+{
+    $this->validate([
+        'auditReason' => 'required|string|min:10|max:500',
+    ]);
+    try {
+        $actor = Auth::guard('employees')->user();
+        // Call approval service
+        $request = InventoryApprovalService::requestAction(
+            $actor,
+            $this->pendingItemId, // or data array
+            $this->auditReason
+        );
+        // Verify creation
+        if (!$request || !$request->id) {
+            throw new \Exception('Failed to create approval request');
+        }
+        // Success feedback
+        $this->toast()->success('Request submitted! (Request ID: ' . $request->id . ')')->send();
+        $this->closeAuditModal();
+    } catch (\Exception $e) {
+        $this->toast()->error('Failed: ' . $e->getMessage())->send();
+    }
+}
+Step 3: Add Modal View
+blade
+@if($showAuditModal && $auditAction)
+    <div x-data="{ open: @entangle('showAuditModal').live }" 
+         x-show="open" x-cloak x-transition
+         class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+         @keydown.escape.window="$wire.closeAuditModal()">
+        <!-- Modal content using audit-modal.blade.php as template -->
+    </div>
+@endif
+Step 4: Add Method to InventoryApprovalService
+php
+public static function requestAction(
+    Employee $requester,
+    int $itemId, // or array $data
+    string $reason
+): ApprovalAuditRequest {
+    $request = ApprovalAuditRequest::create([
+        'branchid' => $requester->branchid,
+        'requesterid' => $requester->id,
+        'requestertype' => Employee::class,
+        'action' => 'actionname:' . $itemId,
+        'description' => $reason,
+        'payload' => ['itemid' => $itemId], // Complete data
+        'status' => 'pending',
+    ]);
+    AuditService::log(
+        $requester,
+        'create',
+        $request,
+        "Requested action for item. Reason: {$reason}",
+        'pending'
+    );
+    return $request;
+}
+public static function executeAction(
+    ApprovalAuditRequest $request,
+    Employee $approver
+): void {
+    DB::transaction(function () use ($request, $approver) {
+        $payload = $request->payload;
+        $itemId = $payload['itemid'];
+        // Do the actual action
+        Model::find($itemId)->update($payload);
+        // Mark approved
+        $request->update([
+            'approverid' => $approver->id,
+            'approvertype' => Employee::class,
+            'status' => 'approved',
+            'approvedat' => now(),
+        ]);
+    });
+}
+Current Implementation Map
+Already Implemented
+Items (Create/Update/Delete)
+├─ Component: Items.php
+├─ Service: InventoryApprovalService (requestItemCreation, executeItemCreation, etc.)
+├─ Modal: audit-modal.blade.php
+└─ Status: ✅ COMPLETE
+Stocks (Adjust/Update)
+├─ Component: Stocks.php
+├─ Service: InventoryApprovalService (requestStockAdjustment, executeStockAdjustment)
+├─ Modal: stocks-audit-modal.blade.php
+└─ Status: ✅ COMPLETE
+Purchases (Create/Delete)
+├─ Component: Purchases.php
+├─ Service: InventoryApprovalService (requestPurchaseCreation, executePurchaseCreation, etc.)
+├─ Modal: Added to purchases.blade.php
+└─ Status: ✅ COMPLETE
+Possible Additions
+Item Requests (Create)
+Stock Takes (Create/Complete)
+Health Checks (Create)
+(Any other create/update/delete operation)
+Common Patterns
+Pattern 1: Simple Delete
+php
+public function delete($id)
+{
+    $item = Model::findOrFail($id);
+    if (issuperadmin()) {
+        // Execute immediately
+        $item->delete();
+        AuditService::log(/.../);
+        return;
+    }
+    // Request approval
+    $this->pendingItemId = $id;
+    $this->auditAction = 'deleteaction';
+    $this->showAuditModal = true;
+}
+public function submitDeletionRequest()
+{
+    $request = InventoryApprovalService::requestItemDeletion(
+        Auth::guard('employees')->user(),
+        $this->pendingItemId,
+        $this->auditReason
+    );
+    // ... handle result
+}
+Pattern 2: Form Save with Audit
+php
+public function save()
+{
+    $this->validate();
+    if (issuperadmin()) {
+        // Direct execution
+        $this->executeImmediateSave();
+        return;
+    }
+    // Store for approval
+    $this->pendingActionData = [
+        'field1' => $this->field1,
+        'field2' => $this->field2,
+    ];
+    $this->auditAction = 'createaction';
+    $this->showAuditModal = true;
+}
+public function submitAuditRequest()
+{
+    $request = InventoryApprovalService::requestActionCreation(
+        Auth::guard('employees')->user(),
+        $this->pendingActionData,
+        $this->auditReason
+    );
+    // ... handle result
+}
+Pattern 3: Stock Adjustment
+Already implemented in Stocks.php - See that file for reference.
+Validation Rules
+Audit Reason Validation (Always)
+php
+'auditReason' => 'required|string|min:10|max:500'
+Messages
+php
+'auditReason.required' => 'Please provide a reason for this action.',
+'auditReason.min' => 'Reason must be at least 10 characters.',
+'auditReason.max' => 'Reason cannot exceed 500 characters.',
+Testing Each Implementation
+Test Create Action (Items/Purchases)
+php
+// As non-admin
+Click Add/Create
+Fill form
+Click Save/Create
+Audit modal appears
+Fill reason ✓
+Submit
+Toast: "Request submitted! (Request ID: X)"
+Check DB: approvalauditrequests has status=pending
+Check auditlogs: has status=pending
+As admin, Approve button executes action
+Check DB: status=approved, approvedat set
+Check auditlogs: has status=completed
+Test Update Action (Items/Stocks)
+php
+// As non-admin
+Click Edit
+Change values
+Click Update
+Audit modal appears
+Fill reason ✓
+Submit
+Check request created
+Admin approves → Data updated
+Test Delete Action (Items/Purchases)
+php
+// As non-admin
+Click Delete
+Audit modal appears (NOT confirmation dialog)
+Fill reason ✓
+Submit
+Request created
+Admin approves → Item deleted
+Test Super Admin Bypass
+php
+// As super admin
+Perform any action
+No audit modal appears
+Action executes immediately
+Audit log shows status=completed
+No approval request created
+Debugging
+Request Not Creating?
+Check component has all required properties:
+   php
+   public $showAuditModal = false;
+   public $auditReason = '';
+   public $auditAction = null;
+   
+Check Service method returns request:
+   php
+   return $request;  // Must have this at end
+   
+Check Livewire closes modals:
+   php
+   $this->closeAuditModal();  // Must call this
+   
+Check database:
+   sql
+   SELECT  FROM approvalauditrequests ORDER BY id DESC LIMIT 5;
+   
+Request Not Visible in Approvals?
+Check approvalauditrequests has the record
+Check branchid matches current branch
+Check status is pending (not approved/rejected)
+Refresh the Approvals page
+Approval Not Executing?
+Check InventoryApprovals.php has handler for action type
+Check Service has execute method
+Check executeMethod is called in approveRequest()
+Check database transaction completes
+Response Messages
+All submission methods show toast with format:
+"[Action description] submitted! (Request ID: {id})"
+Examples:
+✅ "Stock adjustment request submitted! (Request ID: 42)"
+✅ "Item creation request submitted! (Request ID: 123)"
+✅ "Purchase deletion request submitted! (Request ID: 789)"
+Key Files Reference
+| File | Purpose |
+|------|---------|
+| app/Services/InventoryApprovalService.php | Request/Execute methods |
+| app/Models/ApprovalAuditRequest.php | Request model |
+| app/Livewire/BranchDashboard/AuditManagement/InventoryApprovals.php | Approval dashboard |
+| resources/views/.../partials/audit-modal.blade.php | Standard modal |
+| app/Services/AuditService.php | Logging service |
+One-Command Implementation Checklist
+For any new approval feature:
+[ ] Add modal properties to component
+[ ] Create submitRequest() method with validation
+[ ] Create request method in InventoryApprovalService
+[ ] Create execute method in InventoryApprovalService
+[ ] Add handler to InventoryApprovals.approveRequest()
+[ ] Add audit modal to view (or include existing)
+[ ] Test non-admin flow
+[ ] Test admin bypass
+[ ] Test approval/rejection in dashboard
+[ ] Verify audit logs created
+Done! ✅

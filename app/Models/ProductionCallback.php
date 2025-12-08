@@ -2,8 +2,15 @@
 
 namespace App\Models;
 
+use App\Enums\CallbackStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use RuntimeException;
+use InvalidArgumentException;
+use Illuminate\Validation\ValidationException;
 
 class ProductionCallback extends Model
 {
@@ -12,12 +19,14 @@ class ProductionCallback extends Model
         'source_type',
         'item_id',
         'product_id',
-        'recorded_by',
+        'recorded_by_id',
+        'recorded_by_type',
         'quantity',
         'uom',
         'reason',
         'status',
-        'approved_by',
+        'approved_by_id',
+        'approved_by_type',
         'approved_at',
         'notes',
         'callback_time',
@@ -27,7 +36,27 @@ class ProductionCallback extends Model
         'quantity' => 'decimal:2',
         'callback_time' => 'datetime',
         'approved_at' => 'datetime',
+        'status' => CallbackStatus::class,
     ];
+
+    /**
+     * Boot the model with validation
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($callback) {
+            $callback->validateQuantity();
+        });
+
+        static::updating(function ($callback) {
+            // Only validate quantity if quantity changed
+            if ($callback->isDirty('quantity')) {
+                $callback->validateQuantity();
+            }
+        });
+    }
 
     /**
      * Relationship: Production Shift
@@ -62,27 +91,19 @@ class ProductionCallback extends Model
     }
 
     /**
-     * Relationship: Employee who recorded the callback
+     * Relationship: User or Employee who recorded the callback (polymorphic)
      */
-    public function recordedBy(): BelongsTo
+    public function recordedBy(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'recorded_by');
+        return $this->morphTo('recorded_by', 'recorded_by_type', 'recorded_by_id');
     }
 
     /**
-     * Relationship: Employee who created the callback
+     * Relationship: User or Employee who approved (polymorphic)
      */
-    public function createdBy(): BelongsTo
+    public function approvedBy(): MorphTo
     {
-        return $this->belongsTo(Employee::class, 'recorded_by');
-    }
-
-    /**
-     * Relationship: Inventory employee who approved
-     */
-    public function approvedBy(): BelongsTo
-    {
-        return $this->belongsTo(Employee::class, 'approved_by');
+        return $this->morphTo('approved_by', 'approved_by_type', 'approved_by_id');
     }
 
     /**
@@ -166,30 +187,51 @@ class ProductionCallback extends Model
     }
 
     /**
-     * Approve the callback
+     * Approve the callback with automatic stock updates
      */
-    public function approve($employeeId): bool
+    public function approve($actor = null): bool
     {
         if (! $this->canBeApproved()) {
             return false;
         }
 
-        $this->update([
-            'status' => 'approved_by_inventory',
-            'approved_by' => $employeeId,
-            'approved_at' => now(),
-        ]);
+        $actor = $actor ?? current_actor();
+        if (! $actor) {
+            throw new RuntimeException('No authenticated actor found');
+        }
 
-        return true;
+        return DB::transaction(function () use ($actor) {
+            // Update stock based on type
+            if ($this->isRawMaterial()) {
+                $this->updateRawMaterialStock();
+            } elseif ($this->isFinishedProduct()) {
+                $this->updateFinishedProductStock();
+            }
+
+            // Then approve
+            $this->update([
+                'status' => 'approved_by_inventory',
+                'approved_by_id' => $actor->id,
+                'approved_by_type' => get_class($actor),
+                'approved_at' => now(),
+            ]);
+
+            return true;
+        });
     }
 
     /**
      * Reject the callback
      */
-    public function reject($employeeId, $reason = null): bool
+    public function reject($actor = null, $reason = null): bool
     {
         if (! $this->canBeApproved()) {
             return false;
+        }
+
+        $actor = $actor ?? current_actor();
+        if (! $actor) {
+            throw new RuntimeException('No authenticated actor found');
         }
 
         $notes = $this->notes;
@@ -199,7 +241,8 @@ class ProductionCallback extends Model
 
         $this->update([
             'status' => 'rejected',
-            'approved_by' => $employeeId,
+            'approved_by_id' => $actor->id,
+            'approved_by_type' => get_class($actor),
             'approved_at' => now(),
             'notes' => $notes,
         ]);
@@ -261,5 +304,119 @@ class ProductionCallback extends Model
         }
 
         return 'Unknown';
+    }
+
+    /**
+     * Validate callback quantity
+     *
+     * @throws ValidationException
+     * @return bool
+     */
+    public function validateQuantity(): bool
+    {
+        // Raw materials have no strict quantity limit (may have been partially used)
+        if ($this->isRawMaterial()) {
+            return true;
+        }
+
+        // For finished products, validate against produced quantity
+        if ($this->isFinishedProduct()) {
+            if (! $this->product_id) {
+                throw new InvalidArgumentException('Finished product callback missing product_id');
+            }
+
+            $dailyProduce = DailyProduce::whereHas('recipe', function ($q) {
+                $q->where('product_id', $this->product_id);
+            })
+                ->where('shift_id', $this->shift_id)
+                ->first();
+
+            if (! $dailyProduce) {
+                throw new RuntimeException(
+                    'DailyProduce not found for product and shift'
+                );
+            }
+
+            if ($this->quantity > $dailyProduce->produced_quantity) {
+                throw new ValidationException(
+                    "Callback quantity ({$this->quantity}) exceeds produced ({$dailyProduce->produced_quantity})"
+                );
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Update stock for raw material callbacks
+     *
+     * @throws InvalidArgumentException|RuntimeException
+     * @return void
+     */
+    private function updateRawMaterialStock(): void
+    {
+        if (! $this->item_id) {
+            throw new InvalidArgumentException('Raw material callback missing item_id');
+        }
+
+        $stock = Stock::where('item_id', $this->item_id)
+            ->where('branch_id', $this->shift->branch_id)
+            ->lockForUpdate()
+            ->first();
+
+        if (! $stock) {
+            throw new RuntimeException(
+                'Stock record not found for item: '.$this->item_id
+            );
+        }
+
+        // Decrease available, increase damaged
+        $stock->quantity_available = max(0, $stock->quantity_available - $this->quantity);
+        $stock->quantity_damaged += $this->quantity;
+        $stock->save();
+
+        // Log the movement
+        StockMovement::create([
+            'stock_id' => $stock->id,
+            'type' => 'callback',
+            'quantity' => -$this->quantity,
+            'reference_type' => 'production_callback',
+            'reference_id' => $this->id,
+            'notes' => 'Production callback: '.$this->reason,
+            'movement_date' => now(),
+        ]);
+    }
+
+    /**
+     * Update stock for finished product callbacks
+     *
+     * @throws InvalidArgumentException|RuntimeException
+     * @return void
+     */
+    private function updateFinishedProductStock(): void
+    {
+        if (! $this->product_id) {
+            throw new InvalidArgumentException('Finished product callback missing product_id');
+        }
+
+        $recipe = Recipe::where('product_id', $this->product_id)->first();
+        if (! $recipe) {
+            throw new RuntimeException('Recipe not found for product: '.$this->product_id);
+        }
+
+        $dailyProduce = DailyProduce::where('shift_id', $this->shift_id)
+            ->where('recipe_id', $recipe->id)
+            ->lockForUpdate()
+            ->first();
+
+        if (! $dailyProduce) {
+            throw new RuntimeException(
+                'DailyProduce not found for shift: '.$this->shift_id.
+                ', recipe: '.$recipe->id
+            );
+        }
+
+        $dailyProduce->callback_quantity += $this->quantity;
+        $dailyProduce->updateCalculations();
     }
 }

@@ -1,0 +1,478 @@
+PRODUCTION MODULE - INCONSISTENCIES & ISSUES
+==============================================
+
+CRITICAL ISSUES
+===============
+
+🔴 ISSUE #1: INCONSISTENT EMPLOYEE ACTOR PATTERN
+Location: ApproveCallbacks.php (line 314-319) vs CreateInventoryCallback.php vs system standard
+Severity: HIGH - Breaks polymorphic tracking pattern used throughout codebase
+
+Problem:
+--------
+ApproveCallbacks.php:
+  protected function getEmployeeId()
+  {
+    return session('employee_id') ?? auth()->user()?->employee_id ?? null;
+  }
+
+This returns ONLY an ID, but callbacks use polymorphic relationships:
+  recorded_by_id, recorded_by_type
+  approved_by_id, approved_by_type
+  received_by_id, received_by_type
+
+This method:
+  - Doesn't capture the actor TYPE (Employee vs User)
+  - Can't be used with polymorphic $actor->id and get_class($actor) pattern
+  - Uses session() which is unreliable
+  - Inconsistent with current_actor() used everywhere else
+
+System Standard (from codebase):
+  function current_actor(): User|Employee|null
+  {
+    if (auth()->check()) return auth()->user();
+    if (auth('employees')->check()) return auth('employees')->user();
+    return null;
+  }
+
+Compare with correct usage in ProductionCallback model (line 198):
+  $actor = $actor ?? current_actor();
+  // ... then uses:
+  'approved_by_id' => $actor->id,
+  'approved_by_type' => get_class($actor),
+
+Impact:
+-------
+1. polymorphic recordedBy/approvedBy relationships may fail
+2. Can't track whether approval came from User or Employee
+3. Breaks audit trail requirements
+4. Inconsistent with entire codebase patterns
+
+Fix Required:
+-------------
+Replace getEmployeeId() with proper current_actor() pattern:
+
+    public function approveCallback($callbackId)
+    {
+        try {
+            DB::beginTransaction();
+            $callback = ProductDispatchCallback::find($callbackId);
+            if (!$callback) {
+                $this->toast()->error('Callback not found.')->send();
+                return;
+            }
+
+            $actor = current_actor();  // ← CHANGE HERE
+            if (!$actor) {
+                $this->toast()->error('No authenticated actor found.')->send();
+                return;
+            }
+
+            $callback->approve($actor);  // ← Pass actor object, not just ID
+            
+            DB::commit();
+            $this->toast()->success('Callback approved successfully!')->send();
+            $this->dispatch('$refresh');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $this->toast()->error('Failed to approve callback: ' . $e->getMessage())->send();
+        }
+    }
+
+Same fix needed for:
+  - receiveCallback() (line 189)
+  - completeCallback() (line 226)
+  - Index.php callback operations
+
+
+---
+
+🔴 ISSUE #2: DUPLICATE STOCK UPDATE LOGIC
+Location: ApproveCallbacks.php (line 267-312) + ProductDispatchCallback model (line 295-369)
+Severity: HIGH - Violates DRY principle, causes bugs, API incompatibility
+
+Problem:
+--------
+handleStockImpact() in ApproveCallbacks.php (Livewire component):
+  - Manually updates ProductStock.callback_quantity
+  - Manually updates DailyProduce.callback_quantity + closing_quantity
+  - Duplicates completeWithStockUpdate() logic in model
+
+This means:
+  1. Stock logic isn't reusable (API calls can't use it)
+  2. Can't be tested independently
+  3. Difficult to maintain (changes in two places)
+  4. Creates transaction inconsistency
+  5. completeWithStockUpdate() exists but isn't used
+
+Current flow (WRONG):
+  ApproveCallbacks.completeCallback()
+    → handleStockImpact($callback)  ← Business logic in UI
+    → $callback->complete()         ← Model method for status only
+
+Correct flow should be:
+  ApproveCallbacks.completeCallback()
+    → $callback->completeWithStockUpdate()  ← Everything in model
+
+Code to Remove (ApproveCallbacks.php lines 267-312):
+  protected function handleStockImpact(ProductDispatchCallback $callback): void
+  {
+    // All this logic should be in model!
+  }
+
+Replace with single call:
+  $callback->completeWithStockUpdate();
+
+The model already has this correct implementation (line 295):
+  public function completeWithStockUpdate(): bool
+  {
+    if ($this->status !== 'received_by_production') {
+        throw new RuntimeException(...);
+    }
+    return DB::transaction(function () {
+        $this->updateProductStock();    // ← Correct
+        $this->updateDailyProduce();    // ← Correct
+        $this->update(['status' => 'completed']);
+        return true;
+    });
+  }
+
+Impact:
+-------
+- Stock updates won't work from API layer
+- Stock updates won't work from queued jobs
+- Difficult to test stock logic independently
+- Transaction handling is split between UI and model
+
+
+---
+
+🟡 ISSUE #3: EMPTY PRODUCTION SIDEBAR
+Location: resources/views/ProductionSidebar.blade.php
+Severity: MEDIUM - No navigation structure
+
+Problem:
+--------
+File contains only:
+  <div>
+    <!-- Always remember that you are absolutely unique. Just like everyone else. - Margaret Mead -->
+  </div>
+
+No menu items, no navigation structure, no links to:
+  - Callbacks
+  - Kitchen module
+  - Recipes
+  - Reports
+  - Raw material tracking
+
+Impact:
+-------
+- Users must manually type URLs or navigate via main menu
+- No contextual navigation
+- Production department menu not visible
+
+Fix:
+---
+Create proper sidebar with sections:
+  - Callbacks (subdivide by type)
+  - Kitchen Module
+  - Recipes Management
+  - Daily Produce
+  - Reports (with subsections)
+  - Raw Material Tracking
+  - Shift Closing
+
+
+---
+
+🟡 ISSUE #4: CreateInventoryCallback USES DIRECT AUTH()
+Location: CreateInventoryCallback.php (line 317)
+Severity: MEDIUM - Inconsistent with current_actor() pattern
+
+Problem:
+--------
+Line 317:
+  $employee = auth('employees')->user();
+
+Should use:
+  $actor = current_actor();
+
+This breaks the polymorphic pattern where both Users and Employees can perform actions.
+
+The callback is created with:
+  'recorded_by_id' => $employee->id,   // Assuming always Employee
+  // Missing: 'recorded_by_type' => get_class($employee)
+
+If a User (super admin) creates callback, this will fail silently or store wrong data.
+
+Same issue in other places:
+  Line 102-126: loadAvailableShifts()
+  Line 138-150: loadCurrentShift()
+
+
+---
+
+🟡 ISSUE #5: POLYMORPHIC VALIDATION IN INDEX.PHP
+Location: ApproveCallbacks.php / Index.php
+Severity: MEDIUM - Status names inconsistent
+
+Callback types have different status names:
+
+ProductionCallback:
+  - pending
+  - approved_by_inventory
+  - rejected
+  - completed
+
+ProductDispatchCallback:
+  - pending
+  - approved_by_production
+  - received_by_production
+  - completed
+
+Index.php (line 43-48) has:
+  public array $statusOptions = [
+      'pending' => 'Pending',
+      'approved' => 'Approved',           // ← WRONG! Not a real status
+      'rejected' => 'Rejected',
+      'completed' => 'Completed',
+  ];
+
+This is for ProductionCallback, but 'approved' doesn't exist.
+It should be 'approved_by_inventory'.
+
+Impact:
+-------
+- Filter by status returns no results for "Approved"
+- User selects "Approved" but nothing shows
+- Confusion about valid status values
+
+
+---
+
+🟡 ISSUE #6: MISSING MODEL METHOD IN PRODUCTDISPATCH CALLBACK
+Location: ProductDispatchCallback.php
+Severity: MEDIUM - Incomplete API
+
+Missing method:
+  public function completeCallback($actor = null): bool
+  
+This should exist for consistency with ProductionCallback which has:
+  - approve($actor)
+  - reject($actor, $reason)
+  - complete()
+
+Current implementation forces three separate calls:
+  1. $callback->approve($actor)
+  2. $callback->markAsReceived($actor)
+  3. $callback->complete()
+
+Should have convenience method:
+  public function approveAndReceive($actor = null): bool
+  {
+    if (!$this->approve($actor)) return false;
+    return $this->markAsReceived($actor);
+  }
+
+
+---
+
+⚠️ ISSUE #7: NO BRANCH FILTERING IN CALLBACKS INDEX
+Location: Index.php getFilteredQuery() line 60-69
+Severity: MEDIUM - Data isolation issue
+
+Current code:
+  protected function getFilteredQuery()
+  {
+    $query = ProductionCallback::query()
+        ->with(['item', 'product', 'shift', 'recordedBy', 'approvedBy'])
+        ->whereHas('shift', function ($q) {
+            $q->where('branch_id', $this->getBranchId());
+        });
+    return $query;
+  }
+
+This is CORRECT - filters through shift.branch_id
+
+But ApproveCallbacks.php getFilteredQuery() (line 62-71) does:
+  ->whereHas('productDispatch.salesShift', function ($q) {
+      $q->where('branch_id', $this->getBranchId());
+  })
+
+Problem: productDispatch is NULLABLE, so this may miss callbacks without dispatch.
+
+Better approach:
+  ->whereHas('salesShift', function ($q) {
+      $q->where('branch_id', $this->getBranchId());
+  })
+
+Or handle both cases:
+  ->where(function($q) {
+      $q->whereHas('salesShift', fn($sq) => $sq->where('branch_id', ...))
+        ->orWhereHas('productDispatch.salesShift', fn($sq) => $sq->where('branch_id', ...));
+  })
+
+
+---
+
+⚠️ ISSUE #8: NO TRANSACTION HANDLING IN CREATEINVENTORYCALLBACK
+Location: CreateInventoryCallback.php submitCallback() line 289-350
+Severity: MEDIUM - Partial transaction
+
+Code has DB::transaction but doesn't throw exceptions to roll back:
+  
+  try {
+      DB::beginTransaction();
+      // ... validation ...
+      ProductionCallback::create([...]);
+      DB::commit();  // ← Commits even if validation fails earlier
+  }
+
+If validation fails between try and create, transaction still commits nothing.
+But better pattern would be:
+
+  try {
+      $validated = $this->validate([...]);
+      // Validation happens here, can throw ValidationException
+      
+      $result = DB::transaction(function () use ($validated) {
+          return ProductionCallback::create($validated);
+      });
+  }
+
+This ensures validation happens BEFORE transaction.
+
+
+---
+
+PATTERN CONSISTENCY ISSUES
+===========================
+
+Issue: getEmployeeId() vs current_actor()
+------
+FILES AFFECTED:
+  ❌ ApproveCallbacks.php - Uses getEmployeeId()
+  ❌ CreateInventoryCallback.php - Uses auth('employees')->user()
+  ✅ ProductionCallback model - Uses current_actor()
+  ✅ All other Livewire components - Use current_actor()
+
+SHOULD BE:
+  All Livewire components should use current_actor() pattern
+  All model methods should accept $actor parameter with fallback to current_actor()
+
+
+Issue: Stock Update Location
+------
+FILES AFFECTED:
+  ❌ ApproveCallbacks.php - handleStockImpact() in Livewire
+  ✅ ProductionCallback model - approve() method
+  ✅ ProductDispatchCallback model - completeWithStockUpdate() method
+
+SHOULD BE:
+  All stock logic in model methods ONLY
+  Livewire just calls model methods
+
+
+Issue: Status Filter Options
+------
+FILES AFFECTED:
+  ❌ Index.php - Uses 'approved' instead of 'approved_by_inventory'
+  ✅ ApproveCallbacks.php - Has correct status options
+
+SHOULD BE:
+  All components use enum values from CallbackStatus
+
+
+---
+
+RELATIONSHIP VERIFICATION
+=========================
+
+✅ CORRECT IMPLEMENTATIONS:
+
+ProductionCallback relationships:
+  - shift() → BelongsTo(Shift)
+  - item() → BelongsTo(Item)
+  - product() → BelongsTo(Product)
+  - recipe() → BelongsTo(Recipe)
+  - recordedBy() → MorphTo('recorded_by', type, id)
+  - approvedBy() → MorphTo('approved_by', type, id)
+
+ProductDispatchCallback relationships:
+  - productDispatch() → BelongsTo(ProductDispatch)
+  - salesShift() → BelongsTo(SalesShift)
+  - product() → BelongsTo(Product)
+  - recordedBy() → MorphTo('recorded_by', type, id)
+  - approvedBy() → MorphTo('approved_by', type, id)
+  - receivedBy() → MorphTo('received_by', type, id)
+
+All use correct morphTo() with three parameters: (name, type_column, id_column)
+
+
+⚠️ COLUMN NAMING CONSISTENCY:
+
+Column names in database:
+  recorded_by_id / recorded_by_type
+  approved_by_id / approved_by_type
+  received_by_id / received_by_type
+
+These follow snake_case convention ✅
+
+But in migrations, check if using exact same naming or camelCase ⚠️
+
+
+---
+
+IMPORT STATEMENT ISSUES
+======================
+
+In CreateInventoryCallback.php:
+  use App\Models\DailyProduce;
+
+But never used directly - only via:
+  DailyProduce::where('shift_id', $shiftId)...
+
+Should verify all imports are necessary.
+
+
+---
+
+TESTING GAPS
+============
+
+No test coverage for:
+  - current_actor() polymorphic handling in callbacks
+  - Stock updates in Livewire vs model
+  - Branch filtering with NULL dispatch_id
+  - Concurrent callback approvals
+  - Invalid status transitions
+
+
+---
+
+SUMMARY TABLE
+=============
+
+| Issue | Severity | Location | Type | Effort |
+|-------|----------|----------|------|--------|
+| 1. Actor pattern | HIGH | ApproveCallbacks | Design | 2 hours |
+| 2. Duplicate stock logic | HIGH | ApproveCallbacks | Code | 1 hour |
+| 3. Empty sidebar | MEDIUM | ProductionSidebar | UX | 1 hour |
+| 4. Direct auth() in CreateInventory | MEDIUM | CreateInventory | Design | 1 hour |
+| 5. Wrong status names | MEDIUM | Index | Data | 0.5 hours |
+| 6. Missing convenience methods | MEDIUM | Models | API | 1 hour |
+| 7. Branch filtering | MEDIUM | ApproveCallbacks | Logic | 0.5 hours |
+| 8. Transaction handling | MEDIUM | CreateInventory | Logic | 0.5 hours |
+
+Total estimated effort: 7 hours
+
+
+---
+
+NEXT FILES
+==========
+
+See 03_PRODUCTION_IMPROVEMENTS.txt for detailed fixes
+See 04_PRODUCTION_CODE_PATTERNS.txt for correct patterns
+See 05_PRODUCTION_MODEL_RELATIONSHIPS.txt for complete relationship docs

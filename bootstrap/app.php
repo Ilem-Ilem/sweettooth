@@ -5,6 +5,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use App\Http\Middleware\BranchMiddleware;
 use App\Http\Middleware\IsAdmin;
+use App\Http\Middleware\RedirectIfAuthenticated;
 use App\Http\Middleware\SetBranchContext;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -18,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'isAdmin' => IsAdmin::class,
             'branch'  => BranchMiddleware::class,
             'setBranchContext' => SetBranchContext::class,
+            'guest' => RedirectIfAuthenticated::class,
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,

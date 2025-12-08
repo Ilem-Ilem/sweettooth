@@ -314,7 +314,10 @@ class CreateInventoryCallback extends BaseComponent
                 }
             }
 
-            $employee = auth('employees')->user();
+            $actor = current_actor();
+            if (!$actor) {
+                throw new \Exception('No authenticated actor found');
+            }
 
             // Create callback record
             $sourceType = $this->callbackType === 'raw_material'
@@ -328,7 +331,8 @@ class CreateInventoryCallback extends BaseComponent
                 'source_type' => $sourceType,
                 'item_id' => $this->selectedItemId,
                 'product_id' => $this->selectedProductId,
-                'recorded_by' => $employee->id,
+                'recorded_by_id' => $actor->id,
+                'recorded_by_type' => get_class($actor),
                 'quantity' => $this->callbackQuantity,
                 'uom' => $this->callbackUom,
                 'reason' => $this->callbackReason,
