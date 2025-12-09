@@ -6,6 +6,7 @@ use App\Livewire\BaseComponent;
 use App\Models\{Product, Employee};
 use App\Models\ProductType;
 use App\Models\Department;
+use App\Models\ApprovalAuditRequest;
 use Livewire\Attributes\{Layout, On, Url};
 
 #[Layout('components.layouts.app.branch-dashboard')]
@@ -43,16 +44,19 @@ class Products extends BaseComponent
     public $cost = null;
     public int $shelf_life_days = 0;
     public string $uom = 'pcs';
-    public $recipe_yield = 1;
-    public $recipe_yield_weight = null;
-    public $unit_weight = null;
-    public $yield_percentage = 100;
     public bool $is_active = true;
     public bool $is_available = true;
     public string $image_url = '';
     public array $allergens = [];
     public array $tags = [];
     public ?Employee $employee = null;
+
+    // Audit modal for approval requests
+    public bool $showAuditModal = false;
+    public ?string $auditAction = null;          // create|edit|delete
+    public string $auditReason = '';              // User-provided reason
+    public $pendingItemId = null;            // Product ID pending action
+    public array $pendingItemData = [];           // Data to save on approval
 
     #[Url(keep: true)]
     public ?string $dept_slug = null;
@@ -86,7 +90,9 @@ protected function getFilteredQuery()
     $departmentId = Department::where('slug', $this->dept_slug)->firstOrFail()->id;
 
     return Product::query()
-        ->with(['productType.department'])
+        ->with(['productType.department', 'recipes' => function ($query) use ($departmentId) {
+            $query->where('department_id', $departmentId);
+        }])
         ->when($this->search, function ($query) {
             $query->where('name', 'like', '%' . $this->search . '%')
                   ->orWhere('sku', 'like', '%' . $this->search . '%')
@@ -181,7 +187,6 @@ protected function getFilteredQuery()
                 ['index' => 'name', 'label' => 'Product Name'],
                 ['index' => 'product_type', 'label' => 'Type'],
                 ['index' => 'department', 'label' => 'Department'],
-                ['index' => 'recipe_yield', 'label' => 'Yield/Batch'],
                 ['index' => 'price', 'label' => 'Price'],
                 ['index' => 'shelf_life', 'label' => 'Shelf Life'],
                 ['index' => 'uom', 'label' => 'UOM'],
@@ -217,10 +222,6 @@ protected function getFilteredQuery()
         $this->cost = $product->cost;
         $this->shelf_life_days = $product->shelf_life_days;
         $this->uom = $product->uom;
-        $this->recipe_yield = $product->recipe_yield;
-        $this->recipe_yield_weight = $product->recipe_yield_weight;
-        $this->unit_weight = $product->unit_weight;
-        $this->yield_percentage = $product->yield_percentage;
         $this->is_active = $product->is_active;
         $this->is_available = $product->is_available;
         $this->image_url = $product->image_url ?? '';
@@ -242,10 +243,6 @@ protected function getFilteredQuery()
             'cost' => 'nullable|numeric|min:0',
             'shelf_life_days' => 'required|integer|min:0',
             'uom' => 'required|in:grams,kg,liters,ml,pcs,units',
-            'recipe_yield' => 'required|numeric|min:0.01',
-            'recipe_yield_weight' => 'nullable|numeric|min:0',
-            'unit_weight' => 'nullable|numeric|min:0',
-            'yield_percentage' => 'required|numeric|min:0|max:100',
             'is_active' => 'boolean',
             'is_available' => 'boolean',
             'image_url' => 'nullable|string',
@@ -259,7 +256,8 @@ protected function getFilteredQuery()
 
         $this->validate($rules);
 
-        $data = [
+        $productData = [
+            'id' => $this->isEditing ? $this->productId : null,
             'name' => $this->name,
             'sku' => strtoupper($this->sku),
             'product_type_id' => $this->product_type_id,
@@ -269,10 +267,6 @@ protected function getFilteredQuery()
             'cost' => $this->cost,
             'shelf_life_days' => $this->shelf_life_days,
             'uom' => $this->uom,
-            'recipe_yield' => $this->recipe_yield,
-            'recipe_yield_weight' => $this->recipe_yield_weight,
-            'unit_weight' => $this->unit_weight,
-            'yield_percentage' => $this->yield_percentage,
             'is_active' => $this->is_active,
             'is_available' => $this->is_available,
             'image_url' => $this->image_url,
@@ -280,17 +274,39 @@ protected function getFilteredQuery()
             'tags' => $this->tags,
         ];
 
-        if ($this->isEditing && $this->productId) {
-            $product = Product::findOrFail($this->productId);
-            $product->update($data);
-            $message = 'Product updated successfully!';
-        } else {
-            Product::create($data);
-            $message = 'Product created successfully!';
+        // Super admin bypass - save directly without audit
+        if (is_super_admin()) {
+            $this->saveProduct($productData);
+            return;
         }
 
-        $this->toast()->success($message)->send();
-        $this->closeModal();
+        // Non-super-admin: show audit modal
+        $this->auditAction = $this->isEditing ? 'edit' : 'create';
+        $this->pendingItemId = $this->isEditing ? $this->productId : null;
+        $this->pendingItemData = $productData;
+        $this->showAuditModal = true;
+    }
+
+    private function saveProduct(array $data)
+    {
+        try {
+            if ($data['id']) {
+                $product = Product::findOrFail($data['id']);
+                unset($data['id']);
+                $product->update($data);
+                $this->toast()->success('Product updated successfully')->send();
+            } else {
+                unset($data['id']);
+                Product::create($data);
+                $this->toast()->success('Product created successfully')->send();
+            }
+
+            $this->closeModal();
+            // Refresh the component to show updated data
+            $this->dispatch('refresh');
+        } catch (\Exception $e) {
+            $this->toast()->error('Failed to save product: ' . $e->getMessage())->send();
+        }
     }
 
     public function delete($id): void
@@ -306,12 +322,29 @@ protected function getFilteredQuery()
 
     public function confirmedDelete(string $message): void
     {
-        if ($this->productId) {
-            $product = Product::findOrFail($this->productId);
-            $product->delete();
-            $this->dialog()->success('Success', 'Product deleted successfully!')->send();
-            $this->productId = null;
+        if (!$this->productId) {
+            return;
         }
+
+        // Super admin bypass - delete directly without audit
+        if (is_super_admin()) {
+            try {
+                $product = Product::findOrFail($this->productId);
+                $product->delete();
+                $this->dialog()->success('Success', 'Product deleted successfully!')->send();
+                $this->productId = null;
+            } catch (\Exception $e) {
+                $this->dialog()->error('Error', 'Failed to delete product: ' . $e->getMessage())->send();
+            }
+            return;
+        }
+
+        // Non-super-admin: show audit modal
+        $this->auditAction = 'delete';
+        $this->pendingItemId = $this->productId;
+        $this->pendingItemData = ['id' => $this->productId];
+        $this->showAuditModal = true;
+        $this->dialog()->close();
     }
 
     public function cancelledDelete(string $message): void
@@ -322,15 +355,28 @@ protected function getFilteredQuery()
 
     public function bulkDeleteItems(): void
     {
-        $this->dialog()
-            ->question('Warning!', 'Are you sure you want to delete ' . count($this->selectedIds) . ' product(s)?')
-            ->confirm('Confirm', 'confirmedBulkDelete', 'Confirmed Successfully')
-            ->cancel('Cancel', 'cancelledBulkDelete', 'Cancelled Successfully')
-            ->send();
+        // Super admin - proceed directly
+        if (is_super_admin()) {
+            $this->dialog()
+                ->question('Warning!', 'Are you sure you want to delete ' . count($this->selectedIds) . ' product(s)?')
+                ->confirm('Confirm', 'confirmedBulkDelete', 'Confirmed Successfully')
+                ->cancel('Cancel', 'cancelledBulkDelete', 'Cancelled Successfully')
+                ->send();
+            return;
+        }
+
+        // Non-super-admin: require audit reason for bulk deletes
+        $this->auditAction = 'bulk_delete';
+        $this->showAuditModal = true;
     }
 
     public function confirmedBulkDelete(string $message): void
     {
+        // This is for super admin bulk delete
+        if (!is_super_admin()) {
+            return;
+        }
+
         Product::whereIn('id', $this->selectedIds)->delete();
         $this->dialog()->success('Success', 'Products deleted successfully!')->send();
         $this->selectedIds = [];
@@ -360,15 +406,60 @@ protected function getFilteredQuery()
         $this->cost = null;
         $this->shelf_life_days = 0;
         $this->uom = 'pcs';
-        $this->recipe_yield = 1;
-        $this->recipe_yield_weight = null;
-        $this->unit_weight = null;
-        $this->yield_percentage = 100;
         $this->is_active = true;
         $this->is_available = true;
         $this->image_url = '';
         $this->allergens = [];
         $this->tags = [];
         $this->isEditing = false;
+    }
+
+    public function submitAuditRequest()
+    {
+        $this->validate([
+            'auditReason' => 'required|string|min:10|max:500',
+        ]);
+
+        $requester = current_actor();
+        
+        if ($this->auditAction === 'bulk_delete') {
+            // For bulk delete, store all IDs in payload
+            ApprovalAuditRequest::create([
+                'requester_id' => $requester->id,
+                'requester_type' => get_class($requester),
+                'action' => 'product:bulk_delete',
+                'description' => $this->auditReason,
+                'payload' => ['ids' => $this->selectedIds],
+                'status' => 'pending',
+                'branch_id' => $this->getBranchId(),
+            ]);
+            $this->selectedIds = [];
+        } else {
+            // For create/edit/delete single product
+            ApprovalAuditRequest::create([
+                'requester_id' => $requester->id,
+                'requester_type' => get_class($requester),
+                'action' => 'product:' . $this->auditAction,
+                'description' => $this->auditReason,
+                'payload' => $this->pendingItemData,
+                'status' => 'pending',
+                'branch_id' => $this->getBranchId(),
+            ]);
+        }
+
+        $this->closeAuditModal();
+        $this->closeModal();
+        $this->toast()->success('Approval request submitted for review')->send();
+        // Refresh the component to show updated data
+        $this->dispatch('refresh');
+    }
+
+    private function closeAuditModal()
+    {
+        $this->showAuditModal = false;
+        $this->auditReason = '';
+        $this->auditAction = null;
+        $this->pendingItemId = null;
+        $this->pendingItemData = [];
     }
 }

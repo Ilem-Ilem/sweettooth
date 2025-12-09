@@ -19,6 +19,8 @@ class Recipe extends Model
         'cost_per_unit',
         'uom',
         'yield_quantity',
+        'recipe_yield_weight',
+        'yield_percentage',
         'preparation_time',
         'instructions',
         'status',
@@ -32,6 +34,8 @@ class Recipe extends Model
         'status' => 'string',
         'cost_per_unit' => 'decimal:4',
         'yield_quantity' => 'decimal:2',
+        'recipe_yield_weight' => 'decimal:2',
+        'yield_percentage' => 'decimal:2',
     ];
 
     public function branch(): BelongsTo

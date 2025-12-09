@@ -25,11 +25,15 @@ class Product extends Model
         'shelf_life_days',
         'uom',
         'unit_weight',
+        'recipe_yield',
+        'recipe_yield_weight',
+        'yield_percentage',
         'is_active',
         'is_available',
         'image_url',
         'allergens',
         'tags',
+        'branch_id',
     ];
 
     protected $casts = [
@@ -37,6 +41,9 @@ class Product extends Model
         'cost' => 'decimal:2',
         'shelf_life_days' => 'integer',
         'unit_weight' => 'decimal:2',
+        'recipe_yield' => 'decimal:2',
+        'recipe_yield_weight' => 'decimal:2',
+        'yield_percentage' => 'decimal:2',
         'is_active' => 'boolean',
         'is_available' => 'boolean',
         'allergens' => 'array',
@@ -208,6 +215,38 @@ class Product extends Model
         }
 
         return null;
+    }
+
+    /**
+     * Sync recipe yield information from the primary recipe to product
+     * 
+     * @return bool Whether sync was successful
+     */
+    public function syncYieldFromRecipe(): bool
+    {
+        if (!$this->recipes()->exists()) {
+            return false;
+        }
+
+        $recipe = $this->recipes()->first();
+        
+        if (!$recipe) {
+            return false;
+        }
+
+        // Update recipe_yield from recipe's yield_quantity
+        $updateData = [
+            'recipe_yield' => $recipe->yield_quantity ?? 1,
+        ];
+
+        // Keep existing recipe_yield_weight if already set, otherwise calculate
+        if (!$this->recipe_yield_weight && $this->unit_weight) {
+            $updateData['recipe_yield_weight'] = $recipe->yield_quantity * $this->unit_weight;
+        }
+
+        $this->update($updateData);
+
+        return true;
     }
 
     /**

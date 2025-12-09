@@ -11,6 +11,32 @@ use Livewire\Attributes\Url;
 use Livewire\WithPagination;
 use TallStackUi\Traits\Interactions;
 
+/**
+ * ApproveCallbacks Component
+ * 
+ * Manages the approval workflow for product return callbacks.
+ * Handles callbacks from Sales department where customers return products.
+ * 
+ * Workflow States:
+ *   1. pending - Awaiting approval from production
+ *   2. approved_by_production - Production approved, awaiting receipt confirmation
+ *   3. received_by_production - Production received item, awaiting completion/stock update
+ *   4. completed - Final state, stock has been updated
+ * 
+ * Key Features:
+ *   - Polymorphic actor tracking (Employee or User can approve)
+ *   - Automatic stock updates via model methods
+ *   - Search and filtering by status, date range
+ *   - Detailed callback view modal
+ *   - Statistics dashboard (pending, approved, received, completed counts)
+ * 
+ * @property string|null $b_id Branch ID for filtering
+ * @property int|null $quantity Records per page (pagination)
+ * @property string|null $search Search term for product/actor name
+ * @property string|null $filterStatus Filter by callback status
+ * @property string|null $startDate Date range start
+ * @property string|null $endDate Date range end
+ */
 #[Layout('components.layouts.app.branch-dashboard')]
 class ApproveCallbacks extends BaseComponent
 {

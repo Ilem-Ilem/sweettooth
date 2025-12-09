@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\Recipe;
 use App\Models\RecipeIngredient;
 use App\Services\ProductionAuditService;
+use App\Models\ApprovalAuditRequest;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\{Layout, On, Url};
@@ -48,6 +49,12 @@ class Recipes extends BaseComponent
     public ?string $dept_slug = null;
 
     public ?Department $department = null;
+
+    // Audit modal for delete requests
+    public bool $showAuditModal = false;
+    public ?string $auditAction = null;
+    public string $auditReason = '';
+    public ?int $pendingRecipeId = null;
 
     public function mount($deptSlug){
         $this->dept_slug = $deptSlug;
@@ -212,21 +219,37 @@ class Recipes extends BaseComponent
 
     public function confirmedDelete(string $message): void
     {
-        if ($this->recipeId) {
-            $recipe = Recipe::findOrFail($this->recipeId);
-            
-            // Log recipe deletion to audit trail using actor pattern
-            ProductionAuditService::logRecipeDeleted(
-                current_actor(),
-                $recipe,
-                'User confirmed deletion'
-            );
-
-            $recipe->ingredients()->delete();
-            $recipe->delete();
-            $this->dialog()->success('Success', 'Recipe deleted successfully!')->send();
-            $this->recipeId = null;
+        if (!$this->recipeId) {
+            return;
         }
+
+        // Super admin bypass - delete directly without audit
+        if (is_super_admin()) {
+            try {
+                $recipe = Recipe::findOrFail($this->recipeId);
+                
+                // Log recipe deletion to audit trail using actor pattern
+                ProductionAuditService::logRecipeDeleted(
+                    current_actor(),
+                    $recipe,
+                    'Super admin deletion'
+                );
+
+                $recipe->ingredients()->delete();
+                $recipe->delete();
+                $this->dialog()->success('Success', 'Recipe deleted successfully!')->send();
+                $this->recipeId = null;
+            } catch (\Exception $e) {
+                $this->dialog()->error('Error', 'Failed to delete recipe: ' . $e->getMessage())->send();
+            }
+            return;
+        }
+
+        // Non-super-admin: show audit modal
+        $this->auditAction = 'delete_recipe';
+        $this->pendingRecipeId = $this->recipeId;
+        $this->showAuditModal = true;
+        $this->dialog()->close();
     }
 
     public function cancelledDelete(string $message): void
@@ -237,15 +260,29 @@ class Recipes extends BaseComponent
 
     public function bulkDeleteItems(): void
     {
-        $this->dialog()
-            ->question('Warning!', 'Are you sure you want to delete '.count($this->selectedIds).' recipe(s)?')
-            ->confirm('Confirm', 'confirmedBulkDelete', 'Confirmed Successfully')
-            ->cancel('Cancel', 'cancelledBulkDelete', 'Cancelled Successfully')
-            ->send();
+        // Super admin - proceed directly
+        if (is_super_admin()) {
+            $this->dialog()
+                ->question('Warning!', 'Are you sure you want to delete '.count($this->selectedIds).' recipe(s)?')
+                ->confirm('Confirm', 'confirmedBulkDelete', 'Confirmed Successfully')
+                ->cancel('Cancel', 'cancelledBulkDelete', 'Cancelled Successfully')
+                ->send();
+            return;
+        }
+
+        // Non-super-admin: require audit reason for bulk deletes
+        // Store IDs for later use
+        $this->auditAction = 'bulk_delete_recipe';
+        $this->showAuditModal = true;
     }
 
     public function confirmedBulkDelete(string $message): void
     {
+        // This is for super admin bulk delete
+        if (!is_super_admin()) {
+            return;
+        }
+
         $actor = current_actor();
         
         foreach ($this->selectedIds as $id) {
@@ -255,7 +292,7 @@ class Recipes extends BaseComponent
                 ProductionAuditService::logRecipeDeleted(
                     $actor,
                     $recipe,
-                    'Bulk deletion - User confirmed'
+                    'Bulk deletion - Super admin confirmed'
                 );
 
                 $recipe->ingredients()->delete();
@@ -271,11 +308,49 @@ class Recipes extends BaseComponent
         $this->dialog()->error('Cancelled', $message)->send();
     }
 
-    // public function closeModal()
-    // {
-    //     $this->showModal = false;
-    //     $this->resetFields();
-    //     $this->resetValidation();
-    // }
+    public function submitAuditRequest()
+    {
+        $this->validate([
+            'auditReason' => 'required|string|min:10|max:500',
+        ]);
+
+        $requester = current_actor();
+        
+        if ($this->auditAction === 'delete_recipe' && $this->pendingRecipeId) {
+            ApprovalAuditRequest::create([
+                'requester_id' => $requester->id,
+                'requester_type' => get_class($requester),
+                'action' => 'recipe:delete_recipe',
+                'description' => $this->auditReason,
+                'payload' => ['id' => $this->pendingRecipeId],
+                'status' => 'pending',
+                'branch_id' => $this->getBranchId(),
+            ]);
+        } elseif ($this->auditAction === 'bulk_delete_recipe') {
+            // For bulk delete, store all IDs in payload
+            ApprovalAuditRequest::create([
+                'requester_id' => $requester->id,
+                'requester_type' => get_class($requester),
+                'action' => 'recipe:bulk_delete_recipe',
+                'description' => $this->auditReason,
+                'payload' => ['ids' => $this->selectedIds],
+                'status' => 'pending',
+                'branch_id' => $this->getBranchId(),
+            ]);
+            $this->selectedIds = [];
+        }
+
+        $this->closeAuditModal();
+        $this->toast()->success('Approval request submitted for review')->send();
+        $this->dispatch('refresh');
+    }
+
+    private function closeAuditModal()
+    {
+        $this->showAuditModal = false;
+        $this->auditReason = '';
+        $this->auditAction = null;
+        $this->pendingRecipeId = null;
+    }
 
 }

@@ -12,6 +12,44 @@ use RuntimeException;
 use InvalidArgumentException;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * ProductionCallback Model
+ * 
+ * Represents callbacks for damaged or defective items reported by Production to Inventory.
+ * Handles two callback types:
+ *   1. Raw materials from stock (damaged, expired, quality issues)
+ *   2. Finished products (damaged, quality issues from production)
+ * 
+ * Workflow: pending → approved_by_inventory → completed
+ * 
+ * When production discovers damaged items, they create a callback.
+ * Inventory reviews and approves (or rejects) the callback.
+ * Upon approval, stock is automatically updated.
+ * 
+ * @property int $id
+ * @property int $shift_id Production shift when issue discovered
+ * @property string $source_type Type of callback ('raw_material_from_stock' or 'finished_product_reject')
+ * @property int|null $item_id Raw material item (if raw material callback)
+ * @property int|null $product_id Finished product (if finished product callback)
+ * @property int|null $recorded_by_id ID of actor who recorded callback
+ * @property string|null $recorded_by_type Class name of actor (Employee or User)
+ * @property decimal $quantity Quantity affected
+ * @property string $uom Unit of measure
+ * @property string $reason Reason for callback (damaged, expired, quality_issue, etc.)
+ * @property string $status Current status (enum: CallbackStatus)
+ * @property int|null $approved_by_id ID of actor who approved
+ * @property string|null $approved_by_type Class name of approving actor
+ * @property \DateTime|null $approved_at When approval occurred
+ * @property string|null $notes Additional notes
+ * @property \DateTime $callback_time When callback was recorded
+ * 
+ * @relationship Shift shift() Production shift when issue occurred
+ * @relationship Item item() Raw material item (if applicable)
+ * @relationship Product product() Finished product (if applicable)
+ * @relationship Recipe recipe() Recipe for product (if applicable)
+ * @relationship Employee|User recordedBy() Polymorphic: who recorded the callback
+ * @relationship Employee|User approvedBy() Polymorphic: who approved the callback
+ */
 class ProductionCallback extends Model
 {
     protected $fillable = [
@@ -188,6 +226,27 @@ class ProductionCallback extends Model
 
     /**
      * Approve the callback with automatic stock updates
+     * 
+     * Critical method: Approves a production callback and immediately updates stock.
+     * Business logic is in the MODEL, not in UI components - this enables API/job compatibility.
+     * 
+     * Workflow:
+     *   1. Validates callback can be approved (pending status)
+     *   2. Determines callback type (raw material or finished product)
+     *   3. Updates appropriate stock table (Stock or DailyProduce)
+     *   4. Records approval with actor information
+     *   All within a transaction for consistency
+     * 
+     * @param \App\Models\Employee|\App\Models\User|null $actor The actor approving (defaults to current_actor())
+     * @return bool True if successfully approved and stock updated, false if cannot be approved
+     * @throws RuntimeException If no actor is authenticated or stock not found
+     * 
+     * @example
+     * $callback = ProductionCallback::find(456);
+     * $actor = current_actor();  // Employee or User
+     * if ($callback->approve($actor)) {
+     *     echo "Approved! Stock has been updated.";
+     * }
      */
     public function approve($actor = null): bool
     {
@@ -222,6 +281,19 @@ class ProductionCallback extends Model
 
     /**
      * Reject the callback
+     * 
+     * Allows inventory to reject a production callback with optional reason.
+     * Rejection means the item will NOT be removed from stock and the original
+     * owner must investigate the issue further.
+     * 
+     * @param \App\Models\Employee|\App\Models\User|null $actor The actor rejecting (defaults to current_actor())
+     * @param string|null $reason Optional reason for rejection
+     * @return bool True if successfully rejected, false if cannot be rejected
+     * @throws RuntimeException If no actor is authenticated
+     * 
+     * @example
+     * $callback->reject(current_actor(), 'Item is still usable - return to production');
+     * // Item remains in stock, callback marked as rejected
      */
     public function reject($actor = null, $reason = null): bool
     {

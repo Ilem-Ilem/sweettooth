@@ -13,6 +13,7 @@ use App\Models\ApprovalAuditRequest;
 use Livewire\Attributes\{Layout, On, Title, Url};
 use App\Services\InventoryApprovalService;
 use App\Services\PurchaseAuditApprovalService;
+use App\Services\ProductionApprovalService;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 #[Title("Audit Mnagement")]
@@ -181,6 +182,9 @@ class Index extends Component
                 'create_purchase' => $auditable = InventoryApprovalService::executePurchaseCreation($request, $this->getApprover()),
                 'delete_purchase' => $auditable = InventoryApprovalService::executePurchaseDeletion($request, $this->getApprover()),
                 'approve_purchase' => $auditable = PurchaseAuditApprovalService::approvePurchase($request, $this->getApprover()),
+                // Production module handlers
+                'product' => $auditable = $this->handleProductAction($request),
+                'recipe' => $auditable = $this->handleRecipeAction($request),
                 default => null,
             };
         } catch (\Exception $e) {
@@ -575,10 +579,11 @@ class Index extends Component
             });
         }
 
-        // Apply department filter (all users)
+        // Apply department filter (only for logs, approvals store department in payload)
         if ($this->filterDepartment) {
             $logsQuery->where('department_id', $this->filterDepartment);
-            $approvalsQuery->where('department_id', $this->filterDepartment);
+            // For approvals, we'd need to filter by payload, which is complex
+            // Skip department filter for approvals for now
         }
 
         // Apply action filter
@@ -588,21 +593,26 @@ class Index extends Component
         }
 
         // Apply status filter
-        if ($this->filterStatus) {
+        if (!empty($this->filterStatus)) {
             $logsQuery->where('status', $this->filterStatus);
             $approvalsQuery->where('status', $this->filterStatus);
         }
 
         // Apply date filter
-        if ($this->filterDateFrom) {
-            $logsQuery->whereDate('logged_at', '>=', $this->filterDateFrom);
-            $approvalsQuery->whereDate('created_at', '>=', $this->filterDateFrom);
+        if (!empty($this->filterDateFrom)) {
+            $fromDate = \Carbon\Carbon::parse($this->filterDateFrom)->startOfDay();
+            $logsQuery->where('logged_at', '>=', $fromDate);
+            $approvalsQuery->where('created_at', '>=', $fromDate);
         }
 
-        if ($this->filterDateTo) {
-            $logsQuery->whereDate('logged_at', '<=', $this->filterDateTo);
-            $approvalsQuery->whereDate('created_at', '<=', $this->filterDateTo);
+        if (!empty($this->filterDateTo)) {
+            $toDate = \Carbon\Carbon::parse($this->filterDateTo)->endOfDay();
+            $logsQuery->where('logged_at', '<=', $toDate);
+            $approvalsQuery->where('created_at', '<=', $toDate);
         }
+
+        // Get departments for filter
+        $departments = Department::orderBy('name')->get();
 
         // Get data based on tab
         if ($this->tab === 'logs') {
@@ -611,13 +621,14 @@ class Index extends Component
                 ->paginate(15);
 
             $actions = AuditLog::distinct('action')->pluck('action')->sort();
-            $statuses = ['pending', 'completed', 'rejected'];
+            $statuses = AuditLog::distinct('status')->pluck('status')->sort();
 
             return view('livewire.branch-dashboard.audit-management.index', [
                 'logs' => $logs,
                 'approvals' => null,
                 'actions' => $actions,
                 'statuses' => $statuses,
+                'departments' => $departments,
                 'isSuperAdmin' => $isSuperAdmin,
             ]);
         } else {
@@ -627,15 +638,52 @@ class Index extends Component
                 ->paginate(15);
 
             $actions = ApprovalAuditRequest::distinct('action')->pluck('action')->sort();
-            $statuses = ['pending', 'approved', 'rejected'];
+            $statuses = ApprovalAuditRequest::distinct('status')->pluck('status')->sort();
 
             return view('livewire.branch-dashboard.audit-management.index', [
                 'logs' => null,
                 'approvals' => $approvals,
                 'actions' => $actions,
                 'statuses' => $statuses,
+                'departments' => $departments,
                 'isSuperAdmin' => $isSuperAdmin,
             ]);
         }
+    }
+
+    /**
+     * Handle product-related approval actions (create, edit, delete)
+     */
+    private function handleProductAction(ApprovalAuditRequest $request)
+    {
+        // Extract sub-action from action string: "product:create", "product:edit", "product:delete", "product:bulk_delete"
+        $parts = explode(':', $request->action);
+        $subAction = $parts[1] ?? 'create';
+
+        return match ($subAction) {
+            'create' => ProductionApprovalService::executeProductCreation($request),
+            'edit' => ProductionApprovalService::executeProductUpdate($request),
+            'delete' => ProductionApprovalService::executeProductDeletion($request),
+            'bulk_delete' => ProductionApprovalService::executeProductBulkDeletion($request),
+            default => throw new \Exception("Unknown product action: {$subAction}"),
+        };
+    }
+
+    /**
+     * Handle recipe-related approval actions (create, edit, delete)
+     */
+    private function handleRecipeAction(ApprovalAuditRequest $request)
+    {
+        // Extract sub-action from action string: "recipe:create_recipe", "recipe:edit_recipe", "recipe:delete_recipe", "recipe:bulk_delete_recipe"
+        $parts = explode(':', $request->action);
+        $subAction = $parts[1] ?? 'create_recipe';
+
+        return match ($subAction) {
+            'create_recipe' => ProductionApprovalService::executeRecipeCreation($request),
+            'edit_recipe' => ProductionApprovalService::executeRecipeUpdate($request),
+            'delete_recipe' => ProductionApprovalService::executeRecipeDeletion($request),
+            'bulk_delete_recipe' => ProductionApprovalService::executeRecipeBulkDeletion($request),
+            default => throw new \Exception("Unknown recipe action: {$subAction}"),
+        };
     }
 }

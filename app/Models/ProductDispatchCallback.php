@@ -12,6 +12,42 @@ use RuntimeException;
 use InvalidArgumentException;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * ProductDispatchCallback Model
+ * 
+ * Represents product return callbacks from Sales to Production.
+ * Tracks the workflow: pending → approved_by_production → received_by_production → completed
+ * 
+ * When customers return products, they're recorded as callbacks.
+ * Production must approve the return, then mark it as received.
+ * Upon completion, stock updates are triggered automatically.
+ * 
+ * @property int $id
+ * @property int|null $product_dispatch_id Reference to original product dispatch
+ * @property int|null $sales_shift_id Sales shift when return occurred
+ * @property int $product_id Product being returned
+ * @property int|null $recorded_by_id ID of actor who recorded callback
+ * @property string|null $recorded_by_type Class name of actor (Employee or User)
+ * @property decimal $quantity Quantity being returned
+ * @property string $uom Unit of measure
+ * @property string $reason Reason for return (damaged, defective, etc.)
+ * @property string $status Current status (enum: CallbackStatus)
+ * @property int|null $approved_by_id ID of actor who approved
+ * @property string|null $approved_by_type Class name of approving actor
+ * @property \DateTime|null $approved_at When approval occurred
+ * @property int|null $received_by_id ID of actor who received
+ * @property string|null $received_by_type Class name of receiving actor
+ * @property \DateTime|null $received_at When received
+ * @property string|null $notes Additional notes
+ * @property \DateTime $callback_time When callback was recorded
+ * 
+ * @relationship ProductDispatch productDispatch() Optionally related product dispatch
+ * @relationship SalesShift salesShift() Sales shift from which return came
+ * @relationship Product product() Product being returned
+ * @relationship Employee|User recordedBy() Polymorphic: who recorded the callback
+ * @relationship Employee|User approvedBy() Polymorphic: who approved the return
+ * @relationship Employee|User receivedBy() Polymorphic: who received the return
+ */
 class ProductDispatchCallback extends Model
 {
     protected $fillable = [
@@ -174,7 +210,21 @@ class ProductDispatchCallback extends Model
     }
 
     /**
-     * Approve the callback
+     * Approve the callback (Sales→Production approval)
+     * 
+     * Marks the return as approved by production, confirming they accept the returned product.
+     * If no actor is provided, uses current_actor() for polymorphic tracking.
+     * 
+     * @param \App\Models\Employee|\App\Models\User|null $actor The actor approving (defaults to current_actor())
+     * @return bool True if successfully approved, false if cannot be approved
+     * @throws RuntimeException If no actor is authenticated
+     * 
+     * @example
+     * $callback = ProductDispatchCallback::find(1);
+     * $actor = current_actor();  // Employee or User
+     * if ($callback->approve($actor)) {
+     *     echo "Approved successfully";
+     * }
      */
     public function approve($actor = null): bool
     {
@@ -198,7 +248,19 @@ class ProductDispatchCallback extends Model
     }
 
     /**
-     * Mark as received
+     * Mark callback as received by production
+     * 
+     * Records that production has physically received the returned product.
+     * Can only be called after approval. Once received, callback can be completed
+     * with automatic stock updates.
+     * 
+     * @param \App\Models\Employee|\App\Models\User|null $actor The actor receiving (defaults to current_actor())
+     * @return bool True if successfully marked as received, false if cannot be received
+     * @throws RuntimeException If no actor is authenticated
+     * 
+     * @example
+     * $callback->markAsReceived(current_actor());
+     * // Now callback can be completed with stock updates
      */
     public function markAsReceived($actor = null): bool
     {
@@ -316,9 +378,28 @@ class ProductDispatchCallback extends Model
 
     /**
      * Complete the callback with automatic stock updates
-     *
-     * @throws RuntimeException
-     * @return bool
+     * 
+     * This is the critical method that finalizes a callback and updates inventory.
+     * IMPORTANT: Business logic is in the MODEL, not in UI components.
+     * This allows stock updates to work from API, jobs, and UI.
+     * 
+     * Workflow:
+     *   1. Updates ProductStock (adds to callback_quantity)
+     *   2. Updates DailyProduce (increments callback_quantity and closing_quantity)
+     *   3. Marks callback as completed
+     *   All within a single database transaction for consistency
+     * 
+     * @return bool Always returns true on success
+     * @throws RuntimeException If callback is not in 'received_by_production' status
+     * 
+     * @example
+     * $callback = ProductDispatchCallback::find(123);
+     * // After receiving the product:
+     * $callback->completeWithStockUpdate();
+     * 
+     * // Stock is now updated:
+     * $stock = ProductStock::find($stockId);
+     * echo $stock->callback_quantity;  // Increased
      */
     public function completeWithStockUpdate(): bool
     {

@@ -10,6 +10,36 @@ use Livewire\Attributes\Url;
 use Livewire\WithPagination;
 use TallStackUi\Traits\Interactions;
 
+/**
+ * Production Callbacks Index Component
+ * 
+ * Lists and manages all production callbacks (items reported to inventory).
+ * Displays callbacks for damaged/defective:
+ *   1. Raw materials - From stock inventory
+ *   2. Finished products - From production quality checks
+ * 
+ * Features:
+ *   - Status filtering (pending, approved, rejected, completed)
+ *   - Date range filtering (default: last 30 days)
+ *   - Search by item/product/actor name
+ *   - Shift-based filtering
+ *   - Inline actions and modal details view
+ *   - Status statistics dashboard
+ *   - Export functionality (coming soon)
+ * 
+ * Workflow States:
+ *   - pending: Awaiting inventory approval
+ *   - approved_by_inventory: Approved, stock updated
+ *   - rejected: Inventory rejected, no stock change
+ *   - completed: Final state
+ * 
+ * @property string|null $b_id Branch ID for filtering
+ * @property int|null $quantity Records per page (pagination)
+ * @property string|null $search Search term
+ * @property string|null $filterStatus Status filter
+ * @property string|null $startDate Date range start
+ * @property string|null $endDate Date range end
+ */
 #[Layout('components.layouts.app.branch-dashboard')]
 class Index extends BaseComponent
 {

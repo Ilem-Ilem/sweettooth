@@ -84,63 +84,27 @@
                             <span class="text-red-500 text-sm">{{ $message }}</span>
                         @enderror
                     </div>
-                </div>
 
-                <!-- Recipe Yield Section -->
-                <div class="border-b border-zinc-200 dark:border-zinc-700 pb-4 mb-4">
-                    <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Recipe Yield Information</h3>
-                    <p class="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
-                        Define how many units one recipe batch produces for accurate ingredient calculations
-                    </p>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <!-- Recipe Yield -->
-                        <div>
-                            <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Recipe Yield (Units) *</label>
-                            <input type="number" step="0.01" wire:model="recipe_yield"
-                                class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500"
-                                placeholder="e.g., 12" required>
-                            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">How many units does one recipe batch produce?</p>
-                            @error('recipe_yield')
-                                <span class="text-red-500 text-sm">{{ $message }}</span>
-                            @enderror
-                        </div>
-
-                        <!-- Yield Percentage -->
-                        <div>
-                            <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Yield % *</label>
-                            <input type="number" step="0.01" wire:model="yield_percentage"
-                                class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500"
-                                placeholder="100" required>
-                            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Accounts for waste/loss (100% = no waste)</p>
-                            @error('yield_percentage')
-                                <span class="text-red-500 text-sm">{{ $message }}</span>
-                            @enderror
-                        </div>
-
-                        <!-- Recipe Yield Weight -->
-                        <div>
-                            <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Total Batch Weight/Volume (g/ml)</label>
-                            <input type="number" step="0.01" wire:model="recipe_yield_weight"
-                                class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500"
-                                placeholder="e.g., 1200">
-                            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Total weight/volume of one recipe batch</p>
-                            @error('recipe_yield_weight')
-                                <span class="text-red-500 text-sm">{{ $message }}</span>
-                            @enderror
-                        </div>
-
-                        <!-- Unit Weight -->
-                        <div>
-                            <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Unit Weight/Volume (g/ml)</label>
-                            <input type="number" step="0.01" wire:model="unit_weight"
-                                class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500"
-                                placeholder="e.g., 100">
-                            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Weight/volume of one unit</p>
-                            @error('unit_weight')
-                                <span class="text-red-500 text-sm">{{ $message }}</span>
-                            @enderror
-                        </div>
+                    <!-- Unit of Measure -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Unit of Measure *</label>
+                        <x-select.styled
+                            wire:model.live="uom"
+                            :options="[
+                                ['label' => 'Pieces (Pcs)', 'value' => 'pcs'],
+                                ['label' => 'Units', 'value' => 'units'],
+                                ['label' => 'Grams', 'value' => 'grams'],
+                                ['label' => 'Kilograms (Kg)', 'value' => 'kg'],
+                                ['label' => 'Liters', 'value' => 'liters'],
+                                ['label' => 'Milliliters (ml)', 'value' => 'ml']
+                            ]"
+                            select="label:label|value:value"
+                            placeholder="Select UOM"
+                            required
+                        />
+                        @error('uom')
+                            <span class="text-red-500 text-sm">{{ $message }}</span>
+                        @enderror
                     </div>
                 </div>
 
@@ -172,39 +136,17 @@
                         </div>
 
                         <!-- Shelf Life -->
-                        <div>
-                            <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Shelf Life (Days) *</label>
-                            <input type="number" wire:model="shelf_life_days"
-                                class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500"
-                                placeholder="0" required>
-                            @error('shelf_life_days')
-                                <span class="text-red-500 text-sm">{{ $message }}</span>
-                            @enderror
+                         <div>
+                             <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Shelf Life (Days) *</label>
+                             <input type="number" wire:model="shelf_life_days"
+                                 class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500"
+                                 placeholder="0" required>
+                             @error('shelf_life_days')
+                                 <span class="text-red-500 text-sm">{{ $message }}</span>
+                             @enderror
+                         </div>
                         </div>
-
-                        <!-- Unit of Measure -->
-                        <div>
-                            <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Unit of Measure *</label>
-                            <x-select.styled
-                                wire:model="uom"
-                                :options="[
-                                    ['label' => 'Pieces (Pcs)', 'value' => 'pcs'],
-                                    ['label' => 'Units', 'value' => 'units'],
-                                    ['label' => 'Grams', 'value' => 'grams'],
-                                    ['label' => 'Kilograms (Kg)', 'value' => 'kg'],
-                                    ['label' => 'Liters', 'value' => 'liters'],
-                                    ['label' => 'Milliliters (ml)', 'value' => 'ml']
-                                ]"
-                                select="label:label|value:value"
-                                placeholder="Select UOM"
-                                required
-                            />
-                            @error('uom')
-                                <span class="text-red-500 text-sm">{{ $message }}</span>
-                            @enderror
                         </div>
-                    </div>
-                </div>
 
                 <!-- Status Section -->
                 <div>

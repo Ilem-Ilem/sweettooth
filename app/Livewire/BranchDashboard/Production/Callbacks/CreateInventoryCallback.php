@@ -15,6 +15,38 @@ use Livewire\Attributes\Url;
 use Livewire\WithPagination;
 use TallStackUi\Traits\Interactions;
 
+/**
+ * CreateInventoryCallback Component
+ * 
+ * Manages creation of production callbacks for damaged/defective items.
+ * Handles two callback types:
+ *   1. Raw materials - Items from stock that are damaged, expired, etc.
+ *   2. Finished products - Products produced in current shift with quality issues
+ * 
+ * Features:
+ *   - Separate modal forms for raw materials and finished products
+ *   - Automatic quantity validation against produced/dispatched quantities
+ *   - Shift-based filtering and selection
+ *   - Polymorphic actor tracking (Employee or User records callback)
+ *   - Lists available items/products from current shift
+ *   - Reason codes specific to callback type
+ * 
+ * Workflow:
+ *   1. User selects production shift
+ *   2. System displays available raw materials and finished products
+ *   3. User clicks item/product to create callback
+ *   4. Modal opens with quantity and reason fields
+ *   5. Callback is created and awaits inventory approval
+ * 
+ * @property string|null $b_id Branch ID for filtering
+ * @property int|null $currentShiftId Active shift for current employee
+ * @property int|null $selectedShiftId Shift selected for viewing callbacks
+ * @property string $callbackType Type of callback ('raw_material' or 'finished_product')
+ * @property int|null $selectedItemId Raw material item being reported
+ * @property int|null $selectedProductId Finished product being reported
+ * @property decimal $callbackQuantity Quantity of damaged/defective items
+ * @property string $callbackReason Reason for callback
+ */
 #[Layout('components.layouts.app.branch-dashboard')]
 class CreateInventoryCallback extends BaseComponent
 {

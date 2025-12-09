@@ -223,26 +223,70 @@
                 @if($row->status === 'pending')
                     <button wire:click="approveCallback({{ $row->id }})"
                         wire:confirm="Are you sure you want to approve this callback?"
-                        class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium transition-colors">
-                        Approve
+                        x-data="{ loading: false }"
+                        @click="loading = true; $nextTick(() => loading = false)"
+                        class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded text-xs font-medium transition-colors disabled:opacity-50"
+                        :disabled="loading">
+                        <template x-if="!loading">
+                            <span>Approve</span>
+                        </template>
+                        <template x-if="loading">
+                            <svg class="animate-spin h-3 w-3 inline" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </template>
                     </button>
                 @elseif($row->status === 'approved_by_production')
                     <button wire:click="receiveCallback({{ $row->id }})"
                         wire:confirm="Are you sure you want to mark this callback as received?"
-                        class="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs font-medium transition-colors">
-                        Mark Received
+                        x-data="{ loading: false }"
+                        @click="loading = true; $nextTick(() => loading = false)"
+                        class="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white rounded text-xs font-medium transition-colors disabled:opacity-50"
+                        :disabled="loading">
+                        <template x-if="!loading">
+                            <span>Mark Received</span>
+                        </template>
+                        <template x-if="loading">
+                            <svg class="animate-spin h-3 w-3 inline" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </template>
                     </button>
                 @elseif($row->status === 'received_by_production')
                     <button wire:click="completeCallback({{ $row->id }})"
                         wire:confirm="Are you sure you want to complete this callback?"
-                        class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium transition-colors">
-                        Complete
+                        x-data="{ loading: false }"
+                        @click="loading = true; $nextTick(() => loading = false)"
+                        class="px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded text-xs font-medium transition-colors disabled:opacity-50"
+                        :disabled="loading">
+                        <template x-if="!loading">
+                            <span>Complete</span>
+                        </template>
+                        <template x-if="loading">
+                            <svg class="animate-spin h-3 w-3 inline" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </template>
                     </button>
                 @endif
 
                 <button wire:click="viewDetails({{ $row->id }})"
-                    class="px-3 py-1.5 bg-zinc-600 hover:bg-zinc-700 text-white rounded text-xs font-medium transition-colors">
-                    View Details
+                    x-data="{ loading: false }"
+                    @click="loading = true; $nextTick(() => loading = false)"
+                    class="px-3 py-1.5 bg-zinc-600 hover:bg-zinc-700 disabled:bg-zinc-400 text-white rounded text-xs font-medium transition-colors disabled:opacity-50"
+                    :disabled="loading">
+                    <template x-if="!loading">
+                        <span>View Details</span>
+                    </template>
+                    <template x-if="loading">
+                        <svg class="animate-spin h-3 w-3 inline" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </template>
                 </button>
             </div>
         @endinteract

@@ -8,12 +8,22 @@
 
     <!-- Header with Add Button -->
     <div class="flex justify-between items-center">
-        <button wire:click="openCreateModal"
-            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center shadow-sm">
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-            Add Product
+        <button wire:click="openCreateModal" wire:loading.attr="disabled"
+            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center shadow-sm relative"
+            :class="{ 'opacity-75 cursor-not-allowed': $wire.loading }">
+            <span wire:loading.remove class="flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Add Product
+            </span>
+            <span wire:loading wire:target="openCreateModal" class="flex items-center">
+                <svg class="w-5 h-5 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Loading...
+            </span>
         </button>
     </div>
 
@@ -67,63 +77,99 @@
             </button>
         </div>
 
-        <div x-show="open" x-collapse class="p-3 space-y-3">
+        <div x-show="open" x-collapse class="p-3 space-y-3" wire:loading.class="opacity-75 pointer-events-none" wire:target="updatedSearch, updatedFilterProductType, updatedFilterDepartment, updatedFilterStatus, resetFilters" class="transition-opacity duration-200">
             <div>
                 <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Search</label>
-                <input type="text" wire:model.live.debounce.300ms="search"
-                    placeholder="Search by name, SKU, or description..."
-                    class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                <div class="relative">
+                    <input type="text" wire:model.live.debounce.300ms="search"
+                        placeholder="Search by name, SKU, or description..."
+                        class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                    <span wire:loading wire:target="updatedSearch" class="absolute right-3 top-2.5">
+                        <svg class="w-5 h-5 animate-spin text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </span>
+                </div>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                     <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Department</label>
-                    <select wire:model.live="filterDepartment"
-                        class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
-                        @if ($employees_department->slug == request()->get('dept_slug'))
-                            <option value="{{ $employees_department->Id }}" selected>{{ $employees_department->name }}
-                            </option>
-                        @else
-                            <option value="">All Departments</option>
-                            @foreach ($departments as $dept)
-                                <option value="{{ $dept->id }}">{{ $dept->name }}</option>
-                            @endforeach
-                        @endif
-
-                    </select>
+                    <div class="relative">
+                        <select wire:model.live="filterDepartment"
+                            class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                            @if ($employees_department->slug == request()->get('dept_slug'))
+                                <option value="{{ $employees_department->Id }}" selected>{{ $employees_department->name }}
+                                </option>
+                            @else
+                                <option value="">All Departments</option>
+                                @foreach ($departments as $dept)
+                                    <option value="{{ $dept->id }}">{{ $dept->name }}</option>
+                                @endforeach
+                            @endif
+                        </select>
+                        <span wire:loading wire:target="updatedFilterDepartment" class="absolute right-3 top-2.5">
+                            <svg class="w-5 h-5 animate-spin text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </span>
+                    </div>
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Product Type</label>
-                    <select wire:model.live="filterProductType"
-                        class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
-                        <option value="">All Types</option>
-                        @foreach ($productTypes as $type)
-                            <option value="{{ $type->id }}">{{ $type->name }} ({{ $type->department->name }})
-                            </option>
-                        @endforeach
-                    </select>
+                    <div class="relative">
+                        <select wire:model.live="filterProductType"
+                            class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                            <option value="">All Types</option>
+                            @foreach ($productTypes as $type)
+                                <option value="{{ $type->id }}">{{ $type->name }} ({{ $type->department->name }})
+                                </option>
+                            @endforeach
+                        </select>
+                        <span wire:loading wire:target="updatedFilterProductType" class="absolute right-3 top-2.5">
+                            <svg class="w-5 h-5 animate-spin text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </span>
+                    </div>
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Status</label>
-                    <select wire:model.live="filterStatus"
-                        class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
-                        <option value="">All Status</option>
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                        <option value="available">Available</option>
-                        <option value="unavailable">Unavailable</option>
-                    </select>
+                    <div class="relative">
+                        <select wire:model.live="filterStatus"
+                            class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                            <option value="">All Status</option>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="available">Available</option>
+                            <option value="unavailable">Unavailable</option>
+                        </select>
+                        <span wire:loading wire:target="updatedFilterStatus" class="absolute right-3 top-2.5">
+                            <svg class="w-5 h-5 animate-spin text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </span>
+                    </div>
                 </div>
             </div>
 
             <div class="flex flex-wrap gap-2 justify-end pt-2.5 border-t border-zinc-200 dark:border-zinc-700">
-                <button wire:click="resetFilters"
-                    class="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors duration-200 flex items-center">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <button wire:click="resetFilters" wire:loading.attr="disabled"
+                    class="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors duration-200 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    :class="{ 'opacity-50 cursor-not-allowed': $wire.loading }">
+                    <svg wire:loading.remove class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <svg wire:loading class="w-5 h-5 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                     Reset
                 </button>
@@ -131,88 +177,119 @@
         </div>
     </div>
 
+    <!-- Table Loading Overlay -->
+    <div wire:loading wire:target="updatedSearch, updatedFilterProductType, updatedFilterDepartment, updatedFilterStatus, resetFilters"
+        class="fixed inset-0 bg-black/30 z-40 rounded-lg pointer-events-none"></div>
+
     <!-- Table -->
-    <x-table :$headers :$rows selectable wire:model="selectedIds" striped paginate persist :filter="['quantity' => 'quantity', 'search' => 'search']"
-        :quantity="[10, 25, 50, 100]">
+    <div wire:loading.class="opacity-50 pointer-events-none" wire:target="updatedSearch, updatedFilterProductType, updatedFilterDepartment, updatedFilterStatus, resetFilters" class="transition-opacity duration-200">
+        <x-table :$headers :$rows selectable wire:model="selectedIds" striped paginate persist :filter="['quantity' => 'quantity', 'search' => 'search']"
+            :quantity="[10, 25, 50, 100]">
 
-        @interact('column_sku', $row)
-            <span class="font-mono text-zinc-900 dark:text-zinc-100 font-semibold">
-                {{ $row->sku }}
-            </span>
-        @endinteract
-
-        @interact('column_product_type', $row)
-            <div>
-                <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $row->productType->name }}</div>
-                <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $row->productType->code }}</div>
-            </div>
-        @endinteract
-
-        @interact('column_department', $row)
-            <span class="text-sm text-zinc-700 dark:text-zinc-300">
-                {{ $row->productType->department->name }}
-            </span>
-        @endinteract
-
-        @interact('column_price', $row)
-            <span class="font-semibold text-zinc-900 dark:text-zinc-100">
-                ${{ number_format($row->price, 2) }}
-            </span>
-        @endinteract
-
-        @interact('column_shelf_life', $row)
-            <span class="text-zinc-600 dark:text-zinc-400">
-                {{ $row->shelf_life_days }} days
-            </span>
-        @endinteract
-
-        @interact('column_uom', $row)
-            <span
-                class="px-2 py-1 text-xs font-medium rounded-full bg-zinc-100 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200 uppercase">
-                {{ $row->uom }}
-            </span>
-        @endinteract
-
-        @interact('column_status', $row)
-            <div class="flex flex-col gap-1">
-                <span
-                    class="px-2 py-1 text-xs font-semibold rounded-full
-                    {{ $row->is_active ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' }}">
-                    {{ $row->is_active ? 'Active' : 'Inactive' }}
+            @interact('column_sku', $row)
+                <span class="font-mono text-zinc-900 dark:text-zinc-100 font-semibold">
+                    <span wire:loading.remove>{{ $row->sku }}</span>
+                    <span wire:loading class="inline-block h-4 w-24 bg-zinc-300 dark:bg-zinc-600 rounded animate-pulse"></span>
                 </span>
-                @if ($row->is_active)
+            @endinteract
+
+            @interact('column_product_type', $row)
+                <div wire:loading.remove>
+                    <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $row->productType->name }}</div>
+                    <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $row->productType->code }}</div>
+                </div>
+                <div wire:loading class="space-y-1">
+                    <div class="h-4 w-20 bg-zinc-300 dark:bg-zinc-600 rounded animate-pulse"></div>
+                    <div class="h-3 w-12 bg-zinc-300 dark:bg-zinc-600 rounded animate-pulse"></div>
+                </div>
+            @endinteract
+
+            @interact('column_department', $row)
+                <span class="text-sm text-zinc-700 dark:text-zinc-300">
+                    <span wire:loading.remove>{{ $row->productType->department->name }}</span>
+                    <span wire:loading class="inline-block h-4 w-28 bg-zinc-300 dark:bg-zinc-600 rounded animate-pulse"></span>
+                </span>
+            @endinteract
+
+            @interact('column_price', $row)
+                <span class="font-semibold text-zinc-900 dark:text-zinc-100">
+                    <span wire:loading.remove>${{ number_format($row->price, 2) }}</span>
+                    <span wire:loading class="inline-block h-4 w-16 bg-zinc-300 dark:bg-zinc-600 rounded animate-pulse"></span>
+                </span>
+            @endinteract
+
+            @interact('column_shelf_life', $row)
+                <span class="text-zinc-600 dark:text-zinc-400">
+                    <span wire:loading.remove>{{ $row->shelf_life_days }} days</span>
+                    <span wire:loading class="inline-block h-4 w-12 bg-zinc-300 dark:bg-zinc-600 rounded animate-pulse"></span>
+                </span>
+            @endinteract
+
+            @interact('column_uom', $row)
+                <span class="px-2 py-1 text-xs font-medium rounded-full bg-zinc-100 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200 uppercase">
+                    <span wire:loading.remove>{{ $row->uom }}</span>
+                    <span wire:loading class="inline-block h-3 w-12 bg-zinc-300 dark:bg-zinc-600 rounded animate-pulse"></span>
+                </span>
+            @endinteract
+
+            @interact('column_status', $row)
+                <div class="flex flex-col gap-1" wire:loading.remove>
                     <span
                         class="px-2 py-1 text-xs font-semibold rounded-full
-                        {{ $row->is_available ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200' }}">
-                        {{ $row->is_available ? 'Available' : 'Unavailable' }}
+                        {{ $row->is_active ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' }}">
+                        {{ $row->is_active ? 'Active' : 'Inactive' }}
                     </span>
-                @endif
-            </div>
-        @endinteract
+                    @if ($row->is_active)
+                        <span
+                            class="px-2 py-1 text-xs font-semibold rounded-full
+                            {{ $row->is_available ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200' }}">
+                            {{ $row->is_available ? 'Available' : 'Unavailable' }}
+                        </span>
+                    @endif
+                </div>
+                <div wire:loading class="space-y-1">
+                    <div class="h-3 w-16 bg-zinc-300 dark:bg-zinc-600 rounded animate-pulse"></div>
+                    <div class="h-3 w-20 bg-zinc-300 dark:bg-zinc-600 rounded animate-pulse"></div>
+                </div>
+            @endinteract
 
-        @interact('column_action', $row)
-            <div class="flex items-center space-x-2">
-                <button wire:click="openEditModal('{{ $row->id }}')"
-                    class="p-2 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors"
-                    title="Edit">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                </button>
-                <button wire:click="delete('{{ $row->id }}')"
-                    class="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                    title="Delete">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                </button>
-            </div>
-        @endinteract
-    </x-table>
+            @interact('column_action', $row)
+                <div class="flex items-center space-x-2">
+                    <button wire:click="openEditModal('{{ $row->id }}')" wire:loading.attr="disabled"
+                        class="p-2 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        :class="{ 'opacity-50 cursor-not-allowed': $wire.loading }"
+                        title="Edit">
+                        <svg wire:loading.remove class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        <svg wire:loading class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </button>
+                    <button wire:click="delete('{{ $row->id }}')" wire:loading.attr="disabled"
+                        class="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        :class="{ 'opacity-50 cursor-not-allowed': $wire.loading }"
+                        title="Delete">
+                        <svg wire:loading.remove class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        <svg wire:loading class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </button>
+                </div>
+            @endinteract
+        </x-table>
+    </div>
 
     <!-- Modal -->
     @include('livewire.branch-dashboard.production.partials.product-modal')
+
+    <!-- Audit Modal -->
+    @include('livewire.branch-dashboard.production.partials.audit-modal')
 
 </div>

@@ -306,8 +306,22 @@
                                 Cancel
                             </button>
                             <button type="submit"
-                                class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors">
-                                Submit Callback
+                                x-data="{ loading: false }"
+                                @click="loading = true"
+                                :disabled="loading"
+                                class="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white rounded-lg font-medium transition-colors flex items-center">
+                                <template x-if="!loading">
+                                    <span>Submit Callback</span>
+                                </template>
+                                <template x-if="loading">
+                                    <span class="flex items-center gap-2">
+                                        <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Submitting...
+                                    </span>
+                                </template>
                             </button>
                         </div>
                     </form>
