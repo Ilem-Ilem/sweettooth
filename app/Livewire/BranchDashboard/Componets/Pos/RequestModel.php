@@ -168,7 +168,7 @@ class RequestModel extends Component
                             'quantity_approved'   => 0,
                             'quantity_dispatched' => 0,
                             'uom'                 => $ingredient->uom,
-                            'notes'               => "For {$recipe->product_name} production ({$batchesRequested} batches × {$recipeYield} {$recipe->uom} = {$actualUnitsRequested} {$recipe->uom}) - POS Request",
+                            'notes'               => "For {$recipe->product_name} production ({$batchesRequested} batches × {$recipeYield} {$recipe->unitOfMeasure?->symbol} = {$actualUnitsRequested} {$recipe->unitOfMeasure?->symbol}) - POS Request",
                         ]);
                     }
                 }

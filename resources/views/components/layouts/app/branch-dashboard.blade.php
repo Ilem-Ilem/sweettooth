@@ -192,10 +192,44 @@
             @php
 
                 $employee = \Illuminate\Support\Facades\Auth::guard('employees')->user();
+                $user = \Illuminate\Support\Facades\Auth::guard('web')->user();
                 $branchId = request()->get('b_id');
                 $departments = collect();
                 $OPEN_PRODUCTION = false;
                 $OPEN_DEPT = null;
+                $isAdmin = is_super_admin();
+
+                // Get user's role and department for filtering
+                $userRole = $employee?->roles()?->first()?->name ?? $user?->roles()?->first()?->name;
+                $userDepartment = $employee?->department;
+
+                // Production roles that can see all departments
+                $adminProductionRoles = [
+                    'head_of_production',
+                ];
+
+                // Department-specific production roles
+                $departmentRestrictedRoles = [
+                    'chef',
+                    'head_of_gelato',
+                    'confectionaries_manager',
+                    'gelato_production_staff',
+                    'confectionaries_production_staff',
+                ];
+
+                // Sales roles that can see all departments
+                $adminSalesRoles = [
+                    'sales_manager',
+                ];
+
+                // Department-specific sales roles
+                $departmentRestrictedSalesRoles = [
+                    'till_supervisor',
+                    'cashier',
+                    'corner_store_manager',
+                    'corner_store_staff',
+                    'confectionaries_sales_staff',
+                ];
 
                 if ($branchId) {
                     $departments = \App\Models\Department::where(
@@ -206,14 +240,23 @@
                             'pages' => fn($q) => $q->where('is_active', true)->orderBy('order')->orderBy('name'),
                         ])
                         ->get()
-                        ->filter(fn($d) => $d->category?->name === 'Production')
-                        ->map(function ($dept) {
-                            $dept->pages = $dept->pages->reject(
-                                fn($p) => str_contains($p->route_name, 'edit') ||
-                                    str_contains($p->route_name, 'detail'),
-                            );
-                            return $dept;
-                        });
+                        ->filter(fn($d) => $d->category?->name === 'Production');
+
+                    // Filter departments based on user role
+                    if (!$isAdmin && !in_array($userRole, $adminProductionRoles)) {
+                        // Restrict to user's department only if they have a department-specific role
+                        if ($userDepartment && in_array($userRole, $departmentRestrictedRoles)) {
+                            $departments = $departments->filter(fn($d) => $d->id === $userDepartment->id);
+                        }
+                    }
+
+                    $departments = $departments->map(function ($dept) {
+                        $dept->pages = $dept->pages->reject(
+                            fn($p) => str_contains($p->route_name, 'edit') ||
+                                str_contains($p->route_name, 'detail'),
+                        );
+                        return $dept;
+                    });
 
                     $currentRoute = request()->route()?->getName();
                     $OPEN_DEPT = $departments->firstWhere(
@@ -231,7 +274,8 @@
                     
                     $isProductionRoute = in_array($currentRoute, $nonDepartmentRoutes);
 
-                    $OPEN_PRODUCTION = $departments->isNotEmpty() || $OPEN_DEPT !== null || $isProductionRoute;
+                    // Only show production menu if user has access to at least one department or is admin
+                    $OPEN_PRODUCTION = ($departments->isNotEmpty() || $OPEN_DEPT !== null || $isProductionRoute) && ($isAdmin || in_array($userRole, array_merge($adminProductionRoles, $departmentRestrictedRoles)));
                 }
             @endphp
 
@@ -263,6 +307,7 @@
                 @endforelse
             </flux:navlist.group>
 
+            @if($isAdmin || in_array($userRole, array_merge($adminProductionRoles, $departmentRestrictedRoles)))
             <flux:navlist.group :heading="__('Production Callbacks')" class="grid" expandable
                 :expanded="request()->routeIs('branch-dashboard.production.callbacks.*')">
                 <flux:navlist.item icon="arrow-uturn-left"
@@ -277,11 +322,14 @@
                     {{ __('Inventory Callbacks') }}
                 </flux:navlist.item>
             </flux:navlist.group>
+            @endif
             {{-- ==================== END PRODUCTION MENU ==================== --}}
 
             {{-- ==================== SALES MENU (WITH DYNAMIC DEPARTMENTS) ==================== --}}
+            @if($isAdmin || in_array($userRole, array_merge($adminSalesRoles, $departmentRestrictedSalesRoles)))
             <flux:navlist.group :heading="__('Sales Management')" icon="shopping-cart">
                 {{-- Static Sales Items --}}
+                @if($isAdmin || in_array($userRole, $adminSalesRoles))
                 <flux:navlist.item icon="clipboard-document-check"
                     :href="branch_route('branch-dashboard.sales-dashboard.stock-opening.index')"
                     :current="request()->routeIs('branch-dashboard.sales-dashboard.stock-opening.*')" wire:navigate>
@@ -299,6 +347,7 @@
                     :current="request()->routeIs('branch-dashboard.sales-dashboard.stock-monitor')" wire:navigate>
                     {{ __('Monitor Product Stock') }}
                 </flux:navlist.item>
+                @endif
 
                 <flux:navlist.item icon="chart-bar"
                     :href="branch_route('branch-dashboard.sales-dashboard.my-sales.index')"
@@ -328,12 +377,27 @@
                     </flux:navlist.item>
                 </flux:navlist.group>
             </flux:navlist.group>
+            @endif
 
             {{-- ==================== DYNAMIC SALES DEPARTMENTS (POS) ==================== --}}
             @php
                 $salesDepartments = collect();
                 $OPEN_SALES = false;
                 $OPEN_SALES_DEPT = null;
+
+                // Sales roles that can see all departments
+                $adminSalesRoles = [
+                    'sales_manager',
+                ];
+
+                // Department-specific sales roles
+                $departmentRestrictedSalesRoles = [
+                    'till_supervisor',
+                    'cashier',
+                    'corner_store_manager',
+                    'corner_store_staff',
+                    'confectionaries_sales_staff',
+                ];
 
                 if ($branchId) {
                     $salesDepartments = \App\Models\Department::where(
@@ -344,21 +408,31 @@
                             'pages' => fn($q) => $q->where('is_active', true)->orderBy('order')->orderBy('name'),
                         ])
                         ->get()
-                        ->filter(fn($d) => $d->category?->name === 'Sales')
-                        ->map(function ($dept) {
-                            $dept->pages = $dept->pages->reject(
-                                fn($p) => str_contains($p->route_name, 'edit') ||
-                                    str_contains($p->route_name, 'detail'),
-                            );
-                            return $dept;
-                        });
+                        ->filter(fn($d) => $d->category?->name === 'Sales');
+
+                    // Filter departments based on user role (same logic as production)
+                    if (!$isAdmin && !in_array($userRole, $adminSalesRoles)) {
+                        // Restrict to user's department only if they have a department-specific role
+                        if ($userDepartment && in_array($userRole, $departmentRestrictedSalesRoles)) {
+                            $salesDepartments = $salesDepartments->filter(fn($d) => $d->id === $userDepartment->id);
+                        }
+                    }
+
+                    $salesDepartments = $salesDepartments->map(function ($dept) {
+                        $dept->pages = $dept->pages->reject(
+                            fn($p) => str_contains($p->route_name, 'edit') ||
+                                str_contains($p->route_name, 'detail'),
+                        );
+                        return $dept;
+                    });
 
                     $currentRoute = request()->route()?->getName();
                     $OPEN_SALES_DEPT = $salesDepartments->firstWhere(
                         fn($d) => $d->pages->pluck('route_name')->contains($currentRoute),
                     )?->id;
 
-                    $OPEN_SALES = $salesDepartments->isNotEmpty() || $OPEN_SALES_DEPT !== null;
+                    // Only show sales menu if user has access to at least one department or is admin
+                    $OPEN_SALES = ($salesDepartments->isNotEmpty() || $OPEN_SALES_DEPT !== null) && ($isAdmin || in_array($userRole, array_merge($adminSalesRoles, $departmentRestrictedSalesRoles)));
                 }
             @endphp
 

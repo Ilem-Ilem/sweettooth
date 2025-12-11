@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Branch;
 use App\Models\Item;
 use App\Models\Stock;
+use App\Models\UnitOfMeasure;
 use Illuminate\Database\Seeder;
 
 class ItemSeeder extends Seeder
@@ -57,6 +58,15 @@ class ItemSeeder extends Seeder
     {
         $branchCode = str_replace(' ', '', substr($branch->code ?? $branch->name, 0, 3));
         $branchCode = strtoupper($branchCode);
+
+        // Build UOM lookup map
+        $uomMap = [
+            'kg' => UnitOfMeasure::where('code', 'kg')->first()?->id,
+            'cartons' => UnitOfMeasure::where('code', 'unit')->first()?->id,
+            'liters' => UnitOfMeasure::where('code', 'l')->first()?->id,
+            'pcs' => UnitOfMeasure::where('code', 'pcs')->first()?->id,
+            'units' => UnitOfMeasure::where('code', 'unit')->first()?->id,
+        ];
 
         $itemsData = [
             // RAW MATERIALS (12 items)
@@ -240,7 +250,7 @@ class ItemSeeder extends Seeder
                 'name' => $itemData['name'],
                 'sku' => $sku,
                 'category' => $itemData['category'],
-                'uom' => $itemData['uom'],
+                'uom_id' => $uomMap[$itemData['uom']] ?? UnitOfMeasure::first()->id,
                 'description' => $itemData['description'] ?? null,
                 'reorder_level' => $itemData['reorder_level'],
                 'max_stock_level' => $itemData['max_stock_level'],

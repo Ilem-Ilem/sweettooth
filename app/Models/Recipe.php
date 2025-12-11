@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class Recipe extends Model
 {
@@ -15,12 +16,10 @@ class Recipe extends Model
         'product_id',
         'product_name',
         'sku',
-        'product_type',
+        'product_type_id',
         'cost_per_unit',
-        'uom',
+        'uom_id',
         'yield_quantity',
-        'recipe_yield_weight',
-        'yield_percentage',
         'preparation_time',
         'instructions',
         'status',
@@ -29,13 +28,10 @@ class Recipe extends Model
     ];
 
     protected $casts = [
-        'product_type' => 'string',
-        'uom' => 'string',
+        'product_type_id' => 'integer',
         'status' => 'string',
         'cost_per_unit' => 'decimal:4',
         'yield_quantity' => 'decimal:2',
-        'recipe_yield_weight' => 'decimal:2',
-        'yield_percentage' => 'decimal:2',
     ];
 
     public function branch(): BelongsTo
@@ -51,6 +47,26 @@ class Recipe extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class, 'product_id', 'id');
+    }
+
+    public function productType(): BelongsTo
+    {
+        return $this->belongsTo(ProductType::class, 'product_type_id', 'id');
+    }
+
+    public function unitOfMeasure(): BelongsTo
+    {
+        return $this->belongsTo(UnitOfMeasure::class, 'uom_id');
+    }
+
+    /**
+     * Accessor for UOM symbol
+     */
+    protected function uomSymbol(): Attribute
+    {
+        return Attribute::make(
+            get: fn() => $this->unitOfMeasure?->symbol ?? 'N/A',
+        );
     }
 
     // public function category(): BelongsTo
@@ -126,7 +142,7 @@ class Recipe extends Model
                 'item_name' => $ingredient->item->name ?? 'N/A',
                 'quantity' => $ingredient->getQuantityForBatchSize($batchSize),
                 'base_quantity' => (float) $ingredient->quantity,
-                'uom' => $ingredient->uom,
+                'uom' => $ingredient->unitOfMeasure?->symbol ?? 'N/A',
                 'cost_per_unit' => (float) $ingredient->cost_per_unit,
                 'total_cost' => $ingredient->getCostForBatchSize($batchSize),
                 'waste_percentage' => (float) $ingredient->waste_percentage,

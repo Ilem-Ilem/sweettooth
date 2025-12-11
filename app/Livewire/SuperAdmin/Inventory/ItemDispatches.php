@@ -116,7 +116,7 @@ class ItemDispatches extends Component
                 'remaining_to_dispatch' => $remainingToDispatch,
                 'approve_quantity' => 0,
                 'stock_available' => $stockAvailable,
-                'uom' => $detail->item->uom,
+                'uom' => $detail->item->unitOfMeasure?->symbol,
                 'is_fully_approved' => $remainingToApprove <= 0,
                 'is_fully_dispatched' => $remainingToDispatch <= 0,
                 'is_partially_approved' => $detail->quantity_approved > 0 && $remainingToApprove > 0,

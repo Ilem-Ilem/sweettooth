@@ -101,7 +101,7 @@ class StockTakes extends Component
                 'item_name' => $stock->item->name,
                 'system_quantity' => (float) $stock->quantity_available,
                 'physical_quantity' => '',
-                'uom' => $stock->item->uom,
+                'uom' => $stock->item->unitOfMeasure?->symbol,
             ];
         }
     }

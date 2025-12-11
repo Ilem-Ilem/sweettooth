@@ -124,7 +124,7 @@ class StockMonitor extends BaseComponent
                 'id' => $produce->id,
                 'recipe_id' => $produce->recipe_id,
                 'product_name' => $produce->recipe->product_name ?? 'N/A',
-                'uom' => $produce->recipe->uom ?? '',
+                'uom' => $produce->recipe->unitOfMeasure?->symbol ?? '',
                 'produced_quantity' => (float) $produce->produced_quantity,
                 'available_quantity' => $availableQty,
                 'sent_out_quantity' => (float) $produce->sent_out_quantity,
@@ -231,7 +231,7 @@ class StockMonitor extends BaseComponent
                 // This would track the product in the sales/front area
                 // For now, we're just tracking that it was sent out
 
-                $this->toast()->success('Successfully sent ' . $this->sendOutQuantity . ' ' . $produce->recipe->uom . ' to sales!')->send();
+                $this->toast()->success('Successfully sent ' . $this->sendOutQuantity . ' ' . $produce->recipe->unitOfMeasure?->symbol . ' to sales!')->send();
             });
 
             $this->closeSendOutModal();

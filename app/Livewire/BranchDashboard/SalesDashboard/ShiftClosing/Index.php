@@ -187,7 +187,7 @@ class Index extends BaseComponent
             $closingStocks[] = [
                 'product_id' => $stock->product_id,
                 'product_name' => $stock->product->name ?? 'N/A',
-                'product_uom' => $stock->product->uom ?? 'units',
+                'product_uom' => $stock->product->unitOfMeasure?->symbol ?? 'units',
                 'opening_quantity' => $stock->opening_quantity,
                 'addition_quantity' => $stock->addition_quantity,
                 'sold_quantity' => $soldQuantity,

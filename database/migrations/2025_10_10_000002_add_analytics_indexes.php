@@ -106,17 +106,21 @@ return new class extends Migration {
      */
     private function indexExists($table, $indexName)
     {
-        $indexName = str_replace('idx_', '', $indexName);
-        $indexes = Schema::getConnection()
-            ->getDoctrineSchemaManager()
-            ->listTableIndexes($table);
-
-        foreach ($indexes as $index) {
-            if (stripos($index->getName(), $indexName) !== false) {
-                return true;
+        try {
+            $indexName = str_replace('idx_', '', $indexName);
+            $sm = Schema::getConnection()->getDoctrineSchemaManager();
+            if (method_exists($sm, 'listTableIndexes')) {
+                $indexes = $sm->listTableIndexes($table);
+                foreach ($indexes as $index) {
+                    if (stripos($index->getName(), $indexName) !== false) {
+                        return true;
+                    }
+                }
             }
+            return false;
+        } catch (\Exception $e) {
+            // Fallback: assume index doesn't exist
+            return false;
         }
-
-        return false;
     }
 };

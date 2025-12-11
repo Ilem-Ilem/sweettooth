@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class Item extends Model
 {
@@ -16,7 +17,7 @@ class Item extends Model
         'name',
         'sku',
         'category',
-        'uom',
+        'uom_id',
         'reorder_level',
         'max_stock_level',
         'status',
@@ -41,6 +42,24 @@ class Item extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    /**
+     * Get the unit of measure for this item
+     */
+    public function unitOfMeasure(): BelongsTo
+    {
+        return $this->belongsTo(UnitOfMeasure::class, 'uom_id');
+    }
+
+    /**
+     * Accessor for UOM symbol
+     */
+    protected function uomSymbol(): Attribute
+    {
+        return Attribute::make(
+            get: fn() => $this->unitOfMeasure?->symbol ?? 'N/A',
+        );
     }
 
     /**

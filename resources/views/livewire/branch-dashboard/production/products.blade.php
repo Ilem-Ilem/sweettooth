@@ -227,7 +227,7 @@
 
             @interact('column_uom', $row)
                 <span class="px-2 py-1 text-xs font-medium rounded-full bg-zinc-100 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200 uppercase">
-                    <span wire:loading.remove>{{ $row->uom }}</span>
+                    <span wire:loading.remove>{{ $row->unitOfMeasure?->symbol ?? 'N/A' }}</span>
                     <span wire:loading class="inline-block h-3 w-12 bg-zinc-300 dark:bg-zinc-600 rounded animate-pulse"></span>
                 </span>
             @endinteract

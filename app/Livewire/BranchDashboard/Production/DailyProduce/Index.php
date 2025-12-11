@@ -206,7 +206,7 @@ class Index extends Component
                         'requested' => (float) $detail->quantity_requested,
                         'approved' => (float) $detail->quantity_approved,
                         'dispatched' => (float) $detail->quantity_dispatched,
-                        'uom' => $detail->uom ?? $detail->item->uom ?? '',
+                        'uom' => $detail->uom ?? $detail->item->unitOfMeasure?->symbol ?? '',
                     ];
                 }
             }
@@ -242,7 +242,7 @@ class Index extends Component
                 'id' => $produce->id,
                 'recipe_id' => $produce->recipe_id,
                 'recipe_name' => $produce->recipe->product_name ?? 'N/A',
-                'uom' => $produce->recipe->uom ?? '',
+                'uom' => $produce->recipe->unitOfMeasure?->symbol ?? '',
                 'opening_quantity' => (float) $produce->opening_quantity,
                 'requested_quantity' => (float) $produce->requested_quantity,
                 'produced_quantity' => (float) $actualProducedQty,
@@ -836,7 +836,7 @@ class Index extends Component
             'product_id' => $product->id,
             'dispatched_by' => Auth::guard('employees')->id(),
             'quantity' => $quantity,
-            'uom' => $product->uom ?? $produce->recipe->uom ?? 'units',
+            'uom' => $product->uom ?? $produce->recipe->unitOfMeasure?->symbol ?? 'units',
             'dispatch_time' => now(),
             'shift_type' => $produce->shift_type,
             'dispatch_date' => $produce->produce_date,

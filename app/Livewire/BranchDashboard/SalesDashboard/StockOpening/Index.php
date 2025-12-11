@@ -334,7 +334,7 @@ class Index extends BaseComponent
                 'product_id'        => $product->id,
                 'product_name'      => $product->name,
                 'product_sku'       => $product->sku,
-                'product_uom'       => $product->uom,
+                'product_uom'       => $product->unitOfMeasure?->symbol,
                 'yesterday_closing' => $yesterdayClosing,
                 'today_additions'   => $todayAdditions,
                 'addition_sources'  => $additionSources,

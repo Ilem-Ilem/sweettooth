@@ -138,7 +138,7 @@ class HealthChecks extends Component
             'create',
             $healthCheck,
             "Created health check for item '{$stock->item->name}'. " .
-            "Condition: {$this->condition}, Qty Affected: {$this->quantity_affected} {$stock->item->uom}. " .
+            "Condition: {$this->condition}, Qty Affected: {$this->quantity_affected} {$stock->item->unitOfMeasure?->symbol}. " .
             "Observations: {$this->observations}. Action: {$this->action_taken}",
             'completed'
         );

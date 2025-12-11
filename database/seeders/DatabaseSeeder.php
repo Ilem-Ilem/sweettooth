@@ -26,6 +26,7 @@ class DatabaseSeeder extends Seeder
 
             // 2. Master Data
             MDSeeder::class,
+            UnitOfMeasureSeeder::class,
 
             // 3. Branch & Department Setup
             BranchSeeder::class,

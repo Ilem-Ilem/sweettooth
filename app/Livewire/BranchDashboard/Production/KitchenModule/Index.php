@@ -96,7 +96,7 @@ class Index extends Component
                     'id' => $request->id,
                     'recipe_name' => $request->recipe->product_name ?? 'N/A',
                     'planned_quantity' => $request->planned_production_quantity,
-                    'uom' => $request->recipe->uom ?? 'pcs',
+                    'uom' => $request->recipe->unitOfMeasure?->symbol ?? 'pcs',
                     'status' => $status,
                     'status_color' => $request->getStatusBadgeColor(),
                     'item_request_number' => $request->itemRequest->request_number ?? 'N/A',
@@ -116,7 +116,7 @@ class Index extends Component
                         'quantity_requested' => $detail->quantity_requested,
                         'quantity_approved' => $detail->quantity_approved,
                         'quantity_dispatched' => $detail->quantity_dispatched,
-                        'uom' => $detail->uom ?? $detail->item->uom ?? '',
+                        'uom' => $detail->uom ?? $detail->item->unitOfMeasure?->symbol ?? '',
                         'status' => $this->getItemCollectionStatus($detail),
                     ];
                 }
@@ -135,7 +135,7 @@ class Index extends Component
                         'produced_quantity' => $produce->getTotalProducedFromRecords(),
                         'producable_quantity' => $producability['producable_quantity'],
                         'can_produce' => $producability['can_produce_full_batch'],
-                        'uom' => $produce->recipe->uom ?? 'pcs',
+                        'uom' => $produce->recipe->unitOfMeasure?->symbol ?? 'pcs',
                         'status' => $produce->status ?? 'in_progress',
                         'batches_count' => $produce->productionRecords->count(),
                         'progress_percentage' => $produce->requested_quantity > 0

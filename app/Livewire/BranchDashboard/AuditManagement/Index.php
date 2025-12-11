@@ -85,22 +85,50 @@ class Index extends Component
 
     public function approveRequest($requestId)
     {
-        $request = ApprovalAuditRequest::find($requestId);
-
-        if (!$request || $request->status !== 'pending') {
-            $this->dispatch('toast', message: 'Request not found or already processed', type: 'error');
-            return;
-        }
-
         try {
+            \Log::info('🔵 [AUDIT APPROVAL] Starting approval process', [
+                'request_id' => $requestId,
+                'approver_id' => auth()->user()?->id ?? auth('employees')->user()?->id,
+            ]);
+
+            $request = ApprovalAuditRequest::find($requestId);
+
+            if (!$request) {
+                throw new \Exception("Approval request #{$requestId} not found");
+            }
+
+            if ($request->status !== 'pending') {
+                throw new \Exception("Request is no longer pending (current status: {$request->status})");
+            }
+
+            \Log::info('✅ [AUDIT APPROVAL] Request found and valid', [
+                'action' => $request->action,
+                'status' => $request->status,
+            ]);
+
             // Execute the approved action - delegates to action handler
+            \Log::info('🔵 [AUDIT APPROVAL] Executing approved action', ['action' => $request->action]);
             $auditable = $this->executeApprovedAction($request);
            
             if (!$auditable) {
-                throw new \Exception('Failed to execute approval action');
+                throw new \Exception('Failed to execute approval action - auditable returned null');
             }
 
+            \Log::info('✅ [AUDIT APPROVAL] Action executed successfully', [
+                'auditable_type' => get_class($auditable),
+                'auditable_id' => $auditable->id ?? 'N/A',
+            ]);
+
             $approver = auth()->user() ?? auth('employees')->user();
+            if (!$approver) {
+                throw new \Exception('Could not determine current approver');
+            }
+
+            \Log::info('🔵 [AUDIT APPROVAL] Updating request status to approved', [
+                'approver_id' => $approver->id,
+                'approver_type' => get_class($approver),
+            ]);
+
             $request->update([
                 'status' => 'approved',
                 'approver_id' => $approver->id,
@@ -108,9 +136,13 @@ class Index extends Component
                 'approved_at' => now(),
             ]);
 
+            \Log::info('✅ [AUDIT APPROVAL] Request status updated');
+
             // Log the approval action
             // Extract just the action type (e.g., "update:App\Models\Employee" -> "update")
             $baseAction = explode(':', $request->action)[0];
+            
+            \Log::info('🔵 [AUDIT APPROVAL] Logging approval action', ['base_action' => $baseAction]);
             AuditService::log(
                 $approver,
                 "approve_{$baseAction}",
@@ -119,20 +151,38 @@ class Index extends Component
                 'completed'
             );
 
+            \Log::info('✅ [AUDIT APPROVAL] Approval completed successfully');
             $this->dispatch('toast', message: 'Request approved successfully', type: 'success');
             $this->resetPage();
         } catch (\Exception $e) {
+            \Log::error('❌ [AUDIT APPROVAL] Approval failed', [
+                'request_id' => $requestId ?? 'Unknown',
+                'error_message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             // Log the error
             $approver = auth()->user() ?? auth('employees')->user();
-            AuditService::log(
-                $approver,
-                'approve_failed',
-                null,
-                'Approval failed: ' . $e->getMessage(),
-                'failed'
-            );
+            if ($approver) {
+                try {
+                    AuditService::log(
+                        $approver,
+                        'approve_failed',
+                        null,
+                        'Approval failed: ' . $e->getMessage(),
+                        'failed'
+                    );
+                } catch (\Exception $auditError) {
+                    \Log::error('❌ [AUDIT APPROVAL] Failed to log approval error', [
+                        'audit_error' => $auditError->getMessage(),
+                    ]);
+                }
+            }
 
             $this->dispatch('toast', message: 'Error approving request: ' . $e->getMessage(), type: 'error');
+            throw $e;
         }
     }
 
@@ -143,55 +193,84 @@ class Index extends Component
      */
     private function executeApprovedAction(ApprovalAuditRequest $request)
     {
-        // Parse action format: "action:model" or "action:model:relationship:id" 
-        // (e.g., "create:department", "sync:App\Models\Employee:roles:123", "update_item:123")
-         $parts = explode(':', $request->action);
-
-         $action = $parts[0];
-         $model = null;
-         $relationship = null;
-         $modelId = $request->payload['id'] ?? null;
-        
-        // For sync actions with full namespace: "sync:App\Models\Employee:roles:id"
-        if ($action === 'sync' && count($parts) >= 3) {
-            $model = $parts[1];
-            $relationship = $parts[2];
-        } else {
-            // Fallback for other formats
-            $model = $parts[1] ?? null;
-            $relationship = $parts[2] ?? null;
-        }
-
-        // Extract ID from action string for inventory operations (e.g., "update_item:123" -> 123)
-        if (count($parts) > 1 && !$modelId && in_array($action, ['delete_item', 'delete_purchase', 'update_item'])) {
-            $modelId = $parts[1];
-        }
-
-        $auditable = null;
-
         try {
-            match ($action) {
-                'create' => $auditable = $this->handleCreateAction($model, $request->payload),
-                'update' => $auditable = $this->handleUpdateAction($model, $modelId, $request->payload),
-                'delete' => $auditable = $this->handleDeleteAction($model, $modelId),
-                'sync' => $auditable = $this->handleSyncAction($model, $modelId, $relationship, $request->payload),
-                'stock_adjustment' => $auditable = InventoryApprovalService::executeStockAdjustment($request),
-                'create_item' => $auditable = InventoryApprovalService::executeItemCreation($request),
-                'update_item' => $auditable = InventoryApprovalService::executeItemUpdate($request),
-                'delete_item' => $auditable = InventoryApprovalService::executeItemDeletion($request, $this->getApprover()),
-                'create_purchase' => $auditable = InventoryApprovalService::executePurchaseCreation($request, $this->getApprover()),
-                'delete_purchase' => $auditable = InventoryApprovalService::executePurchaseDeletion($request, $this->getApprover()),
-                'approve_purchase' => $auditable = PurchaseAuditApprovalService::approvePurchase($request, $this->getApprover()),
-                // Production module handlers
-                'product' => $auditable = $this->handleProductAction($request),
-                'recipe' => $auditable = $this->handleRecipeAction($request),
-                default => null,
-            };
-        } catch (\Exception $e) {
-            throw new \Exception($e->getMessage());
-        }
+            \Log::info('🔵 [EXECUTE ACTION] Starting action execution', [
+                'action' => $request->action,
+                'request_id' => $request->id,
+            ]);
 
-        return $auditable;
+            // Parse action format: "action:model" or "action:model:relationship:id" 
+            // (e.g., "create:department", "sync:App\Models\Employee:roles:123", "update_item:123")
+             $parts = explode(':', $request->action);
+
+             $action = $parts[0];
+             $model = null;
+             $relationship = null;
+             $modelId = $request->payload['id'] ?? null;
+            
+            \Log::info('🔵 [EXECUTE ACTION] Parsed action details', [
+                'action' => $action,
+                'parts_count' => count($parts),
+                'model_id' => $modelId,
+            ]);
+
+            // For sync actions with full namespace: "sync:App\Models\Employee:roles:id"
+            if ($action === 'sync' && count($parts) >= 3) {
+                $model = $parts[1];
+                $relationship = $parts[2];
+            } else {
+                // Fallback for other formats
+                $model = $parts[1] ?? null;
+                $relationship = $parts[2] ?? null;
+            }
+
+            // Extract ID from action string for inventory operations (e.g., "update_item:123" -> 123)
+            if (count($parts) > 1 && !$modelId && in_array($action, ['delete_item', 'delete_purchase', 'update_item'])) {
+                $modelId = $parts[1];
+            }
+
+            $auditable = null;
+
+            \Log::info('🔵 [EXECUTE ACTION] Dispatching to action handler', [
+                'action' => $action,
+                'model' => $model,
+                'relationship' => $relationship,
+            ]);
+
+            $auditable = match ($action) {
+                'create' => $this->handleCreateAction($model, $request->payload),
+                'update' => $this->handleUpdateAction($model, $modelId, $request->payload),
+                'delete' => $this->handleDeleteAction($model, $modelId),
+                'sync' => $this->handleSyncAction($model, $modelId, $relationship, $request->payload),
+                'stock_adjustment' => InventoryApprovalService::executeStockAdjustment($request),
+                'create_item' => InventoryApprovalService::executeItemCreation($request),
+                'update_item' => InventoryApprovalService::executeItemUpdate($request),
+                'delete_item' => InventoryApprovalService::executeItemDeletion($request, $this->getApprover()),
+                'create_purchase' => InventoryApprovalService::executePurchaseCreation($request, $this->getApprover()),
+                'delete_purchase' => InventoryApprovalService::executePurchaseDeletion($request, $this->getApprover()),
+                'approve_purchase' => PurchaseAuditApprovalService::approvePurchase($request, $this->getApprover()),
+                // Production module handlers
+                'product' => $this->handleProductAction($request),
+                'recipe' => $this->handleRecipeAction($request),
+                default => throw new \Exception("Unknown action type: {$action}"),
+            };
+
+            \Log::info('✅ [EXECUTE ACTION] Action executed successfully', [
+                'action' => $action,
+                'auditable_type' => $auditable ? get_class($auditable) : 'null',
+            ]);
+
+            return $auditable;
+        } catch (\Exception $e) {
+            \Log::error('❌ [EXECUTE ACTION] Action execution failed', [
+                'action' => $request->action ?? 'Unknown',
+                'error_message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            throw new \Exception("Failed to execute action '{$request->action}': " . $e->getMessage());
+        }
     }
 
     /**
@@ -674,16 +753,44 @@ class Index extends Component
      */
     private function handleRecipeAction(ApprovalAuditRequest $request)
     {
-        // Extract sub-action from action string: "recipe:create_recipe", "recipe:edit_recipe", "recipe:delete_recipe", "recipe:bulk_delete_recipe"
-        $parts = explode(':', $request->action);
-        $subAction = $parts[1] ?? 'create_recipe';
+        try {
+            \Log::info('🔵 [HANDLE RECIPE ACTION] Starting recipe action handler', [
+                'action' => $request->action,
+                'request_id' => $request->id,
+            ]);
 
-        return match ($subAction) {
-            'create_recipe' => ProductionApprovalService::executeRecipeCreation($request),
-            'edit_recipe' => ProductionApprovalService::executeRecipeUpdate($request),
-            'delete_recipe' => ProductionApprovalService::executeRecipeDeletion($request),
-            'bulk_delete_recipe' => ProductionApprovalService::executeRecipeBulkDeletion($request),
-            default => throw new \Exception("Unknown recipe action: {$subAction}"),
-        };
+            // Extract sub-action from action string: "recipe:create_recipe", "recipe:edit_recipe", "recipe:delete_recipe", "recipe:bulk_delete_recipe"
+            $parts = explode(':', $request->action);
+            $subAction = $parts[1] ?? 'create_recipe';
+
+            \Log::info('🔵 [HANDLE RECIPE ACTION] Sub-action extracted', [
+                'sub_action' => $subAction,
+                'parts_count' => count($parts),
+            ]);
+
+            $result = match ($subAction) {
+                'create_recipe' => ProductionApprovalService::executeRecipeCreation($request),
+                'edit_recipe' => ProductionApprovalService::executeRecipeUpdate($request),
+                'delete_recipe' => ProductionApprovalService::executeRecipeDeletion($request),
+                'bulk_delete_recipe' => ProductionApprovalService::executeRecipeBulkDeletion($request),
+                default => throw new \Exception("Unknown recipe action: {$subAction}"),
+            };
+
+            \Log::info('✅ [HANDLE RECIPE ACTION] Recipe action completed', [
+                'sub_action' => $subAction,
+                'result_type' => is_array($result) ? 'array' : get_class($result),
+            ]);
+
+            return $result;
+        } catch (\Exception $e) {
+            \Log::error('❌ [HANDLE RECIPE ACTION] Recipe action failed', [
+                'action' => $request->action ?? 'Unknown',
+                'error_message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            throw new \Exception("Failed to handle recipe action: " . $e->getMessage());
+        }
     }
 }

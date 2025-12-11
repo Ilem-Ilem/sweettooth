@@ -402,7 +402,7 @@ class DailyProduce extends Model
                 'producable_quantity' => $producableFromThisIngredient,
                 'is_limiting' => false,
                 'shortage' => max(0, ($qtyNeededPerProduct * $requestedQty) - $dispatched),
-                'uom' => $recipeIngredient->item->uom ?? '',
+                'uom' => $recipeIngredient->item->unitOfMeasure?->symbol ?? '',
             ];
 
             $ingredientAnalysis[] = $analysis;

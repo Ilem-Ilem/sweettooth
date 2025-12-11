@@ -88,7 +88,7 @@ class Index extends Component
                 'quantity_requested' => $detail->quantity_requested,
                 'quantity_approved' => $detail->quantity_approved,
                 'quantity_dispatched' => $detail->quantity_dispatched,
-                'uom' => $detail->uom ?? $detail->item->uom ?? '',
+                'uom' => $detail->uom ?? $detail->item->unitOfMeasure?->symbol ?? '',
                 'status' => $this->getItemStatus($detail),
             ];
         }

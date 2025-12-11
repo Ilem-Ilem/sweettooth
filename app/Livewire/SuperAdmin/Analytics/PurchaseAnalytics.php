@@ -41,7 +41,7 @@ class PurchaseAnalytics extends Component
                     'name' => $item->item->name,
                     'total_cost' => $item->total_cost,
                     'total_quantity' => $item->total_quantity,
-                    'uom' => $item->item->uom
+                    'uom' => $item->item->unitOfMeasure?->symbol
                 ];
             })->toArray()
         ]);
@@ -59,7 +59,7 @@ class PurchaseAnalytics extends Component
                     'name' => $item->item->name,
                     'total_cost' => $item->total_cost,
                     'total_quantity' => $item->total_quantity,
-                    'uom' => $item->item->uom
+                    'uom' => $item->item->unitOfMeasure?->symbol
                 ];
             })->toArray()
         ]);
@@ -77,7 +77,7 @@ class PurchaseAnalytics extends Component
                     'name' => $item->item->name,
                     'total_cost' => $item->total_cost,
                     'total_quantity' => $item->total_quantity,
-                    'uom' => $item->item->uom
+                    'uom' => $item->item->unitOfMeasure?->symbol
                 ];
             })->toArray()
         ]);
@@ -95,7 +95,7 @@ class PurchaseAnalytics extends Component
                     'name' => $item->item->name,
                     'total_cost' => $item->total_cost,
                     'total_quantity' => $item->total_quantity,
-                    'uom' => $item->item->uom
+                    'uom' => $item->item->unitOfMeasure?->symbol
                 ];
             })->toArray()
         ]);

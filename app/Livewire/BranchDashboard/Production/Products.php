@@ -43,7 +43,7 @@ class Products extends BaseComponent
     public $price = 0;
     public $cost = null;
     public int $shelf_life_days = 0;
-    public string $uom = 'pcs';
+    public ?int $uom_id = null;
     public bool $is_active = true;
     public bool $is_available = true;
     public string $image_url = '';
@@ -90,7 +90,7 @@ protected function getFilteredQuery()
     $departmentId = Department::where('slug', $this->dept_slug)->firstOrFail()->id;
 
     return Product::query()
-        ->with(['productType.department', 'recipes' => function ($query) use ($departmentId) {
+        ->with(['productType.department', 'unitOfMeasure', 'recipes' => function ($query) use ($departmentId) {
             $query->where('department_id', $departmentId);
         }])
         ->when($this->search, function ($query) {
@@ -179,6 +179,7 @@ protected function getFilteredQuery()
         $departments = Department::whereHas('category', function ($q) {
             $q->where('name', 'Production');
         })->orderBy('name')->get();
+        $unitOfMeasures = \App\Models\UnitOfMeasure::orderBy('name')->get();
         
         return view('livewire.branch-dashboard.production.products', [
             'headers' => [
@@ -196,6 +197,7 @@ protected function getFilteredQuery()
             'rows' => $rows,
             'productTypes' => $productTypes,
             'departments' => $departments,
+            'unitOfMeasures' => $unitOfMeasures,
             'employees_department'=> is_super_admin() ? Department::where('slug', $this->dept_slug)->first() :
             Department::where('id',$this->employee->department_id)->first()
         ]);
@@ -221,7 +223,7 @@ protected function getFilteredQuery()
         $this->price = $product->price;
         $this->cost = $product->cost;
         $this->shelf_life_days = $product->shelf_life_days;
-        $this->uom = $product->uom;
+        $this->uom_id = $product->uom_id;
         $this->is_active = $product->is_active;
         $this->is_available = $product->is_available;
         $this->image_url = $product->image_url ?? '';
@@ -242,7 +244,7 @@ protected function getFilteredQuery()
             'price' => 'required|numeric|min:0',
             'cost' => 'nullable|numeric|min:0',
             'shelf_life_days' => 'required|integer|min:0',
-            'uom' => 'required|in:grams,kg,liters,ml,pcs,units',
+            'uom_id' => 'required|exists:units_of_measure,id',
             'is_active' => 'boolean',
             'is_available' => 'boolean',
             'image_url' => 'nullable|string',
@@ -266,7 +268,7 @@ protected function getFilteredQuery()
             'price' => $this->price,
             'cost' => $this->cost,
             'shelf_life_days' => $this->shelf_life_days,
-            'uom' => $this->uom,
+            'uom_id' => $this->uom_id,
             'is_active' => $this->is_active,
             'is_available' => $this->is_available,
             'image_url' => $this->image_url,
@@ -405,7 +407,7 @@ protected function getFilteredQuery()
         $this->price = 0;
         $this->cost = null;
         $this->shelf_life_days = 0;
-        $this->uom = 'pcs';
+        $this->uom_id = null;
         $this->is_active = true;
         $this->is_available = true;
         $this->image_url = '';

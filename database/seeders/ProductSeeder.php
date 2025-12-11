@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Product;
 use App\Models\ProductType;
+use App\Models\UnitOfMeasure;
 use Illuminate\Database\Seeder;
 
 class ProductSeeder extends Seeder
@@ -31,6 +32,13 @@ class ProductSeeder extends Seeder
         $gelatoBase = ProductType::where('code', 'GB')->first();
         $chocolates = ProductType::where('code', 'CH')->first();
         $candies = ProductType::where('code', 'CD')->first();
+
+        // Build UOM lookup map
+        $uomMap = [
+            'pcs' => UnitOfMeasure::where('code', 'pcs')->first()?->id,
+            'kg' => UnitOfMeasure::where('code', 'kg')->first()?->id,
+            'grams' => UnitOfMeasure::where('code', 'g')->first()?->id,
+        ];
 
         $products = [
             // Pastries
@@ -288,6 +296,11 @@ class ProductSeeder extends Seeder
         ];
 
         foreach ($products as $product) {
+            // Map UOM string to ID
+            if (isset($product['uom'])) {
+                $product['uom_id'] = $uomMap[$product['uom']] ?? UnitOfMeasure::first()->id;
+                unset($product['uom']);
+            }
             Product::create($product);
         }
 

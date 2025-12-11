@@ -3,7 +3,25 @@
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth:web,employees', 'setBranchContext', 'branch'])->prefix('branch-dashboard')->name('branch-dashboard.')->group(function () {
-    Route::get('/', App\Livewire\BranchDashboard\Index::class)->name('index');
+    // Dashboard Router - Redirects to appropriate dashboard based on role
+    Route::get('/dashboard/router', 'App\Http\Controllers\DashboardRedirectController@redirect')->name('dashboard.router');
+
+    // Role-Specific Dashboards
+    Route::get('/dashboard/inventory', App\Livewire\Dashboards\InventoryDashboard::class)->name('dashboard.inventory');
+    Route::get('/dashboard/production/{deptSlug?}', App\Livewire\Dashboards\ProductionDashboard::class)->name('dashboard.production');
+    Route::get('/dashboard/sales/{salesDeptSlug?}', App\Livewire\Dashboards\SalesDashboard::class)->name('dashboard.sales');
+    Route::get('/dashboard/hr', \App\Livewire\Dashboards\HRDashboard::class)->name('dashboard.hr');
+    Route::get('/dashboard/admin', \App\Livewire\Dashboards\BranchAdminDashboard::class)->name('dashboard.admin');
+    Route::get('/dashboard/super-admin', \App\Livewire\Dashboards\SuperAdminDashboard::class)->name('dashboard.super-admin');
+
+    // Root dashboard path - redirect to router for role-based redirect
+    Route::get('/', function () {
+        $branchId = request()->query('b_id') ?? current_branch_id();
+        if ($branchId) {
+            return redirect()->route('branch-dashboard.dashboard.router', ['b_id' => $branchId]);
+        }
+        return redirect()->route('branch-dashboard.dashboard.router');
+    })->name('index');
 
     Route::get('/employees', App\Livewire\BranchDashboard\EmployeeModule\Index::class)->name('employee.index');
     Route::get('employee/create', App\Livewire\BranchDashboard\EmployeeModule\Create::class)->name('employee.create');

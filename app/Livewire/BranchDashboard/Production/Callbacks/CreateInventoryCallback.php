@@ -263,7 +263,7 @@ class CreateInventoryCallback extends BaseComponent
         $this->selectedItemId = $dispatch->item_id;
         $this->selectedProductId = null;
         $this->callbackQuantity = 0;
-        $this->callbackUom = $dispatch->uom ?? $dispatch->item->unit ?? '';
+        $this->callbackUom = $dispatch->unitOfMeasure?->symbol ?? $dispatch->item->unit ?? '';
         $this->callbackReason = '';
         $this->callbackNotes = '';
         $this->showCallbackModal = true;

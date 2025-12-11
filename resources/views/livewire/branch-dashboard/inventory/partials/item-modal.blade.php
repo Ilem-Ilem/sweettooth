@@ -79,24 +79,18 @@
                 <!-- Unit of Measure -->
                 <div>
                     <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Unit of Measure *</label>
-                    <x-select.styled
-                        wire:model="uom"
-                        :options="[
-                            ['label' => 'Grams', 'value' => 'grams'],
-                            ['label' => 'Kilograms (Kg)', 'value' => 'kg'],
-                            ['label' => 'Liters', 'value' => 'liters'],
-                            ['label' => 'Milliliters (ml)', 'value' => 'ml'],
-                            ['label' => 'Pieces (Pcs)', 'value' => 'pcs'],
-                            ['label' => 'Units', 'value' => 'units'],
-                            ['label' => 'Bags', 'value' => 'bags'],
-                            ['label' => 'Cartons', 'value' => 'cartons']
-                        ]"
-                        select="label:label|value:value"
-                        placeholder="Select UOM"
-                        searchable
-                        required
-                    />
-                    @error('uom')
+                    <select wire:model="uom_id"
+                        class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500"
+                        required>
+                        <option value="">Select UOM</option>
+                        @php
+                            $unitsOfMeasure = \App\Models\UnitOfMeasure::orderBy('name')->get();
+                        @endphp
+                        @foreach($unitsOfMeasure as $uom)
+                            <option value="{{ $uom->id }}">{{ $uom->name }} ({{ $uom->symbol }})</option>
+                        @endforeach
+                    </select>
+                    @error('uom_id')
                         <span class="text-red-500 text-sm">{{ $message }}</span>
                     @enderror
                 </div>

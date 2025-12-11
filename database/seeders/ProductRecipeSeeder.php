@@ -7,8 +7,10 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Item;
 use App\Models\Product;
+use App\Models\ProductType;
 use App\Models\Recipe;
 use App\Models\RecipeIngredient;
+use App\Models\UnitOfMeasure;
 use Illuminate\Database\Seeder;
 
 class ProductRecipeSeeder extends Seeder
@@ -57,6 +59,23 @@ class ProductRecipeSeeder extends Seeder
 
         $totalRecipes = 0;
         $totalIngredients = 0;
+
+        // Build ProductType lookup map
+        $productTypeMap = [
+            'pastry' => ProductType::where('name', 'Pastry')->first()?->id,
+            'gelato_flavor' => ProductType::where('name', 'Gelato Flavor')->first()?->id,
+            'hot_kitchen' => ProductType::where('name', 'Hot Kitchen')->first()?->id,
+        ];
+
+        // Build UOM lookup map
+        $uomMap = [
+            'grams' => UnitOfMeasure::where('code', 'g')->first()?->id,
+            'kg' => UnitOfMeasure::where('code', 'kg')->first()?->id,
+            'liters' => UnitOfMeasure::where('code', 'l')->first()?->id,
+            'ml' => UnitOfMeasure::where('code', 'ml')->first()?->id,
+            'pcs' => UnitOfMeasure::where('code', 'pcs')->first()?->id,
+            'units' => UnitOfMeasure::where('code', 'unit')->first()?->id,
+        ];
 
         // Recipe data with ingredients
         $recipesData = [
@@ -344,9 +363,9 @@ class ProductRecipeSeeder extends Seeder
                 'product_id' => $product->id,
                 'product_name' => $product->name,
                 'sku' => $product->sku.'-RCP',
-                'product_type' => $recipeData['product_type'],
+                'product_type_id' => $productTypeMap[$recipeData['product_type']] ?? ProductType::first()->id,
                 'cost_per_unit' => 0, // Will be calculated
-                'uom' => $product->uom,
+                'uom_id' => $product->uom_id,
                 'yield_quantity' => $recipeData['yield_quantity'],
                 'preparation_time' => $recipeData['preparation_time'],
                 'instructions' => $recipeData['instructions'],
@@ -371,7 +390,7 @@ class ProductRecipeSeeder extends Seeder
                     'recipe_id' => $recipe->id,
                     'item_id' => $item->id,
                     'quantity' => $ingredientData['quantity'],
-                    'uom' => $ingredientData['uom'],
+                    'uom_id' => $uomMap[$ingredientData['uom']] ?? UnitOfMeasure::first()->id,
                     'cost_per_unit' => $ingredientData['cost_per_unit'],
                     'waste_percentage' => $ingredientData['waste_percentage'],
                     'sort_order' => $sortOrder++,

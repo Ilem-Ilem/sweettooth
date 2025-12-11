@@ -92,20 +92,15 @@
                 <!-- Unit of Measure -->
                 <div>
                     <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Unit of Measure *</label>
-                    <select wire:model="uom"
+                    <select wire:model="uom_id"
                         class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500"
                         required>
                         <option value="">Select UOM</option>
-                        <option value="grams">Grams</option>
-                        <option value="kg">Kilograms (Kg)</option>
-                        <option value="liters">Liters</option>
-                        <option value="ml">Milliliters (ml)</option>
-                        <option value="pcs">Pieces (Pcs)</option>
-                        <option value="units">Units</option>
-                        <option value="bags">Bags</option>
-                        <option value="cartons">Cartons</option>
+                        @foreach($unitsOfMeasure as $uom)
+                            <option value="{{ $uom->id }}">{{ $uom->name }} ({{ $uom->symbol }})</option>
+                        @endforeach
                     </select>
-                    @error('uom')
+                    @error('uom_id')
                         <span class="text-red-500 text-sm">{{ $message }}</span>
                     @enderror
                 </div>

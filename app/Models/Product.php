@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class Product extends Model
 {
@@ -23,7 +24,7 @@ class Product extends Model
         'price',
         'cost',
         'shelf_life_days',
-        'uom',
+        'uom_id',
         'unit_weight',
         'recipe_yield',
         'recipe_yield_weight',
@@ -96,6 +97,44 @@ class Product extends Model
     public function productType(): BelongsTo
     {
         return $this->belongsTo(ProductType::class);
+    }
+
+    /**
+     * Get the unit of measure for this product
+     */
+    public function unitOfMeasure(): BelongsTo
+    {
+        return $this->belongsTo(UnitOfMeasure::class, 'uom_id');
+    }
+
+    /**
+     * Accessor for UOM symbol (e.g., 'g', 'kg', 'ml')
+     */
+    protected function uomSymbol(): Attribute
+    {
+        return Attribute::make(
+            get: fn() => $this->unitOfMeasure?->symbol ?? 'N/A',
+        );
+    }
+
+    /**
+     * Accessor for UOM display name (e.g., 'Grams', 'Kilograms')
+     */
+    protected function uomDisplayName(): Attribute
+    {
+        return Attribute::make(
+            get: fn() => $this->unitOfMeasure?->name ?? 'N/A',
+        );
+    }
+
+    /**
+     * Accessor for full UOM code (e.g., 'g', 'kg', 'ml')
+     */
+    protected function uomCode(): Attribute
+    {
+        return Attribute::make(
+            get: fn() => $this->unitOfMeasure?->code ?? 'N/A',
+        );
     }
 
     /**
@@ -194,7 +233,7 @@ class Product extends Model
                 'item_sku' => $ingredient->item->sku,
                 'base_quantity' => $ingredient->quantity,
                 'required_quantity' => $scaledQuantity,
-                'uom' => $ingredient->item->uom,
+                'uom' => $ingredient->item->unitOfMeasure?->symbol ?? 'N/A',
                 'batches_needed' => $batchesNeeded,
             ];
         }

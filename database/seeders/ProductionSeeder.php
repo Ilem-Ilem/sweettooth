@@ -3,12 +3,15 @@
 namespace Database\Seeders;
 
 use App\Models\DailyProduce;
+use App\Models\Employee;
 use App\Models\ProductionRecord;
 use App\Models\ProductionRequest;
+use App\Models\ProductType;
 use App\Models\RawMaterialUtilization;
 use App\Models\Recipe;
 use App\Models\RecipeIngredient;
 use App\Models\Shift;
+use App\Models\UnitOfMeasure;
 use Faker\Factory as Faker;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
@@ -40,18 +43,32 @@ class ProductionSeeder extends Seeder
             throw new \Exception('Related tables (branches, departments, employees, categories, items, item_requests) must be seeded first.');
         }
 
+        // Build ProductType lookup
+        $productTypeIds = ProductType::all()->pluck('id')->toArray();
+        
+        // Build UOM lookup
+        $uomMap = [
+            'grams' => UnitOfMeasure::where('code', 'g')->first()?->id,
+            'kg' => UnitOfMeasure::where('code', 'kg')->first()?->id,
+            'liters' => UnitOfMeasure::where('code', 'l')->first()?->id,
+            'ml' => UnitOfMeasure::where('code', 'ml')->first()?->id,
+            'pcs' => UnitOfMeasure::where('code', 'pcs')->first()?->id,
+            'units' => UnitOfMeasure::where('code', 'unit')->first()?->id,
+        ];
+
         // 1. Seed Recipes (20 records)
         $recipes = [];
         for ($i = 0; $i < 20; $i++) {
+            $uomKey = $faker->randomElement(['grams', 'kg', 'liters', 'ml', 'pcs', 'units']);
             $recipes[] = Recipe::create([
                 'branch_id' => $faker->randomElement($branchIds),
                 'department_id' => $faker->randomElement($departmentIds),
                 'product_name' => $faker->word.' '.$faker->randomElement(['Gelato', 'Pastry', 'Beverage']),
                 'sku' => 'SKU-'.Str::random(8),
                 // 'category_id' => $faker->randomElement($categoryIds),
-                'product_type' => $faker->randomElement(['gelato_base', 'gelato_flavor', 'pastry', 'hot_kitchen', 'beverage']),
+                'product_type_id' => $faker->randomElement($productTypeIds) ?? ProductType::first()->id,
                 'cost_per_unit' => $faker->randomFloat(4, 0.5, 50),
-                'uom' => $faker->randomElement(['grams', 'kg', 'liters', 'ml', 'pcs', 'units']),
+                'uom_id' => $uomMap[$uomKey] ?? UnitOfMeasure::first()->id,
                 'yield_quantity' => $faker->randomFloat(2, 1, 100),
                 'preparation_time' => $faker->numberBetween(5, 120),
                 'instructions' => $faker->paragraph,
@@ -64,11 +81,12 @@ class ProductionSeeder extends Seeder
         // 2. Seed Recipe Ingredients (20 records)
         foreach ($recipes as $recipe) {
             for ($i = 0; $i < 20; $i++) {
+                $uomKey = $faker->randomElement(['grams', 'kg', 'liters', 'ml', 'pcs', 'units']);
                 RecipeIngredient::create([
                     'recipe_id' => $recipe->id,
                     'item_id' => $faker->randomElement($itemIds),
                     'quantity' => $faker->randomFloat(4, 0.1, 10),
-                    'uom' => $faker->randomElement(['grams', 'kg', 'liters', 'ml', 'pcs', 'units']),
+                    'uom_id' => $uomMap[$uomKey] ?? UnitOfMeasure::first()->id,
                     'sort_order' => $i,
                     'notes' => $faker->optional()->sentence,
                 ]);

@@ -120,7 +120,7 @@
 
         @interact('column_product_type', $row)
             <span class="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                {{ $row->product_type }}
+                {{ $row->productType->name ?? 'N/A' }}
             </span>
         @endinteract
 

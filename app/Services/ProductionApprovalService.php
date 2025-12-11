@@ -130,24 +130,50 @@ class ProductionApprovalService
      */
     public static function executeRecipeCreation(ApprovalAuditRequest $request): ?Recipe
     {
-        $payload = $request->payload;
-        $actor = $request->requester;  // Use property, not method
-
-        if (!$actor) {
-            throw new \Exception("Requester not found for recipe creation");
-        }
-
         try {
-            $branchId = $payload['branch_id'] ?? null;
+            \Log::info('🔵 [RECIPE CREATION] Starting recipe creation', [
+                'request_id' => $request->id,
+                'product_name' => $request->payload['product_name'] ?? 'Unknown',
+            ]);
+
+            $payload = $request->payload;
+            $actor = $request->requester;  // Use property, not method
+
+            if (!$actor) {
+                throw new \Exception("Requester not found for recipe creation");
+            }
+
+            \Log::info('✅ [RECIPE CREATION] Requester found', [
+                'requester_id' => $actor->id,
+                'requester_type' => get_class($actor),
+            ]);
+
+            // Get branch_id from the approval request (where it's stored), not from payload
+            $branchId = $request->branch_id ?? $payload['branch_id'] ?? null;
+            
+            if (!$branchId) {
+                throw new \Exception("Branch ID not found in approval request");
+            }
+
+            \Log::info('🔵 [RECIPE CREATION] Starting database transaction', [
+                'branch_id' => $branchId,
+                'ingredients_count' => count($payload['ingredients'] ?? []),
+            ]);
 
             $recipe = DB::transaction(function () use ($payload, $actor, $branchId) {
+                \Log::info('🔵 [RECIPE CREATION] Creating recipe record');
+                
+                \Log::info('🔵 [RECIPE CREATION] Product type ID', [
+                    'product_type_id' => $payload['product_type_id'] ?? null,
+                ]);
+                
                 $recipe = Recipe::create([
                     'branch_id' => $branchId,
                     'product_id' => $payload['product_id'] ?? null,
                     'product_name' => $payload['product_name'],
                     'sku' => strtoupper($payload['sku']),
                     'department_id' => $payload['department_id'],
-                    'product_type' => $payload['product_type'],
+                    'product_type_id' => $payload['product_type_id'],
                     'cost_per_unit' => $payload['cost_per_unit'],
                     'uom' => $payload['uom'],
                     'yield_quantity' => $payload['yield_quantity'],
@@ -158,33 +184,68 @@ class ProductionApprovalService
                     'created_by_type' => get_class($actor),
                 ]);
 
+                \Log::info('✅ [RECIPE CREATION] Recipe record created', [
+                    'recipe_id' => $recipe->id,
+                    'sku' => $recipe->sku,
+                ]);
+
                 // Save ingredients
                 if (!empty($payload['ingredients']) && is_array($payload['ingredients'])) {
+                    \Log::info('🔵 [RECIPE CREATION] Creating ingredients', [
+                        'count' => count($payload['ingredients']),
+                    ]);
+
                     foreach ($payload['ingredients'] as $index => $ingredient) {
                         if (!empty($ingredient['item_id'])) {
-                            RecipeIngredient::create([
-                                'recipe_id' => $recipe->id,
-                                'item_id' => $ingredient['item_id'],
-                                'quantity' => $ingredient['quantity'],
-                                'uom' => $ingredient['uom'],
-                                'cost_per_unit' => $ingredient['cost_per_unit'] ?? 0,
-                                'waste_percentage' => $ingredient['waste_percentage'] ?? 0,
-                                'sort_order' => $index + 1,
-                                'notes' => $ingredient['notes'] ?? null,
-                                'preparation_notes' => $ingredient['preparation_notes'] ?? null,
-                            ]);
+                            try {
+                                RecipeIngredient::create([
+                                    'recipe_id' => $recipe->id,
+                                    'item_id' => $ingredient['item_id'],
+                                    'quantity' => $ingredient['quantity'],
+                                    'uom' => $ingredient['uom'],
+                                    'cost_per_unit' => $ingredient['cost_per_unit'] ?? 0,
+                                    'waste_percentage' => $ingredient['waste_percentage'] ?? 0,
+                                    'sort_order' => $index + 1,
+                                    'notes' => $ingredient['notes'] ?? null,
+                                    'preparation_notes' => $ingredient['preparation_notes'] ?? null,
+                                ]);
+                                \Log::info('✅ [RECIPE CREATION] Ingredient created', [
+                                    'index' => $index,
+                                    'item_id' => $ingredient['item_id'],
+                                ]);
+                            } catch (\Exception $e) {
+                                \Log::error('❌ [RECIPE CREATION] Failed to create ingredient', [
+                                    'index' => $index,
+                                    'item_id' => $ingredient['item_id'],
+                                    'error' => $e->getMessage(),
+                                ]);
+                                throw new \Exception("Failed to create ingredient at index {$index}: " . $e->getMessage());
+                            }
                         }
                     }
                 }
 
                 // Log recipe creation
+                \Log::info('🔵 [RECIPE CREATION] Logging recipe creation audit');
                 ProductionAuditService::logRecipeCreated($actor, $recipe, $payload['ingredients'] ?? []);
 
+                \Log::info('✅ [RECIPE CREATION] Recipe creation audit logged');
                 return $recipe;
             });
 
+            \Log::info('✅ [RECIPE CREATION] Recipe created successfully', [
+                'recipe_id' => $recipe->id,
+                'product_name' => $recipe->product_name,
+            ]);
+
             return $recipe;
         } catch (\Exception $e) {
+            \Log::error('❌ [RECIPE CREATION] Recipe creation failed', [
+                'error_message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             throw new \Exception("Failed to create recipe: " . $e->getMessage());
         }
     }
@@ -194,34 +255,45 @@ class ProductionApprovalService
      */
     public static function executeRecipeUpdate(ApprovalAuditRequest $request): ?Recipe
     {
-        $payload = $request->payload;
-        $recipeId = $payload['id'] ?? null;
-        $actor = $request->requester;  // Use property, not method
-
-        if (!$recipeId) {
-            throw new \Exception("Recipe ID not found in approval request");
-        }
-
-        if (!$actor) {
-            throw new \Exception("Requester not found for recipe update");
-        }
-
         try {
+            \Log::info('🔵 [RECIPE UPDATE] Starting recipe update', [
+                'request_id' => $request->id,
+            ]);
+
+            $payload = $request->payload;
+            $recipeId = $payload['id'] ?? null;
+            $actor = $request->requester;  // Use property, not method
+
+            if (!$recipeId) {
+                throw new \Exception("Recipe ID not found in approval request");
+            }
+
+            if (!$actor) {
+                throw new \Exception("Requester not found for recipe update");
+            }
+
+            \Log::info('✅ [RECIPE UPDATE] Validation passed', [
+                'recipe_id' => $recipeId,
+                'requester_id' => $actor->id,
+            ]);
+
+            \Log::info('🔵 [RECIPE UPDATE] Fetching recipe', ['recipe_id' => $recipeId]);
             $recipe = Recipe::findOrFail($recipeId);
 
+            \Log::info('✅ [RECIPE UPDATE] Recipe found, starting transaction');
             DB::transaction(function () use ($recipe, $payload, $actor) {
+                \Log::info('🔵 [RECIPE UPDATE] Updating recipe fields');
+                
                 // Update basic recipe fields
                 $recipe->update([
                     'product_id' => $payload['product_id'] ?? null,
                     'product_name' => $payload['product_name'],
                     'sku' => strtoupper($payload['sku']),
                     'department_id' => $payload['department_id'],
-                    'product_type' => $payload['product_type'],
+                    'product_type_id' => $payload['product_type_id'],
                     'cost_per_unit' => $payload['cost_per_unit'],
                     'uom' => $payload['uom'],
                     'yield_quantity' => $payload['yield_quantity'],
-                    'recipe_yield_weight' => $payload['recipe_yield_weight'] ?? null,
-                    'unit_weight' => $payload['unit_weight'] ?? null,
                     'preparation_time' => $payload['preparation_time'] ?? null,
                     'instructions' => $payload['instructions'] ?? null,
                     'status' => $payload['status'] ?? 'active',
@@ -254,8 +326,18 @@ class ProductionApprovalService
                 ProductionAuditService::logRecipeUpdated($actor, $recipe, $payload['ingredients'] ?? []);
             });
 
+            \Log::info('✅ [RECIPE UPDATE] Recipe updated successfully', [
+                'recipe_id' => $recipe->id,
+            ]);
+
             return $recipe;
         } catch (\Exception $e) {
+            \Log::error('❌ [RECIPE UPDATE] Recipe update failed', [
+                'error_message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             throw new \Exception("Failed to update recipe: " . $e->getMessage());
         }
     }
@@ -265,17 +347,36 @@ class ProductionApprovalService
      */
     public static function executeRecipeDeletion(ApprovalAuditRequest $request): ?Recipe
     {
-        $recipeId = $request->payload['id'] ?? null;
-        $actor = $request->requester;  // Use property, not method
-
-        if (!$recipeId) {
-            throw new \Exception("Recipe ID not found in approval request");
-        }
-
         try {
+            \Log::info('🔵 [RECIPE DELETION] Starting recipe deletion', [
+                'request_id' => $request->id,
+            ]);
+
+            $recipeId = $request->payload['id'] ?? null;
+            $actor = $request->requester;  // Use property, not method
+
+            if (!$recipeId) {
+                throw new \Exception("Recipe ID not found in approval request");
+            }
+
+            if (!$actor) {
+                throw new \Exception("Requester not found for recipe deletion");
+            }
+
+            \Log::info('✅ [RECIPE DELETION] Validation passed', [
+                'recipe_id' => $recipeId,
+                'requester_id' => $actor->id,
+            ]);
+
+            \Log::info('🔵 [RECIPE DELETION] Fetching recipe', ['recipe_id' => $recipeId]);
             $recipe = Recipe::findOrFail($recipeId);
 
+            \Log::info('✅ [RECIPE DELETION] Recipe found, starting deletion', [
+                'product_name' => $recipe->product_name,
+            ]);
+
             DB::transaction(function () use ($recipe, $actor) {
+                \Log::info('🔵 [RECIPE DELETION] Logging deletion');
                 // Log deletion before deleting
                 if ($actor) {
                     ProductionAuditService::logRecipeDeleted(
@@ -285,13 +386,25 @@ class ProductionApprovalService
                     );
                 }
 
+                \Log::info('🔵 [RECIPE DELETION] Deleting ingredients and recipe');
                 // Delete ingredients and recipe
                 $recipe->ingredients()->delete();
                 $recipe->delete();
+                \Log::info('✅ [RECIPE DELETION] Recipe deleted');
             });
+
+            \Log::info('✅ [RECIPE DELETION] Recipe deletion completed', [
+                'recipe_id' => $recipeId,
+            ]);
 
             return $recipe;
         } catch (\Exception $e) {
+            \Log::error('❌ [RECIPE DELETION] Recipe deletion failed', [
+                'error_message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             throw new \Exception("Failed to delete recipe: " . $e->getMessage());
         }
     }
@@ -301,19 +414,34 @@ class ProductionApprovalService
      */
     public static function executeRecipeBulkDeletion(ApprovalAuditRequest $request): array
     {
-        $ids = $request->payload['ids'] ?? [];
-        $actor = $request->requester;
-
-        if (empty($ids)) {
-            throw new \Exception("No recipe IDs found in approval request");
-        }
-
         try {
+            \Log::info('🔵 [RECIPE BULK DELETION] Starting bulk recipe deletion', [
+                'request_id' => $request->id,
+            ]);
+
+            $ids = $request->payload['ids'] ?? [];
+            $actor = $request->requester;
+
+            if (empty($ids)) {
+                throw new \Exception("No recipe IDs found in approval request");
+            }
+
+            if (!$actor) {
+                throw new \Exception("Requester not found for recipe bulk deletion");
+            }
+
+            \Log::info('✅ [RECIPE BULK DELETION] Validation passed', [
+                'recipe_count' => count($ids),
+                'requester_id' => $actor->id,
+            ]);
+
             $deleted = [];
             foreach ($ids as $id) {
+                \Log::info('🔵 [RECIPE BULK DELETION] Processing recipe', ['recipe_id' => $id]);
                 $recipe = Recipe::find($id);
                 if ($recipe) {
                     DB::transaction(function () use ($recipe, $actor) {
+                        \Log::info('🔵 [RECIPE BULK DELETION] Logging deletion');
                         // Log deletion before deleting
                         if ($actor) {
                             ProductionAuditService::logRecipeDeleted(
@@ -323,16 +451,33 @@ class ProductionApprovalService
                             );
                         }
 
+                        \Log::info('🔵 [RECIPE BULK DELETION] Deleting ingredients and recipe');
                         // Delete ingredients and recipe
                         $recipe->ingredients()->delete();
                         $recipe->delete();
+                        \Log::info('✅ [RECIPE BULK DELETION] Recipe deleted');
                     });
 
                     $deleted[] = $id;
+                    \Log::info('✅ [RECIPE BULK DELETION] Recipe processed', ['recipe_id' => $id]);
+                } else {
+                    \Log::warning('⚠️ [RECIPE BULK DELETION] Recipe not found', ['recipe_id' => $id]);
                 }
             }
+
+            \Log::info('✅ [RECIPE BULK DELETION] Bulk deletion completed', [
+                'total_ids' => count($ids),
+                'deleted_count' => count($deleted),
+            ]);
+
             return $deleted;
         } catch (\Exception $e) {
+            \Log::error('❌ [RECIPE BULK DELETION] Bulk deletion failed', [
+                'error_message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             throw new \Exception("Failed to delete recipes: " . $e->getMessage());
         }
     }

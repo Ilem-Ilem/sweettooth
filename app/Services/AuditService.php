@@ -53,39 +53,66 @@ class AuditService
         ?ApprovalRequest $approvalRequest = null,
         array $metadata = []
     ): AuditLog {
-        // Extract branch_id from auditable model if available
-        $branchId = null;
-        if ($auditable) {
-            $branchId = $auditable->branch_id ?? $auditable->branch ?? null;
-            if ($branchId instanceof Model) {
-                $branchId = $branchId->id;
-            }
-        }
-        // Fallback to current branch context if available
-        if (!$branchId && function_exists('current_branch_id')) {
-            $branchId = current_branch_id();
-        }
+        try {
+            \Log::info('🔵 [AUDIT SERVICE] Creating audit log', [
+                'action' => $action,
+                'status' => $status,
+                'causer_id' => $causer?->id,
+                'causer_type' => $causer ? get_class($causer) : null,
+                'auditable_id' => $auditable?->id,
+                'auditable_type' => $auditable ? get_class($auditable) : null,
+            ]);
 
-        return AuditLog::create([
-            'branch_id' => $branchId,
-            'causer_type' => $causer ? get_class($causer) : null,
-            'causer_id' => $causer?->id,
-            'auditable_type' => $auditable ? get_class($auditable) : null,
-            'auditable_id' => $auditable?->id,
-            'action' => $action,
-            'description' => $description,
-            'old_values' => $auditable?->getOriginal() ?? null,
-            'new_values' => $auditable?->getDirty() ?? null,
-            'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent(),
-            'status' => $status,
-            'approval_request_id' => $approvalRequest?->id,
-            'logged_at' => now(),
-            'details' => array_merge($metadata, [
-                'causer' => $causer ? get_class($causer) : null,
-                'auditable' => $auditable ? get_class($auditable) : null,
-            ]),
-        ]);
+            // Extract branch_id from auditable model if available
+            $branchId = null;
+            if ($auditable) {
+                $branchId = $auditable->branch_id ?? $auditable->branch ?? null;
+                if ($branchId instanceof Model) {
+                    $branchId = $branchId->id;
+                }
+            }
+            // Fallback to current branch context if available
+            if (!$branchId && function_exists('current_branch_id')) {
+                $branchId = current_branch_id();
+            }
+
+            $auditLog = AuditLog::create([
+                'branch_id' => $branchId,
+                'causer_type' => $causer ? get_class($causer) : null,
+                'causer_id' => $causer?->id,
+                'auditable_type' => $auditable ? get_class($auditable) : null,
+                'auditable_id' => $auditable?->id,
+                'action' => $action,
+                'description' => $description,
+                'old_values' => $auditable?->getOriginal() ?? null,
+                'new_values' => $auditable?->getDirty() ?? null,
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+                'status' => $status,
+                'approval_request_id' => $approvalRequest?->id,
+                'logged_at' => now(),
+                'details' => array_merge($metadata, [
+                    'causer' => $causer ? get_class($causer) : null,
+                    'auditable' => $auditable ? get_class($auditable) : null,
+                ]),
+            ]);
+
+            \Log::info('✅ [AUDIT SERVICE] Audit log created successfully', [
+                'audit_log_id' => $auditLog->id,
+                'action' => $action,
+            ]);
+
+            return $auditLog;
+        } catch (\Exception $e) {
+            \Log::error('❌ [AUDIT SERVICE] Failed to create audit log', [
+                'action' => $action,
+                'error_message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            throw new \Exception("Failed to create audit log for action '{$action}': " . $e->getMessage());
+        }
     }
 
     /**

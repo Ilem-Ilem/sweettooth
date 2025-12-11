@@ -53,17 +53,26 @@ class Login extends Component
         RateLimiter::clear($this->throttleKey());
         Session::regenerate();
         
-        // Get branch for super-admin redirect
-        // Preference: intended URL > user's default branch > first branch
+        // Get user's branch for context
         $branch = $this->getUserBranch($user);
         
-        if (!$branch) {
-            // No branches available, redirect to branch selection
-            $this->redirect(route('branch-select'), navigate: true);
-            return;
+        if ($branch) {
+            session()->put('current_branch_id', $branch->id);
+            $user->update(['last_accessed_branch_id' => $branch->id]);
         }
-
-        $this->redirectIntended(default: route('branch-dashboard.index', ['b_id' => $branch->id], absolute: false), navigate: true);
+        
+        // Redirect to DashboardRouter which will handle role-based routing
+        if ($branch) {
+            $this->redirectIntended(
+                default: route('branch-dashboard.dashboard.router', ['b_id' => $branch->id], absolute: false),
+                navigate: true
+            );
+        } else {
+            $this->redirectIntended(
+                default: route('branch-dashboard.dashboard.router', [], absolute: false),
+                navigate: true
+            );
+        }
     }
 
     /**

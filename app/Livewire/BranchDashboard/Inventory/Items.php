@@ -7,6 +7,7 @@ use App\Models\Item;
 use App\Models\RecipeIngredient;
 use App\Models\Stock;
 use App\Models\StockMovement;
+use App\Models\UnitOfMeasure;
 use App\Services\AuditService;
 use App\Services\InventoryApprovalService;
 use Illuminate\Support\Facades\Auth;
@@ -47,7 +48,7 @@ class Items extends BaseComponent
     public string $name = '';
     public string $sku = '';
     public string $category = '';
-    public string $uom = '';
+    public ?int $uom_id = null;
     public float|int|null $reorder_level = null;
     public float|int|null $max_stock_level = null;
     public string $status = 'active';
@@ -109,7 +110,7 @@ class Items extends BaseComponent
             'name' => $this->name,
             'sku' => $this->sku,
             'category' => $this->category,
-            'uom' => $this->uom,
+            'uom_id' => $this->uom_id,
             'reorder_level' => $this->reorder_level ?? 0,
             'max_stock_level' => $this->max_stock_level ?? 0,
             'status' => $this->status,
@@ -133,7 +134,7 @@ class Items extends BaseComponent
         $rules = [
             'name' => 'required|string|max:255',
             'category' => 'required|in:raw_material,packaging,consumable,equipment',
-            'uom' => 'required|in:grams,kg,liters,ml,pcs,units,bags,cartons',
+            'uom_id' => 'required|exists:units_of_measure,id',
             'reorder_level' => 'nullable|numeric|min:0',        // ← FIXED
             'max_stock_level' => 'nullable|numeric|min:0',      // ← also make sure this one is correct
             'status' => 'required|in:active,inactive',
@@ -158,7 +159,7 @@ class Items extends BaseComponent
             // Store original values for change tracking
             $oldName = $item->name;
             $oldCategory = $item->category;
-            $oldUom = $item->uom;
+            $oldUom = $item->unitOfMeasure?->symbol;
             $oldReorderLevel = $item->reorder_level;
             $oldMaxStockLevel = $item->max_stock_level;
             $oldStatus = $item->status;
@@ -173,8 +174,9 @@ class Items extends BaseComponent
             if ($oldCategory !== $this->category) {
                 $changes[] = "Category: {$oldCategory} → {$this->category}";
             }
-            if ($oldUom !== $this->uom) {
-                $changes[] = "UOM: {$oldUom} → {$this->uom}";
+            $newUom = UnitOfMeasure::find($this->uom_id)?->symbol;
+            if ($oldUom !== $newUom) {
+                $changes[] = "UOM: {$oldUom} → {$newUom}";
             }
             if ((float)$oldReorderLevel !== (float)$this->reorder_level) {
                 $changes[] = "Reorder Level: {$oldReorderLevel} → {$this->reorder_level}";
@@ -215,7 +217,7 @@ class Items extends BaseComponent
                 'create',
                 $item,
                 "Created item '{$item->name}' (SKU: {$item->sku}) in category '{$item->category}'. " .
-                "UOM: {$item->uom}, Reorder Level: {$item->reorder_level}, Max Stock: {$item->max_stock_level}",
+                "UOM: {$item->unitOfMeasure?->symbol}, Reorder Level: {$item->reorder_level}, Max Stock: {$item->max_stock_level}",
                 'completed'
             );
 
@@ -312,7 +314,7 @@ class Items extends BaseComponent
         $this->name = $item->name;
         $this->sku = $item->sku;
         $this->category = $item->category;
-        $this->uom = $item->uom;
+        $this->uom_id = $item->uom_id;
         $this->reorder_level = $item->reorder_level;
         $this->max_stock_level = $item->max_stock_level;
         $this->status = $item->status;
@@ -655,7 +657,7 @@ class Items extends BaseComponent
 
     private function resetForm()
     {
-        $this->reset(['itemId', 'name', 'sku', 'category', 'uom', 'reorder_level', 'max_stock_level', 'status', 'isEditing']);
+        $this->reset(['itemId', 'name', 'sku', 'category', 'uom_id', 'reorder_level', 'max_stock_level', 'status', 'isEditing']);
     }
 
     public function updatedName()

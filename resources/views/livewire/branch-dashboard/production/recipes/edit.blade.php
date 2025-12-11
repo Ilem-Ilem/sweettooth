@@ -49,16 +49,23 @@
 
                     <div>
                         <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Product Type *</label>
-                        <select wire:model="product_type"
-                                class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
-                            <option value="">Select Product Type</option>
-                            <option value="gelato_base">Gelato Base</option>
-                            <option value="gelato_flavor">Gelato Flavor</option>
-                            <option value="pastry">Pastry</option>
-                            <option value="hot_kitchen">Hot Kitchen</option>
-                            <option value="beverage">Beverage</option>
-                        </select>
-                        @error('product_type') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                        @if($product_type_id)
+                            <!-- Show selected product type as read-only -->
+                            <div class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-zinc-100 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200">
+                                @php
+                                    $selectedType = $productTypes->firstWhere('id', $product_type_id);
+                                @endphp
+                                {{ $selectedType?->name ?? 'Unknown Type' }}
+                            </div>
+                            <input type="hidden" wire:model="product_type_id" />
+                        @else
+                            <!-- Show placeholder when no product selected -->
+                            <div class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-zinc-100 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400">
+                                Select a product first
+                            </div>
+                        @endif
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Auto-filled from selected product</p>
+                        @error('product_type_id') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                     </div>
 
                     <div>
@@ -73,81 +80,76 @@
                     </div>
                 </div>
 
-                <!-- Recipe Yield Information Section -->
-                <div class="border-t border-zinc-200 dark:border-zinc-700 pt-4">
-                    <h4 class="text-base font-semibold text-zinc-900 dark:text-zinc-100 mb-4">Recipe Yield Information</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                                Recipe Yield (Units) <span class="text-red-500">*</span>
+                <!-- Recipe Yield Configuration - Simplified -->
+                <div class="bg-gradient-to-br from-blue-50 to-blue-25 dark:from-blue-900/30 dark:to-blue-900/10 p-6 rounded-xl border border-blue-200 dark:border-blue-800/50 shadow-sm">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="p-2 bg-blue-100 dark:bg-blue-800/40 rounded-lg">
+                            <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                        </div>
+                        <h4 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Recipe Output</h4>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <!-- Quantity per Batch -->
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-3">
+                                Batch Quantity <span class="text-red-500">*</span>
                             </label>
-                            <input type="number" step="0.01" wire:model.live="yield_quantity"
-                                   placeholder="e.g., 12"
-                                   class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
-                            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">How many units does one recipe batch produce? Auto-calculated if batch weight and unit weight are provided</p>
-                            @error('yield_quantity') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                            <div class="flex gap-3 items-end">
+                                <div class="flex-1">
+                                    <input type="number" step="0.01" wire:model="yield_quantity"
+                                           class="w-full px-4 py-3 border-2 border-blue-200 dark:border-blue-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-lg font-medium"
+                                           placeholder="e.g., 10">
+                                    <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-2">How many units per batch?</p>
+                                </div>
+                                <select wire:model="uom"
+                                        class="px-4 py-3 bg-white dark:bg-zinc-800 border-2 border-zinc-300 dark:border-zinc-600 rounded-lg text-sm font-semibold text-zinc-700 dark:text-zinc-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all whitespace-nowrap">
+                                    <option value="">Select Unit</option>
+                                    @foreach($unitsOfMeasure->groupBy('category') as $category => $units)
+                                        <optgroup label="{{ ucfirst($category) }}">
+                                            @foreach($units as $unit)
+                                                <option value="{{ $unit->code }}">{{ $unit->name }} ({{ $unit->symbol }})</option>
+                                            @endforeach
+                                        </optgroup>
+                                    @endforeach
+                                </select>
+                            </div>
+                            @error('yield_quantity') <span class="text-red-500 text-xs mt-2 block">{{ $message }}</span> @enderror
+                            @error('uom') <span class="text-red-500 text-xs mt-2 block">{{ $message }}</span> @enderror
                         </div>
 
-                        <div>
-                            <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                                Unit of Measure <span class="text-red-500">*</span>
-                            </label>
-                            <select wire:model.live="uom"
-                                    class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
-                                <option value="grams">Grams</option>
-                                <option value="kg">Kilograms</option>
-                                <option value="liters">Liters</option>
-                                <option value="ml">Milliliters</option>
-                                <option value="pcs">Pieces</option>
-                                <option value="units">Units</option>
-                            </select>
-                            @error('uom') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Prep Time (minutes)</label>
-                            <input type="number" wire:model="preparation_time"
-                                   class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
-                            @error('preparation_time') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                        <!-- Unit of Measure Badge -->
+                        <div class="flex flex-col justify-center">
+                            <div class="px-4 py-3 bg-blue-100 dark:bg-blue-900/60 border-2 border-blue-300 dark:border-blue-700 rounded-lg text-center">
+                                <p class="text-xs text-blue-600 dark:text-blue-300 uppercase tracking-wide font-medium">Current Unit</p>
+                                @php
+                                    $selectedUOM = $unitsOfMeasure->firstWhere('code', $uom);
+                                    $icon = match($selectedUOM?->category ?? 'weight') {
+                                        'weight' => '📊',
+                                        'volume' => '🧪',
+                                        'count' => '🔢',
+                                        'length' => '📏',
+                                        default => '📦'
+                                    };
+                                @endphp
+                                <p class="text-2xl font-bold text-blue-700 dark:text-blue-200 mt-2">{{ $icon }} {{ $selectedUOM?->symbol ?? 'unit' }}</p>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Weight/Volume Sync Section -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800 mt-4">
-                        <div>
-                            <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                                Total Batch
-                                @if($uom === 'grams') Weight (g)
-                                @elseif($uom === 'kg') Weight (kg)
-                                @elseif($uom === 'liters') Volume (L)
-                                @elseif($uom === 'ml') Volume (ml)
-                                @elseif($uom === 'pcs') Count (pcs)
-                                @elseif($uom === 'units') Quantity (units)
-                                @else Measurement
-                                @endif
-                            </label>
-                            <input type="number" step="0.01" wire:model.live="recipe_yield_weight"
-                                   placeholder="e.g., 1200"
-                                   class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
-                            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Total of one recipe batch. Will auto-calculate yield when combined with unit measurement.</p>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                                Unit
-                                @if($uom === 'grams') Weight (g)
-                                @elseif($uom === 'kg') Weight (kg)
-                                @elseif($uom === 'liters') Volume (L)
-                                @elseif($uom === 'ml') Volume (ml)
-                                @elseif($uom === 'pcs') Count (pcs)
-                                @elseif($uom === 'units') Quantity (units)
-                                @else Measurement
-                                @endif
-                            </label>
-                            <input type="number" step="0.01" wire:model.live="unit_weight"
-                                   placeholder="e.g., 2.00"
-                                   class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
-                            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Measurement of one unit. Will auto-calculate yield when combined with batch measurement.</p>
+                    <!-- Prep Time -->
+                    <div class="border-t border-blue-300 dark:border-blue-700 pt-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-3">Prep Time (minutes)</label>
+                                <input type="number" wire:model="preparation_time"
+                                       placeholder="e.g., 30"
+                                       class="w-full px-4 py-3 border-2 border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
+                                <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-2">Estimated preparation time</p>
+                                @error('preparation_time') <span class="text-red-500 text-xs mt-2 block">{{ $message }}</span> @enderror
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -290,34 +292,39 @@
             </div>
 
             <!-- Form Actions -->
-            <div class="flex justify-end gap-3 pt-4 border-t border-zinc-200 dark:border-zinc-700">
-                <a href="{{ branch_route('branch-dashboard.production.recipes.index', ['deptSlug'=>$dept_slug]) }}"
-                   class="px-6 py-2 border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors">
-                    Cancel
-                </a>
-                <button type="submit"
-                        x-data="{ loading: false }"
-                        @click="loading = true"
-                        :disabled="loading"
-                        class="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg font-medium transition-colors flex items-center">
-                    <template x-if="!loading">
-                        <span class="flex items-center">
+            <div class="flex justify-between gap-3 pt-4 border-t border-zinc-200 dark:border-zinc-700">
+                <button type="button" 
+                        wire:click="delete"
+                        class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Delete Recipe
+                </button>
+                
+                <div class="flex gap-3">
+                    <a href="{{ branch_route('branch-dashboard.production.recipes.index', ['deptSlug'=>$dept_slug]) }}"
+                       class="px-6 py-2 border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors">
+                        Cancel
+                    </a>
+                    <button type="submit"
+                            wire:loading.attr="disabled"
+                            class="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg font-medium transition-colors flex items-center">
+                        <span wire:loading.remove class="flex items-center">
                             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                             </svg>
                             Update Recipe
                         </span>
-                    </template>
-                    <template x-if="loading">
-                        <span class="flex items-center gap-2">
+                        <span wire:loading class="flex items-center gap-2">
                             <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
                             Updating...
                         </span>
-                    </template>
-                </button>
+                    </button>
+                </div>
             </div>
         </form>
     </div>

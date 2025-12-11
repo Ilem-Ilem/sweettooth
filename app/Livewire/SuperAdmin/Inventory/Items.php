@@ -5,6 +5,7 @@ namespace App\Livewire\SuperAdmin\Inventory;
 use App\Livewire\BaseComponent;
 use App\Models\Branch;
 use App\Models\Item;
+use App\Models\UnitOfMeasure;
 
 class Items extends BaseComponent
 {
@@ -38,7 +39,7 @@ class Items extends BaseComponent
     public string $name = '';
     public string $sku = '';
     public string $category = '';
-    public string $uom = '';
+    public ?int $uom_id = null;
     public $reorder_level;
     public $max_stock_level;
     public string $status = 'active';
@@ -61,7 +62,7 @@ class Items extends BaseComponent
     protected function getFilteredQuery()
     {
         return Item::query()
-            ->with(['branch', 'stocks'])
+            ->with(['branch', 'stocks', 'unitOfMeasure'])
             ->when($this->search, function ($query) {
                 $query->where('name', 'like', '%' . $this->search . '%')
                       ->orWhere('sku', 'like', '%' . $this->search . '%');
@@ -175,7 +176,7 @@ class Items extends BaseComponent
         foreach ($items as $item) {
             $branchName = $item->branch ? $item->branch->name : 'N/A';
             $currentStock = $item->getCurrentStock();
-            $csv .= "\"{$item->id}\",\"{$branchName}\",\"{$item->sku}\",\"{$item->name}\",\"{$item->category}\",\"{$item->uom}\",\"{$currentStock}\",\"{$item->reorder_level}\",\"{$item->status}\",\"{$item->created_at}\"\n";
+            $csv .= "\"{$item->id}\",\"{$branchName}\",\"{$item->sku}\",\"{$item->name}\",\"{$item->category}\",\"{$item->unitOfMeasure?->symbol}\",\"{$currentStock}\",\"{$item->reorder_level}\",\"{$item->status}\",\"{$item->created_at}\"\n";
         }
 
         return response()->streamDownload(function() use ($csv) {
@@ -194,6 +195,7 @@ class Items extends BaseComponent
     {
         $rows = $this->getFilteredQuery()->paginate($this->quantity ?? 10);
         $branches = Branch::orderBy('name')->get();
+        $unitsOfMeasure = UnitOfMeasure::orderBy('name')->get();
 
         return view('livewire.super-admin.inventory.items', [
             'headers' => [
@@ -210,6 +212,7 @@ class Items extends BaseComponent
             ],
             'rows' => $rows,
             'branches' => $branches,
+            'unitsOfMeasure' => $unitsOfMeasure,
         ]);
     }
 
@@ -229,7 +232,7 @@ class Items extends BaseComponent
         $this->name = $item->name;
         $this->sku = $item->sku;
         $this->category = $item->category;
-        $this->uom = $item->uom;
+        $this->uom_id = $item->uom_id;
         $this->reorder_level = $item->reorder_level;
         $this->max_stock_level = $item->max_stock_level;
         $this->status = $item->status;
@@ -244,7 +247,7 @@ class Items extends BaseComponent
             'branch_id' => 'required|exists:branches,id',
             'name' => 'required|string|max:255',
             'category' => 'required|in:raw_material,packaging,consumable,equipment',
-            'uom' => 'required|in:grams,kg,liters,ml,pcs,units,bags,cartons',
+            'uom_id' => 'required|exists:units_of_measure,id',
             'reorder_level' => 'nullable|numeric|min:0',
             'max_stock_level' => 'nullable|numeric|min:0',
             'status' => 'required|in:active,inactive',
@@ -263,7 +266,7 @@ class Items extends BaseComponent
             'name' => $this->name,
             'sku' => $this->sku,
             'category' => $this->category,
-            'uom' => $this->uom,
+            'uom_id' => $this->uom_id,
             'reorder_level' => $this->reorder_level,
             'max_stock_level' => $this->max_stock_level,
             'status' => $this->status,
@@ -490,7 +493,7 @@ class Items extends BaseComponent
         $this->name = '';
         $this->sku = '';
         $this->category = '';
-        $this->uom = '';
+        $this->uom_id = null;
         $this->reorder_level = null;
         $this->max_stock_level = null;
         $this->status = 'active';

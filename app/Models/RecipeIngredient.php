@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class RecipeIngredient extends Model
 {
@@ -11,7 +12,7 @@ class RecipeIngredient extends Model
         'recipe_id',
         'item_id',
         'quantity',
-        'uom',
+        'uom_id',
         'cost_per_unit',
         'waste_percentage',
         'sort_order',
@@ -20,7 +21,6 @@ class RecipeIngredient extends Model
     ];
 
     protected $casts = [
-        'uom' => 'string',
         'quantity' => 'decimal:4',
         'cost_per_unit' => 'decimal:4',
         'waste_percentage' => 'decimal:2',
@@ -34,6 +34,21 @@ class RecipeIngredient extends Model
     public function item(): BelongsTo
     {
         return $this->belongsTo(Item::class);
+    }
+
+    public function unitOfMeasure(): BelongsTo
+    {
+        return $this->belongsTo(UnitOfMeasure::class, 'uom_id');
+    }
+
+    /**
+     * Accessor for UOM symbol
+     */
+    protected function uomSymbol(): Attribute
+    {
+        return Attribute::make(
+            get: fn() => $this->unitOfMeasure?->symbol ?? 'N/A',
+        );
     }
 
     /**

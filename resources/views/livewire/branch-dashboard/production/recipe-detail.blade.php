@@ -32,7 +32,7 @@
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
             <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
                 <p class="text-sm text-blue-600 dark:text-blue-400 font-medium">Product Type</p>
-                <p class="text-lg font-bold text-blue-900 dark:text-blue-100">{{ ucfirst(str_replace('_', ' ', $recipe->product_type)) }}</p>
+                <p class="text-lg font-bold text-blue-900 dark:text-blue-100">{{ $recipe->productType->name ?? 'N/A' }}</p>
             </div>
             <div class="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
                 <p class="text-sm text-green-600 dark:text-green-400 font-medium">Base Yield</p>

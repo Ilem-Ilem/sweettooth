@@ -56,8 +56,13 @@ class StaffLogin extends Component
         RateLimiter::clear($this->throttleKey());
         Session::regenerate();
 
+        // Store branch context for DashboardRouter
+        session()->put('current_branch_id', $this->branch_id);
+        $employee->update(['last_accessed_branch_id' => $this->branch_id]);
+
+        // Redirect to DashboardRouter which will route to appropriate dashboard by role
         $this->redirectIntended(
-            default: route('branch-dashboard.select_shift', ['b_id' => $this->branch_id], absolute: false),
+            default: route('branch-dashboard.dashboard.router', ['b_id' => $this->branch_id], absolute: false),
             navigate: true
         );
     }

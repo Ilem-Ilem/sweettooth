@@ -37,7 +37,7 @@
     <!-- Low Stock Alert -->
     @php
         $lowStockQuery = App\Models\Item::query()
-            ->with(['stocks', 'branch'])
+            ->with(['stocks', 'branch', 'unitOfMeasure'])
             ->where('status', 'active')
             ->where('reorder_level', '>', 0)
             ->whereHas('stocks', function($q) {
@@ -79,10 +79,10 @@
                             </div>
                             <div class="text-right">
                                 <span class="text-sm font-semibold text-red-600 dark:text-red-400">
-                                    {{ number_format($currentStock, 2) }} {{ $item->uom }}
+                                    {{ number_format($currentStock, 2) }} {{ $item->unitOfMeasure?->symbol ?? 'N/A' }}
                                 </span>
                                 <span class="text-xs text-zinc-500 dark:text-zinc-400 ml-1">
-                                    / {{ number_format($item->reorder_level, 2) }} {{ $item->uom }}
+                                    / {{ number_format($item->reorder_level, 2) }} {{ $item->unitOfMeasure?->symbol ?? 'N/A' }}
                                 </span>
                             </div>
                         </div>
@@ -274,8 +274,12 @@
         @endinteract
 
         @interact('column_uom', $row)
-            <span class="text-zinc-600 dark:text-zinc-400 uppercase">
-                {{ $row->uom }}
+            <span class="text-zinc-600 dark:text-zinc-400">
+                @php
+                    $uom = $row->unitOfMeasure ?? \App\Models\UnitOfMeasure::find($row->uom_id);
+                @endphp
+                {{ $uom?->symbol ?? 'No UOM' }}
+                <span class="text-xs text-zinc-400">(ID: {{ $row->uom_id }})</span>
             </span>
         @endinteract
 

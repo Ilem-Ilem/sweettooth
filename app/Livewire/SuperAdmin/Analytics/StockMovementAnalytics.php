@@ -318,7 +318,7 @@ class StockMovementAnalytics extends Component
                     'id' => $stock->id,
                     'name' => $stock->item->name,
                     'sku' => $stock->item->sku,
-                    'uom' => $stock->item->uom,
+                    'uom' => $stock->item->unitOfMeasure?->symbol,
                 ];
             });
     }

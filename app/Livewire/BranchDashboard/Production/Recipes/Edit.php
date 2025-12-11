@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\Recipe;
 use App\Models\RecipeIngredient;
 use App\Models\ApprovalAuditRequest;
+use App\Models\UnitOfMeasure;
 use App\Services\ProductionAuditService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -38,7 +39,7 @@ class Edit extends Component
 
     public ?int $department_id = null;
 
-    public string $product_type = '';
+    public ?int $product_type_id = null;
 
     public $cost_per_unit = 0;
 
@@ -54,11 +55,6 @@ class Edit extends Component
 
     // Recipe Ingredients
     public array $ingredients = [];
-
-    // Additional fields for weight/volume sync
-    public $recipe_yield_weight = null;
-    public $unit_weight = null;
-    public $yield_percentage = 100;
 
     #[Url(keep:true)]
     public ?string $dept_slug = null;
@@ -92,17 +88,12 @@ class Edit extends Component
         $this->product_id = $recipe->product_id;
         $this->productName = $recipe->product_name;
         $this->sku = $recipe->sku;
-        $this->product_type = $recipe->product_type;
+        $this->product_type_id = $recipe->product_type_id;
         $this->cost_per_unit = $recipe->cost_per_unit;
         $this->uom = $recipe->uom ?? 'grams';
         $this->yield_quantity = $recipe->yield_quantity ?? 1;
         $this->preparation_time = $recipe->preparation_time;
         $this->status = $recipe->status ?? 'active';
-        
-        // Load weight/volume and yield fields
-        $this->recipe_yield_weight = $recipe->recipe_yield_weight;
-        $this->unit_weight = $recipe->unit_weight;
-        $this->yield_percentage = $recipe->yield_percentage ?? 100;
 
         // Load instructions
         $this->instructions = json_decode($recipe->instructions, true) ?? [];
@@ -127,40 +118,23 @@ class Edit extends Component
         return $this->b_id ? $this->b_id : request()->query('b_id');
     }
 
-    /**
-     * Auto-calculate yield_quantity from batch weight and unit weight
-     * Formula: yield_quantity = recipe_yield_weight / unit_weight
-     */
-    #[Computed]
-    public function calculatedYieldQuantity()
+    public function updatedProductId()
     {
-        if ($this->recipe_yield_weight && $this->unit_weight && $this->unit_weight > 0) {
-            return round($this->recipe_yield_weight / $this->unit_weight, 2);
-        }
-        return null;
-    }
-
-    /**
-     * Watch for changes in recipe_yield_weight and auto-update yield_quantity
-     */
-    public function updatedRecipeYieldWeight()
-    {
-        $calculated = $this->calculatedYieldQuantity();
-        if ($calculated !== null) {
-            $this->yield_quantity = $calculated;
+        if ($this->product_id) {
+            $product = Product::with('productType')->find($this->product_id);
+            if ($product) {
+                $this->yield_quantity = $product->recipe_yield ?? 1;
+                $this->uom = $product->uom ?? 'grams';
+                
+                // Auto-populate product type from product's actual ProductType relationship
+                if ($product->productType) {
+                    // Store the product_type_id for later use in validation
+                    $this->product_type_id = $product->product_type_id ?? null;
+                }
+            }
         }
     }
 
-    /**
-     * Watch for changes in unit_weight and auto-update yield_quantity
-     */
-    public function updatedUnitWeight()
-    {
-        $calculated = $this->calculatedYieldQuantity();
-        if ($calculated !== null) {
-            $this->yield_quantity = $calculated;
-        }
-    }
 
     public function addIngredient()
     {
@@ -198,11 +172,9 @@ class Edit extends Component
             'productName' => 'required|string|max:255',
             'sku' => 'required|string|max:255|unique:recipes,sku,' . $this->recipe_id,
             'department_id' => 'required|exists:departments,id',
-            'product_type' => 'required|string|max:255',
+            'product_type_id' => 'required|exists:product_types,id',
             'uom' => 'required|in:grams,kg,liters,ml,pcs,units',
             'yield_quantity' => 'required|numeric|min:0.01',
-            'recipe_yield_weight' => 'nullable|numeric|min:0',
-            'yield_percentage' => 'nullable|numeric|min:0|max:100',
             'preparation_time' => 'nullable|integer|min:0',
             'status' => 'required|in:active,inactive,testing',
             'ingredients' => 'required|array|min:1',
@@ -214,9 +186,6 @@ class Edit extends Component
         ];
 
         $this->validate($rules);
-
-        // Validate consistency between yield_quantity and weights
-        $this->validateYieldConsistency();
 
         // Calculate cost for preview
         $totalCost = collect($this->ingredients)->sum(function ($ing) {
@@ -234,12 +203,10 @@ class Edit extends Component
             'product_name' => $this->productName,
             'sku' => strtoupper($this->sku),
             'department_id' => $this->department_id,
-            'product_type' => $this->product_type,
+            'product_type_id' => $this->product_type_id,
             'cost_per_unit' => $costPerUnit,
             'uom' => $this->uom,
             'yield_quantity' => $this->yield_quantity,
-            'recipe_yield_weight' => $this->recipe_yield_weight,
-            'yield_percentage' => $this->yield_percentage ?? 100,
             'preparation_time' => $this->preparation_time,
             'instructions' => !empty($this->instructions) ? json_encode(array_values($this->instructions)) : null,
             'status' => $this->status,
@@ -314,7 +281,53 @@ class Edit extends Component
 
         $this->closeAuditModal();
         $this->toast()->success('Approval request submitted')->send();
-        return $this->redirect(branch_route('branch-dashboard.production.recipes.index', ['deptSlug' => $this->dept_slug]), navigate: true);
+        
+        // For delete requests, redirect to recipes index
+        if ($this->auditAction === 'delete_recipe') {
+            return $this->redirect(branch_route('branch-dashboard.production.recipes.index', ['deptSlug' => $this->dept_slug]), navigate: true);
+        }
+        
+        // For edit requests, stay on edit page
+        return;
+    }
+
+    /**
+     * Delete recipe - triggers audit modal for non-super-admins
+     */
+    public function delete()
+    {
+        $recipe = Recipe::findOrFail($this->recipe_id);
+
+        // Super admin bypass - delete directly without audit
+        if (is_super_admin()) {
+            $this->deleteRecipe($recipe);
+            return;
+        }
+
+        // Non-super-admin: show audit modal for deletion
+        $this->auditAction = 'delete_recipe';
+        $this->pendingItemId = $this->recipe_id;
+        $this->pendingItemData = [
+            'recipe_id' => $recipe->id,
+            'recipe_name' => $recipe->product_name,
+            'sku' => $recipe->sku,
+        ];
+        $this->showAuditModal = true;
+    }
+
+    private function deleteRecipe(Recipe $recipe)
+    {
+        try {
+            DB::transaction(function () use ($recipe) {
+                $recipeName = $recipe->product_name;
+                $recipe->delete();
+            });
+
+            $this->toast()->success('Recipe deleted successfully')->send();
+            return $this->redirect(branch_route('branch-dashboard.production.recipes.index', ['deptSlug' => $this->dept_slug]), navigate: true);
+        } catch (\Exception $e) {
+            $this->toast()->error('Failed to delete recipe: ' . $e->getMessage())->send();
+        }
     }
 
     private function closeAuditModal()
@@ -326,35 +339,7 @@ class Edit extends Component
         $this->pendingItemData = [];
     }
 
-    /**
-     * Validate yield consistency between yield_quantity, recipe_yield_weight, and unit_weight
-     * If both weights are provided, yield_quantity must equal recipe_yield_weight / unit_weight
-     */
-    private function validateYieldConsistency()
-    {
-        if ($this->recipe_yield_weight && $this->unit_weight && $this->unit_weight > 0) {
-            $expectedYield = round($this->recipe_yield_weight / $this->unit_weight, 2);
-            $tolerance = 0.01; // Allow small rounding differences
 
-            if (abs((float)$this->yield_quantity - $expectedYield) > $tolerance) {
-                $this->addError('yield_quantity', 
-                    "Yield quantity ({$this->yield_quantity}) must equal batch weight ({$this->recipe_yield_weight}) ÷ unit weight ({$this->unit_weight}) = {$expectedYield}. Auto-calculated value is used when batch and unit weights are provided."
-                );
-            }
-        }
-
-        if ($this->recipe_yield_weight && !$this->unit_weight) {
-            $this->addError('unit_weight', 
-                'Unit weight is required when batch weight is provided for auto-calculation.'
-            );
-        }
-
-        if (!$this->recipe_yield_weight && $this->unit_weight) {
-            $this->addError('recipe_yield_weight', 
-                'Batch weight is required when unit weight is provided for auto-calculation.'
-            );
-        }
-    }
 
     public function render()
     {
@@ -369,15 +354,35 @@ class Edit extends Component
             ->whereHas('productType', function ($q) {
                 $q->where('department_id', $this->department->id);
             })
+            ->orderBy('name')
             ->get();
 
-        $items = Item::orderBy('name')->get();
+        $items = Item::where('branch_id', $branchId)
+            ->orderBy('name')
+            ->get();
+        
+        // Get product types for the department
+        $productTypes = \App\Models\ProductType::where('department_id', $this->department->id)
+            ->whereHas('products', function ($q) use ($branchId) {
+                $q->where('is_active', 1)
+                    ->where(function ($query) use ($branchId) {
+                        $query->whereNull('branch_id')
+                            ->orWhere('branch_id', $branchId);
+                    });
+            })
+            ->orderBy('sort_order')
+            ->get();
+
+        // Get all units of measure
+        $unitsOfMeasure = UnitOfMeasure::active()->get();
 
         return view('livewire.branch-dashboard.production.recipes.edit', [
             'products' => $products,
             'items' => $items,
             'department' => $this->department,
             'dept_slug' => $this->dept_slug,
+            'productTypes' => $productTypes,
+            'unitsOfMeasure' => $unitsOfMeasure,
         ]);
     }
 }

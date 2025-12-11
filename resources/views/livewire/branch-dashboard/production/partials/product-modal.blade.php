@@ -89,20 +89,13 @@
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Unit of Measure *</label>
                         <x-select.styled
-                            wire:model.live="uom"
-                            :options="[
-                                ['label' => 'Pieces (Pcs)', 'value' => 'pcs'],
-                                ['label' => 'Units', 'value' => 'units'],
-                                ['label' => 'Grams', 'value' => 'grams'],
-                                ['label' => 'Kilograms (Kg)', 'value' => 'kg'],
-                                ['label' => 'Liters', 'value' => 'liters'],
-                                ['label' => 'Milliliters (ml)', 'value' => 'ml']
-                            ]"
-                            select="label:label|value:value"
+                            wire:model.live="uom_id"
+                            :options="$unitOfMeasures ?? []"
+                            select="label:name|value:id"
                             placeholder="Select UOM"
                             required
                         />
-                        @error('uom')
+                        @error('uom_id')
                             <span class="text-red-500 text-sm">{{ $message }}</span>
                         @enderror
                     </div>
