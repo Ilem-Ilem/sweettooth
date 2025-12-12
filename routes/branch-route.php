@@ -4,9 +4,15 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth:web,employees', 'setBranchContext', 'branch'])->prefix('branch-dashboard')->name('branch-dashboard.')->group(function () {
     // Dashboard Router - Redirects to appropriate dashboard based on role
-    Route::get('/dashboard/router', 'App\Http\Controllers\DashboardRedirectController@redirect')->name('dashboard.router');
+    Route::get('/dashboard/router', App\Livewire\BranchDashboard\Dashboards\Router::class)->name('dashboards.router');
 
-    // Role-Specific Dashboards
+    // New Role-Based Dashboards (Phase 3)
+    Route::get('/dashboards/super-admin', App\Livewire\BranchDashboard\Dashboards\SuperAdminDashboard::class)->name('dashboards.super-admin');
+    Route::get('/dashboards/admin', App\Livewire\BranchDashboard\Dashboards\AdminDashboard::class)->name('dashboards.admin');
+    Route::get('/dashboards/manager', App\Livewire\BranchDashboard\Dashboards\ManagerDashboard::class)->name('dashboards.manager');
+    Route::get('/dashboards/supervisor', App\Livewire\BranchDashboard\Dashboards\SupervisorDashboard::class)->name('dashboards.supervisor');
+
+    // Legacy Role-Specific Dashboards (kept for backward compatibility)
     Route::get('/dashboard/inventory', App\Livewire\Dashboards\InventoryDashboard::class)->name('dashboard.inventory');
     Route::get('/dashboard/production/{deptSlug?}', App\Livewire\Dashboards\ProductionDashboard::class)->name('dashboard.production');
     Route::get('/dashboard/sales/{salesDeptSlug?}', App\Livewire\Dashboards\SalesDashboard::class)->name('dashboard.sales');
@@ -27,6 +33,22 @@ Route::middleware(['auth:web,employees', 'setBranchContext', 'branch'])->prefix(
     Route::get('employee/create', App\Livewire\BranchDashboard\EmployeeModule\Create::class)->name('employee.create');
     Route::get('/employee//{employee_number}/{id}/', \App\Livewire\BranchDashboard\EmployeeModule\Details::class)->name('employee.details');
     Route::get('/employee/{id}/edit', \App\Livewire\BranchDashboard\EmployeeModule\Edit::class)->name('employee.edit');
+    // ROLE MANAGEMENT (Super Admin Only)
+    Route::get('roles', \App\Livewire\BranchDashboard\Roles\Index::class)->name('roles.index');
+    
+    // BRANCH MANAGEMENT (Super Admin Only)
+    Route::get('branches', \App\Livewire\BranchDashboard\Branches\Index::class)->name('branches.index');
+    Route::get('deleted-branches', \App\Livewire\BranchDashboard\Branches\DeleteBranch::class)->name('branches.deleted');
+
+    // SETTINGS (Super Admin Only)
+    Route::get('settings', \App\Livewire\BranchDashboard\Settings\Index::class)->name('settings.index');
+
+    // MD REPORTS (Super Admin Only)
+    Route::prefix('md-reports')->name('md-reports.')->group(function () {
+        Route::get('dashboard', \App\Livewire\BranchDashboard\MDReports\Dashboard\Index::class)->name('dashboard');
+        Route::get('view/{id}', \App\Livewire\BranchDashboard\MDReports\ViewReport\Index::class)->name('view');
+    });
+    
     // ROLE ASSIGNMENT
     Route::get('role-assignments', \App\Livewire\BranchDashboard\EmployeeModule\RolePermission\AssignRole::class)->name('role-assignments.index');
     Route::get('/role-permisssion', \App\Livewire\BranchDashboard\EmployeeModule\RolePermission\Index::class)->name('role-permission');

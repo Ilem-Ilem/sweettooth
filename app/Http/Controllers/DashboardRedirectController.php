@@ -143,6 +143,7 @@ class DashboardRedirectController extends Controller
             // Level 5 - Executive (highest priority)
             'super_admin' => 50,
             'managing_director' => 50,
+            'md' => 50,
             
             // Level 4 - Management
             'admin' => 40,
@@ -202,7 +203,8 @@ class DashboardRedirectController extends Controller
         return match ($normalizedRole) {
             // Executive Level
             'super_admin',
-            'managing_director' => 'branch-dashboard.dashboard.super-admin',
+            'managing_director',
+            'md' => 'branch-dashboard.dashboard.super-admin',
 
             // Management Level
             'admin',

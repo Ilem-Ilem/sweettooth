@@ -1,12 +1,13 @@
 <?php
 
-namespace App\Livewire\BranchDashboard\BranchModule;
+namespace App\Livewire\BranchDashboard\Branches;
 
 use App\Livewire\BaseComponent;
+use Livewire\Component;
 use App\Models\Branch;
 use App\Models\User;
 
-class Index extends BaseComponent
+class DeleteBranch extends BaseComponent
 {
     public ?int $quantity = 10;
     public ?string $search = null;
@@ -26,25 +27,13 @@ class Index extends BaseComponent
     public ?string $selectedBranchId = null;
     public bool $isEditing = false;
 
-    // Branch form fields
-    public string $name = '';
-    public string $code = '';
-    public string $location = '';
-    public string $phone = '';
-    public string $email = '';
-    public string $description = '';
-    public ?string $manager_user_id = null;
-    public string $country = '';
-    public string $state = '';
-    public string $city = '';
-    public string $postal_code = '';
-    public string $timezone = 'UTC';
-    public bool $is_active = true;
-
-    protected array $bulkActions = [
-        'delete' => ['label' => 'Delete Selected', 'method' => 'bulkDelete'],
-        'export' => ['label' => 'Export Selected', 'method' => 'exportSelected'],
-    ];
+    public function mount()
+    {
+        // Check if user is super admin
+        if (!is_super_admin()) {
+            abort(403, 'Only Super Admins can manage deleted branches');
+        }
+    }
 
     protected function getModelClass(): string
     {
@@ -58,7 +47,7 @@ class Index extends BaseComponent
 
     protected function getFilteredQuery()
     {
-        return Branch::query()->latest()
+        return Branch::query()->onlyTrashed()
             ->when($this->search, function ($query) {
                 $query->where('name', 'like', '%' . $this->search . '%')
                       ->orWhere('code', 'like', '%' . $this->search . '%');
@@ -131,114 +120,41 @@ class Index extends BaseComponent
         $this->toast()->success('PDF export feature coming soon!')->send();
     }
 
-    // Modal methods
-    public function openBranchModal()
+    // Restore methods
+    public function confirmRestore($branchId): void
     {
-        $this->isEditing = false;
-        $this->resetBranchForm();
-        $this->showBranchModal = true;
-    }
-
-    public function editBranch($branchId)
-    {
-        $branch = Branch::findOrFail($branchId);
-        $this->isEditing = true;
         $this->selectedBranchId = $branchId;
-        $this->name = $branch->name;
-        $this->code = $branch->code;
-        $this->location = $branch->location ?? '';
-        $this->phone = $branch->phone ?? '';
-        $this->email = $branch->email ?? '';
-        $this->description = $branch->description ?? '';
-        $this->manager_user_id = $branch->manager_user_id;
-        $this->country = $branch->country ?? '';
-        $this->state = $branch->state ?? '';
-        $this->city = $branch->city ?? '';
-        $this->postal_code = $branch->postal_code ?? '';
-        $this->timezone = $branch->timezone ?? 'UTC';
-        $this->is_active = $branch->is_active ?? true;
-        $this->showBranchModal = true;
+
+        $this->dialog()
+            ->question('Restore Branch', 'Are you sure you want to restore this branch?')
+            ->confirm('Restore', 'restoreBranch', 'Branch restored successfully!')
+            ->cancel('Cancel', 'cancelledRestore', 'Restore cancelled')
+            ->send();
     }
 
-    public function closeBranchModal()
+    public function restoreBranch(string $message): void
     {
-        $this->showBranchModal = false;
-        $this->resetBranchForm();
-    }
-
-    public function resetBranchForm()
-    {
-        $this->name = '';
-        $this->code = '';
-        $this->location = '';
-        $this->phone = '';
-        $this->email = '';
-        $this->description = '';
-        $this->manager_user_id = null;
-        $this->country = '';
-        $this->state = '';
-        $this->city = '';
-        $this->postal_code = '';
-        $this->timezone = 'UTC';
-        $this->is_active = true;
-        $this->selectedBranchId = null;
-        $this->isEditing = false;
-    }
-
-    public function saveBranch()
-    {
-        $this->validate([
-            'name' => 'required|string|max:255',
-            'code' => 'required|string|max:50|unique:branches,code,' . $this->selectedBranchId,
-            'location' => 'nullable|string|max:255',
-            'phone' => 'nullable|string|max:50',
-            'email' => 'nullable|email|max:255',
-            'description' => 'nullable|string',
-            'manager_user_id' => 'nullable|exists:users,id',
-            'country' => 'nullable|string|max:100',
-            'state' => 'nullable|string|max:100',
-            'city' => 'nullable|string|max:100',
-            'postal_code' => 'nullable|string|max:20',
-            'timezone' => 'required|string|max:50',
-            'is_active' => 'boolean',
-        ]);
-
-        $data = [
-            'name' => $this->name,
-            'code' => $this->code,
-            'location' => $this->location,
-            'phone' => $this->phone,
-            'email' => $this->email,
-            'description' => $this->description,
-            'manager_user_id' => $this->manager_user_id,
-            'country' => $this->country,
-            'state' => $this->state,
-            'city' => $this->city,
-            'postal_code' => $this->postal_code,
-            'timezone' => $this->timezone,
-            'is_active' => $this->is_active,
-        ];
-
-        if ($this->isEditing && $this->selectedBranchId) {
-            Branch::findOrFail($this->selectedBranchId)->update($data);
-            $message = 'Branch updated successfully!';
-        } else {
-            Branch::create($data);
-            $message = 'Branch created successfully!';
+        if ($this->selectedBranchId) {
+            Branch::onlyTrashed()->findOrFail($this->selectedBranchId)->restore();
+            $this->dialog()->success('Success', $message)->send();
+            $this->selectedBranchId = null;
         }
-
-        $this->toast()->success($message)->send();
-        $this->closeBranchModal();
     }
 
-    // Delete methods with TallStackUI Dialog
+    public function cancelledRestore(string $message): void
+    {
+        $this->selectedBranchId = null;
+        $this->dialog()->info('Cancelled', $message)->send();
+    }
+
+    // Permanent Delete methods
     public function confirmDelete($branchId): void
     {
         $this->selectedBranchId = $branchId;
 
         $this->dialog()
-            ->question('Warning!', 'Are you sure you want to delete this branch?')
-            ->confirm('Confirm Delete', 'deleteBranch', 'Branch deleted successfully!')
+            ->question('Warning!', 'Are you sure you want to permanently delete this branch? This action cannot be undone.')
+            ->confirm('Confirm Delete', 'deleteBranch', 'Branch permanently deleted!')
             ->cancel('Cancel', 'cancelledDelete', 'Delete cancelled')
             ->send();
     }
@@ -246,7 +162,7 @@ class Index extends BaseComponent
     public function deleteBranch(string $message): void
     {
         if ($this->selectedBranchId) {
-            Branch::findOrFail($this->selectedBranchId)->delete();
+            Branch::onlyTrashed()->findOrFail($this->selectedBranchId)->forceDelete();
             $this->dialog()->success('Success', $message)->send();
             $this->selectedBranchId = null;
         }
@@ -258,19 +174,41 @@ class Index extends BaseComponent
         $this->dialog()->info('Cancelled', $message)->send();
     }
 
-    // Bulk Delete with TallStackUI Dialog
+    // Bulk Restore
+    public function confirmBulkRestore(): void
+    {
+        $this->dialog()
+            ->question('Restore Multiple Branches', 'Are you sure you want to restore ' . count($this->selectedIds) . ' branch(es)?')
+            ->confirm('Restore All', 'bulkRestore', count($this->selectedIds) . ' branch(es) restored successfully!')
+            ->cancel('Cancel', 'cancelledBulkRestore', 'Bulk restore cancelled')
+            ->send();
+    }
+
+    public function bulkRestore(string $message): void
+    {
+        Branch::onlyTrashed()->whereIn('id', $this->selectedIds)->restore();
+        $this->dialog()->success('Success', $message)->send();
+        $this->selectedIds = [];
+    }
+
+    public function cancelledBulkRestore(string $message): void
+    {
+        $this->dialog()->info('Cancelled', $message)->send();
+    }
+
+    // Bulk Permanent Delete
     public function confirmBulkDelete(): void
     {
         $this->dialog()
-            ->question('Warning!', 'Are you sure you want to delete ' . count($this->selectedIds) . ' branch(es)?')
-            ->confirm('Confirm Delete', 'bulkDelete', count($this->selectedIds) . ' branch(es) deleted successfully!')
+            ->question('Warning!', 'Are you sure you want to permanently delete ' . count($this->selectedIds) . ' branch(es)? This action cannot be undone.')
+            ->confirm('Confirm Delete', 'bulkDelete', count($this->selectedIds) . ' branch(es) permanently deleted!')
             ->cancel('Cancel', 'cancelledBulkDelete', 'Bulk delete cancelled')
             ->send();
     }
 
     public function bulkDelete(string $message): void
     {
-        Branch::whereIn('id', $this->selectedIds)->delete();
+        Branch::onlyTrashed()->whereIn('id', $this->selectedIds)->forceDelete();
         $this->dialog()->success('Success', $message)->send();
         $this->selectedIds = [];
     }
@@ -282,18 +220,16 @@ class Index extends BaseComponent
 
     public function render()
     {
-        $rows = $this->getFilteredQuery()->paginate($this->quantity ?? 10);
+        $rows = $this->getFilteredQuery()->orderBy('created_at', 'DESC')->paginate($this->quantity ?? 10);
         $users = User::all();
 
-        return view('livewire.super-admin.branch-module.index', [
+        return view('livewire.branch-dashboard.branches.delete-branch', [
             'headers' => [
                 ['index' => 'id', 'label' => '#'],
                 ['index' => 'name', 'label' => 'Branch Name'],
                 ['index' => 'code', 'label' => 'Code'],
                 ['index' => 'location', 'label' => 'Location'],
                 ['index' => 'city', 'label' => 'City'],
-                ['index' => 'is_active', 'label' => 'Status'],
-                ['index' => 'created_at', 'label' => 'Created At'],
                 ['index' => 'action', 'label' => 'Actions', 'display' => true],
             ],
             'rows' => $rows,

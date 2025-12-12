@@ -1,8 +1,9 @@
 <?php
 
-namespace App\Livewire\BranchDashboard\BranchModule;
+namespace App\Livewire\BranchDashboard\Branches;
 
 use App\Livewire\BaseComponent;
+use Livewire\Component;
 use App\Models\Branch;
 use App\Models\User;
 
@@ -45,6 +46,14 @@ class Index extends BaseComponent
         'delete' => ['label' => 'Delete Selected', 'method' => 'bulkDelete'],
         'export' => ['label' => 'Export Selected', 'method' => 'exportSelected'],
     ];
+
+    public function mount()
+    {
+        // Check if user is super admin
+        if (!is_super_admin()) {
+            abort(403, 'Only Super Admins can manage branches');
+        }
+    }
 
     protected function getModelClass(): string
     {
@@ -285,7 +294,7 @@ class Index extends BaseComponent
         $rows = $this->getFilteredQuery()->paginate($this->quantity ?? 10);
         $users = User::all();
 
-        return view('livewire.super-admin.branch-module.index', [
+        return view('livewire.branch-dashboard.branches.index', [
             'headers' => [
                 ['index' => 'id', 'label' => '#'],
                 ['index' => 'name', 'label' => 'Branch Name'],
