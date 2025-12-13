@@ -204,17 +204,17 @@ Route::middleware(['auth:web,employees', 'setBranchContext', 'branch', 'redirect
         Route::get('/dashboard', \App\Livewire\Accounting\Dashboard::class)->name('dashboard');
         
         // Chart of Accounts Management (Super Admin, MD, Admin)
-        Route::middleware('permission:manage_accounts')->group(function () {
+        Route::middleware('role_or_permission:manage_accounts')->group(function () {
             Route::get('/accounts', \App\Livewire\Accounting\GlAccountList::class)->name('accounts');
         });
         
         // Accounting Period Management (Super Admin, MD, Admin)
-        Route::middleware('permission:manage_periods')->group(function () {
+        Route::middleware('role_or_permission:manage_periods')->group(function () {
             Route::get('/periods', \App\Livewire\Accounting\PeriodManagement::class)->name('periods');
         });
         
         // Manual Journal Entry (Super Admin, MD, Accountant, Admin)
-        Route::middleware('permission:create_journal_entries')->group(function () {
+        Route::middleware('role_or_permission:create_journal_entries')->group(function () {
             Route::get('/journal-entry', \App\Livewire\Accounting\ManualJournalEntry::class)->name('journal-entry');
         });
         
