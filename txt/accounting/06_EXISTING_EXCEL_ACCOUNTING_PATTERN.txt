@@ -1,0 +1,430 @@
+================================================================================
+                    EXISTING ACCOUNTING SYSTEM - EXCEL BASED
+                     Current Pattern & Integration Plan
+================================================================================
+
+CURRENT SYSTEM OVERVIEW
+================================================================================
+
+The company currently uses two Excel-based reports:
+
+1. DAILY SALES REPORT FOR DECEMBER 2025
+   Purpose: Track daily POS revenue by payment method
+   Location: Root directory
+   Scope: Daily sales tracking from multiple payment channels
+
+2. DBP 2025 (Daily Bank Positions)
+   Purpose: Track daily bank account balances and cash positions
+   Location: Root directory
+   Scope: Multi-bank reconciliation with balance forward approach
+
+
+================================================================================
+                    DAILY SALES REPORT STRUCTURE
+================================================================================
+
+Purpose: Daily cash and POS transaction tracking
+Timeline: Daily updates
+Data Points Captured:
+
+HEADER INFORMATION:
+- Report Date (DD/MM/YYYY)
+- Day of Week
+- Report Period: December 2025
+
+CASH & BANK COLUMNS:
+├─ Cash (Direct hand-received money)
+├─ Stanbic IBTC (Bank A)
+├─ GTB (Bank B)
+├─ Heritage (Bank C)
+├─ Zenith (Bank D)
+├─ Access (Bank E)
+├─ Titan Trust (Bank F)
+├─ Jaiz (Bank G)
+├─ Keystone (Bank H)
+├─ UBA (Bank I)
+├─ Wema (Bank J)
+├─ Stateside (Bank K)
+
+TRANSACTION TYPES:
+├─ POS TOTAL
+│  └─ Sum of all POS device payments
+├─ TRANSFER - ZIB
+│  └─ Inter-bank transfers to ZIB account
+├─ TRANSFER - ACB
+│  └─ Inter-bank transfers to ACB account
+├─ TRANSFER - KEYSTONE
+│  └─ Inter-bank transfers to Keystone
+├─ TRANSFER - GTB
+│  └─ Inter-bank transfers to GTB
+
+SUMMARY COLUMNS:
+├─ TOTAL - TRSF (Total transfers)
+├─ ACTUAL SALES (Cash + POS + Transfers)
+├─ PORTAL (Portal/e-commerce sales if any)
+├─ VARIANCE (Portal - Actual difference)
+├─ SALES(%) (Percentage of total)
+├─ DEPOSITS (Amount deposited)
+├─ UTILIZATION (Percentage utilized)
+├─ CAUSE OF VARIANCE (Manual notes)
+
+KEY METRICS FROM 01/12/2025 DATA:
+├─ Cash received: ₦0
+├─ POS Total: ₦693,600 (from UBA: ₦509,600 + WEMA: ₦184,000)
+├─ Transfer Total: ₦403,400
+├─ Actual Sales: ₦1,097,000
+├─ Portal: ₦1,097,000
+├─ Variance: ₦0
+├─ Sales Utilization: 68.56%
+
+
+================================================================================
+                    DBP 2025 STRUCTURE (Daily Bank Positions)
+================================================================================
+
+Purpose: Multi-bank daily balance reconciliation
+Scope: Daily opening and closing balances for all active bank accounts
+Timeline: Daily updates with running balances
+
+BANK ACCOUNTS TRACKED:
+├─ Stanbic IBTC (with interest rate: 0.005375)
+├─ GTB (with interest rate: 0.005375)
+├─ Zenith (with interest rate: 0.0050001)
+├─ Access (no rate listed)
+├─ Titan Trust (with interest rate: 0.005375)
+├─ Jaiz (with interest rate: 0.005375)
+├─ Keystone (no rate listed)
+├─ UBA (with interest rate: 0.005375)
+├─ Wema (no rate listed)
+├─ Stateside (no rate listed)
+├─ Sales Cash (physical cash from sales)
+├─ Petty Cash (small denomination cash)
+
+DAILY STRUCTURE (Per Bank/Per Day):
+─────────────────────────────────────────────────────────────────────────
+
+OPENING BALANCE
+├─ Starting balance from previous day
+├─ Example: 01/12/2025 - Stanbic IBTC: ₦102,139,113.66
+
+INFLOWS (Money In):
+├─ POS - Sales (POS machine deposits)
+├─ TRANSFER - Sales (Inter-bank transfers from sales)
+├─ REVERSED TRANSFER (Refunds or reversals)
+├─ OTHER INCOME (Interest, fees recovered, etc.)
+├─ CASH DEPOSIT (Direct cash deposits to bank)
+
+OUTFLOWS (Money Out):
+├─ TRANSFER - Expenses (Payments to suppliers/expenses)
+├─ CASH WITHDRAWAL (ATM or over-the-counter withdrawals)
+├─ CHARGEBACKS (Failed/reversed transactions)
+├─ CHARGES (Bank service charges, fees)
+
+UNAVAILABLE BALANCE
+├─ Balance after inflows/outflows
+├─ Note: Shows uncleared funds
+
+UNREFLECTED ITEMS (Pending/In-Transit):
+├─ Unreflected Transfer B/F (Balance Forward - transfers in transit)
+├─ Unreflected POS B/F (POS deposits not yet cleared)
+├─ POS - Sales unreflected (POS sales not yet shown in bank)
+├─ TRANSFER - Sales Unreflected (Transfers not yet cleared)
+├─ Unreflected Transfer Received (Transfers received but not cleared)
+├─ Unreflected POS Received (POS received but not cleared)
+├─ Unreflected Transfer C/D (Carry Down - transfers moving forward)
+├─ Unreflected POS C/D (Carry Down - POS moving forward)
+
+AVAILABLE BALANCE
+├─ Final usable balance
+├─ = Unavailable Balance + Unreflected items
+├─ Shows actual available cash
+
+OPENING BALANCE EXAMPLE (01/12/2025):
+─────────────────────────────────────────────────────────────────────────
+Total across all banks: ₦178,279,507.00
+
+Individual Balances:
+├─ Stanbic IBTC: ₦102,139,113.66
+├─ GTB: ₦5,794,673.08
+├─ Zenith: ₦3,223,755.12
+├─ Access: ₦1,164,948.29
+├─ Titan Trust: ₦4,456,847.98
+├─ Jaiz: ₦972,907.96
+├─ Keystone: ₦1,738,999.80
+├─ UBA: ₦1,087,244.59
+├─ Wema: ₦99,561.64
+├─ Stateside: ₦3,895,979.00
+├─ Sales Cash: ₦492,100.00
+├─ Petty Cash: ₦161,529.31
+
+UNREFLECTED FORWARD (B/F):
+├─ Pending Transfers: ₦566,914.50
+├─ Pending POS: ₦5,709,291.25
+
+
+================================================================================
+                    ACCOUNTING INTEGRATION PLAN
+================================================================================
+
+DATABASE STRUCTURE MAPPING
+═════════════════════════════════════════════════════════════════════════════
+
+NEW TABLE: bank_accounts
+└─ Will replace manual Excel bank columns
+   Fields:
+   - id
+   - bank_name (e.g., "Stanbic IBTC", "GTB", "UBA")
+   - bank_code (ISO standard or internal code)
+   - account_number
+   - account_type (current, savings, operating)
+   - opening_balance
+   - interest_rate (from DBP - e.g., 0.005375)
+   - is_active
+   - timestamps
+
+NEW TABLE: daily_bank_positions
+└─ Will replace Excel DBP 2025 structure
+   Fields:
+   - id
+   - bank_account_id
+   - position_date
+   - opening_balance
+   - inflows (total)
+   - outflows (total)
+   - unavailable_balance
+   - unreflected_transfers_bf
+   - unreflected_pos_bf
+   - unreflected_transfers_cd
+   - unreflected_pos_cd
+   - available_balance
+   - variance_notes
+   - created_at
+   - updated_at
+
+NEW TABLE: daily_bank_transactions
+└─ Details of each flow (inflows/outflows)
+   Fields:
+   - id
+   - daily_bank_position_id
+   - transaction_type (POS, Transfer, Withdrawal, Deposit, Charge, etc.)
+   - transaction_subtype (e.g., "Transfer-Sales", "Cash-Deposit")
+   - amount
+   - description
+   - reference_number
+   - cleared_date (when it appears in actual bank balance)
+   - status (pending, cleared, reversed)
+   - created_at
+
+NEW TABLE: cash_positions
+└─ Will track physical cash (Sales Cash, Petty Cash)
+   Fields:
+   - id
+   - cash_type (sales_cash, petty_cash)
+   - position_date
+   - opening_balance
+   - receipts (from sales)
+   - withdrawals (to bank deposits)
+   - closing_balance
+   - discrepancies (if any)
+   - created_at
+
+MAPPING TO GL ACCOUNTS (Integration with GlAccount):
+═════════════════════════════════════════════════════════════════════════════
+
+Daily Sales Report → GL Entries:
+─────────────────────────────────
+Sales Amount (ACTUAL SALES) 
+├─ GL Account: 4010 (Sales Revenue - Retail)
+├─ When Recorded: End of sales day
+├─ Entry: Debit Cash/Bank, Credit Sales Revenue
+├─ Amount: Total POS + Cash + Transfers
+
+Cash Received
+├─ GL Account: 1010/1020 (Cash accounts)
+├─ When Recorded: Immediately on receipt
+├─ Entry: Debit Cash, Credit Sales Revenue
+├─ Amount: Direct hand cash received
+
+POS Deposits
+├─ GL Account: 1050/1060 (Bank accounts)
+├─ When Recorded: When cleared at bank
+├─ Entry: Debit Bank, Credit Cash/Suspense
+├─ Amount: POS terminal deposits
+
+Inter-bank Transfers
+├─ GL Account: 1050/1060 (Bank accounts)
+├─ When Recorded: When received (actual date)
+├─ Entry: Debit Bank A, Credit Bank B
+├─ Amount: Transfer amount
+
+
+Daily Bank Positions → GL Entries:
+──────────────────────────────────
+Opening Balance
+├─ GL Account: 1050/1060 (Bank accounts)
+├─ Balance Forward: Previous day closing
+
+Inflows
+├─ POS Sales: 1050 (Bank) to 4010 (Revenue)
+├─ Transfers: 1050/A to 1050/B (Inter-bank)
+├─ Other Income: 1050 (Bank) to 4040 (Other Income)
+├─ Deposits: 1050 (Bank) to 1010 (Cash)
+
+Outflows
+├─ Expense Transfers: 1050 (Bank) to 6000s (Expenses)
+├─ Withdrawals: 1010 (Cash) to 1050 (Bank)
+├─ Charges: 7030 (Bank Charges) to 1050 (Bank)
+
+Bank Charges
+├─ GL Account: 7030 (Bank Charges)
+├─ When Recorded: When notified by bank
+├─ Entry: Debit Bank Charges, Credit Bank Account
+├─ Amount: Service charges, fees, etc.
+
+Unreflected Items
+├─ GL Account: 1050 (Bank) - Suspense
+├─ When Recorded: When item is recorded vs when it clears
+├─ Handling: Reversing entries when cleared
+├─ Amount: Pending items shown separately
+
+
+DAILY WORKFLOW INTEGRATION
+═════════════════════════════════════════════════════════════════════════════
+
+Morning (Start of Day):
+├─ Previous day's closing balance becomes today's opening
+├─ System queries current GL Bank Account balances
+├─ Alerts for any discrepancies
+├─ Status: Ready for transactions
+
+During Day (Transactions):
+├─ POS sales logged automatically (from system)
+├─ Cash received logged (from POS reconciliation)
+├─ Manual transfers recorded
+├─ Each transaction posts to GL in real-time
+
+End of Day (Reconciliation):
+├─ Daily Sales Report generated (from POS data)
+├─ Bank position calculated (from GL bank accounts)
+├─ Discrepancies identified and flagged
+├─ Unreflected items tracked
+
+Next Morning (Bank Update):
+├─ Actual bank statement checked
+├─ Cleared items updated
+├─ Reversals recorded
+├─ New opening balances set
+
+VARIANCE & DISCREPANCY TRACKING
+═════════════════════════════════════════════════════════════════════════════
+
+Current Variance Logic (From Excel):
+├─ VARIANCE = PORTAL - ACTUAL SALES
+├─ If zero: Everything matches (good)
+├─ If positive: Portal shows more than recorded sales
+├─ If negative: Recorded sales more than portal
+├─ Cause: Manual note explaining variance
+
+DB Implementation:
+├─ Daily_bank_positions.variance_notes
+├─ Daily_bank_transactions.status (pending/cleared/reversed)
+├─ Can track timing differences
+├─ Can identify missing items
+
+Unreflected Tracking (From Excel):
+├─ B/F (Balance Forward): Items from previous days
+├─ C/D (Carry Down): Items moving to next day
+├─ Allows understanding of cash flow timing
+├─ Shows clearing delays from banks
+
+DB Implementation:
+├─ daily_bank_transactions.cleared_date
+├─ Can show pending vs cleared amounts
+├─ Can calculate Days Sales Outstanding (DSO)
+├─ Can identify slow-clearing channels
+
+
+================================================================================
+                    INTEGRATION ROADMAP
+================================================================================
+
+Phase 1: Create Base Tables & Models (Week 1)
+─────────────────────────────────────────────────────────────────────────────
+[ ] Create bank_accounts table
+[ ] Create daily_bank_positions table
+[ ] Create daily_bank_transactions table
+[ ] Create cash_positions table
+[ ] Create corresponding models
+[ ] Add relationships to GL accounts
+
+Phase 2: Auto-Generate from GL (Week 2)
+─────────────────────────────────────────────────────────────────────────────
+[ ] Create service to auto-post bank transactions to GL
+[ ] Create daily reconciliation service
+[ ] Implement variance tracking
+[ ] Create unreflected items tracking
+
+Phase 3: Daily Bank Position Report (Week 2-3)
+─────────────────────────────────────────────────────────────────────────────
+[ ] Build Daily Bank Position component (like Excel DBP)
+[ ] Auto-calculate opening/closing balances
+[ ] Track inflows/outflows
+[ ] Show unreflected items
+[ ] Compare to actual GL balances
+
+Phase 4: Daily Sales Report Integration (Week 3)
+─────────────────────────────────────────────────────────────────────────────
+[ ] Build Daily Sales Report component (from existing sales data)
+[ ] Pull from sales transactions
+[ ] Aggregate by payment method
+[ ] Calculate variance
+[ ] Compare portal vs actual
+
+Phase 5: Bank Statement Reconciliation (Week 4)
+─────────────────────────────────────────────────────────────────────────────
+[ ] Build bank statement upload interface
+[ ] Match cleared items to pending
+[ ] Auto-resolve cleared transactions
+[ ] Flag unmatched items
+[ ] Create reconciliation reports
+
+Phase 6: Reporting & Analytics (Week 4-5)
+─────────────────────────────────────────────────────────────────────────────
+[ ] Daily cash summary report
+[ ] Bank aging report (unreflected items)
+[ ] Cash flow forecast (based on trends)
+[ ] Payment method analysis
+[ ] Variance analysis
+
+================================================================================
+                    ADVANTAGE OF SYSTEM INTEGRATION
+================================================================================
+
+Current Excel System:
+├─ Manual daily updates
+├─ Limited error checking
+├─ Slow variance investigation
+├─ No GL integration
+├─ Difficult period reconciliation
+
+Integrated System:
+├─ Automatic from sales transactions
+├─ Built-in validation rules
+├─ Instant variance alerts
+├─ Direct GL posting
+├─ Easy monthly/yearly reconciliation
+
+Time Savings:
+├─ Daily report: 5 minutes → 1 minute (automated)
+├─ Variance investigation: 30 mins → 5 mins (instant alerts)
+├─ Month-end reconciliation: 2 days → 2 hours
+├─ Bank reconciliation: 1 day → 30 mins
+
+Data Quality:
+├─ No manual entry errors
+├─ All items timestamped
+├─ Full audit trail
+├─ GL always in sync with operations
+├─ Better decision-making data
+
+================================================================================

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\GlEntry;
 
 class Payment extends Model
 {
@@ -15,6 +16,10 @@ class Payment extends Model
         'payment_time',
         'status',
         'notes',
+        'gl_entry_id',
+        'gl_posting_status',
+        'gl_posting_error',
+        'gl_posted_at',
     ];
 
     protected $casts = [
@@ -26,6 +31,11 @@ class Payment extends Model
     public function sale(): BelongsTo
     {
         return $this->belongsTo(Sale::class);
+    }
+
+    public function glEntry(): BelongsTo
+    {
+        return $this->belongsTo(GlEntry::class, 'gl_entry_id');
     }
 
     // Helper Methods

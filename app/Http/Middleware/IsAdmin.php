@@ -4,24 +4,17 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
+use App\Services\AuthService;
 
 class IsAdmin
 {
     /**
      * Handle an incoming request.
+     * Only super admins can pass
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Ensure user is authenticated
-        if (! auth()->check()) {
-            abort(403, 'Forbidden');
-        }
-
-        // Check if user has required role(s)
-        if (! auth()->user()->hasAnyRole(['MD', 'Admin'])) {
-            abort(403, 'Forbidden');
-        }
-
+        AuthService::requireSuperAdmin();
         return $next($request);
     }
 }

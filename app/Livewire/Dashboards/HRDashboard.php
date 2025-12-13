@@ -20,8 +20,9 @@ class HRDashboard extends BaseDashboard
     {
         $role = $this->getUserRoleName();
         $allowedRoles = [
-            'hr_manager',
-            'hr_officer',
+            'HR Manager',
+            'HR Officer',
+            'Admin',
         ];
 
         // Allow access if user has allowed role OR is super admin
@@ -44,33 +45,46 @@ class HRDashboard extends BaseDashboard
     public function getOnDutyToday(): int
     {
         return $this->remember('on_duty_today', function () {
-            return DB::table('clock_in_outs')
-                ->where('branch_id', $this->getBranchId())
-                ->whereDate('clock_in_time', Carbon::today())
-                ->distinct('employee_id')
-                ->count('employee_id');
+            try {
+                return DB::table('clock_in_outs')
+                    ->where('branch_id', $this->getBranchId())
+                    ->whereDate('clock_in_time', Carbon::today())
+                    ->distinct('employee_id')
+                    ->count('employee_id');
+            } catch (\Exception $e) {
+                // Table doesn't exist, return 0
+                return 0;
+            }
         });
     }
 
     public function getOnLeaveToday(): int
     {
         return $this->remember('on_leave_today', function () {
-            return DB::table('leaves')
-                ->where('branch_id', $this->getBranchId())
-                ->where('status', 'approved')
-                ->whereDate('date', Carbon::today())
-                ->distinct('employee_id')
-                ->count('employee_id');
+            try {
+                return DB::table('leaves')
+                    ->where('branch_id', $this->getBranchId())
+                    ->where('status', 'approved')
+                    ->whereDate('date', Carbon::today())
+                    ->distinct('employee_id')
+                    ->count('employee_id');
+            } catch (\Exception $e) {
+                return 0;
+            }
         });
     }
 
     public function getPendingLeaveRequests(): int
     {
         return $this->remember('pending_leave_requests', function () {
-            return DB::table('leaves')
-                ->where('branch_id', $this->getBranchId())
-                ->where('status', 'pending')
-                ->count();
+            try {
+                return DB::table('leaves')
+                    ->where('branch_id', $this->getBranchId())
+                    ->where('status', 'pending')
+                    ->count();
+            } catch (\Exception $e) {
+                return 0;
+            }
         });
     }
 
@@ -90,26 +104,34 @@ class HRDashboard extends BaseDashboard
     public function getEmployeesByDepartment()
     {
         return $this->remember('employees_by_department', function () {
-            return DB::table('employees')
-                ->join('departments', 'employees.department_id', '=', 'departments.id')
-                ->where('employees.branch_id', $this->getBranchId())
-                ->groupBy('departments.id', 'departments.name')
-                ->selectRaw('departments.name, COUNT(employees.id) as count')
-                ->get();
+            try {
+                return DB::table('employees')
+                    ->join('departments', 'employees.department_id', '=', 'departments.id')
+                    ->where('employees.branch_id', $this->getBranchId())
+                    ->groupBy('departments.id', 'departments.name')
+                    ->selectRaw('departments.name, COUNT(employees.id) as count')
+                    ->get();
+            } catch (\Exception $e) {
+                return collect();
+            }
         });
     }
 
     public function getPendingLeaves()
     {
         return $this->remember('pending_leaves', function () {
-            return DB::table('leaves')
-                ->join('employees', 'leaves.employee_id', '=', 'employees.id')
-                ->where('leaves.branch_id', $this->getBranchId())
-                ->where('leaves.status', 'pending')
-                ->selectRaw('leaves.*, employees.name as employee_name')
-                ->orderBy('leaves.created_at', 'desc')
-                ->limit(10)
-                ->get();
+            try {
+                return DB::table('leaves')
+                    ->join('employees', 'leaves.employee_id', '=', 'employees.id')
+                    ->where('leaves.branch_id', $this->getBranchId())
+                    ->where('leaves.status', 'pending')
+                    ->selectRaw('leaves.*, employees.name as employee_name')
+                    ->orderBy('leaves.created_at', 'desc')
+                    ->limit(10)
+                    ->get();
+            } catch (\Exception $e) {
+                return collect();
+            }
         });
     }
 

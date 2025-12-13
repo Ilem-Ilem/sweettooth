@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\Response;
 use App\Models\Branch;
+use App\Services\AuthService;
 
 class BranchMiddleware
 {
@@ -21,24 +22,26 @@ class BranchMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // CRITICAL: Different rules for super admins vs employees
+        // Get branch ID from URL
+        $b_id = $request->query('b_id');
         
-        // EMPLOYEES: MUST have b_id in URL query parameter, NO session fallback
-        if (auth('employees')->check()) {
-            $b_id = $request->query('b_id');
-            
-            // Employees MUST provide b_id parameter - no exceptions
-            if (empty($b_id)) {
-                Log::warning('Employee attempted to access branch route without b_id parameter', [
-                    'ip' => $request->ip(),
-                    'employee_id' => auth('employees')->id(),
-                    'url' => $request->fullUrl(),
-                ]);
-                abort(403, 'Branch parameter required.');
+        // SUPER ADMINS: Can use first branch if none specified
+        if (AuthService::isSuperAdmin() && empty($b_id)) {
+            $defaultBranch = Branch::where('is_active', 1)->first();
+            if ($defaultBranch) {
+                $b_id = $defaultBranch->id;
+                set_current_branch($b_id);
             }
-        } else {
-            // SUPER ADMINS: Can use URL parameter or fall back to session
-            $b_id = $request->query('b_id') ?? current_branch_id();
+        }
+        
+        // EMPLOYEES: MUST provide b_id parameter
+        if (AuthService::isEmployee() && empty($b_id)) {
+            Log::warning('Employee attempted to access branch route without b_id parameter', [
+                'ip' => $request->ip(),
+                'user_id' => AuthService::user()->id,
+                'url' => $request->fullUrl(),
+            ]);
+            abort(403, 'Branch parameter required.');
         }
 
         // Validate format and existence
@@ -50,10 +53,9 @@ class BranchMiddleware
             Log::warning('Blocked request with invalid or missing b_id', [
                 'ip' => $request->ip(),
                 'b_id' => $b_id,
-                'user_type' => auth('employees')->check() ? 'employee' : 'super_admin',
+                'user_type' => AuthService::isEmployee() ? 'employee' : 'super_admin',
                 'url' => $request->fullUrl(),
             ]);
-
             abort(403, 'Invalid branch access.');
         }
 
@@ -61,12 +63,11 @@ class BranchMiddleware
         if (!validate_branch_access($b_id)) {
             Log::warning('Blocked unauthorized branch access attempt', [
                 'ip' => $request->ip(),
-                'user_id' => auth()->id() ?? auth('employees')->id(),
-                'user_type' => auth('employees')->check() ? 'employee' : 'super_admin',
+                'user_id' => AuthService::user()->id,
+                'user_type' => AuthService::isEmployee() ? 'employee' : 'super_admin',
                 'requested_branch' => $b_id,
                 'url' => $request->fullUrl(),
             ]);
-
             abort(403, 'You are not authorized to access this branch.');
         }
 

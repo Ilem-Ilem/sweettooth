@@ -20,12 +20,11 @@ class BranchAdminDashboard extends BaseDashboard
     {
         $role = $this->getUserRoleName();
         $allowedRoles = [
-            'admin',
-            'branch_admin',
-            'head_of_production',
-            'sales_manager',
-            'hr_manager',
-            'inventory_manager',
+            'Admin',
+            'Head of Production',
+            'Sales Manager',
+            'HR Manager',
+            'Inventory Manager',
         ];
 
         // Allow access if user has allowed role OR is super admin

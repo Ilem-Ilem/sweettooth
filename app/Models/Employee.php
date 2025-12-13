@@ -98,4 +98,9 @@ class Employee extends Authenticatable
     {
         return $this->hasMany(EmployeeStepout::class);
     }
+
+    public function clockIns()
+    {
+        return $this->hasMany(ClockIn::class);
+    }
 }

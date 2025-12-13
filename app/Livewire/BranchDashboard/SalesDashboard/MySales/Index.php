@@ -142,7 +142,8 @@ class Index extends BaseComponent
         return Cache::remember($this->getCacheKey('my_sales_overview'), 300, function() {
             $sales = Sale::where('branch_id', $this->branchId)
                 ->where('department_id', $this->departmentId)
-                ->where('sold_by', $this->employeeId)
+                ->where('sold_by_id', $this->employeeId)
+                ->where('sold_by_type', 'App\\Models\\Employee')
                 ->whereBetween('sale_time', [$this->dateFrom, $this->dateTo])
                 ->where('status', '!=', 'cancelled')
                 ->get();
@@ -159,7 +160,8 @@ class Index extends BaseComponent
 
             $prevSales = Sale::where('branch_id', $this->branchId)
                 ->where('department_id', $this->departmentId)
-                ->where('sold_by', $this->employeeId)
+                ->where('sold_by_id', $this->employeeId)
+                ->where('sold_by_type', 'App\\Models\\Employee')
                 ->whereBetween('sale_time', [$prevFrom, $prevTo])
                 ->where('status', '!=', 'cancelled')
                 ->sum('total');
@@ -184,7 +186,8 @@ class Index extends BaseComponent
             return SaleItem::whereHas('sale', function($q) {
                 $q->where('branch_id', $this->branchId)
                   ->where('department_id', $this->departmentId)
-                  ->where('sold_by', $this->employeeId)
+                  ->where('sold_by_id', $this->employeeId)
+                  ->where('sold_by_type', 'App\\Models\\Employee')
                   ->whereBetween('sale_time', [$this->dateFrom, $this->dateTo])
                   ->where('status', '!=', 'cancelled');
             })
@@ -208,7 +211,8 @@ class Index extends BaseComponent
         return Cache::remember($this->getCacheKey('my_hourly_sales'), 300, function() {
             return Sale::where('branch_id', $this->branchId)
                 ->where('department_id', $this->departmentId)
-                ->where('sold_by', $this->employeeId)
+                ->where('sold_by_id', $this->employeeId)
+                ->where('sold_by_type', 'App\\Models\\Employee')
                 ->whereBetween('sale_time', [$this->dateFrom, $this->dateTo])
                 ->where('status', '!=', 'cancelled')
                 ->select(
@@ -228,7 +232,8 @@ class Index extends BaseComponent
         return Cache::remember($this->getCacheKey('my_daily_sales'), 300, function() {
             return Sale::where('branch_id', $this->branchId)
                 ->where('department_id', $this->departmentId)
-                ->where('sold_by', $this->employeeId)
+                ->where('sold_by_id', $this->employeeId)
+                ->where('sold_by_type', 'App\\Models\\Employee')
                 ->whereBetween('sale_time', [$this->dateFrom, $this->dateTo])
                 ->where('status', '!=', 'cancelled')
                 ->select(
@@ -250,7 +255,8 @@ class Index extends BaseComponent
             return Payment::whereHas('sale', function($q) {
                 $q->where('branch_id', $this->branchId)
                   ->where('department_id', $this->departmentId)
-                  ->where('sold_by', $this->employeeId)
+                  ->where('sold_by_id', $this->employeeId)
+                  ->where('sold_by_type', 'App\\Models\\Employee')
                   ->whereBetween('sale_time', [$this->dateFrom, $this->dateTo])
                   ->where('status', '!=', 'cancelled');
             })
@@ -267,7 +273,8 @@ class Index extends BaseComponent
         return Cache::remember($this->getCacheKey('my_order_types'), 300, function() {
             return Sale::where('branch_id', $this->branchId)
                 ->where('department_id', $this->departmentId)
-                ->where('sold_by', $this->employeeId)
+                ->where('sold_by_id', $this->employeeId)
+                ->where('sold_by_type', 'App\\Models\\Employee')
                 ->whereBetween('sale_time', [$this->dateFrom, $this->dateTo])
                 ->where('status', '!=', 'cancelled')
                 ->select('order_type', DB::raw('SUM(total) as total'), DB::raw('COUNT(*) as count'))
@@ -281,7 +288,8 @@ class Index extends BaseComponent
     {
         return Sale::where('branch_id', $this->branchId)
             ->where('department_id', $this->departmentId)
-            ->where('sold_by', $this->employeeId)
+            ->where('sold_by_id', $this->employeeId)
+            ->where('sold_by_type', 'App\\Models\\Employee')
             ->whereBetween('sale_time', [$this->dateFrom, $this->dateTo])
             ->where('status', '!=', 'cancelled')
             ->with(['saleItems.product', 'payments'])

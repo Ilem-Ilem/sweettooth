@@ -6,8 +6,20 @@ use App\Helpers\RolePermission;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\User;
+use App\Models\Sale;
+use App\Models\Purchase;
+use App\Models\Payment;
+use App\Models\StockMovement;
 use App\Observers\DepartmentObserver;
 use App\Observers\SalesPageObserver;
+use App\Observers\RoleObserver;
+use App\Observers\PermissionObserver;
+use App\Observers\SaleObserver;
+use App\Observers\PurchaseObserver;
+use App\Observers\PaymentObserver;
+use App\Observers\StockMovementObserver;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\Models\Permission;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Blade;
@@ -31,6 +43,14 @@ class AppServiceProvider extends ServiceProvider
         // Register observers
         Department::observe(DepartmentObserver::class);
         Department::observe(SalesPageObserver::class);
+        Role::observe(RoleObserver::class);
+        Permission::observe(PermissionObserver::class);
+        
+        // Register accounting observers for automatic GL posting
+        Sale::observe(SaleObserver::class);
+        Purchase::observe(PurchaseObserver::class);
+        Payment::observe(PaymentObserver::class);
+        StockMovement::observe(StockMovementObserver::class);
 
         // Register morph aliases for polymorphic relationships
         Relation::morphMap([

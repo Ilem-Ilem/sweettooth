@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use App\Models\GlEntry;
 
 class Sale extends Model
 {
@@ -24,6 +25,10 @@ class Sale extends Model
         'status',
         'order_type',
         'notes',
+        'gl_entry_id',
+        'gl_posting_status',
+        'gl_posting_error',
+        'gl_posted_at',
     ];
 
     protected $casts = [
@@ -68,6 +73,11 @@ class Sale extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(Payment::class);
+    }
+
+    public function glEntry(): BelongsTo
+    {
+        return $this->belongsTo(GlEntry::class, 'gl_entry_id');
     }
 
     // Helper Methods

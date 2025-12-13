@@ -110,11 +110,16 @@ class ProductionSeeder extends Seeder
             ]);
         }
 
-        // 4. Seed Daily Produces (20 records)
+        // 4. Seed Daily Produces (limit to avoid unique constraint violation on shift_id + recipe_id)
         $dailyProduces = [];
         foreach ($shifts as $shift) {
-            for ($i = 0; $i < 20; $i++) {
-                $recipe = $faker->randomElement($recipes);
+            // Use only 3-5 recipes per shift to avoid unique constraint violation
+            $recipesForShift = $faker->randomElements($recipes, min(5, count($recipes)));
+            foreach ($recipesForShift as $recipe) {
+                // Skip if this combination already exists
+                if (DailyProduce::where('shift_id', $shift->id)->where('recipe_id', $recipe->id)->exists()) {
+                    continue;
+                }
                 $dailyProduces[] = DailyProduce::create([
                     'shift_id' => $shift->id,
                     'recipe_id' => $recipe->id,

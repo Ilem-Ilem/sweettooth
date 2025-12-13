@@ -64,12 +64,12 @@ class Login extends Component
         // Redirect to DashboardRouter which will handle role-based routing
         if ($branch) {
             $this->redirectIntended(
-                default: route('branch-dashboard.dashboard.router', ['b_id' => $branch->id], absolute: false),
+                default: route('branch-dashboard.dashboards.router', ['b_id' => $branch->id], absolute: false),
                 navigate: true
             );
         } else {
             $this->redirectIntended(
-                default: route('branch-dashboard.dashboard.router', [], absolute: false),
+                default: route('branch-dashboard.dashboards.router', [], absolute: false),
                 navigate: true
             );
         }

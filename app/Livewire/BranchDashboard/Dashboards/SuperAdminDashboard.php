@@ -4,9 +4,9 @@ namespace App\Livewire\BranchDashboard\Dashboards;
 
 use Livewire\Component;
 use App\Models\Branch;
-use App\Models\Role;
+use Spatie\Permission\Models\Role;
 use App\Models\Employee;
-use App\Models\Inventory\Item;
+use App\Models\Item;
 
 /**
  * Super Admin Dashboard - System-wide administrative view
@@ -22,10 +22,8 @@ class SuperAdminDashboard extends Component
 {
     public function mount()
     {
-        // Check if user is super admin
-        if (!is_super_admin()) {
-            abort(403, 'Only Super Admins can access this dashboard');
-        }
+        // Use unified AuthService to check super admin status
+        \App\Services\AuthService::requireSuperAdmin();
     }
 
     public function render()

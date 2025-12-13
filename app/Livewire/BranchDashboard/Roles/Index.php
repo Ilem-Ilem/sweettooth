@@ -7,6 +7,7 @@ use Livewire\WithPagination;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
 use TallStackUi\Traits\Interactions;
+use App\Services\RolePermissionService;
 
 class Index extends BaseComponent
 {
@@ -180,12 +181,19 @@ class Index extends BaseComponent
         ]);
 
         if ($this->isEditing && $this->selectedRoleId) {
-            $role = Role::findOrFail($this->selectedRoleId);
-            $role->update([
-                'name' => $this->roleName,
-                'guard_name' => $this->roleGuard,
-            ]);
-            $message = 'Role updated successfully!';
+            try {
+                RolePermissionService::updateRole(
+                    $this->selectedRoleId,
+                    [
+                        'name' => $this->roleName,
+                        'guard_name' => $this->roleGuard,
+                    ]
+                );
+                $message = 'Role updated successfully!';
+            } catch (\Exception $e) {
+                $this->toast()->error($e->getMessage())->send();
+                return;
+            }
         } else {
             $role = Role::create([
                 'name' => $this->roleName,
@@ -198,6 +206,10 @@ class Index extends BaseComponent
         $permissions = Permission::whereIn('id', $this->selectedPermissions)
             ->where('guard_name', $this->roleGuard)
             ->get();
+        
+        if ($this->isEditing) {
+            $role = Role::find($this->selectedRoleId);
+        }
         $role->syncPermissions($permissions);
 
         $this->toast()->success($message)->send();
@@ -219,8 +231,12 @@ class Index extends BaseComponent
     public function confirmedDeleteRole(string $message): void
     {
         if ($this->selectedRoleId) {
-            Role::findOrFail($this->selectedRoleId)->delete();
-            $this->dialog()->success('Success', 'Role deleted successfully!')->send();
+            try {
+                RolePermissionService::deleteRole($this->selectedRoleId);
+                $this->dialog()->success('Success', 'Role deleted successfully!')->send();
+            } catch (\Exception $e) {
+                $this->dialog()->error('Error', $e->getMessage())->send();
+            }
             $this->selectedRoleId = null;
         }
     }
@@ -243,8 +259,14 @@ class Index extends BaseComponent
 
     public function confirmedBulkDelete(string $message): void
     {
-        Role::whereIn('id', $this->selectedIds)->delete();
-        $this->dialog()->success('Success', count($this->selectedIds) . ' role(s) deleted successfully!')->send();
+        try {
+            foreach ($this->selectedIds as $roleId) {
+                RolePermissionService::deleteRole($roleId);
+            }
+            $this->dialog()->success('Success', count($this->selectedIds) . ' role(s) deleted successfully!')->send();
+        } catch (\Exception $e) {
+            $this->dialog()->error('Error', $e->getMessage())->send();
+        }
         $this->selectedIds = [];
     }
 

@@ -62,7 +62,7 @@ class StaffLogin extends Component
 
         // Redirect to DashboardRouter which will route to appropriate dashboard by role
         $this->redirectIntended(
-            default: route('branch-dashboard.dashboard.router', ['b_id' => $this->branch_id], absolute: false),
+            default: route('branch-dashboard.dashboards.router', ['b_id' => $this->branch_id], absolute: false),
             navigate: true
         );
     }

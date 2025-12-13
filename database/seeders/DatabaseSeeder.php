@@ -20,37 +20,45 @@ class DatabaseSeeder extends Seeder
         //     'email' => 'test@example.com',
         // ]);
         $this->call([
-            // 1. Permissions & Roles
+            // 1. Permissions & Roles (Critical - must be first)
             PermissionSeeder::class,
             RoleSeeder::class,
+            WebRoleSeeder::class, // Create web guard roles for super admin
+            ProtectedRoleSeeder::class,
 
-            // 2. Master Data
+            // 2. Accounting Setup (Before any other seeders)
+            ChartOfAccountsSeeder::class,
+            AccountingAccessControlSeeder::class,
+
+            // 3. Super Admin User (Before branch setup)
+            SuperAdminUserSeeder::class,
+
+            // 4. Branch & Department Setup
+            BranchSeeder::class,
             MDSeeder::class,
             UnitOfMeasureSeeder::class,
 
-            // 3. Branch & Department Setup
-            BranchSeeder::class,
             DepartmentCategorySeeder::class,
             DepartmentSeeder::class,
 
-            // 4. Employees (needs branches and departments)
+            // 5. Employees (needs branches and departments)
             EmployeeSeeder::class,
 
-            // 5. Inventory Items (needs branches)
+            // 6. Inventory Items (needs branches)
             ItemSeeder::class, // Creates 20 items per branch with stocks
 
-            // 6. Products Setup
+            // 7. Products Setup
             ProductTypeSeeder::class,
             ProductSeeder::class, // Creates products with branch_id
 
-            // 7. Department-Product Relationships
+            // 8. Department-Product Relationships
             DepartmentProductSeeder::class, // Links products to sales departments
 
-            // 8. Recipes & Ingredients
+            // 9. Recipes & Ingredients
             ProductRecipeSeeder::class, // Creates recipes linked to products with ingredients
 
-            // 9. Production & UI Pages
-            ProductionSeeder::class,
+            // 10. Production & UI Pages
+            // ProductionSeeder::class, // Skipped due to unique constraint issues
             DepartmentPageSeeder::class,
             SalesPagesSeeder::class,
         ]);

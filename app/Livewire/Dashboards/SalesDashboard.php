@@ -32,6 +32,7 @@ class SalesDashboard extends BaseDashboard
             'corner_store_manager',
             'corner_store_staff',
             'confectionaries_sales_staff',
+            'admin',
         ];
 
         // Allow access if user has allowed role OR is super admin
@@ -58,8 +59,12 @@ class SalesDashboard extends BaseDashboard
         return $this->remember('total_sales', function () {
             $range = $this->getDateRange();
             
+            // Check if transactions table exists
+            if (!$this->tableExists('transactions')) {
+                return 0;
+            }
+            
             // Query from sales/transactions table if exists
-            // For now, using estimated calculation
             return DB::table('transactions')
                 ->where('branch_id', $this->getBranchId())
                 ->whereBetween('created_at', [$range['from'], $range['to']])
@@ -73,6 +78,10 @@ class SalesDashboard extends BaseDashboard
     public function getTransactionCount(): int
     {
         return $this->remember('transaction_count', function () {
+            if (!$this->tableExists('transactions')) {
+                return 0;
+            }
+            
             $range = $this->getDateRange();
             
             return DB::table('transactions')
@@ -87,6 +96,10 @@ class SalesDashboard extends BaseDashboard
      */
     public function getTodaySales(): float
     {
+        if (!$this->tableExists('transactions')) {
+            return 0;
+        }
+        
         return DB::table('transactions')
             ->where('branch_id', $this->getBranchId())
             ->whereDate('created_at', Carbon::today())
@@ -98,6 +111,10 @@ class SalesDashboard extends BaseDashboard
      */
     public function getTodayTransactionCount(): int
     {
+        if (!$this->tableExists('transactions')) {
+            return 0;
+        }
+        
         return DB::table('transactions')
             ->where('branch_id', $this->getBranchId())
             ->whereDate('created_at', Carbon::today())
@@ -123,6 +140,10 @@ class SalesDashboard extends BaseDashboard
     public function getTopSellingItems($limit = 10)
     {
         return $this->remember('top_selling_items_' . $limit, function () use ($limit) {
+            if (!$this->tableExists('transaction_items')) {
+                return [];
+            }
+            
             return DB::table('transaction_items')
                 ->join('products', 'transaction_items.product_id', '=', 'products.id')
                 ->where('transaction_items.branch_id', $this->getBranchId())
@@ -141,10 +162,13 @@ class SalesDashboard extends BaseDashboard
     public function getRecentTransactions($limit = 10)
     {
         return $this->remember('recent_transactions_' . $limit, function () use ($limit) {
+            if (!$this->tableExists('transactions')) {
+                return [];
+            }
+            
             return DB::table('transactions')
                 ->where('branch_id', $this->getBranchId())
                 ->whereDate('created_at', Carbon::today())
-                ->with('items')
                 ->orderBy('created_at', 'desc')
                 ->limit($limit)
                 ->get();
@@ -157,6 +181,10 @@ class SalesDashboard extends BaseDashboard
     public function getSalesByHour()
     {
         return $this->remember('sales_by_hour', function () {
+            if (!$this->tableExists('transactions')) {
+                return [];
+            }
+            
             return DB::table('transactions')
                 ->where('branch_id', $this->getBranchId())
                 ->whereDate('created_at', Carbon::today())
@@ -165,6 +193,18 @@ class SalesDashboard extends BaseDashboard
                 ->orderBy('hour', 'asc')
                 ->get();
         });
+    }
+
+    /**
+     * Check if table exists
+     */
+    private function tableExists(string $tableName): bool
+    {
+        try {
+            return DB::getSchemaBuilder()->hasTable($tableName);
+        } catch (\Exception $e) {
+            return false;
+        }
     }
 
     /**

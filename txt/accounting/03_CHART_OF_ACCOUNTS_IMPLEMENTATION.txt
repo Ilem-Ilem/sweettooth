@@ -1,0 +1,619 @@
+================================================================================
+                    CHART OF ACCOUNTS (GL) IMPLEMENTATION
+                 How to Build the General Ledger System for SweetTooth
+================================================================================
+
+OVERVIEW
+================================================================================
+
+A Chart of Accounts is the master list of all accounts used in the general
+ledger. It's the foundation for all accounting entries in the system.
+
+Current Status: NOT IMPLEMENTED
+  - Need to create GL_Account master table
+  - Need to link transactions to GL accounts
+  - Need to implement posting logic
+  - Need to build GL reports
+
+
+================================================================================
+                      DATABASE SCHEMA DESIGN
+================================================================================
+
+TABLE 1: GL_ACCOUNTS (Master Chart of Accounts)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Migration file: database/migrations/2025_12_13_000000_create_gl_accounts_table.php
+
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('gl_accounts', function (Blueprint $table) {
+            $table->id();
+            $table->string('account_number', 20)->unique(); // e.g., "1010-001" or "5000"
+            $table->string('account_name', 100); // e.g., "Cash - Head Office"
+            $table->enum('account_type', [
+                'asset',           // Current Asset, Fixed Asset
+                'liability',       // Current Liability, Long-term Liability
+                'equity',          // Capital, Retained Earnings
+                'revenue',         // Sales, Services, Other Income
+                'cogs',            // Cost of Goods Sold
+                'expense',         // Operating, Administrative, Finance Costs
+                'tax',             // Income Tax, Sales Tax
+            ]);
+            $table->enum('account_category', [
+                'cash',
+                'bank',
+                'receivables',
+                'inventory',
+                'fixed_assets',
+                'payables',
+                'tax_payable',
+                'loans',
+                'capital',
+                'retained_earnings',
+                'sales_revenue',
+                'service_revenue',
+                'other_income',
+                'cogs',
+                'salary_expense',
+                'operating_expense',
+                'admin_expense',
+                'finance_cost',
+                'depreciation',
+                'inventory_adjustment',
+            ]);
+            $table->string('description')->nullable();
+            $table->decimal('debit_balance', 15, 2)->default(0); // Cumulative debit
+            $table->decimal('credit_balance', 15, 2)->default(0); // Cumulative credit
+            $table->enum('normal_balance', ['debit', 'credit']); // Expected side
+            $table->boolean('is_header')->default(false); // True if this is a category header
+            $table->unsignedBigInteger('parent_account_id')->nullable(); // For hierarchies
+            $table->boolean('is_active')->default(true);
+            $table->boolean('allow_manual_entry')->default(true); // Can user post manually?
+            $table->foreign('parent_account_id')->references('id')->on('gl_accounts')->onDelete('cascade');
+            $table->timestamps();
+            $table->softDeletes();
+            
+            // Indexes
+            $table->index('account_type');
+            $table->index('account_category');
+            $table->index('is_active');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('gl_accounts');
+    }
+};
+
+
+TABLE 2: GL_ENTRIES (Journal Entries / GL Postings)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Migration file: database/migrations/2025_12_13_000001_create_gl_entries_table.php
+
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('gl_entries', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('gl_account_id');
+            $table->unsignedBigInteger('accounting_period_id')->nullable();
+            $table->string('entry_type'); // 'sale', 'purchase', 'adjustment', 'manual'
+            $table->string('reference_type')->nullable(); // e.g., 'App\Models\Sale'
+            $table->unsignedBigInteger('reference_id')->nullable(); // e.g., sale_id
+            $table->string('reference_number')->nullable(); // e.g., 'SAL-001-20251201-0001'
+            $table->string('description'); // Description of the entry
+            $table->decimal('debit', 15, 2)->default(0);
+            $table->decimal('credit', 15, 2)->default(0);
+            $table->dateTime('entry_date');
+            $table->enum('status', ['draft', 'posted', 'reversed', 'cancelled'])->default('draft');
+            $table->unsignedBigInteger('entered_by_id')->nullable();
+            $table->unsignedBigInteger('posted_by_id')->nullable();
+            $table->dateTime('posted_at')->nullable();
+            $table->unsignedBigInteger('reversed_by_id')->nullable();
+            $table->dateTime('reversed_at')->nullable();
+            $table->text('remarks')->nullable();
+            
+            // Branch context (for multi-branch reporting)
+            $table->unsignedBigInteger('branch_id')->nullable();
+            $table->string('cost_center')->nullable(); // For cost allocation
+            
+            $table->foreign('gl_account_id')->references('id')->on('gl_accounts');
+            $table->foreign('accounting_period_id')->references('id')->on('accounting_periods')->nullOnDelete();
+            $table->foreign('branch_id')->references('id')->on('branches')->nullOnDelete();
+            $table->timestamps();
+            $table->softDeletes();
+            
+            // Indexes for queries
+            $table->index(['gl_account_id', 'entry_date']);
+            $table->index(['reference_type', 'reference_id']);
+            $table->index('accounting_period_id');
+            $table->index('status');
+            $table->index('entry_date');
+            $table->index('branch_id');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('gl_entries');
+    }
+};
+
+
+TABLE 3: ACCOUNTING_PERIODS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Migration file: database/migrations/2025_12_13_000002_create_accounting_periods_table.php
+
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('accounting_periods', function (Blueprint $table) {
+            $table->id();
+            $table->integer('year');
+            $table->integer('month'); // 1-12
+            $table->date('period_start');
+            $table->date('period_end');
+            $table->enum('status', ['open', 'closed', 'locked'])->default('open');
+            $table->unsignedBigInteger('closed_by_id')->nullable();
+            $table->dateTime('closed_at')->nullable();
+            $table->text('closing_notes')->nullable();
+            $table->timestamps();
+            
+            // Unique: Only one open period per month
+            $table->unique(['year', 'month']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('accounting_periods');
+    }
+};
+
+
+================================================================================
+                        MODEL DEFINITIONS
+================================================================================
+
+Model 1: GlAccount
+Location: app/Models/GlAccount.php
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class GlAccount extends Model
+{
+    protected $table = 'gl_accounts';
+    
+    protected $fillable = [
+        'account_number',
+        'account_name',
+        'account_type',
+        'account_category',
+        'description',
+        'normal_balance',
+        'is_header',
+        'parent_account_id',
+        'is_active',
+        'allow_manual_entry',
+    ];
+
+    // Relationships
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(GlAccount::class, 'parent_account_id');
+    }
+
+    public function children(): HasMany
+    {
+        return $this->hasMany(GlAccount::class, 'parent_account_id');
+    }
+
+    public function entries(): HasMany
+    {
+        return $this->hasMany(GlEntry::class, 'gl_account_id');
+    }
+
+    // Scopes
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    public function scopeByType($query, $type)
+    {
+        return $query->where('account_type', $type);
+    }
+
+    public function scopeByCategory($query, $category)
+    {
+        return $query->where('account_category', $category);
+    }
+
+    // Accessors
+    public function getBalance(): float
+    {
+        // Asset, Expense, COGS accounts: Debit is positive
+        if (in_array($this->account_type, ['asset', 'cogs', 'expense'])) {
+            return $this->debit_balance - $this->credit_balance;
+        }
+        
+        // Liability, Equity, Revenue accounts: Credit is positive
+        if (in_array($this->account_type, ['liability', 'equity', 'revenue', 'tax'])) {
+            return $this->credit_balance - $this->debit_balance;
+        }
+        
+        return 0;
+    }
+
+    public function updateBalance(float $debit, float $credit): void
+    {
+        $this->debit_balance += $debit;
+        $this->credit_balance += $credit;
+        $this->save();
+    }
+}
+
+
+Model 2: GlEntry
+Location: app/Models/GlEntry.php
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
+
+class GlEntry extends Model
+{
+    protected $table = 'gl_entries';
+    
+    protected $fillable = [
+        'gl_account_id',
+        'accounting_period_id',
+        'entry_type',
+        'reference_type',
+        'reference_id',
+        'reference_number',
+        'description',
+        'debit',
+        'credit',
+        'entry_date',
+        'status',
+        'entered_by_id',
+        'posted_by_id',
+        'posted_at',
+        'branch_id',
+        'cost_center',
+        'remarks',
+    ];
+
+    protected $casts = [
+        'entry_date' => 'datetime',
+        'posted_at' => 'datetime',
+        'debit' => 'decimal:2',
+        'credit' => 'decimal:2',
+    ];
+
+    // Relationships
+    public function glAccount(): BelongsTo
+    {
+        return $this->belongsTo(GlAccount::class);
+    }
+
+    public function period(): BelongsTo
+    {
+        return $this->belongsTo(AccountingPeriod::class, 'accounting_period_id');
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
+    public function enteredBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'entered_by_id');
+    }
+
+    public function postedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'posted_by_id');
+    }
+
+    // Scopes
+    public function scopePosted($query)
+    {
+        return $query->where('status', 'posted');
+    }
+
+    public function scopeByAccount($query, $accountId)
+    {
+        return $query->where('gl_account_id', $accountId);
+    }
+
+    public function scopeByPeriod($query, $periodId)
+    {
+        return $query->where('accounting_period_id', $periodId);
+    }
+
+    public function scopeByReference($query, $type, $id)
+    {
+        return $query->where('reference_type', $type)->where('reference_id', $id);
+    }
+
+    // Methods
+    public function post(int $userId): bool
+    {
+        if ($this->status !== 'draft') {
+            return false;
+        }
+
+        $this->status = 'posted';
+        $this->posted_by_id = $userId;
+        $this->posted_at = now();
+        $this->save();
+
+        // Update account balances
+        $this->glAccount()->update([
+            'debit_balance' => $this->glAccount->debit_balance + $this->debit,
+            'credit_balance' => $this->glAccount->credit_balance + $this->credit,
+        ]);
+
+        return true;
+    }
+
+    public function reverse(int $userId): bool
+    {
+        if ($this->status !== 'posted') {
+            return false;
+        }
+
+        // Create reversing entry
+        GlEntry::create([
+            'gl_account_id' => $this->gl_account_id,
+            'accounting_period_id' => $this->accounting_period_id,
+            'entry_type' => 'reversal',
+            'reference_type' => $this->reference_type,
+            'reference_id' => $this->reference_id,
+            'description' => "Reversing entry for: {$this->description}",
+            'debit' => $this->credit,  // Swapped
+            'credit' => $this->debit,  // Swapped
+            'entry_date' => now(),
+            'status' => 'posted',
+            'reversed_by_id' => $userId,
+            'reversed_at' => now(),
+        ]);
+
+        $this->status = 'reversed';
+        $this->save();
+
+        return true;
+    }
+}
+
+
+Model 3: AccountingPeriod
+Location: app/Models/AccountingPeriod.php
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class AccountingPeriod extends Model
+{
+    protected $table = 'accounting_periods';
+    
+    protected $fillable = [
+        'year',
+        'month',
+        'period_start',
+        'period_end',
+        'status',
+        'closed_by_id',
+        'closed_at',
+        'closing_notes',
+    ];
+
+    protected $casts = [
+        'period_start' => 'date',
+        'period_end' => 'date',
+        'closed_at' => 'datetime',
+    ];
+
+    public function entries(): HasMany
+    {
+        return $this->hasMany(GlEntry::class, 'accounting_period_id');
+    }
+
+    public function scopeOpen($query)
+    {
+        return $query->where('status', 'open');
+    }
+
+    public function scopeCurrent($query)
+    {
+        $now = now();
+        return $query
+            ->where('period_start', '<=', $now)
+            ->where('period_end', '>=', $now);
+    }
+
+    public function close(int $userId, string $notes = null): bool
+    {
+        if ($this->status !== 'open') {
+            return false;
+        }
+
+        $this->status = 'closed';
+        $this->closed_by_id = $userId;
+        $this->closed_at = now();
+        $this->closing_notes = $notes;
+        $this->save();
+
+        return true;
+    }
+}
+
+
+================================================================================
+                    DEFAULT CHART OF ACCOUNTS
+================================================================================
+
+The following is a standard CoA for a multi-branch retail/production business:
+
+ASSETS (1000-1900)
+─────────────────────────────────────────────────────────────────────────────
+1010 - Cash - Head Office
+1020 - Cash - Branch A
+1030 - Cash - Branch B
+1040 - Petty Cash
+1050 - Bank Account - Main
+1060 - Bank Account - Branch A
+1100 - Accounts Receivable
+1200 - Inventory - Raw Materials
+1210 - Inventory - Work in Progress
+1220 - Inventory - Finished Goods
+1300 - Fixed Assets - Equipment
+1310 - Fixed Assets - Building
+1400 - Accumulated Depreciation
+1500 - Prepaid Expenses
+
+LIABILITIES (2000-2900)
+─────────────────────────────────────────────────────────────────────────────
+2010 - Accounts Payable
+2020 - Sales Tax Payable
+2030 - Income Tax Payable
+2040 - Employee Withholding Payable
+2100 - Short-term Loan
+2200 - Long-term Loan
+2300 - Accrued Expenses
+
+EQUITY (3000-3900)
+─────────────────────────────────────────────────────────────────────────────
+3010 - Capital Stock / Owner's Capital
+3020 - Retained Earnings
+3030 - Dividends
+
+REVENUE (4000-4900)
+─────────────────────────────────────────────────────────────────────────────
+4010 - Sales Revenue - Retail
+4020 - Sales Revenue - Production
+4030 - Service Revenue
+4040 - Other Income
+4050 - Discount Given (contra revenue)
+
+COST OF GOODS SOLD (5000-5900)
+─────────────────────────────────────────────────────────────────────────────
+5010 - Cost of Goods Sold
+5020 - Inventory Write-down / Damage Loss
+5030 - Shrinkage Loss
+
+OPERATING EXPENSES (6000-6900)
+─────────────────────────────────────────────────────────────────────────────
+6010 - Salary Expense - Management
+6020 - Salary Expense - Staff
+6030 - Utilities (Electricity, Water)
+6040 - Rent
+6050 - Advertising & Marketing
+6060 - Office Supplies
+6070 - Maintenance & Repairs
+6080 - Transportation & Logistics
+6090 - Insurance
+
+ADMINISTRATIVE EXPENSES (7000-7900)
+─────────────────────────────────────────────────────────────────────────────
+7010 - Professional Fees (Accounting, Legal)
+7020 - Audit Fees
+7030 - Bank Charges
+7040 - Software & IT
+7050 - Office Equipment
+7060 - Depreciation Expense
+
+FINANCE COSTS (8000-8900)
+─────────────────────────────────────────────────────────────────────────────
+8010 - Interest Expense
+8020 - Exchange Loss/Gain
+8030 - Finance Charges
+
+TAX ACCOUNTS (9000-9900)
+─────────────────────────────────────────────────────────────────────────────
+9010 - Income Tax Expense
+9020 - VAT Expense (input VAT)
+
+
+================================================================================
+                    IMPLEMENTATION STEPS
+================================================================================
+
+Phase 1: Database & Models (1-2 weeks)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Create migrations for gl_accounts, gl_entries, accounting_periods
+2. Create GlAccount, GlEntry, AccountingPeriod models
+3. Create database seeders for default Chart of Accounts
+4. Create relationships between models and existing models (Sale, Purchase, etc.)
+
+Phase 2: Posting Engine (2-3 weeks)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Create GlPosting service to handle double-entry
+2. Implement automatic posting from Sales
+   - Debit: Cash/Receivable, Credit: Sales Revenue
+   - Debit: COGS, Credit: Inventory
+3. Implement automatic posting from Purchases
+   - Debit: Inventory, Credit: Payable
+4. Implement automatic posting from Payments
+   - Debit: Payable, Credit: Cash
+5. Implement posting from Inventory Adjustments
+   - Debit: Loss, Credit: Inventory
+
+Phase 3: Manual Journal Entries (1-2 weeks)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Create UI for manual journal entry input
+2. Implement GL entry validation (must balance)
+3. Implement GL entry approval workflow
+4. Implement entry reversal capability
+
+Phase 4: GL Reports (2-3 weeks)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. General Ledger (detailed transactions by account)
+2. Trial Balance (all accounts + debit/credit totals)
+3. Balance Sheet (Assets, Liabilities, Equity)
+4. Income Statement (Revenue, COGS, Expenses, Net Income)
+
+================================================================================

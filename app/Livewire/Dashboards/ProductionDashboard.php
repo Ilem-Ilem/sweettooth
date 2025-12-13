@@ -56,6 +56,7 @@ class ProductionDashboard extends BaseDashboard
             'kitchen_staff',
             'gelato_production_staff',
             'confectionaries_production_staff',
+            'admin',
         ];
 
         // Allow access if user has allowed role OR is super admin

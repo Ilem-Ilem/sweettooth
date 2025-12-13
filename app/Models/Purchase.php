@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\GlEntry;
 
 class Purchase extends Model
 {
@@ -26,6 +27,10 @@ class Purchase extends Model
         'payment_status',
         'notes',
         'status',
+        'gl_entry_id',
+        'gl_posting_status',
+        'gl_posting_error',
+        'gl_posted_at',
     ];
 
     protected $casts = [
@@ -111,6 +116,14 @@ class Purchase extends Model
     {
         return $this->hasMany(StockMovement::class, 'reference_id')
             ->where('reference_type', 'App\Models\Purchase');
+    }
+
+    /**
+     * Get the GL entry for this purchase
+     */
+    public function glEntry(): BelongsTo
+    {
+        return $this->belongsTo(GlEntry::class, 'gl_entry_id');
     }
 
     /**

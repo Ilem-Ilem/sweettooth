@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth:web,employees', 'setBranchContext', 'branch'])->prefix('branch-dashboard')->name('branch-dashboard.')->group(function () {
+Route::middleware(['auth:web,employees', 'setBranchContext', 'branch', 'redirect-super-admin'])->prefix('branch-dashboard')->name('branch-dashboard.')->group(function () {
     // Dashboard Router - Redirects to appropriate dashboard based on role
     Route::get('/dashboard/router', App\Livewire\BranchDashboard\Dashboards\Router::class)->name('dashboards.router');
 
@@ -24,9 +24,9 @@ Route::middleware(['auth:web,employees', 'setBranchContext', 'branch'])->prefix(
     Route::get('/', function () {
         $branchId = request()->query('b_id') ?? current_branch_id();
         if ($branchId) {
-            return redirect()->route('branch-dashboard.dashboard.router', ['b_id' => $branchId]);
+            return redirect()->route('branch-dashboard.dashboards.router', ['b_id' => $branchId]);
         }
-        return redirect()->route('branch-dashboard.dashboard.router');
+        return redirect()->route('branch-dashboard.dashboards.router');
     })->name('index');
 
     Route::get('/employees', App\Livewire\BranchDashboard\EmployeeModule\Index::class)->name('employee.index');
@@ -34,7 +34,7 @@ Route::middleware(['auth:web,employees', 'setBranchContext', 'branch'])->prefix(
     Route::get('/employee//{employee_number}/{id}/', \App\Livewire\BranchDashboard\EmployeeModule\Details::class)->name('employee.details');
     Route::get('/employee/{id}/edit', \App\Livewire\BranchDashboard\EmployeeModule\Edit::class)->name('employee.edit');
     // ROLE MANAGEMENT (Super Admin Only)
-    Route::get('roles', \App\Livewire\BranchDashboard\Roles\Index::class)->name('roles.index');
+    Route::middleware('protect-roles')->get('roles', \App\Livewire\BranchDashboard\Roles\Index::class)->name('roles.index');
     
     // BRANCH MANAGEMENT (Super Admin Only)
     Route::get('branches', \App\Livewire\BranchDashboard\Branches\Index::class)->name('branches.index');
@@ -196,6 +196,35 @@ Route::middleware(['auth:web,employees', 'setBranchContext', 'branch'])->prefix(
     Route::prefix('audit')->name('audit.')->group(function () {
         Route::get('/', \App\Livewire\BranchDashboard\AuditManagement\Index::class)->name('index');
         Route::get('inventory-approvals', \App\Livewire\BranchDashboard\AuditManagement\InventoryApprovals::class)->name('inventory-approvals');
+    });
+
+    // Accounting Routes - Role Based Access (Super Admin, MD, Accountant)
+    Route::prefix('accounting')->name('accounting.')->middleware('permission:access_accounting|view_financial_reports')->group(function () {
+        // Accounting Dashboard
+        Route::get('/dashboard', \App\Livewire\Accounting\Dashboard::class)->name('dashboard');
+        
+        // Chart of Accounts Management (Super Admin, MD, Admin)
+        Route::middleware('permission:manage_accounts')->group(function () {
+            Route::get('/accounts', \App\Livewire\Accounting\GlAccountList::class)->name('accounts');
+        });
+        
+        // Accounting Period Management (Super Admin, MD, Admin)
+        Route::middleware('permission:manage_periods')->group(function () {
+            Route::get('/periods', \App\Livewire\Accounting\PeriodManagement::class)->name('periods');
+        });
+        
+        // Manual Journal Entry (Super Admin, MD, Accountant, Admin)
+        Route::middleware('permission:create_journal_entries')->group(function () {
+            Route::get('/journal-entry', \App\Livewire\Accounting\ManualJournalEntry::class)->name('journal-entry');
+        });
+        
+        // Financial Reports (All accounting users)
+        Route::prefix('reports')->name('reports.')->group(function () {
+            Route::get('/general-ledger', \App\Livewire\Reports\GeneralLedgerReport::class)->name('general-ledger');
+            Route::get('/trial-balance', \App\Livewire\Reports\TrialBalanceReport::class)->name('trial-balance');
+            Route::get('/income-statement', \App\Livewire\Reports\IncomeStatementReport::class)->name('income-statement');
+            Route::get('/balance-sheet', \App\Livewire\Reports\BalanceSheetReport::class)->name('balance-sheet');
+        });
     });
 
     // Sales Dashboard routes - Modular System

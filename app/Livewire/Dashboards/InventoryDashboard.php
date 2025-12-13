@@ -25,9 +25,10 @@ class InventoryDashboard extends BaseDashboard
     {
         $role = $this->getUserRoleName();
         $allowedRoles = [
-            'inventory_manager',
-            'stock_controller',
-            'store_keeper',
+            'Inventory Manager',
+            'Stock Controller',
+            'Store Keeper',
+            'Admin',
         ];
 
         // Allow access if user has allowed role OR is super admin
@@ -44,11 +45,26 @@ class InventoryDashboard extends BaseDashboard
     public function getTotalStockValue(): float
     {
         return $this->remember('total_stock_value', function () {
-            return Stock::where('branch_id', $this->getBranchId())
-                ->join('items', 'stocks.item_id', '=', 'items.id')
-                ->selectRaw('SUM(stocks.quantity * items.last_unit_price) as total')
-                ->value('total') ?? 0;
+            $stocks = Stock::where('branch_id', $this->getBranchId())->get();
+            $total = 0;
+            
+            foreach ($stocks as $stock) {
+                $lastPrice = $this->getLastUnitPrice($stock->item_id);
+                $total += $stock->quantity_available * $lastPrice;
+            }
+            
+            return $total;
         });
+    }
+    
+    /**
+     * Get last unit price for an item from most recent purchase
+     */
+    private function getLastUnitPrice($itemId): float
+    {
+        return \App\Models\PurchaseItem::where('item_id', $itemId)
+            ->orderBy('created_at', 'desc')
+            ->value('cost_per_unit') ?? 0;
     }
 
     /**
@@ -58,7 +74,7 @@ class InventoryDashboard extends BaseDashboard
     {
         return $this->remember('total_items', function () {
             return Stock::where('branch_id', $this->getBranchId())
-                ->where('quantity', '>', 0)
+                ->where('quantity_available', '>', 0)
                 ->count();
         });
     }
@@ -69,9 +85,9 @@ class InventoryDashboard extends BaseDashboard
     public function getLowStockCount(): int
     {
         return $this->remember('low_stock_count', function () {
-            return Stock::where('branch_id', $this->getBranchId())
+            return Stock::where('stocks.branch_id', $this->getBranchId())
                 ->join('items', 'stocks.item_id', '=', 'items.id')
-                ->whereRaw('stocks.quantity <= items.reorder_point')
+                ->whereRaw('stocks.quantity_available <= items.reorder_level')
                 ->count();
         });
     }
@@ -82,9 +98,10 @@ class InventoryDashboard extends BaseDashboard
     public function getRecentMovements($limit = 10)
     {
         return $this->remember('recent_movements_' . $limit, function () use ($limit) {
-            return StockMovement::where('branch_id', $this->getBranchId())
+            return StockMovement::join('stocks', 'stock_movements.stock_id', '=', 'stocks.id')
+                ->where('stocks.branch_id', $this->getBranchId())
                 ->with('item', 'createdBy')
-                ->orderBy('created_at', 'desc')
+                ->orderBy('stock_movements.created_at', 'desc')
                 ->limit($limit)
                 ->get();
         });
@@ -96,13 +113,20 @@ class InventoryDashboard extends BaseDashboard
     public function getLowStockItems($limit = 15)
     {
         return $this->remember('low_stock_items_' . $limit, function () use ($limit) {
-            return Stock::where('branch_id', $this->getBranchId())
+            $items = Stock::where('stocks.branch_id', $this->getBranchId())
                 ->join('items', 'stocks.item_id', '=', 'items.id')
-                ->selectRaw('items.id, items.name, items.sku, items.reorder_point, stocks.quantity, items.last_unit_price')
-                ->whereRaw('stocks.quantity <= items.reorder_point')
-                ->orderBy('stocks.quantity', 'asc')
+                ->selectRaw('items.id, items.name, items.sku, items.reorder_level as reorder_point, stocks.quantity_available')
+                ->whereRaw('stocks.quantity_available <= items.reorder_level')
+                ->orderBy('stocks.quantity_available', 'asc')
                 ->limit($limit)
                 ->get();
+            
+            // Add last_unit_price to each item
+            foreach ($items as $item) {
+                $item->last_unit_price = $this->getLastUnitPrice($item->id);
+            }
+            
+            return $items;
         });
     }
 
@@ -112,8 +136,9 @@ class InventoryDashboard extends BaseDashboard
     public function getTodayMovementsCount(): int
     {
         return $this->remember('today_movements_count', function () {
-            return StockMovement::where('branch_id', $this->getBranchId())
-                ->whereDate('created_at', Carbon::today())
+            return StockMovement::join('stocks', 'stock_movements.stock_id', '=', 'stocks.id')
+                ->where('stocks.branch_id', $this->getBranchId())
+                ->whereDate('stock_movements.created_at', Carbon::today())
                 ->count();
         });
     }
@@ -147,10 +172,10 @@ class InventoryDashboard extends BaseDashboard
     public function getItemsByCategory()
     {
         return $this->remember('items_by_category', function () {
-            return Stock::where('branch_id', $this->getBranchId())
+            return Stock::where('stocks.branch_id', $this->getBranchId())
                 ->join('items', 'stocks.item_id', '=', 'items.id')
                 ->groupBy('items.category_id')
-                ->selectRaw('items.category_id, COUNT(DISTINCT stocks.item_id) as count, SUM(stocks.quantity) as total_qty')
+                ->selectRaw('items.category_id, COUNT(DISTINCT stocks.item_id) as count, SUM(stocks.quantity_available) as total_qty')
                 ->get();
         });
     }
@@ -173,7 +198,7 @@ class InventoryDashboard extends BaseDashboard
         }
 
         $outOfStockCount = Stock::where('branch_id', $this->getBranchId())
-            ->where('quantity', 0)
+            ->where('quantity_available', 0)
             ->count();
 
         if ($outOfStockCount > 0) {

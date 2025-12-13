@@ -144,11 +144,11 @@ class RolePermission
     }
 
     /**
-     * Check if user is a managing director
+     * Check if user is a managing director (MD role)
      */
     public static function isManagingDirector(?string $guard = null): bool
     {
-        return self::hasRole('Managing Director', $guard);
+        return self::hasAnyRole(['Managing Director', 'MD'], $guard);
     }
 
     /**

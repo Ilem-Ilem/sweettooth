@@ -1,0 +1,334 @@
+================================================================================
+                        ACCOUNTING METHODS COMPARISON
+                    Which Method is Right for SweetTooth?
+================================================================================
+
+OVERVIEW
+================================================================================
+
+Three main accounting methods exist. SweetTooth currently implements a HYBRID
+PERPETUAL ACCRUAL model, which is the gold standard for retail + production.
+
+
+METHOD 1: CASH BASIS ACCOUNTING
+================================================================================
+
+Description:
+  Revenue and expenses recorded only when CASH changes hands
+  
+Timing of Recording:
+  Revenue:   When customer pays (not when sale is made)
+  Expenses:  When payment is made (not when bill is received)
+  Inventory: No accrual; immediate expense when purchased
+
+Advantages:
+  ✓ Simplest to implement
+  ✓ Clear cash position
+  ✓ Minimal bookkeeping
+  ✓ Ideal for small, cash-only businesses
+
+Disadvantages:
+  ✗ Distorts true profitability (especially with credit)
+  ✗ No inventory tracking during period
+  ✗ Poor for planning and analysis
+  ✗ Not compliant with GAAP/IFRS
+  ✗ Not suitable for businesses with significant inventory
+
+Suitable For:
+  - Very small businesses (1-2 employees)
+  - Cash-only businesses
+  - Service businesses (no inventory)
+  - Sole proprietors
+
+NOT SUITABLE FOR SWEETTOOTH because:
+  ✗ Multi-branch requires accurate real-time inventory
+  ✗ Production requires recipe costing (which needs inventory)
+  ✗ Retail needs to track shelf inventory vs paid amounts
+  ✗ Cannot determine true profitability
+
+
+METHOD 2: ACCRUAL BASIS ACCOUNTING (PERPETUAL)
+================================================================================
+
+Description:
+  Revenue and expenses recorded when earned/incurred, regardless of cash timing
+  WITH real-time inventory tracking
+  
+Timing of Recording:
+  Revenue:   When sale is made (customer takes goods)
+  Expenses:  When invoice is received (not paid)
+  Inventory: Updated in real-time with every movement
+
+Advantages:
+  ✓ Accurate profitability measurement
+  ✓ Real-time inventory visibility
+  ✓ Required for GAAP/IFRS
+  ✓ Excellent for multi-branch operations
+  ✓ Supports production costing
+  ✓ Works with credit sales/purchases
+  ✓ Better for financial analysis
+  ✓ Automated COGS calculation
+
+Disadvantages:
+  ✗ More complex implementation
+  ✗ Higher bookkeeping volume
+  ✗ Requires good controls
+  ✗ Timing differences between cash and profit
+
+Suitable For:
+  ✓ Medium to large businesses
+  ✓ Businesses with inventory
+  ✓ Multi-branch operations
+  ✓ Production businesses
+  ✓ Companies needing accurate financial reporting
+
+PERFECT FOR SWEETTOOTH because:
+  ✓ Multi-branch inventory tracking needed
+  ✓ Production requires recipe costing
+  ✓ POS needs real-time stock updates
+  ✓ Accurate profit = accurate branch performance
+  ✓ Already partially implemented (Stock.average_cost)
+
+
+METHOD 3: ACCRUAL BASIS ACCOUNTING (PERIODIC)
+================================================================================
+
+Description:
+  Revenue and expenses recorded when earned/incurred
+  Inventory counted and valued ONLY at period-end (month/year)
+  
+Timing of Recording:
+  Revenue:   When sale is made
+  Expenses:  When invoice is received
+  Inventory: Counted manually at period-end; COGS calculated then
+
+Advantages:
+  ✓ Simpler than perpetual accrual
+  ✓ Less frequent transactions
+  ✓ Lower technology requirements
+  ✓ Good compromise for cost
+
+Disadvantages:
+  ✗ No real-time inventory visibility
+  ✗ Stock-outs discovered late
+  ✗ Cannot calculate COGS until period-end
+  ✗ Not suitable for multiple branches
+  ✗ Poor for production planning
+  ✗ Reconciliation challenges
+
+Suitable For:
+  - Small retail stores
+  - Simple businesses without production
+  - Businesses that can close for inventory count
+
+NOT SUITABLE FOR SWEETTOOTH because:
+  ✗ Multi-branch needs real-time inventory
+  ✗ Production requires ongoing costing
+  ✗ POS integration requires live stock updates
+
+
+METHOD 4: MODIFIED ACCRUAL (Government/Non-Profit)
+================================================================================
+
+Description:
+  Revenue recognized when available and measurable
+  Expenses recognized when liability incurred
+  Used by governments and non-profits
+  
+NOT SUITABLE FOR SWEETTOOTH - This is for government/non-profit entities
+
+
+================================================================================
+                            RECOMMENDATION
+================================================================================
+
+USE: PERPETUAL ACCRUAL ACCOUNTING WITH WEIGHTED AVERAGE COST METHOD
+
+Why This Choice:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. BUSINESS REQUIREMENTS
+   ✓ Multiple branches with independent inventory
+   ✓ Production with recipe costing
+   ✓ POS integration with immediate inventory updates
+   ✓ Accurate branch profitability tracking
+   ✓ Real-time financial reporting
+
+2. SYSTEM ALIGNMENT
+   ✓ Already partially implemented (Stock.average_cost)
+   ✓ Stock movements already tracked
+   ✓ Sales transactions recorded real-time
+   ✓ Purchase approvals already in place
+
+3. OPERATIONAL BENEFITS
+   ✓ Instant visibility of stock levels
+   ✓ Early warning of stock-outs
+   ✓ Accurate recipe costing
+   ✓ Fair branch performance comparison
+   ✓ Instant profit reporting
+
+4. FINANCIAL ACCURACY
+   ✓ True profitability = true cash generation ability
+   ✓ Assets accurately valued (inventory at cost)
+   ✓ Revenue properly matched with expenses
+   ✓ COGS calculated from actual cost
+
+5. REGULATORY COMPLIANCE
+   ✓ Compliant with GAAP
+   ✓ Acceptable to auditors
+   ✓ Suitable for banking/financing
+   ✓ Satisfies tax requirements
+
+
+INVENTORY COSTING METHOD: WEIGHTED AVERAGE
+================================================================================
+
+Why Weighted Average (not FIFO/LIFO)?
+  ✓ Currently implemented in Stock.updateAverageCost()
+  ✓ Reduces volatility from price fluctuations
+  ✓ Fairest representation of actual costs
+  ✓ Allowed under IFRS
+  ✓ Simpler than FIFO for multi-location
+  ✗ LIFO not allowed under IFRS (good reason to avoid)
+
+Formula:
+  New Average Cost = ((Old Qty × Old Avg Cost) + (New Qty × New Cost)) / Total Qty
+
+Example:
+  Current inventory: 100 units @ 50 NGN = 5,000 NGN value
+  New purchase:     50 units @ 60 NGN = 3,000 NGN cost
+  Total inventory:  150 units
+  New avg cost = (5,000 + 3,000) / 150 = 53.33 NGN per unit
+
+
+JOURNAL ENTRIES FOR PERPETUAL ACCRUAL
+================================================================================
+
+Entry 1: SALE TRANSACTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Scenario: Customer buys 2 units of Product X
+  - Cost price: 50 NGN per unit
+  - Selling price: 100 NGN per unit
+  - Sales tax: 7.5%
+  - Sale total: 215 NGN (100*2 + 15 tax)
+
+Entry A: Record Sale Revenue
+  Date: Sale completion date
+  
+  Account                          Debit      Credit
+  ────────────────────────────────────────────────────
+  Cash/Bank/Receivable             215
+      Sales Revenue                           200
+      Sales Tax Payable                        15
+  ────────────────────────────────────────────────────
+  (To record sale of 2 units at 100 NGN)
+
+Entry B: Record COGS (Perpetual System - Automatic)
+  Date: Same as sale
+  
+  Account                          Debit      Credit
+  ────────────────────────────────────────────────────
+  Cost of Goods Sold               100
+      Inventory                               100
+  ────────────────────────────────────────────────────
+  (To record COGS for 2 units at 50 NGN average cost)
+
+Net Effect: Profit = 200 (revenue) - 100 (COGS) = 100 NGN (before tax expense)
+
+
+Entry 2: PURCHASE TRANSACTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Scenario: Purchase 50 units @ 40 NGN + 500 NGN shipping
+  - FOB cost: 2,000 NGN (50 × 40)
+  - Other costs: 500 NGN (shipping)
+  - Total cost: 2,500 NGN (landing cost)
+  - Cost per unit: 50 NGN
+
+Entry C: Record Purchase (On Approval)
+  Date: Purchase approval date
+  
+  Account                          Debit      Credit
+  ────────────────────────────────────────────────────
+  Inventory                        2,500
+      Accounts Payable                     2,500
+  ────────────────────────────────────────────────────
+  (To record purchase of 50 units with landing cost of 2,500 NGN)
+
+Note: Shipping allocated proportionally across items
+      50 units share 500 NGN = 10 NGN per unit
+      Cost per unit = 40 + 10 = 50 NGN
+
+Entry D: Record Payment (When Cash Paid)
+  Date: Payment date (may differ from purchase date)
+  
+  Account                          Debit      Credit
+  ────────────────────────────────────────────────────
+  Accounts Payable                 2,500
+      Cash/Bank                               2,500
+  ────────────────────────────────────────────────────
+  (To record payment for purchase)
+
+
+Entry 3: INVENTORY ADJUSTMENT (DAMAGE/SHRINKAGE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Scenario: 5 units damaged (cost 50 NGN per unit = 250 NGN)
+
+Entry E: Record Damage
+  Date: Damage discovery/approval date
+  
+  Account                          Debit      Credit
+  ────────────────────────────────────────────────────
+  Inventory Damage Expense         250
+      Inventory                               250
+  ────────────────────────────────────────────────────
+  (To record damaged inventory)
+
+
+Entry 4: INTER-BRANCH TRANSFER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Scenario: Transfer 10 units (cost 50 NGN each) from Branch A to Branch B
+
+Entry F: Record Transfer
+  Date: Transfer date
+  
+  Account                          Debit      Credit
+  ────────────────────────────────────────────────────
+  Inventory - Branch B             500
+      Inventory - Branch A                   500
+  ────────────────────────────────────────────────────
+  (To record inter-branch inventory transfer)
+
+
+================================================================================
+                    MONTH-END ACCOUNTING PROCEDURES
+================================================================================
+
+At the end of each month, perform:
+
+1. RECONCILE INVENTORY
+   - Compare perpetual records with physical count
+   - Record adjustments for shrinkage/variances
+   - Investigation of major discrepancies
+
+2. ACCRUE PAYABLES
+   - Review outstanding invoices
+   - Record accrued but unpaid expenses
+   - Verify supplier statements
+
+3. ACCRUE RECEIVABLES
+   - Review unpaid invoices (if B2B)
+   - Provide for doubtful debts if applicable
+
+4. CLOSE REVENUE/EXPENSE ACCOUNTS
+   - Transfer all revenue/expense accounts to retained earnings
+   - Verify total revenue = total cash + accounts receivable - refunds
+   - Verify total COGS = beginning inventory + purchases - ending inventory
+
+5. GENERATE FINANCIAL STATEMENTS
+   - Trial Balance
+   - Balance Sheet
+   - Income Statement
+   - Cash Flow Statement
+
+
+================================================================================

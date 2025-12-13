@@ -1,0 +1,196 @@
+================================================================================
+                    SWEETTOOTH ACCOUNTING SYSTEM INTEGRATION
+                              COMPREHENSIVE GUIDE
+================================================================================
+
+PROJECT OVERVIEW
+================================================================================
+SweetTooth is a multi-branch, inventory + POS + production system that requires 
+robust accounting integration. The system currently implements:
+
+✓ Perpetual Inventory System (real-time stock updates)
+✓ Weighted Average Cost method for inventory valuation
+✓ Sales transaction tracking with payment methods
+✓ Purchase order management with cost allocation
+✓ Production recipe costing
+✓ Stock movement tracking and auditing
+
+
+CURRENT ACCOUNTING IMPLEMENTATION
+================================================================================
+
+1. INVENTORY VALUATION
+   Method: Weighted Average Cost (WAC)
+   Location: app/Models/Stock.php::updateAverageCost()
+   
+   How it works:
+   - When stock arrives (purchase), the average cost updates
+   - Formula: ((current_qty * current_avg_cost) + (new_qty * new_cost)) / total_qty
+   - Stock valuation = quantity_available * average_cost
+   
+   Current Fields in Stock Model:
+   - quantity_available (decimal:2)
+   - quantity_reserved (decimal:2)
+   - quantity_damaged (decimal:2)
+   - average_cost (decimal:4)
+   - total_quantity (calculated: available + reserved + damaged)
+
+2. SALES RECORDING
+   Method: Transactional (real-time)
+   Location: app/Livewire/BranchDashboard/SalesDashboard/Pos/
+   
+   Current Transaction Flow:
+   a) Sale created with sale_items
+   b) Inventory updated immediately (stock reserved/adjusted)
+   c) Payment recorded with multiple method support (cash, POS, transfer)
+   d) Sale marked as 'completed' when fully paid
+   
+   Current Fields in Sale Model:
+   - subtotal (before discounts/tax)
+   - tax (sales tax)
+   - discount
+   - total (final amount)
+   - status (pending, completed, refunded)
+   - sale_time (datetime)
+
+3. PURCHASE RECORDING
+   Method: Transactional with cost allocation
+   Location: app/Livewire/BranchDashboard/Inventory/Purchases.php
+   
+   Current Fields in Purchase Model:
+   - total_fob_fc (Free On Board in Foreign Currency)
+   - total_fob_ngn (Free On Board in Nigerian Naira)
+   - other_costs (shipping, customs, etc.)
+   - landing_cost (calculated: FOB + other_costs)
+   - status (draft, pending_approval, approved)
+   
+   Cost Allocation:
+   - Other costs are proportionally allocated across purchase items
+   - Each item tracks: quantity, cost_per_unit, landing_cost
+
+
+ACCOUNTING BASIS CURRENTLY USED
+================================================================================
+
+Hybrid PERPETUAL ACCRUAL Model:
+- Revenue: Recognized when sale is completed (fully paid)
+- Expenses: Recorded when purchase is approved
+- Inventory: Updated in real-time (perpetual system)
+- Cost of Goods Sold (COGS): Calculated from average_cost × quantity_sold
+
+
+SYSTEM REQUIREMENTS FOR ACCOUNTING
+================================================================================
+
+Key Entities Needed for Full Accounting Integration:
+
+1. CHART OF ACCOUNTS (GL)
+   - Asset Accounts (Cash, Bank, Inventory, Receivables)
+   - Liability Accounts (Payables, Tax, Loans)
+   - Equity Accounts (Capital, Retained Earnings)
+   - Revenue Accounts (Sales, Services)
+   - Expense Accounts (COGS, Operating Expenses, Taxes)
+
+2. JOURNAL ENTRIES (GL)
+   - Automated double-entry bookkeeping
+   - Linked to source documents (Sales, Purchases, Adjustments)
+   - Status tracking (Draft, Posted, Reversing)
+
+3. ACCOUNTING PERIODS
+   - Month/Year definitions
+   - Period status (Open, Closed, Locked)
+   - Cut-off date handling
+
+4. TAX MANAGEMENT
+   - Tax rates by item/category
+   - Tax liabilities tracking
+   - Tax payments/refunds
+
+5. FINANCIAL REPORTS
+   - Balance Sheet (Assets, Liabilities, Equity)
+   - Income Statement (Revenue, COGS, Expenses, Net Income)
+   - Cash Flow Statement
+   - Trial Balance
+   - General Ledger
+
+
+CURRENT AUDIT & AUDIT TRAIL CAPABILITIES
+================================================================================
+
+Audit Logging: app/Services/AuditService.php
+- All financial transactions are logged
+- Tracks: user, action, before/after values, timestamp
+- Location: audit_logs table
+
+Approval Workflow:
+- Purchase approvals (pending_approval → approved)
+- Sale tracking (pending → completed)
+- Change history maintained
+
+
+INTEGRATION POINTS FOR ACCOUNTING
+================================================================================
+
+1. When Sales Occur (app/Models/Sale.php)
+   ├─ Revenue recognition
+   │  └─ Account: Sales Revenue (debit: Cash/Receivable, credit: Sales Revenue)
+   ├─ COGS recording
+   │  └─ Account: COGS (debit: COGS, credit: Inventory)
+   └─ Tax liability
+      └─ Account: Tax Payable (debit: Customer, credit: Tax Payable)
+
+2. When Purchases Occur (app/Models/Purchase.php)
+   ├─ Asset recording
+   │  └─ Account: Inventory (debit: Inventory, credit: Payable)
+   └─ Expense (if immediately expensed)
+      └─ Account: Expense (debit: Expense, credit: Payable)
+
+3. When Inventory Adjusts (app/Models/StockMovement.php)
+   ├─ Damage/Shrinkage
+   │  └─ Account: Inventory Loss (debit: Loss, credit: Inventory)
+   ├─ Production consumption
+   │  └─ Account: Raw Materials (debit: WIP, credit: Inventory)
+   └─ Stock transfers
+      └─ Account: Inventory (debit: Branch A Inv, credit: Branch B Inv)
+
+4. When Payments Occur (app/Models/Payment.php)
+   ├─ Cash receipt
+   │  └─ Account: Cash (debit: Cash, credit: Sales Revenue/Receivable)
+   └─ Payment made
+      └─ Account: Cash (debit: Payable, credit: Cash)
+
+
+NEXT STEPS FOR FULL ACCOUNTING INTEGRATION
+================================================================================
+
+Phase 1: Chart of Accounts (Priority: HIGH)
+- Create GL Account master table
+- Link accounts to transactions
+- Support account hierarchies
+- Enable account-based filtering in reports
+
+Phase 2: Journal Entries & General Ledger (Priority: HIGH)
+- Implement automatic JE generation from transactions
+- Create GL posting engine
+- Build GL query/report capabilities
+- Support manual JE entry for adjustments
+
+Phase 3: Financial Statements (Priority: MEDIUM)
+- Implement trial balance
+- Build income statement generator
+- Build balance sheet generator
+- Add cash flow statement
+
+Phase 4: Tax Management (Priority: MEDIUM)
+- Tax rate configuration
+- Tax liability tracking
+- Tax settlement payment tracking
+- Tax reports
+
+Phase 5: Multi-Currency & Consolidation (Priority: LOW)
+- Multi-currency GL support
+- Branch consolidation
+- Exchange gain/loss accounting
+- Corporate IFRS consolidation (if needed)
+
+================================================================================

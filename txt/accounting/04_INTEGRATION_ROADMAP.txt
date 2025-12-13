@@ -1,0 +1,531 @@
+================================================================================
+                        ACCOUNTING SYSTEM INTEGRATION
+                              ROADMAP & PRIORITIES
+================================================================================
+
+EXECUTIVE SUMMARY
+================================================================================
+
+SweetTooth has 80% of the infrastructure needed for full accounting integration:
+  ✓ Perpetual inventory system (weighted average costing)
+  ✓ Real-time sales recording
+  ✓ Purchase order tracking
+  ✓ Multi-branch support
+  ✓ Audit trail capability
+
+Missing 20%:
+  ✗ General Ledger (GL) accounts
+  ✗ Automated journal entries
+  ✗ Financial statements
+  ✗ Accounting period management
+  ✗ GL reports
+
+
+================================================================================
+                            PHASED IMPLEMENTATION
+================================================================================
+
+PHASE 0: PLANNING & VALIDATION (1 week)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Objectives:
+  - Confirm chart of accounts with stakeholders
+  - Define GL account mapping for current processes
+  - Review and document current transaction flows
+  - Get approval on accounting basis and policies
+
+Deliverables:
+  - Approved Chart of Accounts
+  - GL Account mapping document
+  - Accounting policy manual
+  - GL implementation plan
+
+Tasks:
+  1. Review existing Sales, Purchase, Payment flows
+  2. Map these to GL accounts
+  3. Document any special accounting considerations
+  4. Get stakeholder sign-off
+
+
+PHASE 1: DATABASE & CORE MODELS (2 weeks)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Priority: HIGH - This is foundational
+Timeline: Weeks 1-2
+
+Objectives:
+  - Create GL infrastructure
+  - Establish connection between transactions and GL
+  - Enable period-based reporting
+
+Deliverables:
+  - gl_accounts table & GlAccount model
+  - gl_entries table & GlEntry model
+  - accounting_periods table & AccountingPeriod model
+  - Database relationships and indexes
+  - Seeder for default CoA
+
+Tasks:
+  1. Create migrations (3 files):
+     - create_gl_accounts_table
+     - create_gl_entries_table
+     - create_accounting_periods_table
+
+  2. Create models:
+     - app/Models/GlAccount.php
+     - app/Models/GlEntry.php
+     - app/Models/AccountingPeriod.php
+
+  3. Create relationships:
+     - Sale -> GlEntries
+     - Purchase -> GlEntries
+     - Payment -> GlEntries
+     - StockMovement -> GlEntries
+
+  4. Create seeder:
+     - database/seeders/ChartOfAccountsSeeder.php
+     - Seed default accounts (Asset, Liability, Equity, Revenue, Expense, COGS)
+
+  5. Testing:
+     - Unit tests for model relationships
+     - Database integrity tests
+
+Timeline Estimate: 10 working days
+Depends On: Nothing
+Blocks: Phase 2
+
+
+PHASE 2: AUTOMATIC JOURNAL ENTRY POSTING (3 weeks)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Priority: HIGH - Critical for data accuracy
+Timeline: Weeks 3-5
+
+Objectives:
+  - Automate GL posting from transactions
+  - Ensure double-entry integrity
+  - Maintain GL in real-time sync with operations
+
+Deliverables:
+  - GlPostingService class
+  - Transaction observers for auto-posting
+  - GL balance calculations
+  - Posting validation
+
+Tasks:
+  1. Create GlPostingService:
+     Location: app/Services/GlPostingService.php
+     
+     Methods:
+     - postSaleTransaction(Sale $sale)
+       Entry A: debit Cash/Receivable, credit Sales Revenue
+       Entry B: debit COGS, credit Inventory
+       Entry C: debit Cash/Receivable, credit Sales Tax Payable
+     
+     - postPurchaseTransaction(Purchase $purchase)
+       Entry: debit Inventory, credit Accounts Payable
+       (Include allocation of landing costs to each item)
+     
+     - postPaymentTransaction(Payment $payment)
+       Debit: Accounts Payable / Cash
+       Credit: Cash / Accounts Payable
+     
+     - postInventoryAdjustment(StockMovement $movement)
+       Debit: Inventory Loss, credit Inventory (for damage)
+       Debit: Work in Progress, credit Inventory (for production use)
+     
+     - postManualEntry(GlEntry $entry)
+       Validation: Debit = Credit
+       Validation: GL account exists and is active
+
+  2. Create model observers:
+     Location: app/Observers/
+     - SaleObserver (listen to Sale::created, ->update posting)
+     - PurchaseObserver (listen to Purchase::approved)
+     - PaymentObserver (listen to Payment::completed)
+     - StockMovementObserver (listen to StockMovement::created)
+
+  3. Register observers:
+     Location: app/Providers/EventServiceProvider.php
+     
+     In boot():
+     Sale::observe(SaleObserver::class);
+     Purchase::observe(PurchaseObserver::class);
+     Payment::observe(PaymentObserver::class);
+     StockMovement::observe(StockMovementObserver::class);
+
+  4. Create validation rules:
+     - GlEntry must balance (debit = credit)
+     - Account must be active
+     - Period must be open
+     - Prevent posting to header accounts
+
+  5. Implement balance updates:
+     - After posting, update GlAccount.debit_balance + credit_balance
+     - Maintain account totals
+
+  6. Add GL reference to transactions:
+     - Update Sale, Purchase, Payment models
+     - Add: gl_entry_ids, posted_at, posting_status
+     
+     Migrations:
+     - alter_sales_table_add_gl_reference
+     - alter_purchases_table_add_gl_reference
+     - alter_payments_table_add_gl_reference
+
+  7. Testing:
+     - Test each posting scenario
+     - Test GL balances after posting
+     - Test with multiple currencies (if applicable)
+     - Test with multiple branches
+
+Timeline Estimate: 15 working days
+Depends On: Phase 1
+Blocks: Phase 3, Phase 4
+
+
+PHASE 3: GL REPORTS (2 weeks)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Priority: MEDIUM - User-facing reports
+Timeline: Weeks 6-7
+
+Objectives:
+  - Enable financial statement reporting
+  - Support decision-making with GL data
+  - Provide audit trail visibility
+
+Deliverables:
+  - General Ledger report
+  - Trial Balance report
+  - Income Statement
+  - Balance Sheet
+  - Reports UI/Views
+  - Export to PDF/Excel
+
+Tasks:
+  1. Create report services:
+     
+     Location: app/Services/Reports/
+     
+     - GeneralLedgerService
+       Methods:
+       - getAccountLedger(glAccountId, startDate, endDate)
+         Returns all entries for an account with running balance
+       - getAllLedgers(glAccountIds, startDate, endDate)
+         Returns all accounts' ledgers
+     
+     - TrialBalanceService
+       Methods:
+       - generate(accountingPeriodId)
+         Returns all accounts with debit/credit totals
+         Validates: Total Debits = Total Credits
+     
+     - IncomeStatementService
+       Methods:
+       - generate(startDate, endDate, branchId = null)
+         Returns:
+         - Revenue (4000-4900)
+         - COGS (5000-5900)
+         - Operating Expenses (6000-6900)
+         - Admin Expenses (7000-7900)
+         - Finance Costs (8000-8900)
+         - Taxes (9000-9900)
+         - Net Income
+     
+     - BalanceSheetService
+       Methods:
+       - generate(asOfDate, branchId = null)
+         Returns:
+         - Assets (1000-1900)
+         - Liabilities (2000-2900)
+         - Equity (3000-3900)
+         - Validates: Assets = Liabilities + Equity
+
+  2. Create Livewire components:
+     
+     Location: app/Livewire/BranchDashboard/Accounting/
+     
+     Components:
+     - GeneralLedgerComponent
+       Params: glAccountId, startDate, endDate
+       Displays: Entries in table format with running balance
+     
+     - TrialBalanceComponent
+       Params: accountingPeriodId
+       Displays: All accounts with debits/credits
+     
+     - IncomeStatementComponent
+       Params: startDate, endDate, branchId
+       Displays: Revenue, COGS, Expenses, Net Income
+     
+     - BalanceSheetComponent
+       Params: asOfDate, branchId
+       Displays: Assets, Liabilities, Equity
+
+  3. Create views:
+     Location: resources/views/livewire/accounting/
+     
+     Views:
+     - general-ledger.blade.php
+     - trial-balance.blade.php
+     - income-statement.blade.php
+     - balance-sheet.blade.php
+
+  4. Add export functionality:
+     - Export GL to PDF
+     - Export Trial Balance to Excel
+     - Export Financial Statements to PDF
+
+  5. Testing:
+     - Verify GL balances match account balances
+     - Verify TB = Assets + Liabilities + Equity
+     - Verify TB debits = credits
+     - Test with sample data
+
+Timeline Estimate: 10 working days
+Depends On: Phase 2
+Blocks: Phase 4
+
+
+PHASE 4: MANUAL ENTRIES & PERIOD CLOSING (2 weeks)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Priority: MEDIUM - Operations & controls
+Timeline: Weeks 8-9
+
+Objectives:
+  - Allow manual GL adjustments
+  - Enable period closing procedures
+  - Support audit adjustments
+
+Deliverables:
+  - Manual journal entry interface
+  - Period closing workflow
+  - GL entry approval process
+  - Reversal capability
+
+Tasks:
+  1. Create Livewire components:
+     
+     Location: app/Livewire/BranchDashboard/Accounting/
+     
+     - ManualJournalEntry (Create)
+       Fields:
+       - Entry date
+       - Description
+       - Line items (multiple GL accounts)
+         Each line: Account, Debit, Credit
+       - Supporting notes
+       
+       Validation:
+       - Total Debit = Total Credit
+       - All accounts exist and are active
+       - Period is open
+       - Allow manual entry setting is true
+     
+     - JournalEntryList (View/Approve)
+       Shows pending entries
+       Actions: Approve, Reject, Edit (draft only), Reverse
+     
+     - PeriodClosing (Month-end)
+       Actions:
+       - View period status
+       - Generate pre-closing reports
+       - Mark period as closed
+       - Prevent entries in closed periods
+
+  2. Create approval workflow:
+     
+     Rules:
+     - Draft entries created by user
+     - Manager/Accountant approves before posting
+     - Approved entries are posted to GL
+     - Posted entries can only be reversed
+     - Reversals create offsetting entries
+
+  3. Implement period closing:
+     
+     Procedures:
+     - Generate trial balance
+     - Reconcile GL vs operating accounts
+     - Record accruals/adjustments
+     - Generate financial statements
+     - Lock period (prevent new entries)
+
+  4. Create reversing entries:
+     
+     Capability:
+     - Reverse any posted entry
+     - Creates offsetting entry automatically
+     - Original marked as 'reversed'
+     - Full audit trail
+
+  5. Testing:
+     - Test entry validation
+     - Test approval workflow
+     - Test period closing
+     - Test GL balance updates
+
+Timeline Estimate: 10 working days
+Depends On: Phase 2
+Blocks: Phase 5
+
+
+PHASE 5: ADVANCED FEATURES (3 weeks - Optional)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Priority: LOW - Nice-to-have features
+Timeline: After Phase 4
+
+Features:
+  1. Multi-currency GL
+     - Track GL in base currency + branch currencies
+     - Implement exchange gain/loss
+  
+  2. Cost allocation
+     - Support cost centers
+     - Allocate shared expenses (utilities, rent) to branches
+  
+  3. Budget vs Actual
+     - Create budget GL entries
+     - Compare actual spending vs budget
+  
+  4. Recurring entries
+     - Create recurring GL entries (monthly rent, etc.)
+     - Auto-post on scheduled dates
+  
+  5. Consolidation
+     - Consolidate multi-branch GL
+     - Eliminate inter-branch transactions
+     - Generate consolidated financial statements
+  
+  6. Advanced reporting
+     - Cash flow statement
+     - Ratio analysis
+     - Trend analysis
+     - Variance analysis
+
+Timeline Estimate: 15 working days
+Depends On: Phase 4
+
+
+================================================================================
+                        CRITICAL SUCCESS FACTORS
+================================================================================
+
+1. DATA QUALITY
+   ✓ All existing Sales, Purchases, Payments must be properly recorded
+   ✓ Any discrepancies must be identified and corrected before Phase 2
+   ✓ Initial GL posting must be validated thoroughly
+
+2. TESTING & VALIDATION
+   ✓ Every transaction type must be tested in Phase 2
+   ✓ GL balances must match transaction totals
+   ✓ Financial statements must balance (TB = A+L+E)
+
+3. STAKEHOLDER ALIGNMENT
+   ✓ Finance team must agree on Chart of Accounts
+   ✓ All assumptions must be documented
+   ✓ Regular reviews with management
+
+4. AUDIT CONTROLS
+   ✓ No posting to closed periods
+   ✓ Full audit trail of all entries
+   ✓ Approval workflow for manual entries
+   ✓ Monthly reconciliation procedures
+
+
+================================================================================
+                        RISK MITIGATION
+================================================================================
+
+Risk 1: Duplicate entries in GL during transition
+  Mitigation:
+  - Validate all existing transactions before posting
+  - Implement idempotent posting (can't double-post)
+  - Use transaction IDs to prevent duplicates
+
+Risk 2: GL doesn't balance
+  Mitigation:
+  - Implement validation in posting engine
+  - GL entry must have debit = credit
+  - Journal balancing rules enforced
+
+Risk 3: Posting logic errors
+  Mitigation:
+  - Comprehensive unit tests for all posting scenarios
+  - Test with sample data before going live
+  - Thorough code review
+
+Risk 4: Performance issues with large GL
+  Mitigation:
+  - Index gl_entries table properly
+  - Use date range queries (don't load all entries)
+  - Archive old entries if needed
+
+Risk 5: User error in manual entries
+  Mitigation:
+  - Validation rules (must balance)
+  - Approval workflow
+  - Ability to reverse bad entries
+  - Detailed audit trail
+
+
+================================================================================
+                        RESOURCE REQUIREMENTS
+================================================================================
+
+Team Size: 2-3 developers
+Timeline: 8-9 weeks (total)
+Effort: 120-150 working days
+
+Skills Needed:
+  - Laravel/PHP (ORM, migrations, observers)
+  - Database design
+  - Accounting knowledge (basic GL, double-entry)
+  - Reporting/Analytics
+  - Testing
+
+Infrastructure:
+  - Development environment for testing
+  - Test data (sample sales, purchases, payments)
+  - Access to accounting stakeholders for requirements
+
+
+================================================================================
+                        SUCCESS METRICS
+================================================================================
+
+Phase 1: Database & Models
+  ✓ All migrations run successfully
+  ✓ Models can be instantiated
+  ✓ Relationships work correctly
+  ✓ Seeder creates 30+ GL accounts
+
+Phase 2: Auto Posting
+  ✓ 100+ sample sales posted to GL correctly
+  ✓ COGS matches inventory updates
+  ✓ GL balances = Account balances
+  ✓ All posting validation rules passed
+
+Phase 3: Reports
+  ✓ Trial balance: Total debits = total credits
+  ✓ Balance sheet: Assets = Liabilities + Equity
+  ✓ Income statement: Generated correctly
+  ✓ GL report: Matches source transactions
+
+Phase 4: Manual Entries
+  ✓ Manual entries can be created and balanced
+  ✓ Approval workflow works
+  ✓ Period closing prevents new entries
+  ✓ Reversals create proper offsetting entries
+
+Overall:
+  ✓ Finance team accepts GL as single source of truth
+  ✓ Zero accounting discrepancies
+  ✓ Monthly close process reduced from 2 days to 4 hours
+  ✓ Real-time financial visibility
+
+
+================================================================================

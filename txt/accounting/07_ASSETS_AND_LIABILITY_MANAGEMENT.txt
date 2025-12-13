@@ -1,0 +1,557 @@
+================================================================================
+                    ASSETS & LIABILITY MANAGEMENT SYSTEM
+                     Comprehensive Tracking & Accounting
+================================================================================
+
+OVERVIEW
+================================================================================
+
+The accounting system includes comprehensive Asset and Liability management:
+
+ASSETS (Current & Fixed)
+├─ Current Assets: Cash, Banks, Receivables, Inventory
+├─ Fixed Assets: Equipment, Building
+└─ Accumulated Depreciation tracking
+
+LIABILITIES (Current & Long-term)
+├─ Current Liabilities: Payables, Taxes, Withholdings
+├─ Long-term Liabilities: Loans
+└─ Accrued Expenses
+
+
+================================================================================
+                         ASSETS MANAGEMENT
+================================================================================
+
+CURRENT ASSETS (GL Accounts 1000-1100)
+═════════════════════════════════════════════════════════════════════════════
+
+1. CASH ACCOUNTS
+   GL Accounts:
+   ├─ 1010: Cash - Head Office
+   ├─ 1020: Cash - Branch A
+   ├─ 1030: Cash - Branch B
+   └─ 1040: Petty Cash
+   
+   Tracking:
+   ├─ Models: CashPosition, DailyBankTransaction
+   ├─ Daily reconciliation via CashPosition model
+   ├─ Physical count vs book value tracking
+   ├─ Variance investigation required
+   
+   GL Entries:
+   ├─ Debit (increase): Cash receipts, Transfers in, Loan proceeds
+   ├─ Credit (decrease): Payments made, Transfers out, ATM withdrawals
+   
+   Reconciliation:
+   ├─ Daily: Count cash at end of day
+   ├─ Compare to GL balance
+   ├─ Record discrepancies with explanations
+   ├─ Investigate overages (excess) or shortages (deficits)
+
+2. BANK ACCOUNTS
+   GL Accounts:
+   ├─ 1050: Bank Account - Main
+   ├─ 1060: Bank Account - Branch A
+   └─ 1070: Bank Account - Branch B
+   
+   Tracking:
+   ├─ Models: BankAccount, DailyBankPosition, DailyBankTransaction
+   ├─ Daily bank positions recorded
+   ├─ Pending/unreflected items tracked
+   ├─ Bank reconciliation support
+   
+   Daily Position Tracking:
+   ├─ Opening Balance (from previous day)
+   ├─ Inflows (deposits, transfers in)
+   ├─ Outflows (withdrawals, transfers out, charges)
+   ├─ Available Balance
+   
+   Unreflected Items (DBP Excel Structure):
+   ├─ Transfers B/F: In-transit transfers from previous days
+   ├─ POS B/F: Pending POS deposits
+   ├─ Transfers C/D: Transfers moving to next period
+   ├─ POS C/D: POS deposits moving to next period
+   
+   Bank Reconciliation:
+   ├─ Compare GL balance with actual bank statement
+   ├─ Identify differences (timing, errors)
+   ├─ Record timing differences as unreflected
+   ├─ Investigate actual discrepancies
+
+3. ACCOUNTS RECEIVABLE (AR)
+   GL Account: 1100 - Accounts Receivable
+   
+   Purpose:
+   ├─ Track outstanding customer invoices (B2B sales)
+   ├─ Monitor customer credit limits
+   ├─ Track overdue payments
+   
+   GL Entries:
+   ├─ Debit: Sale on credit (not yet paid)
+   ├─ Credit: Payment received from customer
+   ├─ Debit: Doubtful debt provision
+   
+   Future Implementation:
+   ├─ Currently: Retail POS (cash/instant payment)
+   ├─ When needed: Add B2B invoice module
+   ├─ Aging reports (30, 60, 90+ days)
+   ├─ Bad debt allowance
+
+
+INVENTORY ASSETS (GL Accounts 1200-1220)
+═════════════════════════════════════════════════════════════════════════════
+
+GL Accounts:
+├─ 1200: Inventory - Raw Materials
+├─ 1210: Inventory - Work in Progress (WIP)
+└─ 1220: Inventory - Finished Goods
+
+Current System:
+├─ Perpetual Inventory (real-time updates)
+├─ Weighted Average Cost method
+├─ Tracking in Stock model
+
+GL Integration:
+├─ COGS Entry (when sale): Debit COGS, Credit Inventory
+├─ Purchase Entry: Debit Inventory, Credit Payables
+├─ Adjustment Entry: Debit Loss, Credit Inventory (damage/shrinkage)
+├─ Production: Debit WIP, Credit Raw Materials
+
+Valuation:
+├─ Inventory Value = Quantity × Average Cost
+├─ Lower of cost or market (LCM) rule applied if needed
+├─ Physical count vs perpetual records reconciled regularly
+
+Reporting:
+├─ Inventory balance sheet presentation
+├─ COGS calculation (Sales - Inventory Change)
+├─ Inventory turnover metrics
+├─ Stock valuation reports
+
+
+FIXED ASSETS (GL Accounts 1300-1400)
+═════════════════════════════════════════════════════════════════════════════
+
+GL Accounts:
+├─ 1300: Fixed Assets - Equipment
+├─ 1310: Fixed Assets - Building
+└─ 1400: Accumulated Depreciation (contra-asset)
+
+Asset Tracking:
+├─ Asset Register (needs to be created)
+   - Asset description, cost, date acquired
+   - Serial number, location
+   - Depreciation method, useful life, residual value
+   - Regular maintenance/repair costs
+
+Depreciation:
+├─ Method: Straight-line (or choose MACRS/declining balance)
+├─ Monthly Entry: Debit Depreciation Expense, Credit Accumulated Depreciation
+├─ GL Account 7060: Depreciation Expense
+
+Example:
+├─ Freezer Equipment: ₦100,000
+├─ Useful Life: 10 years
+├─ Monthly Depreciation: ₦833.33
+├─ GL Entry: Debit 7060 (₦833.33), Credit 1400 (₦833.33)
+
+Balance Sheet Presentation:
+├─ Fixed Assets (at cost): ₦1,500,000
+├─ Less: Accumulated Depreciation: (₦250,000)
+├─ Net Book Value: ₦1,250,000
+
+Future Implementation Phase (Phase 5):
+├─ [ ] Create FixedAsset model
+├─ [ ] Create AssetRegister tracking
+├─ [ ] Implement depreciation schedule
+├─ [ ] Create monthly depreciation entries
+├─ [ ] Asset disposal/retirement handling
+├─ [ ] Asset revaluation (if needed)
+
+
+PREPAID EXPENSES (GL Account 1500)
+═════════════════════════════════════════════════════════════════════════════
+
+Purpose:
+├─ Track prepaid costs (insurance, rent, subscriptions)
+├─ Allocate to expenses as benefits are consumed
+
+GL Entries:
+├─ Debit: When payment made
+├─ Credit: Monthly as used (reclassify to expense)
+
+Example:
+├─ Pay annual insurance (₦120,000)
+├─ Entry: Debit 1500, Credit 1050 (Bank)
+├─ Monthly: Debit 6090 (Insurance Expense), Credit 1500 (₦10,000)
+
+
+================================================================================
+                      LIABILITIES MANAGEMENT
+================================================================================
+
+CURRENT LIABILITIES (GL Accounts 2000-2100)
+═════════════════════════════════════════════════════════════════════════════
+
+1. ACCOUNTS PAYABLE (GL Account 2010)
+   Purpose:
+   ├─ Track outstanding supplier invoices
+   ├─ Manage payment obligations
+   
+   GL Entries:
+   ├─ Credit: When purchase made (not yet paid)
+   ├─ Debit: When payment made
+   
+   Tracking:
+   ├─ Model: Purchase (existing) + GL Entry
+   ├─ Supplier statement reconciliation
+   ├─ Payment aging (due, overdue)
+   ├─ Discount tracking (early payment discounts)
+   
+   Payment Workflow:
+   ├─ Purchase Approved → GL Entry (Debit Inventory/Expense, Credit AP)
+   ├─ Payment Made → GL Entry (Debit AP, Credit Bank)
+   ├─ Reconciliation: AP GL = Outstanding Supplier Invoices
+
+2. SALES TAX PAYABLE (GL Account 2020)
+   Purpose:
+   ├─ Track sales tax collected from customers
+   ├─ Manage tax payment obligations to government
+   
+   GL Entries:
+   ├─ Credit: When sale made (sales tax collected)
+   ├─ Debit: When tax paid to government
+   
+   Current System:
+   ├─ Tax calculated on every sale
+   ├─ Needs GL posting integration
+   
+   GL Posting:
+   ├─ Sale Entry: Debit Bank, Credit Revenue, Credit Tax Payable
+   ├─ Tax Payment: Debit Tax Payable, Credit Bank
+   
+   Reconciliation:
+   ├─ Sum all sales tax from sales
+   ├─ Deduct any input tax credits (purchases)
+   ├─ Pay balance to tax authority
+   ├─ File quarterly/monthly returns
+
+3. INCOME TAX PAYABLE (GL Account 2030)
+   Purpose:
+   ├─ Track corporate income tax liability
+   ├─ Government requirement
+   
+   GL Entries:
+   ├─ Credit: Monthly/quarterly accrual
+   ├─ Debit: When tax payment made
+   
+   Implementation:
+   ├─ Phase 4: Add tax calculation service
+   ├─ Based on: Net Income = Revenue - All Expenses
+   ├─ Apply tax rate (Nigeria: currently 30%)
+   
+   Example:
+   ├─ Net Income (Year): ₦1,000,000
+   ├─ Tax Rate: 30%
+   ├─ Tax Due: ₦300,000
+   ├─ GL Entry: Debit Tax Expense, Credit Tax Payable
+
+4. EMPLOYEE WITHHOLDING PAYABLE (GL Account 2040)
+   Purpose:
+   ├─ Track PAYE (Pay As You Earn) withheld from employee salaries
+   ├─ Manage remittance to tax authority
+   
+   GL Entries:
+   ├─ Credit: When salary paid (PAYE deducted)
+   ├─ Debit: When remitted to government
+   
+   Current System:
+   ├─ Integrated with payroll system
+   ├─ Needs GL posting
+
+
+SHORT-TERM LOANS (GL Account 2100)
+═════════════════════════════════════════════════════════════════════════════
+
+Purpose:
+├─ Track short-term debt (due within 12 months)
+├─ Bank overdrafts, lines of credit
+├─ Short-term loans from family/investors
+
+GL Entries:
+├─ Credit: When loan received
+├─ Debit: When loan repaid
+
+Interest Tracking:
+├─ GL Account 8010: Interest Expense
+├─ Accrued monthly (Debit Expense, Credit Payable)
+├─ Paid when loan is repaid
+
+
+LONG-TERM LIABILITIES (GL Accounts 2200+)
+═════════════════════════════════════════════════════════════════════════════
+
+LONG-TERM LOANS (GL Account 2200)
+Purpose:
+├─ Track long-term debt (due after 12 months)
+├─ Bank loans, mortgages
+├─ Long-term financing
+
+GL Entries:
+├─ Credit: When loan received
+├─ Debit: When principal repaid (annually)
+├─ Interest: Monthly accrual (Debit 8010, Credit Interest Payable)
+
+Loan Tracking:
+├─ Loan amount, rate, term
+├─ Monthly/quarterly payment schedule
+├─ Principal vs interest breakdown
+
+Balance Sheet Presentation:
+├─ Current portion (due within 12 months) → 2100 or 2300
+├─ Long-term portion → 2200
+
+ACCRUED EXPENSES (GL Account 2300)
+Purpose:
+├─ Track expenses incurred but not yet paid
+├─ Utilities, salaries, bonuses
+├─ Professional fees accrued
+
+GL Entries:
+├─ Credit: When expense is accrued
+├─ Debit: When payment made
+├─ Monthly: Accrue estimated expense
+
+
+================================================================================
+                    ASSET & LIABILITY INTEGRATION PLAN
+================================================================================
+
+Phase 1 (Current): Core GL Setup ✓
+─────────────────────────────────────────────────────────────────────────────
+✓ GL Accounts for all asset/liability categories
+✓ BankAccount & CashPosition models
+✓ DailyBankPosition for bank reconciliation
+✓ Inventory GL accounts linked to existing Stock model
+
+Phase 2: Automatic GL Posting (Week 2-3)
+─────────────────────────────────────────────────────────────────────────────
+[ ] Post bank transactions (DailyBankTransaction → GL)
+[ ] Post AP entries (Purchase → GL)
+[ ] Post AR entries (when B2B enabled)
+[ ] Post tax entries (Sale → GL)
+[ ] Post inventory adjustments
+
+Phase 3: Bank Reconciliation Module (Week 3-4)
+─────────────────────────────────────────────────────────────────────────────
+[ ] Bank statement upload/import
+[ ] Match cleared items to pending
+[ ] Auto-resolve timing differences
+[ ] Flag unmatched/suspicious items
+[ ] Monthly reconciliation reporting
+
+Phase 4: Payables Management (Week 4-5)
+─────────────────────────────────────────────────────────────────────────────
+[ ] AP Aging reports (30/60/90+ days)
+[ ] Payment due dates tracking
+[ ] Early payment discount opportunities
+[ ] Supplier statement matching
+[ ] Payment planning & forecasting
+
+Phase 5: Fixed Assets Module (Week 6-7)
+─────────────────────────────────────────────────────────────────────────────
+[ ] Create FixedAsset model
+[ ] Asset register/ledger
+[ ] Depreciation schedule
+[ ] Monthly depreciation entries
+[ ] Asset disposal/retirement
+[ ] Fixed asset reporting
+
+Phase 6: Tax & Payables (Week 7-8)
+─────────────────────────────────────────────────────────────────────────────
+[ ] Tax liability tracking
+[ ] Tax payment schedule
+[ ] Income tax calculation & accrual
+[ ] PAYE withholding integration
+[ ] Tax reporting (VAT, IT, PAYE)
+
+Phase 7: Reporting & Analysis (Week 8-9)
+─────────────────────────────────────────────────────────────────────────────
+[ ] Balance sheet (Assets = Liabilities + Equity)
+[ ] Asset utilization reports
+[ ] Debt service analysis
+[ ] Working capital metrics
+[ ] Liquidity ratios
+
+
+================================================================================
+                    ASSET & LIABILITY POLICIES
+================================================================================
+
+CASH MANAGEMENT POLICY
+─────────────────────────────────────────────────────────────────────────────
+
+Daily Procedures:
+├─ Count cash at end of business day
+├─ Record count in system (CashPosition)
+├─ Deposit to bank or secure location
+├─ Investigate variances > ₦500
+
+Variance Handling:
+├─ Small variances (< ₦500): Expense to "Cash Shortage"
+├─ Large variances (> ₦500): Investigate before closing
+├─ Recurring shortages: Review processes/training
+
+Cash Limits:
+├─ Maximum cash on hand: ₦50,000 (or set per business)
+├─ Excess cash: Deposit to bank
+├─ Petty cash: Keep separate, not for large expenses
+
+
+BANK RECONCILIATION POLICY
+─────────────────────────────────────────────────────────────────────────────
+
+Frequency: Monthly (minimum)
+
+Procedure:
+1. Obtain bank statement
+2. Match GL balance to bank statement
+3. Identify timing differences (in-transit items)
+4. Investigate unexplained discrepancies
+5. Record reconciling entries if needed
+6. Sign off and file
+
+Timeframe:
+├─ Complete by 5th of following month
+├─ Escalate unresolved items to CFO
+
+
+INVENTORY POLICY
+─────────────────────────────────────────────────────────────────────────────
+
+Physical Count:
+├─ Quarterly: Full count of all items
+├─ Monthly: Sample count (high-value items)
+├─ Investigate variances > 2%
+
+Adjustment:
+├─ Variance adjustment entry to GL
+├─ Debit: COGS (if shortage)
+├─ Credit: Inventory
+
+Damage/Waste:
+├─ Log all damaged items immediately
+├─ Remove from inventory (GL adjustment)
+├─ Track for cost analysis
+
+
+ACCOUNTS PAYABLE POLICY
+─────────────────────────────────────────────────────────────────────────────
+
+Payment Terms:
+├─ Default: Net 30 days
+├─ Negotiate early payment discounts
+├─ Track "2/10 Net 30" opportunities
+
+Payment Authorization:
+├─ Under ₦50,000: Manager approval
+├─ ₦50,000-₦500,000: Director approval
+├─ Over ₦500,000: Board approval
+
+Reconciliation:
+├─ Monthly supplier statement matching
+├─ Investigate discrepancies within 5 days
+├─ Prepare for month-end closing
+
+
+================================================================================
+                    ASSET & LIABILITY REPORTING
+================================================================================
+
+Balance Sheet Section: ASSETS
+─────────────────────────────────────────────────────────────────────────────
+CURRENT ASSETS
+├─ Cash and Cash Equivalents ...................... ₦X
+├─ Accounts Receivable ............................. ₦X
+├─ Inventory ...................................... ₦X
+├─ Prepaid Expenses ............................... ₦X
+├─ TOTAL CURRENT ASSETS ........................... ₦X
+
+NON-CURRENT ASSETS
+├─ Fixed Assets (at cost) ......................... ₦X
+├─ Less: Accumulated Depreciation ................. (₦X)
+├─ Net Fixed Assets ............................... ₦X
+├─ TOTAL NON-CURRENT ASSETS ....................... ₦X
+
+TOTAL ASSETS ...................................... ₦X
+
+
+Balance Sheet Section: LIABILITIES
+─────────────────────────────────────────────────────────────────────────────
+CURRENT LIABILITIES
+├─ Accounts Payable ................................ ₦X
+├─ Short-term Loans ................................ ₦X
+├─ Sales Tax Payable ............................... ₦X
+├─ Employee Withholdings Payable .................. ₦X
+├─ Current Portion of Long-term Debt ............. ₦X
+├─ TOTAL CURRENT LIABILITIES ...................... ₦X
+
+NON-CURRENT LIABILITIES
+├─ Long-term Loans ................................. ₦X
+├─ TOTAL NON-CURRENT LIABILITIES .................. ₦X
+
+TOTAL LIABILITIES .................................. ₦X
+
+
+Key Metrics
+─────────────────────────────────────────────────────────────────────────────
+Current Ratio = Current Assets / Current Liabilities
+├─ Target: 1.5 - 2.0 (enough to cover short-term obligations)
+
+Quick Ratio = (Current Assets - Inventory) / Current Liabilities
+├─ Target: 1.0 - 1.5 (liquid assets available)
+
+Debt-to-Equity = Total Liabilities / Total Equity
+├─ Target: < 1.0 (more equity than debt)
+
+Debt Service Ratio = EBITDA / Total Debt Payments
+├─ Target: > 2.0 (can cover debt payments)
+
+
+================================================================================
+                         KEY FILES CREATED
+================================================================================
+
+Models:
+├─ app/Models/GlAccount.php (with normal balance logic)
+├─ app/Models/GlEntry.php (auto posting)
+├─ app/Models/BankAccount.php (bank tracking)
+├─ app/Models/DailyBankPosition.php (daily reconciliation)
+├─ app/Models/DailyBankTransaction.php (bank transaction details)
+├─ app/Models/CashPosition.php (cash count tracking)
+└─ app/Models/AccountingPeriod.php (fiscal period management)
+
+Migrations:
+├─ create_gl_accounts_table
+├─ create_gl_entries_table
+├─ create_accounting_periods_table
+├─ create_bank_accounts_table
+├─ create_daily_bank_positions_table
+├─ create_daily_bank_transactions_table
+└─ create_cash_positions_table
+
+Seeders:
+└─ database/seeders/ChartOfAccountsSeeder.php (30+ default GL accounts)
+
+Chart of Accounts includes:
+├─ Asset accounts (1010-1500)
+├─ Liability accounts (2010-2300)
+├─ Equity accounts (3010-3030)
+├─ Revenue accounts (4010-4050)
+├─ COGS accounts (5010-5030)
+├─ Expense accounts (6010-8030)
+└─ Tax accounts (9010-9020)
+
+
+================================================================================

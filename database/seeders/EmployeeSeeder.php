@@ -45,6 +45,56 @@ class EmployeeSeeder extends Seeder
         $employeeCount = 0;
         $now = now();
         $hashedPassword = Hash::make('password');
+
+        // Create admin/manager employees first (before other departments)
+        $this->command->info('Creating admin and management employees...');
+        
+        // Get first branch for admin/manager assignment
+        $adminBranch = $branches->first();
+
+        // Create Admin employee (one per branch)
+        if ($roles->has('Admin')) {
+            foreach ($branches as $branch) {
+                $admin = $this->createEmployee($faker, $branch, $departments->first(), $hashedPassword, $now, $nigerianNames = [
+                    'male' => ['Chukwuemeka', 'Oluwaseun', 'Abubakar', 'Emeka', 'Tunde'],
+                    'female' => ['Ngozi', 'Amina', 'Chioma', 'Folake', 'Kemi'],
+                ], $surnames = ['Okafor', 'Adebayo', 'Mohammed'], ++$employeeCount);
+                $admin->assignRole('Admin');
+            }
+        }
+
+        // Create HR Manager (one per branch)
+        if ($roles->has('HR Manager')) {
+            foreach ($branches as $branch) {
+                $hrManager = $this->createEmployee($faker, $branch, $departments->where('name', 'Human Resources')->first() ?? $departments->first(), $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                $hrManager->assignRole('HR Manager');
+            }
+        }
+
+        // Create Inventory Manager (one per branch)
+        if ($roles->has('Inventory Manager')) {
+            foreach ($branches as $branch) {
+                $inventoryManager = $this->createEmployee($faker, $branch, $departments->where('name', 'Inventory/Store')->first() ?? $departments->first(), $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                $inventoryManager->assignRole('Inventory Manager');
+            }
+        }
+
+        // Create Sales Manager (one per branch)
+        if ($roles->has('Sales Manager')) {
+            foreach ($branches as $branch) {
+                $salesManager = $this->createEmployee($faker, $branch, $departments->where('name', 'Till')->first() ?? $departments->first(), $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                $salesManager->assignRole('Sales Manager');
+            }
+        }
+
+        // Create Head of Production (one per branch)
+        if ($roles->has('Head of Production')) {
+            foreach ($branches as $branch) {
+                $hOP = $this->createEmployee($faker, $branch, $departments->where('name', 'Kitchen')->first() ?? $departments->first(), $hashedPassword, $now, $nigerianNames, $surnames, ++$employeeCount);
+                $hOP->assignRole('Head of Production');
+            }
+        }
+
         $nigerianNames = [
             'male' => ['Chukwuemeka', 'Oluwaseun', 'Abubakar', 'Emeka', 'Tunde', 'Chigozie', 'Ibrahim', 'Kunle', 'Obinna', 'Yusuf'],
             'female' => ['Ngozi', 'Amina', 'Chioma', 'Folake', 'Kemi', 'Blessing', 'Hauwa', 'Ada', 'Fatima', 'Nneka'],
@@ -162,6 +212,7 @@ class EmployeeSeeder extends Seeder
         }
 
         $this->command->info("✅ {$employeeCount} employees created successfully with roles assigned across all branches.");
+        $this->command->info('  Including: Admin, HR Manager, Inventory Manager, Sales Manager, and Head of Production per branch.');
     }
 
     /**

@@ -113,7 +113,7 @@
                 <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
                     <div class="flex items-center justify-between mb-4">
                         <h2 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Recent Movements</h2>
-                        <a href="{{ route('branch-dashboard.inventory.stock-movements') }}" class="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400">
+                        <a href="{{ route('branch-dashboard.inventory.reports.stock-movement') }}" class="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400">
                             View All →
                         </a>
                     </div>

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use App\Models\GlEntry;
 
 class StockMovement extends Model
 {
@@ -23,6 +24,10 @@ class StockMovement extends Model
         'moved_by_id',
         'movement_date',
         'notes',
+        'gl_entry_id',
+        'gl_posting_status',
+        'gl_posting_error',
+        'gl_posted_at',
     ];
 
     protected $casts = [
@@ -49,6 +54,11 @@ class StockMovement extends Model
     {
         return $this->morphTo(__FUNCTION__, 'reference_type', 'reference_id')
             ->withDefault(null);
+    }
+
+    public function glEntry(): BelongsTo
+    {
+        return $this->belongsTo(GlEntry::class, 'gl_entry_id');
     }
 
     public function isInbound(): bool

@@ -7,6 +7,8 @@ use App\Http\Middleware\BranchMiddleware;
 use App\Http\Middleware\IsAdmin;
 use App\Http\Middleware\RedirectIfAuthenticated;
 use App\Http\Middleware\SetBranchContext;
+use App\Http\Middleware\ProtectCoreRoles;
+use App\Http\Middleware\RedirectSuperAdminToDashboard;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -23,6 +25,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
+            'protect-roles' => ProtectCoreRoles::class,
+            'redirect-super-admin' => RedirectSuperAdminToDashboard::class,
         ]);
 
         // Apply SetBranchContext to web middleware group
