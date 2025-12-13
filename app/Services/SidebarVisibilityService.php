@@ -16,9 +16,9 @@ class SidebarVisibilityService
      * Check if user is a super admin (web guard authenticated)
      * Super admins should see everything
      */
-    private static function isSuperAdmin(): bool
+    public static function isSuperAdmin(): bool
     {
-        return \Illuminate\Support\Facades\Auth::guard('web')->check();
+        return \Illuminate\Support\Facades\Auth::guard('web')->check() ?? auth()->check();
     }
 
     /**
@@ -229,7 +229,7 @@ class SidebarVisibilityService
     {
         // Super Admin, Admin, MD see everything - don't show separate inventory
         if (self::isSuperAdmin()) return false;
-        if ($user->hasAnyRole(['Admin', 'MD', 'Managing Director'])) return false;
+        if ($user->hasAnyRole(['Admin', 'MD', 'Managing Director', 'Super Admin'])) return true;
         
         // Exclude sales-only roles from seeing inventory
         $salesOnlyRoles = [

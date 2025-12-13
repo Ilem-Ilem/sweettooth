@@ -199,7 +199,7 @@ Route::middleware(['auth:web,employees', 'setBranchContext', 'branch', 'redirect
     });
 
     // Accounting Routes - Role Based Access (Super Admin, MD, Accountant)
-    Route::prefix('accounting')->name('accounting.')->middleware('permission:access_accounting|view_financial_reports')->group(function () {
+    Route::prefix('accounting')->name('accounting.')->middleware('role_or_permission:access_accounting,view_financial_reports')->group(function () {
         // Accounting Dashboard
         Route::get('/dashboard', \App\Livewire\Accounting\Dashboard::class)->name('dashboard');
         

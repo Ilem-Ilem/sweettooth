@@ -27,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
             'protect-roles' => ProtectCoreRoles::class,
             'redirect-super-admin' => RedirectSuperAdminToDashboard::class,
+            'role_or_permission' => \App\Http\Middleware\SuperAdminOrPermission::class,
         ]);
 
         // Apply SetBranchContext to web middleware group
