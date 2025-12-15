@@ -181,7 +181,8 @@ trait Exportable
             implements \Maatwebsite\Excel\Concerns\FromView,
                        \Maatwebsite\Excel\Concerns\WithStyles,
                        \Maatwebsite\Excel\Concerns\WithColumnWidths,
-                       \Maatwebsite\Excel\Concerns\WithHeadings
+                       \Maatwebsite\Excel\Concerns\WithHeadings,
+                       \Maatwebsite\Excel\Concerns\ShouldAutoSize
         {
             protected $data;
             protected $view;
@@ -205,6 +206,11 @@ trait Exportable
 
             public function styles($sheet)
             {
+                // Freeze panes at row 2
+                if ($this->options['excel_freeze_panes'] ?? true) {
+                    $sheet->freezePane('A2');
+                }
+
                 return [
                     // Header row styling
                     1 => [
@@ -236,14 +242,7 @@ trait Exportable
             }
         };
 
-        $excel = Excel::download($excelClass, $filename . '.xlsx');
-
-        // Auto-filter and freeze panes
-        if ($this->options['excel_freeze_panes'] ?? true) {
-            $excel->freezePane('A2');
-        }
-
-        return $excel;
+        return Excel::download($excelClass, $filename . '.xlsx');
     }
 
     /**

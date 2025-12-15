@@ -10,12 +10,14 @@ use App\Models\StockMovement;
 use App\Models\UnitOfMeasure;
 use App\Services\AuditService;
 use App\Services\InventoryApprovalService;
+use App\Traits\Exportable;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\{Layout, Url, On};
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Items extends BaseComponent
 {
+    use Exportable;
     #[Url(keep: true)]
     public ?string $b_id = null;
 
@@ -718,5 +720,125 @@ class Items extends BaseComponent
                 }
             })
             ->latest();
+    }
+
+    public function exportExcel()
+    {
+        try {
+            // Export ALL items without pagination or search filters
+            $items = Item::query()
+                ->where('branch_id', $this->getBranchId())
+                ->orderBy('sku')
+                ->get();
+
+            $data = $items->map(fn($item) => [
+                'sku' => $item->sku,
+                'name' => $item->name,
+                'category' => $item->category,
+                'reorder_level' => $item->reorder_level,
+                'status' => $item->status,
+                'uom' => $item->uom,
+            ])->toArray();
+
+            if (empty($data)) {
+                $this->toast()->warning('No items to export.')->send();
+                return;
+            }
+
+            return $this->export(
+                'inventory-items-' . now()->format('Y-m-d'),
+                collect($data),
+                'exports.inventory.items',
+                'excel',
+                true
+            );
+        } catch (\Exception $e) {
+            $this->toast()->error('Export failed: ' . $e->getMessage())->send();
+            return;
+        }
+    }
+
+    public function exportPDF()
+    {
+        try {
+            // Export ALL items without pagination or search filters
+            $items = Item::query()
+                ->where('branch_id', $this->getBranchId())
+                ->orderBy('sku')
+                ->get();
+
+            $data = $items->map(fn($item) => [
+                'sku' => $item->sku,
+                'name' => $item->name,
+                'category' => $item->category,
+                'reorder_level' => $item->reorder_level,
+                'status' => $item->status,
+                'uom' => $item->uom,
+            ])->toArray();
+
+            if (empty($data)) {
+                $this->toast()->warning('No items to export.')->send();
+                return;
+            }
+
+            return $this->export(
+                'inventory-items-' . now()->format('Y-m-d'),
+                collect($data),
+                'exports.inventory.items',
+                'pdf',
+                true,
+                ['orientation' => 'landscape']
+            );
+        } catch (\Exception $e) {
+            $this->toast()->error('Export failed: ' . $e->getMessage())->send();
+            return;
+        }
+    }
+
+    public function exportCSV()
+    {
+        try {
+            // Export ALL items without pagination or search filters
+            $items = Item::query()
+                ->where('branch_id', $this->getBranchId())
+                ->orderBy('sku')
+                ->get();
+
+            $csvData = [
+                ['SKU', 'Name', 'Category', 'Reorder Level', 'Status', 'UOM'],
+            ];
+
+            foreach ($items as $item) {
+                $csvData[] = [
+                    $item->sku,
+                    $item->name,
+                    $item->category,
+                    $item->reorder_level,
+                    $item->status,
+                    $item->uom,
+                ];
+            }
+
+            $filename = 'inventory-items-' . now()->format('Y-m-d-His') . '.csv';
+            $handle = fopen('php://temp', 'r+');
+
+            foreach ($csvData as $row) {
+                fputcsv($handle, $row);
+            }
+
+            rewind($handle);
+            $csv = stream_get_contents($handle);
+            fclose($handle);
+
+            return response()->streamDownload(function () use ($csv) {
+                echo $csv;
+            }, $filename, [
+                'Content-Type' => 'text/csv',
+                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            ]);
+        } catch (\Exception $e) {
+            $this->toast()->error('Export failed: ' . $e->getMessage())->send();
+            return;
+        }
     }
 }

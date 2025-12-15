@@ -183,6 +183,13 @@ Route::middleware(['auth:web,employees', 'setBranchContext', 'branch', 'redirect
         Route::get('stock-valuation', \App\Livewire\BranchDashboard\Analytics\StockValuation::class)->name('stock-valuation');
     });
 
+    // Export routes
+    Route::prefix('exports')->name('exports.')->group(function () {
+        Route::get('stock-level-analytics', [\App\Http\Controllers\ExportController::class, 'stockLevelAnalytics'])->name('stock-level-analytics');
+        Route::get('health-checks', [\App\Http\Controllers\ExportController::class, 'healthChecks'])->name('health-checks');
+        Route::get('item-requests', [\App\Http\Controllers\ExportController::class, 'itemRequests'])->name('item-requests');
+    });
+
     // Reporting Department Routes
     Route::prefix('reporting')->name('reporting.')->group(function () {
         Route::get('dashboard', \App\Livewire\BranchDashboard\ReportingDepartment\Dashboard\Index::class)->name('dashboard');
@@ -201,29 +208,45 @@ Route::middleware(['auth:web,employees', 'setBranchContext', 'branch', 'redirect
     // Accounting Routes - Role Based Access (Super Admin, MD, Accountant)
     Route::prefix('accounting')->name('accounting.')->middleware('role_or_permission:access_accounting,view_financial_reports')->group(function () {
         // Accounting Dashboard
-        Route::get('/dashboard', \App\Livewire\Accounting\Dashboard::class)->name('dashboard');
+        Route::get('/dashboard', \App\Livewire\BranchDashboard\Accounting\Dashboard::class)->name('dashboard');
+        
+        // Accounting Overview
+        Route::get('/overview', \App\Livewire\BranchDashboard\Accounting\Overview::class)->name('overview');
         
         // Chart of Accounts Management (Super Admin, MD, Admin)
         Route::middleware('role_or_permission:manage_accounts')->group(function () {
-            Route::get('/accounts', \App\Livewire\Accounting\GlAccountList::class)->name('accounts');
+            Route::get('/accounts', \App\Livewire\BranchDashboard\Accounting\GlAccountList::class)->name('accounts');
         });
         
         // Accounting Period Management (Super Admin, MD, Admin)
         Route::middleware('role_or_permission:manage_periods')->group(function () {
-            Route::get('/periods', \App\Livewire\Accounting\PeriodManagement::class)->name('periods');
+            Route::get('/periods', \App\Livewire\BranchDashboard\Accounting\PeriodManagement::class)->name('periods');
         });
         
         // Manual Journal Entry (Super Admin, MD, Accountant, Admin)
         Route::middleware('role_or_permission:create_journal_entries')->group(function () {
-            Route::get('/journal-entry', \App\Livewire\Accounting\ManualJournalEntry::class)->name('journal-entry');
+            Route::get('/journal-entry', \App\Livewire\BranchDashboard\Accounting\ManualJournalEntry::class)->name('journal-entry');
         });
         
-        // Financial Reports (All accounting users)
+        // Posting Status Monitor
+        Route::get('/posting-status', \App\Livewire\BranchDashboard\Accounting\PostingStatusMonitor::class)->name('posting-status');
+
+        // Inventory Valuation to GL
+        Route::get('/inventory-valuation', \App\Livewire\BranchDashboard\Accounting\InventoryValuationPosting::class)->name('inventory-valuation');
+
+        // Bank Reconciliation
+        Route::middleware('role_or_permission:reconcile_bank_accounts')->group(function () {
+            Route::get('/bank-reconciliation', \App\Livewire\BranchDashboard\Accounting\BankReconciliation::class)->name('bank-reconciliation');
+        });
+        
+        // Financial Reports
         Route::prefix('reports')->name('reports.')->group(function () {
-            Route::get('/general-ledger', \App\Livewire\Reports\GeneralLedgerReport::class)->name('general-ledger');
-            Route::get('/trial-balance', \App\Livewire\Reports\TrialBalanceReport::class)->name('trial-balance');
-            Route::get('/income-statement', \App\Livewire\Reports\IncomeStatementReport::class)->name('income-statement');
-            Route::get('/balance-sheet', \App\Livewire\Reports\BalanceSheetReport::class)->name('balance-sheet');
+            Route::get('/', \App\Livewire\BranchDashboard\Accounting\Report\Index::class)->name('index');
+            Route::get('/general-ledger', \App\Livewire\BranchDashboard\Accounting\Report\GeneralLedgerReport::class)->name('general-ledger');
+            Route::get('/trial-balance', \App\Livewire\BranchDashboard\Accounting\Report\TrialBalanceReport::class)->name('trial-balance');
+            Route::get('/income-statement', \App\Livewire\BranchDashboard\Accounting\Report\IncomeStatementReport::class)->name('income-statement');
+            Route::get('/balance-sheet', \App\Livewire\BranchDashboard\Accounting\Report\BalanceSheetReport::class)->name('balance-sheet');
+            Route::get('/cash-flow-statement', \App\Livewire\BranchDashboard\Accounting\Report\CashFlowStatementReport::class)->name('cash-flow-statement');
         });
     });
 
@@ -270,13 +293,6 @@ Route::middleware(['auth:web,employees', 'setBranchContext', 'branch', 'redirect
 
         Route::get('/stock-monitor', \App\Livewire\BranchDashboard\SalesDashboard\StockMonitor::class)->name('stock-monitor');
 
-        // Sales Reports
-        Route::prefix('reports')->name('reports.')->group(function () {
-            // Route::get('/performance', \App\Livewire\BranchDashboard\SalesDashboard\Reports\SalesPerformance\Index::class)->name('performance');
-            // Route::get('/employee', \App\Livewire\BranchDashboard\SalesDashboard\Reports\SalesEmployee\Index::class)->name('employee');
-            // Route::get('/customer', \App\Livewire\BranchDashboard\SalesDashboard\Reports\CustomerAnalysis\Index::class)->name('customer');
-            // Route::get('/payment', \App\Livewire\BranchDashboard\SalesDashboard\Reports\PaymentMethod\Index::class)->name('payment');
-        });
 
         // Execute dynamic sales department routes
         $registerSalesDepartmentRoutes();

@@ -7,6 +7,7 @@ use App\Models\LeaveType;
 use App\Models\LeaveApplication;
 use App\Models\EmployeeLeaveBalance;
 use App\Services\AuditService;
+use App\Services\LeaveAuditService;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Livewire\WithFileUploads;
@@ -203,11 +204,9 @@ class ApplyLeave extends BaseComponent
             ]);
 
             // Log the leave application creation
-            AuditService::log(
-                $employee,
-                'create',
+            LeaveAuditService::logLeaveApplication(
                 $leaveApplication,
-                "Submitted leave application: {$this->selected_leave_type->name} from {$this->start_date} to {$this->end_date} ({$this->total_days} working days). Reason: {$this->reason}",
+                $employee,
                 'pending'
             );
 

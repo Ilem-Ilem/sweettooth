@@ -8,6 +8,7 @@ use App\Models\SalesShift;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\ProductType;
+use App\Traits\Exportable;
 use Livewire\Component;
 use Livewire\Attributes\Computed;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +18,8 @@ use Illuminate\Support\Facades\Response;
 
 class Index extends Component
 {
+    use Exportable;
+
     public $dateFrom;
     public $dateTo;
     public $branchId;
@@ -492,14 +495,24 @@ class Index extends Component
 
     protected function exportToExcel($data)
     {
-        // Note: This requires maatwebsite/excel package
-        $this->dispatch('notify', ['message' => 'Excel export will be implemented with Laravel Excel package', 'type' => 'info']);
+        return $this->export(
+            'sales-analytics-' . now()->format('Y-m-d'),
+            collect($data),
+            'exports.sales.analytics',
+            'excel'
+        );
     }
 
     protected function exportToPDF($data)
     {
-        // Note: This requires barryvdh/laravel-dompdf package
-        $this->dispatch('notify', ['message' => 'PDF export will be implemented with DomPDF package', 'type' => 'info']);
+        return $this->export(
+            'sales-analytics-' . now()->format('Y-m-d'),
+            collect($data),
+            'exports.sales.analytics',
+            'pdf',
+            false,
+            ['orientation' => 'portrait', 'paper' => 'A4']
+        );
     }
 
     public function render()

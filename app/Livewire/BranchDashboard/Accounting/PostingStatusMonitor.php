@@ -6,9 +6,14 @@ use App\Models\Sale;
 use App\Models\Purchase;
 use App\Models\Payment;
 use App\Models\StockMovement;
+use App\Models\AccountingPeriod;
+use App\Services\GlPostingService;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Livewire\Attributes\Layout;
+use Exception;
 
+#[Layout('components.layouts.app.branch-dashboard')]
 class PostingStatusMonitor extends Component
 {
     use WithPagination;
@@ -16,6 +21,9 @@ class PostingStatusMonitor extends Component
     public string $transactionType = 'sales'; // sales, purchases, payments, adjustments
     public string $status = 'all'; // all, pending, posted, failed
     public int $perPage = 25;
+    public bool $isBulkPosting = false;
+    public int $bulkPostingProgress = 0;
+    public int $bulkPostingTotal = 0;
 
     public function render()
     {

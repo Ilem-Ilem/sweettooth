@@ -30,6 +30,49 @@
         </div>
     @endif
 
+    <!-- Quick Actions Navigation -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <a href="{{ route('branch-dashboard.accounting.accounts') }}" class="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition border-l-4 border-indigo-500">
+            <p class="text-sm font-semibold text-gray-600 mb-1">Chart of Accounts</p>
+            <p class="text-lg text-indigo-600">Manage GL Accounts</p>
+        </a>
+
+        <a href="{{ route('branch-dashboard.accounting.periods') }}" class="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition border-l-4 border-cyan-500">
+            <p class="text-sm font-semibold text-gray-600 mb-1">Accounting Periods</p>
+            <p class="text-lg text-cyan-600">Open/Close Periods</p>
+        </a>
+
+        <a href="{{ route('branch-dashboard.accounting.journal-entry') }}" class="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition border-l-4 border-pink-500">
+            <p class="text-sm font-semibold text-gray-600 mb-1">Journal Entries</p>
+            <p class="text-lg text-pink-600">Create Manual Entries</p>
+        </a>
+
+        <a href="{{ route('branch-dashboard.accounting.bank-reconciliation') }}" class="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition border-l-4 border-orange-500">
+            <p class="text-sm font-semibold text-gray-600 mb-1">Bank Reconciliation</p>
+            <p class="text-lg text-orange-600">Reconcile Accounts</p>
+        </a>
+
+        <a href="{{ route('branch-dashboard.accounting.bank-positions') }}" class="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition border-l-4 border-emerald-500">
+            <p class="text-sm font-semibold text-gray-600 mb-1">Bank Positions</p>
+            <p class="text-lg text-emerald-600">Daily Positions</p>
+        </a>
+
+        <a href="{{ route('branch-dashboard.accounting.cash-positions') }}" class="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition border-l-4 border-amber-500">
+            <p class="text-sm font-semibold text-gray-600 mb-1">Cash Positions</p>
+            <p class="text-lg text-amber-600">Cash Counts</p>
+        </a>
+
+        <a href="{{ route('branch-dashboard.accounting.reports.trial-balance') }}" class="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition border-l-4 border-violet-500">
+            <p class="text-sm font-semibold text-gray-600 mb-1">Trial Balance</p>
+            <p class="text-lg text-violet-600">View Report</p>
+        </a>
+
+        <a href="{{ route('branch-dashboard.accounting.reports.balance-sheet') }}" class="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition border-l-4 border-rose-500">
+            <p class="text-sm font-semibold text-gray-600 mb-1">Balance Sheet</p>
+            <p class="text-lg text-rose-600">View Report</p>
+        </a>
+    </div>
+
     <!-- Key Metrics -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">

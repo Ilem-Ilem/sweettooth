@@ -14,6 +14,10 @@ use Livewire\Attributes\{Layout, On, Title, Url};
 use App\Services\InventoryApprovalService;
 use App\Services\PurchaseAuditApprovalService;
 use App\Services\ProductionApprovalService;
+use App\Services\EmployeeApprovalService;
+use App\Services\DepartmentApprovalService;
+use App\Services\DepartmentCategoryApprovalService;
+use App\Services\CallbackApprovalService;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 #[Title("Audit Mnagement")]
@@ -252,6 +256,13 @@ class Index extends Component
                 // Production module handlers
                 'product' => $this->handleProductAction($request),
                 'recipe' => $this->handleRecipeAction($request),
+                // Employee module handlers
+                'employee' => $this->handleEmployeeAction($request),
+                // Department module handlers
+                'department' => $this->handleDepartmentAction($request),
+                'department_category' => $this->handleDepartmentCategoryAction($request),
+                // Callback handlers
+                'callback' => $this->handleCallbackAction($request),
                 default => throw new \Exception("Unknown action type: {$action}"),
             };
 
@@ -792,5 +803,94 @@ class Index extends Component
             ]);
             throw new \Exception("Failed to handle recipe action: " . $e->getMessage());
         }
+    }
+
+    /**
+     * Handle employee-related approval actions (create, update, delete, sync_roles, sync_permissions)
+     */
+    private function handleEmployeeAction(ApprovalAuditRequest $request)
+    {
+        $parts = explode(':', $request->action);
+        $subAction = $parts[1] ?? 'create';
+        $approver = $this->getApprover();
+
+        \Log::info('🔵 [HANDLE EMPLOYEE ACTION] Processing employee action', [
+            'action' => $request->action,
+            'sub_action' => $subAction,
+        ]);
+
+        return match ($subAction) {
+            'create' => EmployeeApprovalService::executeCreate($request, $approver),
+            'update' => EmployeeApprovalService::executeUpdate($request, $approver),
+            'delete' => EmployeeApprovalService::executeDelete($request, $approver),
+            'sync_roles' => EmployeeApprovalService::executeRoleSync($request, $approver),
+            'sync_permissions' => EmployeeApprovalService::executePermissionSync($request, $approver),
+            default => throw new \Exception("Unknown employee action: {$subAction}"),
+        };
+    }
+
+    /**
+     * Handle department-related approval actions (create, update, delete)
+     */
+    private function handleDepartmentAction(ApprovalAuditRequest $request)
+    {
+        $parts = explode(':', $request->action);
+        $subAction = $parts[1] ?? 'create';
+        $approver = $this->getApprover();
+
+        \Log::info('🔵 [HANDLE DEPARTMENT ACTION] Processing department action', [
+            'action' => $request->action,
+            'sub_action' => $subAction,
+        ]);
+
+        return match ($subAction) {
+            'create' => DepartmentApprovalService::executeCreate($request, $approver),
+            'update' => DepartmentApprovalService::executeUpdate($request, $approver),
+            'delete' => DepartmentApprovalService::executeDelete($request, $approver),
+            default => throw new \Exception("Unknown department action: {$subAction}"),
+        };
+    }
+
+    /**
+     * Handle department category-related approval actions (create, update, delete)
+     */
+    private function handleDepartmentCategoryAction(ApprovalAuditRequest $request)
+    {
+        $parts = explode(':', $request->action);
+        $subAction = $parts[1] ?? 'create';
+        $approver = $this->getApprover();
+
+        \Log::info('🔵 [HANDLE DEPARTMENT CATEGORY ACTION] Processing action', [
+            'action' => $request->action,
+            'sub_action' => $subAction,
+        ]);
+
+        return match ($subAction) {
+            'create' => DepartmentCategoryApprovalService::executeCreate($request, $approver),
+            'update' => DepartmentCategoryApprovalService::executeUpdate($request, $approver),
+            'delete' => DepartmentCategoryApprovalService::executeDelete($request, $approver),
+            default => throw new \Exception("Unknown department category action: {$subAction}"),
+        };
+    }
+
+    /**
+     * Handle callback-related approval actions (inventory, production)
+     */
+    private function handleCallbackAction(ApprovalAuditRequest $request)
+    {
+        $parts = explode(':', $request->action);
+        $subAction = $parts[1] ?? 'inventory';
+        $approver = $this->getApprover();
+
+        \Log::info('🔵 [HANDLE CALLBACK ACTION] Processing callback action', [
+            'action' => $request->action,
+            'sub_action' => $subAction,
+        ]);
+
+        return match ($subAction) {
+            'inventory' => CallbackApprovalService::executeInventoryCallback($request, $approver),
+            'production' => CallbackApprovalService::executeProductionCallback($request, $approver),
+            default => throw new \Exception("Unknown callback action: {$subAction}"),
+        };
     }
 }

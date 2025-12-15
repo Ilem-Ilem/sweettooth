@@ -37,6 +37,8 @@ class ProductionRecord extends Model
         'production_time' => 'datetime',
         'quality_status' => 'string',
         'dispatch_status' => 'string',
+        'unit_cost' => 'decimal:2',
+        'total_production_cost' => 'decimal:2',
     ];
 
     public function dailyProduce(): BelongsTo

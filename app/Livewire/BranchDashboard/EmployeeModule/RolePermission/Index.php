@@ -5,6 +5,7 @@ namespace App\Livewire\BranchDashboard\EmployeeModule\RolePermission;
 use App\Livewire\BaseComponent;
 use App\Models\ApprovalAuditRequest;
 use App\Services\AuditService;
+use App\Services\EmployeeApprovalService;
 use Livewire\WithPagination;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
@@ -266,21 +267,36 @@ class Index extends BaseComponent
         $actor = current_actor();
         $data = $this->pendingOperationData;
 
-        // Create approval request
-        ApprovalAuditRequest::create([
-            'requester_id' => $actor->id,
-            'requester_type' => get_class($actor),
-            'action' => match($this->pendingOperation) {
-                'create_role' => 'create:' . Role::class . ':' . $data['roleName'],
-                'update_role' => 'update:' . Role::class . ':' . $data['selectedRoleId'],
-                'delete_role' => 'delete:' . Role::class . ':' . $data['selectedRoleId'],
-                'create_permission' => 'create:' . Permission::class . ':' . $data['permissionName'],
-                'create_standalone_permission' => 'create:' . Permission::class . ':' . $data['permissionName'],
-            },
-            'description' => $this->operationReason,
-            'payload' => $data,
-            'status' => 'pending',
-        ]);
+        // Create approval request using appropriate service
+        match($this->pendingOperation) {
+            'create_role', 'update_role', 'delete_role' => 
+                // Role operations are not employee-specific, use generic ApprovalAuditRequest
+                ApprovalAuditRequest::create([
+                    'requester_id' => $actor->id,
+                    'requester_type' => get_class($actor),
+                    'action' => match($this->pendingOperation) {
+                        'create_role' => 'role:create',
+                        'update_role' => 'role:update:' . $data['selectedRoleId'],
+                        'delete_role' => 'role:delete:' . $data['selectedRoleId'],
+                    },
+                    'description' => $this->operationReason,
+                    'payload' => $data,
+                    'status' => 'pending',
+                ]),
+            'create_permission', 'create_standalone_permission' => 
+                // Permission operations are not employee-specific, use generic ApprovalAuditRequest
+                ApprovalAuditRequest::create([
+                    'requester_id' => $actor->id,
+                    'requester_type' => get_class($actor),
+                    'action' => match($this->pendingOperation) {
+                        'create_permission' => 'permission:create:' . $data['permissionName'],
+                        'create_standalone_permission' => 'permission:create_standalone:' . $data['standalonePermissionName'],
+                    },
+                    'description' => $this->operationReason,
+                    'payload' => $data,
+                    'status' => 'pending',
+                ]),
+        };
 
         $this->toast()->success('Operation submitted for approval!')->send();
         $this->closeReasonModal();

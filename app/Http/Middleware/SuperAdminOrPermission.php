@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use App\Services\AuthService;
 use Symfony\Component\HttpFoundation\Response;
 
 class SuperAdminOrPermission
@@ -15,19 +16,16 @@ class SuperAdminOrPermission
      */
     public function handle(Request $request, Closure $next,  ...$permissions): Response
     {
-        $user = $request->user();
-
         // Allow Super Admin always
-        if ($user && is_super_admin()) {
+        if (AuthService::isSuperAdmin()) {
             return $next($request);
         }
 
         // Check permissions
-        if ($user && $user->hasAnyPermission($permissions)) {
+        if (AuthService::user() && AuthService::user()->hasAnyPermission($permissions)) {
             return $next($request);
         }
 
         abort(403);
-        return $next($request);
     }
 }

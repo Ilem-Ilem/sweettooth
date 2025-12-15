@@ -7,13 +7,16 @@ use App\Models\Stock;
 use App\Models\StockMovement;
 use App\Services\AuditService;
 use App\Services\InventoryApprovalService;
+use App\Traits\Exportable;
 use Livewire\Attributes\{Layout, Url, On};
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use TallStackUi\Traits\Interactions;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Stocks extends BaseComponent
 {
+    use Exportable, Interactions;
 
     // Pagination
     public $quantity = 15;
@@ -396,5 +399,189 @@ class Stocks extends BaseComponent
     {
         $branchId = $this->getBranchId();
         return Stock::where('branch_id', $branchId)->pluck('id')->toArray();
+    }
+
+    /**
+     * Export stock records as PDF
+     */
+    public function exportPDF()
+    {
+        try {
+            $stocks = $this->getFilteredStocks();
+
+            if ($stocks->isEmpty()) {
+                $this->toast()->warning('No stocks to export.')->send();
+                return;
+            }
+
+            $data = $stocks->map(function ($stock) {
+                return [
+                    'sku' => $stock->item->sku ?? 'N/A',
+                    'item_name' => $stock->item->name ?? 'N/A',
+                    'category' => $stock->item->category ?? 'N/A',
+                    'quantity_available' => $stock->quantity_available ?? 0,
+                    'quantity_reserved' => $stock->quantity_reserved ?? 0,
+                    'quantity_damaged' => $stock->quantity_damaged ?? 0,
+                    'quantity_total' => ($stock->quantity_available ?? 0) + ($stock->quantity_reserved ?? 0) + ($stock->quantity_damaged ?? 0),
+                    'uom' => $stock->item->uom ?? 'units',
+                    'average_cost' => $stock->average_cost ?? 0,
+                    'total_value' => ($stock->quantity_available ?? 0) * ($stock->average_cost ?? 0),
+                    'reorder_level' => $stock->reorder_level ?? 0,
+                    'max_stock_level' => $stock->max_stock_level ?? 0,
+                    'health_status' => ucfirst($stock->health_status ?? 'good'),
+                    'expiry_date' => $stock->expiry_date ? \Carbon\Carbon::parse($stock->expiry_date)->format('Y-m-d') : 'N/A',
+                    'last_stock_date' => $stock->updated_at ? \Carbon\Carbon::parse($stock->updated_at)->format('Y-m-d H:i') : 'N/A',
+                ];
+            });
+
+            return $this->export(
+                'inventory-stocks-' . now()->format('Y-m-d'),
+                $data,
+                'exports.inventory.stocks',
+                'pdf',
+                false,
+                ['orientation' => 'landscape', 'paper' => 'A4']
+            );
+        } catch (\Exception $e) {
+            $this->toast()->error('Export failed: ' . $e->getMessage())->send();
+            return;
+        }
+    }
+
+    /**
+     * Export stock records as Excel
+     */
+    public function exportExcel()
+    {
+        try {
+            $stocks = $this->getFilteredStocks();
+
+            if ($stocks->isEmpty()) {
+                $this->toast()->warning('No stocks to export.')->send();
+                return;
+            }
+
+            $data = $stocks->map(function ($stock) {
+                return [
+                    'sku' => $stock->item->sku ?? 'N/A',
+                    'item_name' => $stock->item->name ?? 'N/A',
+                    'category' => $stock->item->category ?? 'N/A',
+                    'quantity_available' => $stock->quantity_available ?? 0,
+                    'quantity_reserved' => $stock->quantity_reserved ?? 0,
+                    'quantity_damaged' => $stock->quantity_damaged ?? 0,
+                    'quantity_total' => ($stock->quantity_available ?? 0) + ($stock->quantity_reserved ?? 0) + ($stock->quantity_damaged ?? 0),
+                    'uom' => $stock->item->uom ?? 'units',
+                    'average_cost' => $stock->average_cost ?? 0,
+                    'total_value' => ($stock->quantity_available ?? 0) * ($stock->average_cost ?? 0),
+                    'reorder_level' => $stock->reorder_level ?? 0,
+                    'max_stock_level' => $stock->max_stock_level ?? 0,
+                    'health_status' => ucfirst($stock->health_status ?? 'good'),
+                    'expiry_date' => $stock->expiry_date ? \Carbon\Carbon::parse($stock->expiry_date)->format('Y-m-d') : 'N/A',
+                    'last_stock_date' => $stock->updated_at ? \Carbon\Carbon::parse($stock->updated_at)->format('Y-m-d H:i') : 'N/A',
+                ];
+            });
+
+            return $this->export(
+                'inventory-stocks-' . now()->format('Y-m-d'),
+                $data,
+                'exports.inventory.stocks',
+                'excel'
+            );
+        } catch (\Exception $e) {
+            $this->toast()->error('Export failed: ' . $e->getMessage())->send();
+            return;
+        }
+    }
+
+    /**
+     * Export stock records as CSV
+     */
+    public function exportCSV()
+    {
+        try {
+            $stocks = $this->getFilteredStocks();
+
+            if ($stocks->isEmpty()) {
+                $this->toast()->warning('No stocks to export.')->send();
+                return;
+            }
+
+            $csvData = [
+                ['SKU', 'Item Name', 'Category', 'Available', 'Reserved', 'Damaged', 'Total', 'UOM', 'Avg Cost', 'Total Value', 'Reorder Level', 'Max Level', 'Health Status', 'Expiry Date', 'Last Updated'],
+            ];
+
+            foreach ($stocks as $stock) {
+                $csvData[] = [
+                    $stock->item->sku ?? 'N/A',
+                    $stock->item->name ?? 'N/A',
+                    $stock->item->category ?? 'N/A',
+                    $stock->quantity_available ?? 0,
+                    $stock->quantity_reserved ?? 0,
+                    $stock->quantity_damaged ?? 0,
+                    ($stock->quantity_available ?? 0) + ($stock->quantity_reserved ?? 0) + ($stock->quantity_damaged ?? 0),
+                    $stock->item->uom ?? 'units',
+                    number_format($stock->average_cost ?? 0, 2),
+                    number_format(($stock->quantity_available ?? 0) * ($stock->average_cost ?? 0), 2),
+                    $stock->reorder_level ?? 0,
+                    $stock->max_stock_level ?? 0,
+                    ucfirst($stock->health_status ?? 'good'),
+                    $stock->expiry_date ? \Carbon\Carbon::parse($stock->expiry_date)->format('Y-m-d') : 'N/A',
+                    $stock->updated_at ? \Carbon\Carbon::parse($stock->updated_at)->format('Y-m-d H:i') : 'N/A',
+                ];
+            }
+
+            $filename = 'inventory-stocks-' . now()->format('Y-m-d-His') . '.csv';
+            $handle = fopen('php://temp', 'r+');
+
+            foreach ($csvData as $row) {
+                fputcsv($handle, $row);
+            }
+
+            rewind($handle);
+            $csv = stream_get_contents($handle);
+            fclose($handle);
+
+            return response()->streamDownload(function () use ($csv) {
+                echo $csv;
+            }, $filename, [
+                'Content-Type' => 'text/csv',
+                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            ]);
+        } catch (\Exception $e) {
+            $this->toast()->error('Export failed: ' . $e->getMessage())->send();
+            return;
+        }
+    }
+
+    /**
+     * Get filtered stocks based on current filters
+     */
+    private function getFilteredStocks()
+    {
+        $branchId = $this->getBranchId();
+        
+        return Stock::with('item')
+            ->where('branch_id', $branchId)
+            ->when($this->search, function ($q) {
+                return $q->whereHas('item', function ($query) {
+                    $query->where('name', 'like', '%' . $this->search . '%')
+                        ->orWhere('sku', 'like', '%' . $this->search . '%');
+                });
+            })
+            ->when($this->filterCategory, function ($q) {
+                return $q->whereHas('item', function ($query) {
+                    $query->where('category', $this->filterCategory);
+                });
+            })
+            ->when($this->filterStatus, function ($q) {
+                return $q->whereHas('item', function ($query) {
+                    $query->where('status', $this->filterStatus);
+                });
+            })
+            ->when($this->filterHealthStatus, function ($q) {
+                return $q->where('health_status', $this->filterHealthStatus);
+            })
+            ->orderBy('updated_at', 'desc')
+            ->get();
     }
 }

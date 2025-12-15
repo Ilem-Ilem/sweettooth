@@ -7,6 +7,7 @@ use App\Models\StockMovement;
 use App\Models\Purchase;
 use App\Models\ItemRequest;
 use App\Models\Item;
+use App\Traits\Exportable;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -17,7 +18,7 @@ use TallStackUi\Traits\Interactions;
 #[Layout('components.layouts.app.branch-dashboard')]
 class OverallSummaryDashboard extends Component
 {
-    use Interactions;
+    use Interactions, Exportable;
 
     public $dateFrom;
     public $dateTo;
@@ -67,6 +68,10 @@ class OverallSummaryDashboard extends Component
         $branchId = $this->b_id;
         $dateFrom = Carbon::parse($this->dateFrom);
         $dateTo = Carbon::parse($this->dateTo);
+        
+        // Ensure database connection uses UTF-8
+        DB::statement("SET NAMES utf8mb4");
+        DB::statement("SET CHARACTER SET utf8mb4");
 
         $stocks = Stock::where('branch_id', $branchId)->with('item')->get();
         $totalValue = $stocks->sum(fn($s) => $s->quantity_available * $s->average_cost);
@@ -165,7 +170,7 @@ class OverallSummaryDashboard extends Component
                 $alerts[] = [
                     'priority' => 1,
                     'type' => 'expired',
-                    'icon' => '⏰',
+                    'icon' => '[EXPIRED]',
                     'message' => "{$stock->item->name} has expired",
                     'item' => $stock->item->name,
                     'item_id' => $stock->item->id,
@@ -175,7 +180,7 @@ class OverallSummaryDashboard extends Component
                 $alerts[] = [
                     'priority' => 1,
                     'type' => 'critical',
-                    'icon' => '🔴',
+                    'icon' => '[CRITICAL]',
                     'message' => "{$stock->item->name} in critical condition",
                     'item' => $stock->item->name,
                     'item_id' => $stock->item->id,
@@ -185,22 +190,25 @@ class OverallSummaryDashboard extends Component
                 $alerts[] = [
                     'priority' => 2,
                     'type' => 'warning',
-                    'icon' => '⚠️',
+                    'icon' => '[WARNING]',
                     'message' => "{$stock->item->name} below reorder level",
                     'item' => $stock->item->name,
                     'item_id' => $stock->item->id,
                     'action' => 'Restock',
                 ];
-            } elseif ($stock->expiry_date && $stock->expiry_date->isFuture() && $stock->expiry_date->diffInDays(now()) <= 7) {
-                $alerts[] = [
-                    'priority' => 2,
-                    'type' => 'expiring',
-                    'icon' => '🟠',
-                    'message' => "{$stock->item->name} expiring in {$stock->expiry_date->diffInDays(now())} days",
-                    'item' => $stock->item->name,
-                    'item_id' => $stock->item->id,
-                    'action' => 'Use Soon',
-                ];
+            } elseif ($stock->expiry_date && $stock->expiry_date->isFuture()) {
+                $daysUntilExpiry = now()->diffInDays($stock->expiry_date);
+                if ($daysUntilExpiry <= 7) {
+                    $alerts[] = [
+                        'priority' => 2,
+                        'type' => 'expiring',
+                        'icon' => '[EXPIRING]',
+                        'message' => "{$stock->item->name} expiring in {$daysUntilExpiry} days",
+                        'item' => $stock->item->name,
+                        'item_id' => $stock->item->id,
+                        'action' => 'Use Soon',
+                    ];
+                }
             }
         }
 
@@ -219,7 +227,7 @@ class OverallSummaryDashboard extends Component
             $direction = $summary['stock_value_change_percentage'] > 0 ? 'increased' : 'decreased';
             $insights[] = [
                 'type' => $summary['stock_value_change_percentage'] > 0 ? 'positive' : 'negative',
-                'icon' => $summary['stock_value_change_percentage'] > 0 ? '📈' : '📉',
+                'icon' => $summary['stock_value_change_percentage'] > 0 ? '[UP]' : '[DOWN]',
                 'message' => "Inventory value {$direction} by " . abs($summary['stock_value_change_percentage']) . "% since last period.",
             ];
         }
@@ -240,7 +248,7 @@ class OverallSummaryDashboard extends Component
             if ($itemNames) {
                 $insights[] = [
                     'type' => 'info',
-                    'icon' => '📦',
+                    'icon' => '[ITEMS]',
                     'message' => "Top 3 items with highest usage: {$itemNames}",
                 ];
             }
@@ -250,7 +258,7 @@ class OverallSummaryDashboard extends Component
         if ($summary['total_purchases'] == 0) {
             $insights[] = [
                 'type' => 'warning',
-                'icon' => '⚠️',
+                'icon' => '[WARNING]',
                 'message' => "No purchases recorded in the selected period.",
             ];
         }
@@ -259,7 +267,7 @@ class OverallSummaryDashboard extends Component
         if ($summary['low_stock_items'] > 0) {
             $insights[] = [
                 'type' => 'critical',
-                'icon' => '🔴',
+                'icon' => '[CRITICAL]',
                 'message' => "{$summary['low_stock_items']} item(s) below reorder level - restocking recommended.",
             ];
         }
@@ -268,7 +276,7 @@ class OverallSummaryDashboard extends Component
         if ($summary['expired_items'] > 0) {
             $insights[] = [
                 'type' => 'critical',
-                'icon' => '⏰',
+                'icon' => '[EXPIRED]',
                 'message' => "{$summary['expired_items']} item(s) have expired and should be removed.",
             ];
         }
@@ -279,7 +287,7 @@ class OverallSummaryDashboard extends Component
         if ($avgDailyConsumption > 0) {
             $insights[] = [
                 'type' => 'info',
-                'icon' => '📊',
+                'icon' => '[STATS]',
                 'message' => "Average daily consumption: {$avgDailyConsumption} units.",
             ];
         }
@@ -456,12 +464,218 @@ class OverallSummaryDashboard extends Component
 
     public function exportPDF()
     {
-        $this->toast()->info('PDF export feature coming soon')->send();
+        try {
+            $data = $this->prepareExportData();
+
+            if (empty($data['stock_health']) && empty($data['department_breakdown'])) {
+                $this->toast()->warning('No data available to export for the selected period.')->send();
+                return;
+            }
+
+            // Queue PDF export to avoid serialization issues
+            return $this->export(
+                'inventory-analytics-' . now()->format('Y-m-d'),
+                collect($data),
+                'exports.analytics.overall-summary',
+                'pdf',
+                true, // Queue it
+                ['orientation' => 'landscape', 'paper' => 'A4']
+            );
+        } catch (\Exception $e) {
+            $this->toast()->error('Export failed: ' . $e->getMessage())->send();
+            return;
+        }
+    }
+
+    public function exportExcel()
+    {
+        try {
+            $data = $this->prepareExportData();
+
+            if (empty($data['stock_health']) && empty($data['department_breakdown'])) {
+                $this->toast()->warning('No data available to export for the selected period.')->send();
+                return;
+            }
+
+            // Queue the export to avoid Livewire serialization issues
+            return $this->export(
+                'inventory-analytics-' . now()->format('Y-m-d'),
+                collect($data),
+                'exports.analytics.overall-summary',
+                'excel',
+                true // Queue it
+            );
+        } catch (\Exception $e) {
+            $this->toast()->error('Export failed: ' . $e->getMessage())->send();
+            return;
+        }
     }
 
     public function exportCSV()
     {
-        $this->toast()->info('CSV export feature coming soon')->send();
+        $data = $this->prepareExportData();
+
+        $csvData = [];
+
+        // Header row
+        $csvData[] = ['Inventory Analytics Report'];
+        $csvData[] = ['Period', $this->dateFrom . ' to ' . $this->dateTo];
+        $csvData[] = ['Generated', now()->format('Y-m-d H:i:s')];
+        $csvData[] = [];
+
+        // Summary metrics
+        $csvData[] = ['SUMMARY METRICS'];
+        $csvData[] = ['Metric', 'Value'];
+        $summary = $data['summary'];
+        $csvData[] = ['Total Stock Value', number_format($summary['total_stock_value'] ?? 0, 2)];
+        $csvData[] = ['Total Items', $summary['total_items'] ?? 0];
+        $csvData[] = ['Total Purchases', $summary['total_purchases'] ?? 0];
+        $csvData[] = ['Purchase Value', number_format($summary['total_purchase_value'] ?? 0, 2)];
+        $csvData[] = ['Stock In', number_format($summary['stock_in'] ?? 0, 2)];
+        $csvData[] = ['Stock Out', number_format($summary['stock_out'] ?? 0, 2)];
+        $csvData[] = ['Total Movements', $summary['total_movements'] ?? 0];
+        $csvData[] = ['Low Stock Items', $summary['low_stock_items'] ?? 0];
+        $csvData[] = ['Critical Items', $summary['critical_items'] ?? 0];
+        $csvData[] = ['Expired Items', $summary['expired_items'] ?? 0];
+        $csvData[] = ['Pending Requests', $summary['pending_requests'] ?? 0];
+        $csvData[] = ['Completed Requests', $summary['completed_requests'] ?? 0];
+        $csvData[] = [];
+
+        // Stock Health
+        $csvData[] = ['STOCK HEALTH STATUS'];
+        $csvData[] = ['Item Name', 'Stock Level', 'Reorder Level', 'Health %', 'Status', 'Last Movement', 'UOM'];
+        foreach ($data['stock_health'] ?? [] as $stock) {
+            $csvData[] = [
+                $stock['item_name'] ?? 'N/A',
+                $stock['stock_level'] ?? 0,
+                $stock['reorder_level'] ?? 0,
+                ($stock['health_percentage'] ?? 0) . '%',
+                ucfirst($stock['status'] ?? 'good'),
+                $stock['last_movement'] ?? 'N/A',
+                $stock['uom'] ?? 'units',
+            ];
+        }
+        $csvData[] = [];
+
+        // Category Breakdown
+        $csvData[] = ['CATEGORY BREAKDOWN'];
+        $csvData[] = ['Category', 'Stock Value', 'Items', 'Stock In', 'Stock Out', 'Low Items', 'Requests'];
+        foreach ($data['department_breakdown'] ?? [] as $dept) {
+            $csvData[] = [
+                $dept['category'] ?? 'N/A',
+                number_format($dept['stock_value'] ?? 0, 2),
+                $dept['item_count'] ?? 0,
+                number_format($dept['stock_in'] ?? 0, 2),
+                number_format($dept['stock_out'] ?? 0, 2),
+                $dept['low_items'] ?? 0,
+                $dept['requests'] ?? 0,
+            ];
+        }
+
+        $filename = 'inventory-analytics-' . now()->format('Y-m-d-His') . '.csv';
+        $handle = fopen('php://temp', 'r+');
+
+        foreach ($csvData as $row) {
+            fputcsv($handle, $row);
+        }
+
+        rewind($handle);
+        $csv = stream_get_contents($handle);
+        fclose($handle);
+
+        return response()->streamDownload(function () use ($csv) {
+            echo $csv;
+        }, $filename, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
+    }
+
+    protected function prepareExportData(): array
+    {
+        // Get all data
+        $summary = $this->getOverallSummary();
+        $stockHealth = $this->getStockHealthTable()->toArray();
+        $deptBreakdown = $this->getDepartmentBreakdown()->toArray();
+        $insights = $this->getInsights()->toArray();
+        $alerts = $this->getTopAlerts()->toArray();
+        $metrics = $this->getPerformanceMetrics();
+        $overview = $this->getStockHealthOverview();
+        $recentActivity = $this->getRecentActivity();
+        
+        // Sanitize each data source independently
+        $data = [
+            'period' => [
+                'from' => (string)$this->dateFrom,
+                'to' => (string)$this->dateTo,
+            ],
+            'branch_name' => (string)(current_branch()?->name ?? 'All Branches'),
+            'summary' => $this->sanitizeArray($summary),
+            'health_overview' => $this->sanitizeArray($overview),
+            'insights' => $this->sanitizeArray($insights),
+            'stock_health' => $this->sanitizeArray($stockHealth),
+            'department_breakdown' => $this->sanitizeArray($deptBreakdown),
+            'recent_activity' => $this->sanitizeRecentActivity($recentActivity),
+            'top_alerts' => $this->sanitizeArray($alerts),
+            'performance_metrics' => $this->sanitizeArray($metrics),
+        ];
+
+        return $data;
+    }
+
+    private function sanitizeRecentActivity($activities)
+    {
+        try {
+            return $activities->map(function ($activity) {
+                $moverName = 'System';
+                if ($activity->mover_id && $activity->mover) {
+                    $moverName = $activity->mover->name ?? 'System';
+                }
+
+                return [
+                    'date' => $activity->movement_date ? (string)$activity->movement_date->format('d M Y H:i') : 'N/A',
+                    'item' => (string)($activity->stock?->item?->name ?? 'N/A'),
+                    'type' => (string)($activity->type ?? 'N/A'),
+                    'quantity' => (float)($activity->quantity ?? 0),
+                    'reference' => (string)($activity->reference ?? 'N/A'),
+                    'notes' => (string)($activity->notes ?? ''),
+                    'mover' => (string)$moverName,
+                ];
+            })->toArray();
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
+
+    private function sanitizeArray($data)
+    {
+        if (is_string($data)) {
+            // Remove invalid UTF-8 and convert to string
+            return (string)@iconv('UTF-8', 'UTF-8//IGNORE', $data);
+        }
+
+        if (is_numeric($data)) {
+            return $data;
+        }
+
+        if (is_array($data)) {
+            $result = [];
+            foreach ($data as $key => $value) {
+                $result[(string)@iconv('UTF-8', 'UTF-8//IGNORE', (string)$key)] = $this->sanitizeArray($value);
+            }
+            return $result;
+        }
+
+        if (is_bool($data) || is_null($data)) {
+            return $data;
+        }
+
+        // For objects, try to convert to string
+        if (is_object($data)) {
+            return (string)$data;
+        }
+
+        return $data;
     }
 
     public function render()

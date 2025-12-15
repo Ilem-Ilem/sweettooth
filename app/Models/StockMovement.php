@@ -14,6 +14,7 @@ class StockMovement extends Model
 
     protected $fillable = [
         'stock_id',
+        'branch_id',
         'type',
         'quantity',
         'quantity_before',
@@ -59,6 +60,11 @@ class StockMovement extends Model
     public function glEntry(): BelongsTo
     {
         return $this->belongsTo(GlEntry::class, 'gl_entry_id');
+    }
+
+    public function bankAccount(): BelongsTo
+    {
+        return $this->belongsTo(BankAccount::class, 'bank_account_id');
     }
 
     public function isInbound(): bool

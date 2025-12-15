@@ -7,6 +7,7 @@ use App\Models\StockTakeDetail;
 use App\Models\Stock;
 use App\Models\StockMovement;
 use App\Services\AuditService;
+use App\Traits\Exportable;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\{Layout, Url, On};
@@ -16,7 +17,7 @@ use Illuminate\Support\Facades\DB;
 #[Layout('components.layouts.app.branch-dashboard')]
 class StockTakes extends Component
 {
-    use WithPagination;
+    use WithPagination, Exportable;
 #[Url(keep:true)]
     public ?string $b_id = null;
     public $search = '';
@@ -231,5 +232,113 @@ class StockTakes extends Component
         $this->search = '';
         $this->filterType = '';
         $this->filterStatus = '';
+    }
+
+    protected function getModelClass(): string
+    {
+        return StockTake::class;
+    }
+
+    protected function getAllSelectableIds(): array
+    {
+        $branchId = $this->getBranchId();
+        return StockTake::where('branch_id', $branchId)->pluck('id')->toArray();
+    }
+
+    /**
+     * Export stock takes as PDF
+     * Note: PDF/Excel exports cannot be returned directly from Livewire.
+     */
+    public function exportPDF()
+    {
+        session()->flash('info', 'PDF export coming soon. Please use Excel export instead.');
+    }
+
+    /**
+     * Export stock takes as Excel
+     * Note: PDF/Excel exports cannot be returned directly from Livewire.
+     */
+    public function exportExcel()
+    {
+        session()->flash('info', 'Excel export coming soon. Please use CSV export instead.');
+    }
+
+    /**
+     * Export stock takes as CSV
+     */
+    public function exportCSV()
+    {
+        try {
+            $stockTakes = $this->getFilteredStockTakes();
+
+            if ($stockTakes->isEmpty()) {
+                session()->flash('warning', 'No stock takes to export.');
+                return;
+            }
+
+            $csvData = [
+                ['Stock Take Number', 'Date', 'Type', 'Conductor', 'Verifier', 'Status', 'Items Counted', 'Matches', 'Surpluses', 'Shortages', 'Notes', 'Created At'],
+            ];
+
+            foreach ($stockTakes as $take) {
+                $details = $take->stockTakeDetails;
+                $csvData[] = [
+                    $take->stock_take_number ?? 'N/A',
+                    $take->stock_take_date ? \Carbon\Carbon::parse($take->stock_take_date)->format('Y-m-d') : 'N/A',
+                    ucfirst($take->type ?? 'full'),
+                    $take->conductor?->name ?? 'N/A',
+                    $take->verifier?->name ?? 'N/A',
+                    ucfirst($take->status ?? 'pending'),
+                    $details?->count() ?? 0,
+                    $details?->where('variance_type', 'match')->count() ?? 0,
+                    $details?->where('variance_type', 'surplus')->count() ?? 0,
+                    $details?->where('variance_type', 'shortage')->count() ?? 0,
+                    $take->notes ?? 'N/A',
+                    $take->created_at ? \Carbon\Carbon::parse($take->created_at)->format('Y-m-d H:i') : 'N/A',
+                ];
+            }
+
+            $filename = 'stock-takes-' . now()->format('Y-m-d-His') . '.csv';
+            $handle = fopen('php://temp', 'r+');
+
+            foreach ($csvData as $row) {
+                fputcsv($handle, $row);
+            }
+
+            rewind($handle);
+            $csv = stream_get_contents($handle);
+            fclose($handle);
+
+            return response()->streamDownload(function () use ($csv) {
+                echo $csv;
+            }, $filename, [
+                'Content-Type' => 'text/csv',
+                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            ]);
+        } catch (\Exception $e) {
+            session()->flash('error', 'Export failed: ' . $e->getMessage());
+            return;
+        }
+    }
+
+    /**
+     * Get filtered stock takes based on current filters
+     */
+    private function getFilteredStockTakes()
+    {
+        $branchId = $this->getBranchId();
+
+        return StockTake::with(['branch', 'conductor', 'verifier', 'stockTakeDetails'])
+            ->where('branch_id', $branchId)
+            ->when($this->search, function ($q) {
+                $q->where('stock_take_number', 'like', '%' . $this->search . '%')
+                    ->orWhereHas('conductor', function ($query) {
+                        $query->where('name', 'like', '%' . $this->search . '%');
+                    });
+            })
+            ->when($this->filterType, fn($q) => $q->where('type', $this->filterType))
+            ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus))
+            ->orderBy('stock_take_date', 'desc')
+            ->get();
     }
 }

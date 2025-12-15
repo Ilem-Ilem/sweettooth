@@ -4,6 +4,7 @@ namespace App\Livewire\BranchDashboard\EmployeeModule\LeaveManagement;
 
 use App\Livewire\BaseComponent;
 use App\Models\LeaveType;
+use App\Services\LeaveAuditService;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Livewire\WithPagination;
@@ -162,12 +163,15 @@ class LeaveTypes extends BaseComponent
                 'color' => $this->color,
             ];
 
+            $actor = current_actor();
+
             if ($this->editMode) {
                 $leaveType = LeaveType::find($this->leaveTypeId);
                 $leaveType->update($data);
                 $message = 'Leave type updated successfully!';
             } else {
-                LeaveType::create($data);
+                $leaveType = LeaveType::create($data);
+                LeaveAuditService::logLeaveTypeCreation($this->name, $actor);
                 $message = 'Leave type created successfully!';
             }
 

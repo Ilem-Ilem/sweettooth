@@ -8,6 +8,7 @@ use App\Models\StockMovement;
 use App\Models\Purchase;
 use App\Models\ItemRequest;
 use App\Models\Item;
+use App\Traits\Exportable;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\{Layout, On, Url};
 use Carbon\Carbon;
@@ -16,7 +17,7 @@ use TallStackUi\Traits\Interactions;
 #[Layout('components.layouts.app.branch-dashboard')]
 class Analytics extends BaseComponent
 {
-    use Interactions;
+    use Interactions, Exportable;
 
     #[Url(keep: true)]
     public ?string $b_id = null;
@@ -559,12 +560,137 @@ class Analytics extends BaseComponent
 
     public function exportPDF()
     {
-        $this->toast()->info('PDF export will be available soon')->send();
+        $data = $this->prepareExportData();
+
+        if (empty($data['stock_health_data']) && empty($data['department_breakdown'])) {
+            $this->toast()->warning('No data available to export.')->send();
+            return;
+        }
+
+        return $this->export(
+            'inventory-analytics-' . now()->format('Y-m-d'),
+            collect($data),
+            'exports.inventory.analytics',
+            'pdf',
+            false,
+            ['orientation' => 'landscape', 'paper' => 'A4']
+        );
+    }
+
+    public function exportExcel()
+    {
+        $data = $this->prepareExportData();
+
+        if (empty($data['stock_health_data']) && empty($data['department_breakdown'])) {
+            $this->toast()->warning('No data available to export.')->send();
+            return;
+        }
+
+        return $this->export(
+            'inventory-analytics-' . now()->format('Y-m-d'),
+            collect($data),
+            'exports.inventory.analytics',
+            'excel'
+        );
     }
 
     public function exportCSV()
     {
-        $this->toast()->info('CSV export will be available soon')->send();
+        $data = $this->prepareExportData();
+
+        $csvData = [];
+        $csvData[] = ['Inventory Analytics Report'];
+        $csvData[] = ['Period', $this->dateFrom . ' to ' . $this->dateTo];
+        $csvData[] = ['Generated', now()->format('Y-m-d H:i:s')];
+        $csvData[] = [];
+
+        // Summary metrics
+        $csvData[] = ['SUMMARY METRICS'];
+        $csvData[] = ['Metric', 'Value'];
+        $csvData[] = ['Total Stock Value', number_format($data['total_stock_value'] ?? 0, 2)];
+        $csvData[] = ['Total Items', $data['total_items'] ?? 0];
+        $csvData[] = ['Total Purchases', $data['total_purchases'] ?? 0];
+        $csvData[] = ['Purchase Value', number_format($data['purchase_value'] ?? 0, 2)];
+        $csvData[] = ['Stock In', number_format($data['movements_in'] ?? 0, 2)];
+        $csvData[] = ['Stock Out', number_format($data['movements_out'] ?? 0, 2)];
+        $csvData[] = ['Low Stock Items', $data['low_stock_items'] ?? 0];
+        $csvData[] = ['Critical Items', $data['critical_items'] ?? 0];
+        $csvData[] = ['Expired Items', $data['expired_items'] ?? 0];
+        $csvData[] = [];
+
+        // Stock Health
+        $csvData[] = ['STOCK HEALTH STATUS'];
+        $csvData[] = ['Item Name', 'Stock Level', 'Reorder Level', 'Health %', 'Status', 'Last Movement', 'UOM'];
+        foreach ($data['stock_health_data'] ?? [] as $stock) {
+            $csvData[] = [
+                $stock['item_name'] ?? 'N/A',
+                $stock['stock_level'] ?? 0,
+                $stock['reorder_level'] ?? 0,
+                ($stock['health_percentage'] ?? 0) . '%',
+                ucfirst($stock['status'] ?? 'good'),
+                $stock['last_movement'] ?? 'N/A',
+                $stock['uom'] ?? 'units',
+            ];
+        }
+        $csvData[] = [];
+
+        // Category Breakdown
+        $csvData[] = ['CATEGORY BREAKDOWN'];
+        $csvData[] = ['Category', 'Stock Value', 'Items', 'Stock In', 'Stock Out', 'Low Items', 'Requests'];
+        foreach ($data['department_breakdown'] ?? [] as $dept) {
+            $csvData[] = [
+                $dept['category'] ?? 'N/A',
+                number_format($dept['stock_value'] ?? 0, 2),
+                $dept['item_count'] ?? 0,
+                number_format($dept['stock_in'] ?? 0, 2),
+                number_format($dept['stock_out'] ?? 0, 2),
+                $dept['low_items'] ?? 0,
+                $dept['requests'] ?? 0,
+            ];
+        }
+
+        $filename = 'inventory-analytics-' . now()->format('Y-m-d-His') . '.csv';
+        $handle = fopen('php://temp', 'r+');
+
+        foreach ($csvData as $row) {
+            fputcsv($handle, $row);
+        }
+
+        rewind($handle);
+        $csv = stream_get_contents($handle);
+        fclose($handle);
+
+        return response()->streamDownload(function () use ($csv) {
+            echo $csv;
+        }, $filename, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
+    }
+
+    protected function prepareExportData(): array
+    {
+        return [
+            'period' => ['from' => $this->dateFrom, 'to' => $this->dateTo],
+            'branch_name' => current_branch()?->name ?? 'All Branches',
+            'total_stock_value' => $this->totalStockValue,
+            'total_items' => $this->totalItems,
+            'total_purchases' => $this->totalPurchases,
+            'purchase_value' => $this->purchaseValue,
+            'movements_in' => $this->movementsIn,
+            'movements_out' => $this->movementsOut,
+            'total_movements' => $this->totalMovements,
+            'pending_requests' => $this->pendingRequests,
+            'completed_requests' => $this->completedRequests,
+            'low_stock_items' => $this->lowStockItems,
+            'critical_items' => $this->criticalItems,
+            'expired_items' => $this->expiredItems,
+            'insights' => $this->insights,
+            'stock_health_data' => $this->stockHealthData,
+            'top_alerts' => $this->topAlerts,
+            'department_breakdown' => $this->departmentBreakdown,
+            'performance_metrics' => $this->performanceMetrics,
+        ];
     }
 
     public function render()

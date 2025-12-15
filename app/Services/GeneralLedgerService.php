@@ -52,7 +52,7 @@ class GeneralLedgerService
         }
 
         return $query
-            ->with(['glAccount', 'accountingPeriod'])
+            ->with(['glAccount', 'period'])
             ->orderBy('entry_date')
             ->orderBy('created_at')
             ->get();
@@ -154,7 +154,7 @@ class GeneralLedgerService
     ): Collection {
         return GlEntry::where('reference_type', $referenceType)
             ->where('reference_id', $referenceId)
-            ->with(['glAccount', 'accountingPeriod'])
+            ->with(['glAccount', 'period'])
             ->orderBy('entry_date')
             ->get();
     }
@@ -185,7 +185,7 @@ class GeneralLedgerService
         }
 
         return $query
-            ->with(['glAccount', 'accountingPeriod', 'enteredBy', 'postedBy'])
+            ->with(['glAccount', 'period', 'enteredBy', 'postedBy'])
             ->where('status', 'posted')
             ->orderBy('entry_date', 'desc')
             ->orderBy('created_at', 'desc')

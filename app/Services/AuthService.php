@@ -34,8 +34,8 @@ class AuthService
      */
     public static function isSuperAdmin(): bool
     {
-        // Super admin = web guard authenticated
-        return Auth::guard('web')->check();
+        // Super admin = web guard authenticated AND NOT employees guard
+        return Auth::guard('web')->check() && !Auth::guard('employees')->check();
     }
 
     /**

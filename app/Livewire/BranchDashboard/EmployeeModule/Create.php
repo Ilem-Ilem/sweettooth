@@ -8,6 +8,8 @@ use App\Models\Branch;
 use App\Models\Department;
 use App\Models\ApprovalAuditRequest;
 use App\Services\AuditService;
+use App\Services\EmployeeApprovalService;
+use App\Services\EmployeeAuditService;
 use App\Traits\AuditableSyncTrait;
 use Illuminate\Support\Facades\Hash;
 use Livewire\WithFileUploads;
@@ -323,31 +325,13 @@ class Create extends BaseComponent
             $user = current_actor();
 
             if (!is_super_admin()) {
-                // EMPLOYEE: Create approval request (don't create employee yet)
-                // Optimized payload with all required fields for audit system
+                // EMPLOYEE: Create approval request using EmployeeApprovalService
                 $approvalPayload = array_merge($data, [
                     'branch_id' => $this->b_id,
                     'selectedRoles' => $this->selectedRoles,
                 ]);
 
-                ApprovalAuditRequest::create([
-                    'branch_id' => $this->b_id,
-                    'requester_id' => $user->id,
-                    'requester_type' => get_class($user),
-                    'action' => 'create:' . Employee::class,
-                    'description' => $this->creationReason,
-                    'payload' => $approvalPayload,
-                    'status' => 'pending',
-                ]);
-
-                // Log as pending
-                AuditService::log(
-                    $user,
-                    'create',
-                    null,
-                    $this->creationReason,
-                    'pending'
-                );
+                EmployeeApprovalService::requestCreate($approvalPayload, $this->creationReason);
 
                 $this->toast()->success('Employee creation request submitted for approval!')->send();
                 $this->redirectRoute('branch-dashboard.employee.index', ['b_id' => $this->b_id]);
@@ -359,22 +343,19 @@ class Create extends BaseComponent
 
             // Sync roles with audit
             if (!empty($this->selectedRoles)) {
-                $this->syncWithAudit(
+                $oldRoles = [];
+                $employee->syncRoles($this->selectedRoles);
+                EmployeeAuditService::logRoleChange(
                     $employee,
-                    'roles',
+                    $oldRoles,
                     $this->selectedRoles,
-                    "Created employee {$employee->name} with roles"
+                    "Initial role assignment during employee creation",
+                    $user
                 );
             }
 
-            // Log as completed
-            AuditService::log(
-                $user,
-                'create',
-                $employee,
-                'Employee created by super admin',
-                'completed'
-            );
+            // Log employee creation
+            EmployeeAuditService::logEmployeeCreation($employee, $user);
 
             $this->toast()->success('Employee created successfully!')->send();
             return redirect()->route('branch-dashboard.employee.index', ['b_id' => $this->b_id]);

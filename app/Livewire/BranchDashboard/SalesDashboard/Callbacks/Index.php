@@ -5,6 +5,7 @@ namespace App\Livewire\BranchDashboard\SalesDashboard\Callbacks;
 use App\Livewire\BaseComponent;
 use App\Models\ProductDispatchCallback;
 use App\Models\SalesShift;
+use App\Traits\Exportable;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Livewire\WithPagination;
@@ -13,7 +14,7 @@ use TallStackUi\Traits\Interactions;
 #[Layout('components.layouts.app.branch-dashboard')]
 class Index extends BaseComponent
 {
-    use WithPagination, Interactions;
+    use WithPagination, Interactions, Exportable;
 
     #[Url(keep: true)]
     public ?string $b_id = null;
@@ -261,6 +262,120 @@ class Index extends BaseComponent
 
         // Store for modal display
         $this->dispatch('show-callback-details', callback: $callback->toArray());
+    }
+
+    /**
+     * Get filtered callbacks for export
+     */
+    private function getFilteredCallbacks()
+    {
+        $query = ProductDispatchCallback::with(['product', 'salesShift', 'recordedBy', 'approvedBy', 'receivedBy'])
+            ->whereHas('salesShift', function ($q) {
+                $q->where('branch_id', $this->getBranchId());
+            });
+
+        // Search filter
+        if ($this->search) {
+            $query->where(function ($q) {
+                $q->whereHas('product', function ($productQuery) {
+                    $productQuery->where('name', 'like', '%' . $this->search . '%')
+                                 ->orWhere('sku', 'like', '%' . $this->search . '%');
+                })
+                ->orWhereHas('recordedBy', function ($employeeQuery) {
+                    $employeeQuery->where('name', 'like', '%' . $this->search . '%');
+                });
+            });
+        }
+
+        // Status filter
+        if ($this->filterStatus) {
+            $query->where('status', $this->filterStatus);
+        }
+
+        // Date range filter
+        if ($this->startDate) {
+            $query->whereDate('callback_time', '>=', $this->startDate);
+        }
+        if ($this->endDate) {
+            $query->whereDate('callback_time', '<=', $this->endDate);
+        }
+
+        return $query->orderBy('callback_time', 'desc')->get();
+    }
+
+    /**
+     * Export callbacks as PDF
+     * Note: PDF/Excel exports cannot be returned directly from Livewire.
+     */
+    public function exportPDF()
+    {
+        session()->flash('info', 'PDF export coming soon. Please use CSV export instead.');
+    }
+
+    /**
+     * Export callbacks as Excel
+     * Note: PDF/Excel exports cannot be returned directly from Livewire.
+     */
+    public function exportExcel()
+    {
+        session()->flash('info', 'Excel export coming soon. Please use CSV export instead.');
+    }
+
+    /**
+     * Export callbacks as CSV
+     */
+    public function exportCSV()
+    {
+        try {
+            $callbacks = $this->getFilteredCallbacks();
+
+            if ($callbacks->isEmpty()) {
+                session()->flash('warning', 'No callbacks to export.');
+                return;
+            }
+
+            $csvData = [
+                ['Callback ID', 'Product', 'SKU', 'Quantity', 'UOM', 'Reason', 'Status', 'Callback Time', 'Recorded By', 'Approved By', 'Received By', 'Notes'],
+            ];
+
+            foreach ($callbacks as $callback) {
+                $csvData[] = [
+                    $callback->id ?? 'N/A',
+                    $callback->product?->name ?? 'N/A',
+                    $callback->product?->sku ?? 'N/A',
+                    $callback->quantity ?? 0,
+                    $callback->uom ?? 'kg',
+                    ucfirst(str_replace('_', ' ', $callback->reason ?? 'N/A')),
+                    ucfirst(str_replace('_', ' ', $callback->status ?? 'pending')),
+                    $callback->callback_time ? \Carbon\Carbon::parse($callback->callback_time)->format('Y-m-d H:i') : 'N/A',
+                    $callback->recordedBy?->name ?? 'N/A',
+                    $callback->approvedBy?->name ?? 'N/A',
+                    $callback->receivedBy?->name ?? 'N/A',
+                    $callback->notes ?? 'N/A',
+                ];
+            }
+
+            $filename = 'product-callbacks-' . now()->format('Y-m-d-His') . '.csv';
+            $handle = fopen('php://temp', 'r+');
+
+            foreach ($csvData as $row) {
+                fputcsv($handle, $row);
+            }
+
+            rewind($handle);
+            $csv = stream_get_contents($handle);
+            fclose($handle);
+
+            return response()->streamDownload(function () use ($csv) {
+                echo $csv;
+            }, $filename, [
+                'Content-Type' => 'text/csv',
+                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            ]);
+        } catch (\Exception $e) {
+            session()->flash('error', 'Export failed: ' . $e->getMessage());
+            return;
+        }
     }
 
     public function exportCallbacks()

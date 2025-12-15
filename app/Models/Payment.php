@@ -10,6 +10,7 @@ class Payment extends Model
 {
     protected $fillable = [
         'sale_id',
+        'branch_id',
         'payment_method',
         'amount',
         'reference_number',
@@ -36,6 +37,11 @@ class Payment extends Model
     public function glEntry(): BelongsTo
     {
         return $this->belongsTo(GlEntry::class, 'gl_entry_id');
+    }
+
+    public function bankAccount(): BelongsTo
+    {
+        return $this->belongsTo(BankAccount::class, 'bank_account_id');
     }
 
     // Helper Methods

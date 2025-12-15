@@ -8,6 +8,7 @@ use App\Models\ItemRequest;
 use App\Models\ItemRequestDetail;
 use App\Models\Stock;
 use App\Services\AuditService;
+use App\Traits\Exportable;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\{Layout, Url, On};
@@ -17,7 +18,7 @@ use Illuminate\Support\Facades\DB;
 #[Layout('components.layouts.app.branch-dashboard')]
 class ItemRequests extends Component
 {
-    use WithPagination;
+    use WithPagination, Exportable;
     #[Url(keep: true)]
     public ?string $b_id = null;
     public $search = '';
@@ -274,5 +275,133 @@ class ItemRequests extends Component
     {
         $this->showDetailModal = false;
         $this->selectedRequest = null;
+    }
+
+    protected function getModelClass(): string
+    {
+        return ItemRequest::class;
+    }
+
+    protected function getAllSelectableIds(): array
+    {
+        $branchId = $this->getBranchId();
+        return ItemRequest::where('branch_id', $branchId)->pluck('id')->toArray();
+    }
+
+    /**
+     * Export item requests as PDF
+     */
+    public function exportPDF()
+    {
+        try {
+            $requests = $this->getFilteredRequests();
+
+            if ($requests->isEmpty()) {
+                session()->flash('warning', 'No requests to export.');
+                return;
+            }
+
+            $response = $this->export(
+                'item-requests-' . now()->format('Y-m-d'),
+                $requests,
+                'exports.inventory.item-requests',
+                'pdf'
+            );
+            $response->send();
+        } catch (\Exception $e) {
+            session()->flash('error', 'Export failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Export item requests as Excel
+     */
+    public function exportExcel()
+    {
+        try {
+            $requests = $this->getFilteredRequests();
+
+            if ($requests->isEmpty()) {
+                session()->flash('warning', 'No requests to export.');
+                return;
+            }
+
+            $response = $this->export(
+                'item-requests-' . now()->format('Y-m-d'),
+                $requests,
+                'exports.inventory.item-requests',
+                'excel'
+            );
+            $response->send();
+        } catch (\Exception $e) {
+            session()->flash('error', 'Export failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Export item requests as CSV
+     */
+    public function exportCSV()
+    {
+        try {
+            $requests = $this->getFilteredRequests();
+
+            if ($requests->isEmpty()) {
+                session()->flash('warning', 'No requests to export.');
+                return;
+            }
+
+            $data = $requests->map(function ($request) {
+                return [
+                    'request_number' => $request->request_number ?? 'N/A',
+                    'department' => $request->department?->name ?? 'N/A',
+                    'requester' => $request->requester?->name ?? 'N/A',
+                    'request_date' => $request->request_date ? \Carbon\Carbon::parse($request->request_date)->format('Y-m-d') : 'N/A',
+                    'status' => ucfirst($request->status ?? 'pending'),
+                    'items_count' => $request->requestDetails?->count() ?? 0,
+                    'total_quantity' => $request->requestDetails?->sum('quantity_requested') ?? 0,
+                    'approved_quantity' => $request->requestDetails?->sum('quantity_approved') ?? 0,
+                    'dispatched_quantity' => $request->requestDetails?->sum('quantity_dispatched') ?? 0,
+                    'notes' => $request->notes ?? 'N/A',
+                    'created_at' => $request->created_at ? \Carbon\Carbon::parse($request->created_at)->format('Y-m-d H:i') : 'N/A',
+                ];
+            });
+
+            return $this->export(
+                'item-requests-' . now()->format('Y-m-d'),
+                $data,
+                'exports.inventory.item-requests',
+                'excel'
+            );
+        } catch (\Exception $e) {
+            session()->flash('error', 'Export failed: ' . $e->getMessage());
+            return;
+        }
+    }
+
+    /**
+     * Get filtered requests based on current filters
+     */
+    private function getFilteredRequests()
+    {
+        $branchId = $this->getBranchId();
+
+        return ItemRequest::with(['branch', 'department', 'requester', 'requestDetails'])
+            ->where('branch_id', $branchId)
+            ->when($this->search, function ($q) {
+                $q->where(function ($query) {
+                    $query->where('request_number', 'like', '%' . $this->search . '%')
+                        ->orWhereHas('requester', function ($subQuery) {
+                            $subQuery->where('name', 'like', '%' . $this->search . '%');
+                        })
+                        ->orWhereHas('department', function ($subQuery) {
+                            $subQuery->where('name', 'like', '%' . $this->search . '%');
+                        });
+                });
+            })
+            ->when($this->filterDepartment, fn($q) => $q->where('department_id', $this->filterDepartment))
+            ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus))
+            ->orderBy('created_at', 'desc')
+            ->get();
     }
 }

@@ -5,6 +5,7 @@ namespace App\Models;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use App\Services\LeaveAuditService;
 
 class LeaveApplication extends Model
 {
@@ -143,6 +144,12 @@ class LeaveApplication extends Model
 
         // Update leave balance
         $this->updateLeaveBalance('approve');
+
+        // Log the approval
+        $approver = $this->approvedBy;
+        if ($approver) {
+            LeaveAuditService::logLeaveApproval($this, $approver, $notes);
+        }
     }
 
     public function reject($rejecterId, $rejecterType, $reason)
@@ -156,6 +163,12 @@ class LeaveApplication extends Model
 
         // Update leave balance
         $this->updateLeaveBalance('reject');
+
+        // Log the rejection
+        $rejector = $this->rejectedBy;
+        if ($rejector) {
+            LeaveAuditService::logLeaveRejection($this, $rejector, $reason);
+        }
     }
 
     public function cancel($cancellerId, $cancellerType, $reason)

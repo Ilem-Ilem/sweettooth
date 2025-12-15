@@ -4,13 +4,16 @@ namespace App\Livewire\BranchDashboard\Analytics;
 
 use App\Models\Stock;
 use App\Models\ItemRequest;
+use App\Traits\Exportable;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\Attributes\{Layout, On, Url};
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class AlertsDashboard extends Component
 {
+    use Exportable;
     public $alertType = '';
 
     #[Url(keep:true)]
@@ -154,6 +157,55 @@ class AlertsDashboard extends Component
             'low_stock' => $alerts->where('category', 'low_stock')->count(),
             'out_of_stock' => $alerts->where('category', 'out_of_stock')->count(),
         ];
+    }
+
+    public function exportCSV()
+    {
+        $alerts = $this->getAllAlerts();
+        $filename = 'alerts-dashboard-' . now()->format('Y-m-d-His') . '.csv';
+        
+        return response()->streamDownload(function () use ($alerts) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, ['Type', 'Category', 'Message', 'Item', 'SKU', 'Current', 'Reorder Level', 'Days Left', 'Damaged Qty', 'Recommended Action']);
+
+            foreach ($alerts as $alert) {
+                fputcsv($handle, [
+                    ucfirst($alert['type']),
+                    ucfirst(str_replace('_', ' ', $alert['category'])),
+                    $alert['message'],
+                    $alert['item'] ?? '',
+                    $alert['sku'] ?? '',
+                    isset($alert['current']) ? number_format($alert['current'], 2) : '',
+                    isset($alert['reorder_level']) ? number_format($alert['reorder_level'], 2) : '',
+                    $alert['days_left'] ?? '',
+                    isset($alert['damaged_qty']) ? number_format($alert['damaged_qty'], 2) : '',
+                    $alert['action'] ?? '',
+                ]);
+            }
+            fclose($handle);
+        }, $filename);
+    }
+
+    public function exportPDF()
+    {
+        $alerts = $this->getAllAlerts();
+        return $this->export(
+            'alerts-dashboard',
+            $alerts,
+            'exports.analytics.alerts-dashboard',
+            'pdf'
+        );
+    }
+
+    public function exportExcel()
+    {
+        $alerts = $this->getAllAlerts();
+        return $this->export(
+            'alerts-dashboard',
+            $alerts,
+            'exports.analytics.alerts-dashboard',
+            'excel'
+        );
     }
 
     public function render()

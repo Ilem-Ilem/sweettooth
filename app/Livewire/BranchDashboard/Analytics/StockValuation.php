@@ -3,15 +3,17 @@
 namespace App\Livewire\BranchDashboard\Analytics;
 
 use App\Models\Stock;
+use App\Traits\Exportable;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class StockValuation extends Component
 {
-    use WithPagination;
+    use WithPagination, Exportable;
 
     public $selectedCategory = '';
     public $searchTerm = '';
@@ -49,7 +51,7 @@ class StockValuation extends Component
 
     public function getValuationSummary()
     {
-        $branchId = Auth::guard('employees')->user()->branch_id;
+        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
 
         $stocks = Stock::with('item')->where('branch_id', $branchId)->get();
 
@@ -68,7 +70,7 @@ class StockValuation extends Component
 
     public function getCategoryValuation()
     {
-        $branchId = Auth::guard('employees')->user()->branch_id;
+        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
 
         $stocks = Stock::with('item')
             ->where('branch_id', $branchId)
@@ -97,7 +99,7 @@ class StockValuation extends Component
 
     public function getTopValueItems()
     {
-        $branchId = Auth::guard('employees')->user()->branch_id;
+        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
 
         return Stock::with('item')
             ->where('branch_id', $branchId)
@@ -123,7 +125,7 @@ class StockValuation extends Component
 
     public function getLowStockItems()
     {
-        $branchId = Auth::guard('employees')->user()->branch_id;
+        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
 
         return Stock::with('item')
             ->where('branch_id', $branchId)
@@ -151,7 +153,7 @@ class StockValuation extends Component
 
     public function getCategoryGroupedData()
     {
-        $branchId = Auth::guard('employees')->user()->branch_id;
+        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
 
         $stocks = Stock::with('item')
             ->where('branch_id', $branchId)
@@ -184,9 +186,116 @@ class StockValuation extends Component
         })->sortByDesc('total_value')->values();
     }
 
+    public function exportCSV()
+    {
+        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
+
+        $stocks = Stock::with('item')
+            ->where('branch_id', $branchId)
+            ->when($this->searchTerm, function ($query) {
+                $query->whereHas('item', function ($q) {
+                    $q->where('name', 'like', '%' . $this->searchTerm . '%')
+                      ->orWhere('sku', 'like', '%' . $this->searchTerm . '%');
+                });
+            })
+            ->when($this->selectedCategory, function ($query) {
+                $query->whereHas('item', function ($q) {
+                    $q->where('category', $this->selectedCategory);
+                });
+            })
+            ->get()
+            ->map(function ($stock) {
+                $stock->total_value = ($stock->quantity_available + $stock->quantity_reserved) * $stock->average_cost;
+                $stock->available_value = $stock->quantity_available * $stock->average_cost;
+                return $stock;
+            });
+
+        $filename = 'stock-valuation-' . now()->format('Y-m-d-His') . '.csv';
+        return response()->streamDownload(function () use ($stocks) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, ['Item', 'SKU', 'Category', 'Qty Available', 'Qty Reserved', 'Avg Cost', 'Available Value', 'Total Value']);
+
+            foreach ($stocks as $stock) {
+                fputcsv($handle, [
+                    $stock->item->name,
+                    $stock->item->sku,
+                    str_replace('_', ' ', ucfirst($stock->item->category)),
+                    number_format($stock->quantity_available, 2),
+                    number_format($stock->quantity_reserved, 2),
+                    number_format($stock->average_cost, 2),
+                    number_format($stock->available_value, 2),
+                    number_format($stock->total_value, 2),
+                ]);
+            }
+            fclose($handle);
+        }, $filename);
+    }
+
+    public function exportPDF()
+    {
+        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
+        $stocks = Stock::with('item')
+            ->where('branch_id', $branchId)
+            ->when($this->searchTerm, function ($query) {
+                $query->whereHas('item', function ($q) {
+                    $q->where('name', 'like', '%' . $this->searchTerm . '%')
+                      ->orWhere('sku', 'like', '%' . $this->searchTerm . '%');
+                });
+            })
+            ->when($this->selectedCategory, function ($query) {
+                $query->whereHas('item', function ($q) {
+                    $q->where('category', $this->selectedCategory);
+                });
+            })
+            ->get()
+            ->map(function ($stock) {
+                $stock->total_value = ($stock->quantity_available + $stock->quantity_reserved) * $stock->average_cost;
+                $stock->available_value = $stock->quantity_available * $stock->average_cost;
+                return $stock;
+            });
+
+        return $this->export(
+            'stock-valuation',
+            $stocks,
+            'exports.analytics.stock-valuation',
+            'pdf'
+        );
+    }
+
+    public function exportExcel()
+    {
+        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
+        $stocks = Stock::with('item')
+            ->where('branch_id', $branchId)
+            ->when($this->searchTerm, function ($query) {
+                $query->whereHas('item', function ($q) {
+                    $q->where('name', 'like', '%' . $this->searchTerm . '%')
+                      ->orWhere('sku', 'like', '%' . $this->searchTerm . '%');
+                });
+            })
+            ->when($this->selectedCategory, function ($query) {
+                $query->whereHas('item', function ($q) {
+                    $q->where('category', $this->selectedCategory);
+                });
+            })
+            ->get()
+            ->map(function ($stock) {
+                $stock->total_value = ($stock->quantity_available + $stock->quantity_reserved) * $stock->average_cost;
+                $stock->available_value = $stock->quantity_available * $stock->average_cost;
+                return $stock;
+            });
+
+        return $this->export(
+            'stock-valuation',
+            $stocks,
+            'exports.analytics.stock-valuation',
+            'excel'
+        );
+    }
+
     public function render()
     {
-        $branchId = Auth::guard('employees')->user()->branch_id;
+        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
 
         $stocks = Stock::with('item')
             ->where('branch_id', $branchId)

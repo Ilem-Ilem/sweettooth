@@ -127,6 +127,14 @@ class Purchase extends Model
     }
 
     /**
+     * Get the bank account for this purchase (payment method)
+     */
+    public function bankAccount(): BelongsTo
+    {
+        return $this->belongsTo(BankAccount::class, 'bank_account_id');
+    }
+
+    /**
      * Calculate total purchase cost
      */
     public function calculateTotalCost(): float

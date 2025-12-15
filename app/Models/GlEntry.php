@@ -113,7 +113,7 @@ class GlEntry extends Model
     }
 
     // Methods
-    public function post(int $userId): bool
+    public function post(string|int $userId): bool
     {
         if ($this->status !== 'draft') {
             return false;
@@ -130,7 +130,7 @@ class GlEntry extends Model
         return true;
     }
 
-    public function reverse(int $userId): bool
+    public function reverse(string|int $userId): bool
     {
         if ($this->status !== 'posted') {
             return false;

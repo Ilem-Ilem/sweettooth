@@ -5,17 +5,19 @@ namespace App\Livewire\BranchDashboard\Analytics;
 use App\Models\Item;
 use App\Models\Stock;
 use App\Models\StockMovement;
+use App\Traits\Exportable;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\{Layout, Url};
 use Carbon\Carbon;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class StockLevelAnalytics extends Component
 {
-    use WithPagination;
+    use WithPagination, Exportable;
 
     public $dateFrom;
     public $dateTo;
@@ -365,6 +367,42 @@ class StockLevelAnalytics extends Component
         }
 
         return $insights;
+    }
+
+    public function exportCSV()
+    {
+        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
+        return redirect(branch_route('branch-dashboard.exports.stock-level-analytics', [
+            'format' => 'csv',
+            'search' => $this->searchTerm,
+            'category' => $this->selectedCategory,
+            'health' => $this->healthFilter,
+            'b_id' => $branchId,
+        ]));
+    }
+
+    public function exportPDF()
+    {
+        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
+        return redirect(branch_route('branch-dashboard.exports.stock-level-analytics', [
+            'format' => 'pdf',
+            'search' => $this->searchTerm,
+            'category' => $this->selectedCategory,
+            'health' => $this->healthFilter,
+            'b_id' => $branchId,
+        ]));
+    }
+
+    public function exportExcel()
+    {
+        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
+        return redirect(branch_route('branch-dashboard.exports.stock-level-analytics', [
+            'format' => 'excel',
+            'search' => $this->searchTerm,
+            'category' => $this->selectedCategory,
+            'health' => $this->healthFilter,
+            'b_id' => $branchId,
+        ]));
     }
 
     public function render()

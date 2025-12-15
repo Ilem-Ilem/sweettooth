@@ -9,6 +9,7 @@ use Livewire\Attributes\Computed;
 use App\Models\DepartmentCategory;
 use App\Models\ApprovalAuditRequest;
 use App\Services\AuditService;
+use App\Services\DepartmentApprovalService;
 use Livewire\Attributes\{Layout, On, Title, Url};
 
 /**
@@ -385,25 +386,7 @@ class Index extends BaseComponent
                 $this->dialog()->success('Success', 'Department deleted successfully!')->send();
             } else {
                 // ===== EMPLOYEE DELETION (APPROVAL REQUIRED) =====
-                // Validate deletion reason length
-                if (strlen($this->deleteReason) < 5) {
-                    $this->toast()->error('Reason must be at least 5 characters long')->send();
-                    return;
-                }
-                
-                // Create approval request for super admin review
-                ApprovalAuditRequest::create([
-                    'branch_id' => $this->b_id,
-                    'requester_id' => $user->id,
-                    'requester_type' => get_class($user),
-                    'action' => 'delete:'.\App\Models\Department::class,
-                    'description' => $this->deleteReason,
-                    'payload' => $department->toArray(),
-                    'status' => 'pending',
-                ]);
-                
-                // Log as pending audit entry (not yet deleted)
-                AuditService::log($user, 'delete', $department, $this->deleteReason, 'pending');
+                DepartmentApprovalService::requestDelete($department, $this->deleteReason);
                 $this->toast()->success('Delete request submitted for approval')->send();
             }
             

@@ -8,6 +8,8 @@ use App\Models\Branch;
 use App\Models\Department;
 use App\Models\ApprovalAuditRequest;
 use App\Services\AuditService;
+use App\Services\EmployeeApprovalService;
+use App\Services\EmployeeAuditService;
 use App\Traits\AuditableSyncTrait;
 use Livewire\WithFileUploads;
 use Spatie\Permission\Models\Role;
@@ -305,29 +307,12 @@ class Edit extends BaseComponent
             $user = current_actor();
 
             if (!is_super_admin()) {
-                // EMPLOYEE: Create approval request with optimized payload
-                $approvalPayload = array_merge($data, [
-                    'id' => $this->employeeId, // Required for audit system
-                    'selectedRoles' => $this->selectedRoles,
-                ]);
-
-                ApprovalAuditRequest::create([
-                    'branch_id' => $this->b_id,
-                    'requester_id' => $user->id,
-                    'requester_type' => get_class($user),
-                    'action' => 'update:' . Employee::class . ':' . $this->employeeId,
-                    'description' => $this->updateReason,
-                    'payload' => $approvalPayload,
-                    'status' => 'pending',
-                ]);
-
-                // Log as pending
-                AuditService::log(
-                    $user,
-                    'update',
+                // EMPLOYEE: Create approval request using EmployeeApprovalService
+                EmployeeApprovalService::requestUpdate(
                     $employee,
+                    $data,
                     $this->updateReason,
-                    'pending'
+                    ['roles' => $this->selectedRoles]
                 );
 
                 $this->toast()->success('Employee update request submitted for approval!')->send();
@@ -336,24 +321,33 @@ class Edit extends BaseComponent
             }
 
             // SUPER ADMIN: Update immediately
+            $originalData = $employee->getOriginal();
             $employee->update($data);
 
-            // Sync roles with audit
-            $this->syncWithAudit(
-                $employee,
-                'roles',
-                $this->selectedRoles,
-                "Updated employee {$employee->name} - roles changed"
-            );
+            // Track changes for audit
+            $changes = [];
+            foreach ($data as $key => $value) {
+                if (isset($originalData[$key]) && $originalData[$key] != $value) {
+                    $changes[$key] = ['old' => $originalData[$key], 'new' => $value];
+                }
+            }
 
-            // Log as completed
-            AuditService::log(
-                $user,
-                'update',
-                $employee,
-                'Employee updated by super admin',
-                'completed'
-            );
+            // Sync roles with audit
+            $oldRoles = $employee->roles->pluck('name')->toArray();
+            $employee->syncRoles($this->selectedRoles);
+
+            if ($oldRoles != $this->selectedRoles) {
+                EmployeeAuditService::logRoleChange(
+                    $employee,
+                    $oldRoles,
+                    $this->selectedRoles,
+                    "Roles updated during employee edit",
+                    $user
+                );
+            }
+
+            // Log employee update
+            EmployeeAuditService::logEmployeeUpdate($employee, $changes, $user);
 
             $this->toast()->success('Employee updated successfully!')->send();
             $this->redirectRoute('branch-dashboard.employees.index', ['b_id' => $this->b_id]);

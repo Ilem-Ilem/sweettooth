@@ -8,6 +8,7 @@ use App\Models\ItemRequestDetail;
 use App\Models\Stock;
 use App\Models\StockMovement;
 use App\Services\AuditService;
+use App\Traits\Exportable;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\{Layout, Url, On};
@@ -19,7 +20,7 @@ use TallStackUi\Traits\Interactions;
 #[Layout('components.layouts.app.branch-dashboard')]
 class ItemDispatches extends Component
 {
-    use Interactions, WithPagination;
+    use Interactions, WithPagination, Exportable;
 
     // Pagination
     public $quantity = 15;
@@ -466,5 +467,148 @@ class ItemDispatches extends Component
     public function updatedFilterReceived()
     {
         $this->resetPage();
+    }
+
+    public function exportPDF()
+    {
+        try {
+            $dispatches = ItemDispatch::with(['itemRequest.branch', 'itemRequestDetail.item'])
+                ->whereHas('itemRequest', fn($q) => $q->where('branch_id', $this->getBranchId()))
+                ->when($this->search, fn($q) => $q->whereHas('itemRequestDetail.item', fn($sq) => $sq->where('name', 'like', '%' . $this->search . '%')))
+                ->when($this->filterDateFrom, fn($q) => $q->whereDate('created_at', '>=', $this->filterDateFrom))
+                ->when($this->filterDateTo, fn($q) => $q->whereDate('created_at', '<=', $this->filterDateTo))
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            if ($dispatches->isEmpty()) {
+                $this->toast()->warning('No dispatches to export.')->send();
+                return;
+            }
+
+            $data = $dispatches->map(function ($dispatch) {
+                return [
+                    'request_number' => $dispatch->itemRequest->request_number ?? 'N/A',
+                    'item_name' => $dispatch->itemRequestDetail->item->name ?? 'N/A',
+                    'sku' => $dispatch->itemRequestDetail->item->sku ?? 'N/A',
+                    'quantity_requested' => $dispatch->itemRequestDetail->quantity_requested ?? 0,
+                    'quantity_approved' => $dispatch->itemRequestDetail->quantity_approved ?? 0,
+                    'quantity_dispatched' => $dispatch->quantity_dispatched ?? 0,
+                    'uom' => $dispatch->itemRequestDetail->item->uom ?? 'units',
+                    'dispatch_date' => $dispatch->created_at ? \Carbon\Carbon::parse($dispatch->created_at)->format('Y-m-d H:i') : 'N/A',
+                    'status' => $dispatch->itemRequest->status ?? 'N/A',
+                ];
+            });
+
+            return $this->export(
+                'item-dispatches-' . now()->format('Y-m-d'),
+                $data,
+                'exports.inventory.dispatches',
+                'pdf',
+                false,
+                ['orientation' => 'landscape', 'paper' => 'A4']
+            );
+        } catch (\Exception $e) {
+            $this->toast()->error('Export failed: ' . $e->getMessage())->send();
+            return;
+        }
+    }
+
+    public function exportExcel()
+    {
+        try {
+            $dispatches = ItemDispatch::with(['itemRequest.branch', 'itemRequestDetail.item'])
+                ->whereHas('itemRequest', fn($q) => $q->where('branch_id', $this->getBranchId()))
+                ->when($this->search, fn($q) => $q->whereHas('itemRequestDetail.item', fn($sq) => $sq->where('name', 'like', '%' . $this->search . '%')))
+                ->when($this->filterDateFrom, fn($q) => $q->whereDate('created_at', '>=', $this->filterDateFrom))
+                ->when($this->filterDateTo, fn($q) => $q->whereDate('created_at', '<=', $this->filterDateTo))
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            if ($dispatches->isEmpty()) {
+                $this->toast()->warning('No dispatches to export.')->send();
+                return;
+            }
+
+            $data = $dispatches->map(function ($dispatch) {
+                return [
+                    'request_number' => $dispatch->itemRequest->request_number ?? 'N/A',
+                    'item_name' => $dispatch->itemRequestDetail->item->name ?? 'N/A',
+                    'sku' => $dispatch->itemRequestDetail->item->sku ?? 'N/A',
+                    'quantity_requested' => $dispatch->itemRequestDetail->quantity_requested ?? 0,
+                    'quantity_approved' => $dispatch->itemRequestDetail->quantity_approved ?? 0,
+                    'quantity_dispatched' => $dispatch->quantity_dispatched ?? 0,
+                    'uom' => $dispatch->itemRequestDetail->item->uom ?? 'units',
+                    'dispatch_date' => $dispatch->created_at ? \Carbon\Carbon::parse($dispatch->created_at)->format('Y-m-d H:i') : 'N/A',
+                    'status' => $dispatch->itemRequest->status ?? 'N/A',
+                ];
+            });
+
+            return $this->export(
+                'item-dispatches-' . now()->format('Y-m-d'),
+                $data,
+                'exports.inventory.dispatches',
+                'excel'
+            );
+        } catch (\Exception $e) {
+            $this->toast()->error('Export failed: ' . $e->getMessage())->send();
+            return;
+        }
+    }
+
+    public function exportCSV()
+    {
+        try {
+            $dispatches = ItemDispatch::with(['itemRequest.branch', 'itemRequestDetail.item'])
+                ->whereHas('itemRequest', fn($q) => $q->where('branch_id', $this->getBranchId()))
+                ->when($this->search, fn($q) => $q->whereHas('itemRequestDetail.item', fn($sq) => $sq->where('name', 'like', '%' . $this->search . '%')))
+                ->when($this->filterDateFrom, fn($q) => $q->whereDate('created_at', '>=', $this->filterDateFrom))
+                ->when($this->filterDateTo, fn($q) => $q->whereDate('created_at', '<=', $this->filterDateTo))
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            if ($dispatches->isEmpty()) {
+                $this->toast()->warning('No dispatches to export.')->send();
+                return;
+            }
+
+            $csvData = [
+                ['Request #', 'Item Name', 'SKU', 'Requested', 'Approved', 'Dispatched', 'UOM', 'Dispatch Date', 'Status'],
+            ];
+
+            foreach ($dispatches as $dispatch) {
+                $csvData[] = [
+                    $dispatch->itemRequest->request_number ?? 'N/A',
+                    $dispatch->itemRequestDetail->item->name ?? 'N/A',
+                    $dispatch->itemRequestDetail->item->sku ?? 'N/A',
+                    $dispatch->itemRequestDetail->quantity_requested ?? 0,
+                    $dispatch->itemRequestDetail->quantity_approved ?? 0,
+                    $dispatch->quantity_dispatched ?? 0,
+                    $dispatch->itemRequestDetail->item->uom ?? 'units',
+                    $dispatch->created_at ? \Carbon\Carbon::parse($dispatch->created_at)->format('Y-m-d H:i') : 'N/A',
+                    $dispatch->itemRequest->status ?? 'N/A',
+                ];
+            }
+
+            $filename = 'item-dispatches-' . now()->format('Y-m-d-His') . '.csv';
+            $handle = fopen('php://temp', 'r+');
+
+            foreach ($csvData as $row) {
+                fputcsv($handle, $row);
+            }
+
+            rewind($handle);
+            $csv = stream_get_contents($handle);
+            fclose($handle);
+
+            return response()->streamDownload(function () use ($csv) {
+                echo $csv;
+            }, $filename, [
+                'Content-Type' => 'text/csv',
+                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            ]);
+        } catch (\Exception $e) {
+            $this->toast()->error('Export failed: ' . $e->getMessage())->send();
+            return;
+        }
     }
 }

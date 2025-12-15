@@ -4,7 +4,9 @@ namespace App\Livewire\BranchDashboard\Accounting;
 
 use App\Models\AccountingPeriod;
 use Livewire\Component;
+use Livewire\Attributes\Layout;
 
+#[Layout('components.layouts.app.branch-dashboard')]
 class PeriodManagement extends Component
 {
     public ?int $selectedPeriodId = null;

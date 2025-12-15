@@ -80,6 +80,11 @@ class Sale extends Model
         return $this->belongsTo(GlEntry::class, 'gl_entry_id');
     }
 
+    public function bankAccount(): BelongsTo
+    {
+        return $this->belongsTo(BankAccount::class, 'bank_account_id');
+    }
+
     // Helper Methods
     public function calculateTotals(): void
     {

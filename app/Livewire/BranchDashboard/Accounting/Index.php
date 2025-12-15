@@ -9,7 +9,9 @@ use App\Services\BalanceSheetService;
 use App\Models\AccountingPeriod;
 use App\Models\GlEntry;
 use Livewire\Component;
+use Livewire\Attributes\Layout;
 
+#[Layout('components.layouts.app.branch-dashboard')]
 class Index extends Component
 {
     protected GeneralLedgerService $glService;
@@ -64,7 +66,7 @@ class Index extends Component
         // Recent GL Entries
         $recentEntries = GlEntry::where('status', 'posted')
             ->when($this->currentPeriodId, fn($q) => $q->where('accounting_period_id', $this->currentPeriodId))
-            ->with(['glAccount', 'accountingPeriod'])
+            ->with(['glAccount', 'period'])
             ->orderBy('entry_date', 'desc')
             ->orderBy('created_at', 'desc')
             ->limit(10)

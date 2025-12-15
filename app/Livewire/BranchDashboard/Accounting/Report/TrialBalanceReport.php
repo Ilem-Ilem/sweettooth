@@ -5,7 +5,9 @@ namespace App\Livewire\BranchDashboard\Accounting\Report;
 use App\Services\TrialBalanceService;
 use App\Models\AccountingPeriod;
 use Livewire\Component;
+use Livewire\Attributes\Layout;
 
+#[Layout('components.layouts.app.branch-dashboard')]
 class TrialBalanceReport extends Component
 {
     protected TrialBalanceService $tbService;

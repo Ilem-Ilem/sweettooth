@@ -5,6 +5,7 @@ namespace App\Livewire\BranchDashboard\Inventory;
 use App\Models\HealthCheck;
 use App\Models\Stock;
 use App\Services\AuditService;
+use App\Traits\Exportable;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\{Layout, On, Url};
@@ -13,7 +14,7 @@ use Illuminate\Support\Facades\Auth;
 #[Layout('components.layouts.app.branch-dashboard')]
 class HealthChecks extends Component
 {
-    use WithPagination;
+    use WithPagination, Exportable;
     #[Url(keep:true)]
     public ?string $b_id = null;
 
@@ -44,9 +45,14 @@ class HealthChecks extends Component
         'stock_id' => 'required|exists:stocks,id',
         'check_date' => 'required|date',
         'condition' => 'required|in:good,fair,poor,damaged,expired',
-        'quantity_affected' => 'nullable|numeric|min:0',
+        'quantity_affected' => 'nullable|numeric|min:0.01',
         'observations' => 'nullable|string',
         'action_taken' => 'nullable|string',
+    ];
+
+    protected $messages = [
+        'quantity_affected.numeric' => 'Quantity affected must be a number.',
+        'quantity_affected.min' => 'Quantity affected must be greater than 0.01.',
     ];
 
        public function getBranchId()
@@ -118,6 +124,12 @@ class HealthChecks extends Component
             return;
         }
 
+        // Validate quantity affected does not exceed available quantity
+        if ($this->quantity_affected && $this->quantity_affected > $stock->quantity_available) {
+            $this->addError('quantity_affected', "Quantity affected ({$this->quantity_affected}) cannot exceed available quantity ({$stock->quantity_available}).");
+            return;
+        }
+
         $actor = current_actor();
 
         $healthCheck = HealthCheck::create([
@@ -173,5 +185,156 @@ class HealthChecks extends Component
         $this->filterDateFrom = '';
         $this->filterDateTo = '';
         $this->filterActionTaken = '';
+    }
+
+    protected function getModelClass(): string
+    {
+        return HealthCheck::class;
+    }
+
+    protected function getAllSelectableIds(): array
+    {
+        $branchId = $this->getBranchId();
+        return HealthCheck::whereHas('stock', function ($q) use ($branchId) {
+            $q->where('branch_id', $branchId);
+        })->pluck('id')->toArray();
+    }
+
+    /**
+     * Export health checks as PDF
+     */
+    public function exportPDF()
+    {
+        try {
+            $healthChecks = $this->getFilteredHealthChecks();
+            
+            if ($healthChecks->isEmpty()) {
+                session()->flash('warning', 'No health checks to export.');
+                return;
+            }
+            
+            $response = $this->export(
+                'health-checks',
+                $healthChecks,
+                'exports.inventory.health-checks',
+                'pdf'
+            );
+            $response->send();
+        } catch (\Exception $e) {
+            session()->flash('error', 'Export failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Export health checks as Excel
+     */
+    public function exportExcel()
+    {
+        try {
+            $healthChecks = $this->getFilteredHealthChecks();
+            
+            if ($healthChecks->isEmpty()) {
+                session()->flash('warning', 'No health checks to export.');
+                return;
+            }
+            
+            $response = $this->export(
+                'health-checks',
+                $healthChecks,
+                'exports.inventory.health-checks',
+                'excel'
+            );
+            $response->send();
+        } catch (\Exception $e) {
+            session()->flash('error', 'Export failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Export health checks as CSV
+     */
+    public function exportCSV()
+    {
+        try {
+            $healthChecks = $this->getFilteredHealthChecks();
+
+            if ($healthChecks->isEmpty()) {
+                session()->flash('warning', 'No health checks to export.');
+                return;
+            }
+
+            $csvData = [
+                ['Item Name', 'SKU', 'Check Date', 'Condition', 'Quantity Affected', 'UOM', 'Observations', 'Action Taken', 'Checked By', 'Created At'],
+            ];
+
+            foreach ($healthChecks as $check) {
+                $csvData[] = [
+                    $check->stock?->item?->name ?? 'N/A',
+                    $check->stock?->item?->sku ?? 'N/A',
+                    $check->check_date ? \Carbon\Carbon::parse($check->check_date)->format('Y-m-d') : 'N/A',
+                    ucfirst($check->condition ?? 'good'),
+                    $check->quantity_affected ?? 0,
+                    $check->stock?->item?->unitOfMeasure?->symbol ?? 'units',
+                    $check->observations ?? 'N/A',
+                    $check->action_taken ?? 'N/A',
+                    $check->checker?->name ?? 'N/A',
+                    $check->created_at ? \Carbon\Carbon::parse($check->created_at)->format('Y-m-d H:i') : 'N/A',
+                ];
+            }
+
+            $filename = 'health-checks-' . now()->format('Y-m-d-His') . '.csv';
+            $handle = fopen('php://temp', 'r+');
+
+            foreach ($csvData as $row) {
+                fputcsv($handle, $row);
+            }
+
+            rewind($handle);
+            $csv = stream_get_contents($handle);
+            fclose($handle);
+
+            return response()->streamDownload(function () use ($csv) {
+                echo $csv;
+            }, $filename, [
+                'Content-Type' => 'text/csv',
+                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            ]);
+        } catch (\Exception $e) {
+            session()->flash('error', 'Export failed: ' . $e->getMessage());
+            return;
+        }
+    }
+
+    /**
+     * Get filtered health checks based on current filters
+     */
+    private function getFilteredHealthChecks()
+    {
+        $branchId = $this->getBranchId();
+
+        return HealthCheck::with(['stock.item', 'stock.branch', 'checker'])
+            ->whereHas('stock', function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            })
+            ->when($this->search, function ($q) {
+                $q->whereHas('stock.item', function ($query) {
+                    $query->where('name', 'like', '%' . $this->search . '%')
+                        ->orWhere('sku', 'like', '%' . $this->search . '%');
+                });
+            })
+            ->when($this->filterCondition, fn($q) => $q->where('condition', $this->filterCondition))
+            ->when($this->filterDateFrom, fn($q) => $q->whereDate('check_date', '>=', $this->filterDateFrom))
+            ->when($this->filterDateTo, fn($q) => $q->whereDate('check_date', '<=', $this->filterDateTo))
+            ->when($this->filterActionTaken !== '', function ($q) {
+                if ($this->filterActionTaken === '1') {
+                    $q->whereNotNull('action_taken')->where('action_taken', '!=', '');
+                } else {
+                    $q->where(function ($query) {
+                        $query->whereNull('action_taken')->orWhere('action_taken', '');
+                    });
+                }
+            })
+            ->orderBy('check_date', 'desc')
+            ->get();
     }
 }

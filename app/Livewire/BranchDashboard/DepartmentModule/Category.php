@@ -6,6 +6,7 @@ use App\Livewire\BaseComponent;
 use App\Models\DepartmentCategory;
 use App\Livewire\Concerns\CachesDepartmentCategories;
 use App\Models\Department;
+use App\Services\DepartmentCategoryApprovalService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Livewire\Attributes\{Layout};
@@ -28,6 +29,11 @@ class Category extends BaseComponent
     public bool $showCategoryModal = false;
     public ?string $selectedId = null;
     public bool $isEditing = false;
+    
+    // Delete reason modal state
+    public bool $showDeleteReasonModal = false;
+    public string $deleteReason = '';
+    public ?int $categoryToDelete = null;
 
     protected function getModelClass(): string
     {
@@ -52,11 +58,72 @@ class Category extends BaseComponent
         $this->resetPage();
     }
 
-    public function delete($id)
+    public function initiateDelete($id)
     {
-        DepartmentCategory::find($id)?->delete();
-        $this->bumpCategoryCacheVersion();
-        $this->toast()->success('Category deleted.')->send();
+        $this->categoryToDelete = $id;
+        
+        if (is_super_admin()) {
+            $this->dialog()
+                ->question('Warning!', 'Are you sure you want to delete this category?')
+                ->confirm('Confirm', 'confirmedDelete', 'Confirmed Successfully')
+                ->cancel('Cancel', 'cancelledDelete', 'Cancelled Successfully')
+                ->send();
+        } else {
+            $this->showDeleteReasonModal = true;
+        }
+    }
+
+    public function confirmedDelete(string $message): void
+    {
+        if (!$this->categoryToDelete) {
+            return;
+        }
+
+        $category = DepartmentCategory::find($this->categoryToDelete);
+        
+        if (!$category) {
+            $this->toast()->error('Category not found.')->send();
+            return;
+        }
+
+        if (is_super_admin()) {
+            $category->delete();
+            $this->bumpCategoryCacheVersion();
+            $this->dialog()->success('Success', 'Category deleted successfully!')->send();
+        } else {
+            DepartmentCategoryApprovalService::requestDelete($category, $this->deleteReason);
+            $this->toast()->success('Delete request submitted for approval')->send();
+        }
+
+        $this->categoryToDelete = null;
+        $this->deleteReason = '';
+        $this->showDeleteReasonModal = false;
+    }
+
+    public function cancelledDelete(string $message): void
+    {
+        $this->categoryToDelete = null;
+        $this->deleteReason = '';
+        $this->showDeleteReasonModal = false;
+        $this->toast()->info('Cancelled')->send();
+    }
+
+    public function closeDeleteReasonModal(): void
+    {
+        $this->showDeleteReasonModal = false;
+        $this->deleteReason = '';
+        $this->categoryToDelete = null;
+    }
+
+    public function proceedWithDeleteReason(): void
+    {
+        if (strlen($this->deleteReason) < 5) {
+            $this->toast()->error('Reason must be at least 5 characters long')->send();
+            return;
+        }
+        
+        $this->showDeleteReasonModal = false;
+        $this->confirmedDelete('Confirmed Successfully');
     }
     public function resetFilters()
     {

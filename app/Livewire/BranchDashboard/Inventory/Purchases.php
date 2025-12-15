@@ -13,6 +13,7 @@ use App\Models\StockMovement;
 use App\Models\PurchaseApprovalRequest;
 use App\Services\AuditService;
 use App\Services\PurchaseAuditApprovalService;
+use App\Traits\Exportable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\{Layout, Url, On};
@@ -21,7 +22,7 @@ use TallStackUi\Traits\Interactions;
 #[Layout('components.layouts.app.branch-dashboard')]
 class Purchases extends Component
 {
-    use WithPagination, Interactions;
+    use WithPagination, Interactions, Exportable;
     #[Url(keep: true)]
     public ?string $b_id = null;
     public $purchaseId;
@@ -620,5 +621,148 @@ class Purchases extends Component
         $this->showDetailModal = false;
         $this->detailPurchase = null;
         $this->resetValidation();
+    }
+
+    public function exportPDF()
+    {
+        try {
+            $purchases = Purchase::with('purchaseItems.item')
+                ->where('branch_id', $this->getBranchId())
+                ->when($this->search, fn($q) => $q->where('supplier_name', 'like', '%' . $this->search . '%')->orWhere('purchase_number', 'like', '%' . $this->search . '%'))
+                ->when($this->filterPaymentStatus, fn($q) => $q->where('payment_status', $this->filterPaymentStatus))
+                ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus))
+                ->orderBy($this->sortColumn, $this->sortDirection)
+                ->get();
+
+            if ($purchases->isEmpty()) {
+                $this->toast()->warning('No purchases to export.')->send();
+                return;
+            }
+
+            $data = $purchases->map(function ($purchase) {
+                return [
+                    'purchase_number' => $purchase->purchase_number ?? 'N/A',
+                    'supplier_name' => $purchase->supplier_name ?? 'N/A',
+                    'purchase_date' => $purchase->purchase_date ? \Carbon\Carbon::parse($purchase->purchase_date)->format('Y-m-d') : 'N/A',
+                    'landing_cost' => $purchase->landing_cost ?? 0,
+                    'other_costs' => $purchase->other_costs ?? 0,
+                    'total_cost' => ($purchase->landing_cost ?? 0) + ($purchase->other_costs ?? 0),
+                    'payment_status' => ucfirst($purchase->payment_status ?? 'pending'),
+                    'status' => ucfirst($purchase->status ?? 'pending'),
+                    'item_count' => $purchase->purchaseItems->count(),
+                ];
+            });
+
+            return $this->export(
+                'purchases-' . now()->format('Y-m-d'),
+                $data,
+                'exports.inventory.purchases',
+                'pdf',
+                false,
+                ['orientation' => 'landscape', 'paper' => 'A4']
+            );
+        } catch (\Exception $e) {
+            $this->toast()->error('Export failed: ' . $e->getMessage())->send();
+            return;
+        }
+    }
+
+    public function exportExcel()
+    {
+        try {
+            $purchases = Purchase::with('purchaseItems.item')
+                ->where('branch_id', $this->getBranchId())
+                ->when($this->search, fn($q) => $q->where('supplier_name', 'like', '%' . $this->search . '%')->orWhere('purchase_number', 'like', '%' . $this->search . '%'))
+                ->when($this->filterPaymentStatus, fn($q) => $q->where('payment_status', $this->filterPaymentStatus))
+                ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus))
+                ->orderBy($this->sortColumn, $this->sortDirection)
+                ->get();
+
+            if ($purchases->isEmpty()) {
+                $this->toast()->warning('No purchases to export.')->send();
+                return;
+            }
+
+            $data = $purchases->map(function ($purchase) {
+                return [
+                    'purchase_number' => $purchase->purchase_number ?? 'N/A',
+                    'supplier_name' => $purchase->supplier_name ?? 'N/A',
+                    'purchase_date' => $purchase->purchase_date ? \Carbon\Carbon::parse($purchase->purchase_date)->format('Y-m-d') : 'N/A',
+                    'landing_cost' => $purchase->landing_cost ?? 0,
+                    'other_costs' => $purchase->other_costs ?? 0,
+                    'total_cost' => ($purchase->landing_cost ?? 0) + ($purchase->other_costs ?? 0),
+                    'payment_status' => ucfirst($purchase->payment_status ?? 'pending'),
+                    'status' => ucfirst($purchase->status ?? 'pending'),
+                    'item_count' => $purchase->purchaseItems->count(),
+                ];
+            });
+
+            return $this->export(
+                'purchases-' . now()->format('Y-m-d'),
+                $data,
+                'exports.inventory.purchases',
+                'excel'
+            );
+        } catch (\Exception $e) {
+            $this->toast()->error('Export failed: ' . $e->getMessage())->send();
+            return;
+        }
+    }
+
+    public function exportCSV()
+    {
+        try {
+            $purchases = Purchase::with('purchaseItems.item')
+                ->where('branch_id', $this->getBranchId())
+                ->when($this->search, fn($q) => $q->where('supplier_name', 'like', '%' . $this->search . '%')->orWhere('purchase_number', 'like', '%' . $this->search . '%'))
+                ->when($this->filterPaymentStatus, fn($q) => $q->where('payment_status', $this->filterPaymentStatus))
+                ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus))
+                ->orderBy($this->sortColumn, $this->sortDirection)
+                ->get();
+
+            if ($purchases->isEmpty()) {
+                $this->toast()->warning('No purchases to export.')->send();
+                return;
+            }
+
+            $csvData = [
+                ['Purchase #', 'Supplier', 'Date', 'Landing Cost', 'Other Costs', 'Total Cost', 'Payment Status', 'Status', 'Items'],
+            ];
+
+            foreach ($purchases as $purchase) {
+                $csvData[] = [
+                    $purchase->purchase_number ?? 'N/A',
+                    $purchase->supplier_name ?? 'N/A',
+                    $purchase->purchase_date ? \Carbon\Carbon::parse($purchase->purchase_date)->format('Y-m-d') : 'N/A',
+                    number_format($purchase->landing_cost ?? 0, 2),
+                    number_format($purchase->other_costs ?? 0, 2),
+                    number_format(($purchase->landing_cost ?? 0) + ($purchase->other_costs ?? 0), 2),
+                    ucfirst($purchase->payment_status ?? 'pending'),
+                    ucfirst($purchase->status ?? 'pending'),
+                    $purchase->purchaseItems->count(),
+                ];
+            }
+
+            $filename = 'purchases-' . now()->format('Y-m-d-His') . '.csv';
+            $handle = fopen('php://temp', 'r+');
+
+            foreach ($csvData as $row) {
+                fputcsv($handle, $row);
+            }
+
+            rewind($handle);
+            $csv = stream_get_contents($handle);
+            fclose($handle);
+
+            return response()->streamDownload(function () use ($csv) {
+                echo $csv;
+            }, $filename, [
+                'Content-Type' => 'text/csv',
+                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            ]);
+        } catch (\Exception $e) {
+            $this->toast()->error('Export failed: ' . $e->getMessage())->send();
+            return;
+        }
     }
 }

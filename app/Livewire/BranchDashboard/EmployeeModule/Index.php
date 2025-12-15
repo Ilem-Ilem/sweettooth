@@ -8,6 +8,8 @@ use App\Models\Department;
 use App\Models\Branch;
 use App\Models\ApprovalAuditRequest;
 use App\Services\AuditService;
+use App\Services\EmployeeApprovalService;
+use App\Services\EmployeeAuditService;
 use App\Traits\AuditableSyncTrait;
 use Spatie\Permission\Models\Role;
 use Livewire\Attributes\{Layout, Url, On};
@@ -73,6 +75,11 @@ class Index extends BaseComponent
     public bool $showRoleReasonModal = false;
     public string $roleReason = '';
     public bool $savingRoles = false;
+
+    // Delete reason modal state
+    public bool $showDeleteReasonModal = false;
+    public string $deleteReason = '';
+    public bool $deletingEmployee = false;
 
     protected function getModelClass(): string
     {
@@ -202,17 +209,69 @@ class Index extends BaseComponent
 
         $this->dialog()
             ->question('Warning!', 'Are you sure you want to delete this employee?')
-            ->confirm('Confirm', 'confirmedDeleteEmployee', 'Confirmed Successfully')
+            ->confirm('Confirm', 'initiateDeleteEmployee', 'Confirmed Successfully')
             ->cancel('Cancel', 'cancelledDeleteEmployee', 'Cancelled Successfully')
             ->send();
     }
 
+    public function initiateDeleteEmployee(string $message): void
+    {
+        if (!is_super_admin()) {
+            $this->showDeleteReasonModal = true;
+        } else {
+            $this->confirmedDeleteEmployee($message);
+        }
+    }
+
+    public function closeDeleteReasonModal(): void
+    {
+        $this->showDeleteReasonModal = false;
+        $this->deleteReason = '';
+        $this->selectedEmployeeId = null;
+    }
+
+    public function proceedWithDeleteReason(): void
+    {
+        if (strlen($this->deleteReason) < 5) {
+            $this->toast()->error('Reason must be at least 5 characters long')->send();
+            return;
+        }
+        
+        $this->showDeleteReasonModal = false;
+        $this->confirmedDeleteEmployee('Confirmed Successfully');
+    }
+
     public function confirmedDeleteEmployee(string $message): void
     {
-        if ($this->selectedEmployeeId) {
-            Employee::findOrFail($this->selectedEmployeeId)->delete();
-            $this->dialog()->success('Success', 'Employee deleted successfully!')->send();
-            $this->selectedEmployeeId = null;
+        if ($this->deletingEmployee) return;
+        
+        $this->deletingEmployee = true;
+
+        try {
+            if ($this->selectedEmployeeId) {
+                $employee = Employee::findOrFail($this->selectedEmployeeId);
+                $user = current_actor();
+
+                if (!is_super_admin()) {
+                    // EMPLOYEE: Create approval request using EmployeeApprovalService
+                    EmployeeApprovalService::requestDelete(
+                        $employee,
+                        $this->deleteReason
+                    );
+
+                    $this->toast()->success('Employee deletion request submitted for approval!')->send();
+                    $this->selectedEmployeeId = null;
+                    return;
+                }
+
+                // SUPER ADMIN: Delete immediately
+                EmployeeAuditService::logEmployeeTermination($employee, $user, 'Employee deleted by admin');
+                $employee->delete();
+                $this->dialog()->success('Success', 'Employee deleted successfully!')->send();
+                $this->selectedEmployeeId = null;
+            }
+        } finally {
+            $this->deletingEmployee = false;
         }
     }
 
@@ -227,16 +286,56 @@ class Index extends BaseComponent
     {
         $this->dialog()
             ->question('Warning!', 'Are you sure you want to delete ' . count($this->selectedIds) . ' employee(s)?')
-            ->confirm('Confirm', 'confirmedBulkDelete', 'Confirmed Successfully')
+            ->confirm('Confirm', 'initiateBulkDelete', 'Confirmed Successfully')
             ->cancel('Cancel', 'cancelledBulkDelete', 'Cancelled Successfully')
             ->send();
     }
 
+    public function initiateBulkDelete(string $message): void
+    {
+        if (!is_super_admin()) {
+            $this->showDeleteReasonModal = true;
+        } else {
+            $this->confirmedBulkDelete($message);
+        }
+    }
+
     public function confirmedBulkDelete(string $message): void
     {
-        Employee::whereIn('id', $this->selectedIds)->delete();
-        $this->dialog()->success('Success', count($this->selectedIds) . ' employee(s) deleted successfully!')->send();
-        $this->selectedIds = [];
+        if ($this->deletingEmployee) return;
+        
+        $this->deletingEmployee = true;
+
+        try {
+            $user = current_actor();
+            $employees = Employee::whereIn('id', $this->selectedIds)->get();
+
+            if (!is_super_admin()) {
+                // EMPLOYEE: Create approval requests for each employee
+                foreach ($employees as $employee) {
+                    EmployeeApprovalService::requestDelete(
+                        $employee,
+                        $this->deleteReason
+                    );
+                }
+
+                $this->toast()->success(count($this->selectedIds) . ' employee deletion request(s) submitted for approval!')->send();
+                $this->selectedIds = [];
+                $this->deleteReason = '';
+                return;
+            }
+
+            // SUPER ADMIN: Delete immediately
+            foreach ($employees as $employee) {
+                EmployeeAuditService::logEmployeeTermination($employee, $user, 'Deleted in bulk by admin');
+                $employee->delete();
+            }
+
+            $this->dialog()->success('Success', count($this->selectedIds) . ' employee(s) deleted successfully!')->send();
+            $this->selectedIds = [];
+        } finally {
+            $this->deletingEmployee = false;
+        }
     }
 
     public function cancelledBulkDelete(string $message): void
@@ -299,24 +398,11 @@ class Index extends BaseComponent
             $user = current_actor();
 
             if (!is_super_admin()) {
-                // EMPLOYEE: Create approval request
-                ApprovalAuditRequest::create([
-                    'branch_id' => $this->b_id,
-                    'requester_id' => $user->id,
-                    'requester_type' => get_class($user),
-                    'action' => 'sync:' . Employee::class . ':roles:' . $employee->id,
-                    'description' => $this->roleReason,
-                    'payload' => ['id' => $employee->id, 'sync_data' => $this->selectedRoles],
-                    'status' => 'pending',
-                ]);
-
-                // Log as pending
-                AuditService::log(
-                    $user,
-                    'update',
+                // EMPLOYEE: Create approval request using EmployeeApprovalService
+                EmployeeApprovalService::requestRoleSync(
                     $employee,
-                    $this->roleReason,
-                    'pending'
+                    $this->selectedRoles,
+                    $this->roleReason
                 );
 
                 $this->toast()->success('Role update request submitted for approval!')->send();
@@ -326,6 +412,7 @@ class Index extends BaseComponent
             }
 
             // SUPER ADMIN: Update immediately
+            $oldRoles = $employee->roles->pluck('name')->toArray();
             $this->syncWithAudit(
                 $employee,
                 'roles',
@@ -333,14 +420,16 @@ class Index extends BaseComponent
                 "Updated roles for {$employee->name}"
             );
 
-            // Log as completed
-            AuditService::log(
-                $user,
-                'update',
-                $employee,
-                'Roles updated by super admin',
-                'completed'
-            );
+            // Log role change
+            if ($oldRoles !== $this->selectedRoles) {
+                EmployeeAuditService::logRoleChange(
+                    $employee,
+                    $oldRoles,
+                    $this->selectedRoles,
+                    "Roles updated by super admin",
+                    $user
+                );
+            }
 
             $this->toast()->success('Roles updated successfully!')->send();
             $this->closeRoleModal();

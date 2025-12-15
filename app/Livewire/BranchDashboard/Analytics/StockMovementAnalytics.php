@@ -5,6 +5,7 @@ namespace App\Livewire\BranchDashboard\Analytics;
 use App\Models\StockMovement;
 use App\Models\Stock;
 use App\Models\Department;
+use App\Traits\Exportable;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -15,7 +16,7 @@ use Carbon\Carbon;
 #[Layout('components.layouts.app.branch-dashboard')]
 class StockMovementAnalytics extends Component
 {
-    use WithPagination;
+    use WithPagination, Exportable;
 
     public $dateFrom;
     public $dateTo;
@@ -283,6 +284,52 @@ class StockMovementAnalytics extends Component
                 'sku' => $s->item->sku,
                 'uom' => $s->item->unitOfMeasure?->symbol,
             ]);
+    }
+
+    /**
+     * Get filtered movements for export
+     */
+    private function getFilteredMovements()
+    {
+        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
+        $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
+        $dateTo   = Carbon::parse($this->dateTo)->endOfDay();
+
+        $movements = StockMovement::with(['stock.item', 'mover', 'reference'])
+            ->whereHas('stock', fn ($q) => $q->where('branch_id', $branchId))
+            ->whereBetween('movement_date', [$dateFrom, $dateTo])
+            ->orderBy('movement_date', 'desc')
+            ->get()
+            ->append('department_name');
+
+        // Apply filters manually
+        return $movements->filter(function ($m) {
+            if ($this->selectedItem && $m->stock_id != $this->selectedItem) return false;
+            if ($this->movementType && $m->type != $this->movementType) return false;
+            if ($this->searchTerm) {
+                $haystack = strtolower("{$m->stock->item->name} {$m->stock->item->sku} {$m->mover?->name} {$m->notes}");
+                if (!str_contains($haystack, strtolower($this->searchTerm))) return false;
+            }
+            return true;
+        });
+    }
+
+    /**
+     * Export stock movements as PDF
+     * Note: PDF/Excel exports cannot be returned directly from Livewire.
+     */
+    public function exportPDF()
+    {
+        session()->flash('info', 'PDF export coming soon. Please use Excel export instead.');
+    }
+
+    /**
+     * Export stock movements as Excel
+     * Note: PDF/Excel exports cannot be returned directly from Livewire.
+     */
+    public function exportExcel()
+    {
+        session()->flash('info', 'Excel export coming soon. Please use CSV export instead.');
     }
 
     // FIXED: CSV export — safe, no more crashes

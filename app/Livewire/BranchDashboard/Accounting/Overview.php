@@ -9,7 +9,9 @@ use App\Models\Purchase;
 use App\Models\Payment;
 use App\Models\StockMovement;
 use Livewire\Component;
+use Livewire\Attributes\Layout;
 
+#[Layout('components.layouts.app.branch-dashboard')]
 class Overview extends Component
 {
     public ?int $periodId = null;
@@ -62,7 +64,7 @@ class Overview extends Component
         // Recently Posted
         $recentPostedEntries = GlEntry::where('status', 'posted')
             ->when($this->periodId, fn($q) => $q->where('accounting_period_id', $this->periodId))
-            ->with(['glAccount', 'accountingPeriod'])
+            ->with(['glAccount', 'period'])
             ->orderBy('entry_date', 'desc')
             ->limit(5)
             ->get();

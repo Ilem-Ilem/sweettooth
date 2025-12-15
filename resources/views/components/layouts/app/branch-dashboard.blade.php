@@ -250,6 +250,11 @@
                     :current="request()->routeIs('branch-dashboard.accounting.dashboard')" wire:navigate>
                     {{ __('Dashboard') }}
                 </flux:navlist.item>
+
+                <flux:navlist.item icon="eye" :href="branch_route('branch-dashboard.accounting.overview')"
+                    :current="request()->routeIs('branch-dashboard.accounting.overview')" wire:navigate>
+                    {{ __('Overview') }}
+                </flux:navlist.item>
                 
                 @if ($currentUser->hasAnyRole(['Super Admin', 'MD', 'Managing Director', 'Admin']) || $sidebarService::isSuperAdmin())
                 <flux:navlist.item icon="book-open" :href="branch_route('branch-dashboard.accounting.accounts')"
@@ -267,6 +272,16 @@
                 <flux:navlist.item icon="document-plus" :href="branch_route('branch-dashboard.accounting.journal-entry')"
                     :current="request()->routeIs('branch-dashboard.accounting.journal-entry')" wire:navigate>
                     {{ __('Journal Entries') }}
+                </flux:navlist.item>
+
+                <flux:navlist.item icon="rectangle-stack" :href="branch_route('branch-dashboard.accounting.posting-status')"
+                    :current="request()->routeIs('branch-dashboard.accounting.posting-status')" wire:navigate>
+                    {{ __('Posting Status') }}
+                </flux:navlist.item>
+
+                <flux:navlist.item icon="currency-dollar" :href="branch_route('branch-dashboard.accounting.bank-reconciliation')"
+                    :current="request()->routeIs('branch-dashboard.accounting.bank-reconciliation')" wire:navigate>
+                    {{ __('Bank Reconciliation') }}
                 </flux:navlist.item>
                 @endif
                 
@@ -287,6 +302,10 @@
                     <flux:navlist.item icon="rectangle-group" :href="branch_route('branch-dashboard.accounting.reports.balance-sheet')"
                         :current="request()->routeIs('branch-dashboard.accounting.reports.balance-sheet')" wire:navigate>
                         {{ __('Balance Sheet') }}
+                    </flux:navlist.item>
+                    <flux:navlist.item icon="chart-bar-square" :href="branch_route('branch-dashboard.accounting.reports.cash-flow-statement')"
+                        :current="request()->routeIs('branch-dashboard.accounting.reports.cash-flow-statement')" wire:navigate>
+                        {{ __('Cash Flow') }}
                     </flux:navlist.item>
                 </flux:navlist.group>
             </flux:navlist.group>

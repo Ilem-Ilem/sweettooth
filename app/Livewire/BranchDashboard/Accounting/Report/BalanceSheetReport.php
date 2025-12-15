@@ -5,7 +5,9 @@ namespace App\Livewire\BranchDashboard\Accounting\Report;
 use App\Services\BalanceSheetService;
 use App\Models\AccountingPeriod;
 use Livewire\Component;
+use Livewire\Attributes\Layout;
 
+#[Layout('components.layouts.app.branch-dashboard')]
 class BalanceSheetReport extends Component
 {
     protected BalanceSheetService $bsService;

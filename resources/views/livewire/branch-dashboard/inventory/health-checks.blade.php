@@ -29,11 +29,32 @@
         :with-icons="true"
     />
 
-    <!-- Header with Add Button -->
-    <div class="flex justify-between items-center">
+    <!-- Header with Action Buttons -->
+    <div class="flex justify-end gap-2 mb-3">
+        <button wire:click="exportCSV" 
+            class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg active:scale-95 shadow-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2m0 0v-8m0 8H3m15 0h3"/>
+            </svg>
+            CSV
+        </button>
+        <button wire:click="exportPDF" 
+            class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg active:scale-95 shadow-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+            </svg>
+            PDF
+        </button>
+        <button wire:click="exportExcel" 
+            class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg active:scale-95 shadow-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            Excel
+        </button>
         <button wire:click="openCreateModal"
-            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center shadow-sm">
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg active:scale-95 shadow-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
             </svg>
             Record Health Check
@@ -99,7 +120,7 @@
                 </div>
             </div>
 
-            <div class="flex flex-wrap gap-2 justify-end pt-2.5 border-t border-zinc-200 dark:border-zinc-700">
+            <div class="flex justify-end pt-2.5 border-t border-zinc-200 dark:border-zinc-700">
                 <button wire:click="resetFilters"
                     class="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors duration-200 flex items-center">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -214,18 +235,18 @@
             <div class="flex-1 overflow-y-auto px-6 py-4 scrollbar-thin">
                 <form wire:submit.prevent="save" class="space-y-4">
                     <div>
-                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Stock Item *</label>
-                        <select wire:model="stock_id"
-                            class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500">
-                            <option value="">Select Stock Item</option>
-                            @foreach($stocks as $stock)
-                                <option value="{{ $stock->id }}">{{ $stock->item->name }} ({{ number_format($stock->total_quantity, 2) }} {{ $stock->item->uom }})</option>
-                            @endforeach
-                        </select>
-                        @error('stock_id')
-                            <span class="text-red-500 text-sm">{{ $message }}</span>
-                        @enderror
-                    </div>
+                         <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Stock Item *</label>
+                         <select wire:model.live="stock_id"
+                             class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500">
+                             <option value="">Select Stock Item</option>
+                             @foreach($stocks as $stock)
+                                 <option value="{{ $stock->id }}">{{ $stock->item->name }} ({{ number_format($stock->quantity_available, 2) }} {{ $stock->item->uom }})</option>
+                             @endforeach
+                         </select>
+                         @error('stock_id')
+                             <span class="text-red-500 text-sm">{{ $message }}</span>
+                         @enderror
+                     </div>
 
                     <div>
                         <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Check Date *</label>
@@ -253,14 +274,26 @@
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Quantity Affected</label>
-                        <input type="number" step="0.01" wire:model="quantity_affected"
-                            class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500"
-                            placeholder="Enter quantity affected">
-                        @error('quantity_affected')
-                            <span class="text-red-500 text-sm">{{ $message }}</span>
-                        @enderror
-                    </div>
+                         <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                             Quantity Affected
+                             @php
+                                 $selectedStock = collect($stocks)->firstWhere('id', $stock_id);
+                             @endphp
+                             @if($selectedStock)
+                                 <span class="text-xs font-normal text-zinc-500 dark:text-zinc-400">(Max: {{ number_format($selectedStock->quantity_available, 2) }} {{ $selectedStock->item->uom }})</span>
+                             @endif
+                         </label>
+                         <input type="number" 
+                             step="0.01" 
+                             min="0.01"
+                             @if($selectedStock) max="{{ $selectedStock->quantity_available }}" @endif
+                             wire:model="quantity_affected"
+                             class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500"
+                             placeholder="Enter quantity affected">
+                         @error('quantity_affected')
+                             <span class="text-red-500 text-sm">{{ $message }}</span>
+                         @enderror
+                     </div>
 
                     <div>
                         <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Observations</label>

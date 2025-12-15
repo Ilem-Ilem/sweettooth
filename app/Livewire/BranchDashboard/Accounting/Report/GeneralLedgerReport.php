@@ -7,8 +7,10 @@ use App\Models\GlAccount;
 use App\Models\AccountingPeriod;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Livewire\Attributes\Layout;
 use Carbon\Carbon;
 
+#[Layout('components.layouts.app.branch-dashboard')]
 class GeneralLedgerReport extends Component
 {
     use WithPagination;
