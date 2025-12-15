@@ -16,7 +16,7 @@ class IncomeStatementReport extends Component
     public ?int $comparePeriodId = null;
     public bool $isComparative = false;
 
-    public function mount()
+    public function boot()
     {
         $this->isService = app(IncomeStatementService::class);
     }

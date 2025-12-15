@@ -149,11 +149,11 @@ class BalanceSheetService
     {
         $bs = $this->getBalanceSheet($periodId);
 
-        $currentAssets = $bs['assets']
+        $currentAssets = collect($bs['assets'])
             ->filter(fn($a) => in_array($a['account_category'], ['cash', 'receivable']))
             ->sum('balance');
 
-        $currentLiabilities = $bs['liabilities']
+        $currentLiabilities = collect($bs['liabilities'])
             ->filter(fn($a) => in_array($a['account_category'], ['payable', 'short_term']))
             ->sum('balance');
 

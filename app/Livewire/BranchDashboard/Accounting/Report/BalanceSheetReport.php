@@ -17,7 +17,7 @@ class BalanceSheetReport extends Component
     public bool $isComparative = false;
     public bool $showRatios = false;
 
-    public function mount()
+    public function boot()
     {
         $this->bsService = app(BalanceSheetService::class);
     }

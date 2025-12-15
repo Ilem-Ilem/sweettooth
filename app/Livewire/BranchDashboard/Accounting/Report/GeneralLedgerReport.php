@@ -24,7 +24,7 @@ class GeneralLedgerReport extends Component
     public string $sortBy = 'entry_date';
     public string $sortDirection = 'desc';
 
-    public function mount()
+    public function boot()
     {
         $this->glService = app(GeneralLedgerService::class);
         

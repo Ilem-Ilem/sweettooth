@@ -6,6 +6,9 @@ use App\Services\CashFlowStatementService;
 use Livewire\Component;
 use Carbon\Carbon;
 
+use Livewire\Attributes\Layout;
+
+#[Layout('components.layouts.app.branch-dashboard')]
 class CashFlowStatementReport extends Component
 {
     protected CashFlowStatementService $cfsService;
@@ -15,7 +18,7 @@ class CashFlowStatementReport extends Component
     public bool $showBankSummary = false;
     public bool $showCashSummary = false;
 
-    public function mount()
+    public function boot()
     {
         $this->cfsService = app(CashFlowStatementService::class);
         

@@ -16,7 +16,7 @@ class TrialBalanceReport extends Component
     public ?int $comparePeriodId = null;
     public bool $isComparative = false;
 
-    public function mount()
+    public function boot()
     {
         $this->tbService = app(TrialBalanceService::class);
     }
