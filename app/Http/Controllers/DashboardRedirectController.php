@@ -36,7 +36,7 @@ class DashboardRedirectController extends Controller
         $branchId = current_branch_id();
         
         // For regular employees (not super admin), check clock-in status
-        if (!$isSuperAdmin && auth('employees')->check()) {
+        if (!$isSuperAdmin && auth()->check()) {
             if (!$this->hasClockInToday($user)) {
                 // Employee not clocked in - redirect to shift selection
                 if ($branchId) {
@@ -101,11 +101,11 @@ class DashboardRedirectController extends Controller
      */
     private function hasClockInToday(Employee|User $user): bool
     {
-        if (!auth('employees')->check()) {
+        if (!auth()->check()) {
             return true; // Super admin doesn't need clock-in
         }
 
-        $employee = auth('employees')->user();
+        $employee = auth()->user();
         
         if (!$employee) {
             return false;

@@ -140,7 +140,7 @@ class ApproveLeave extends BaseComponent
                 return;
             }
 
-            // $approver = auth('employees')->user();
+            // $approver = auth()->user();
             $approver =  current_actor();
             $leave->approve($approver->id, get_class($approver), $this->approval_notes);
 
@@ -188,7 +188,7 @@ class ApproveLeave extends BaseComponent
                 return;
             }
 
-            // $rejecter = auth('employees')->user();
+            // $rejecter = auth()->user();
             $rejecter = current_actor();
 
             $leave->reject($rejecter->id, get_class($rejecter) ,$this->rejection_reason);

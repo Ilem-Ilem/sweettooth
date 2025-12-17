@@ -79,7 +79,7 @@ class StockMonitor extends BaseComponent
 
     protected function loadCurrentShift()
     {
-        $employee = auth('employees')->user();
+        $employee = auth()->user();
 
         $activeShift = Shift::where('employee_id', $employee->id)
             ->where('shift_date', \Carbon\Carbon::today())

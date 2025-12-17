@@ -5,16 +5,18 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Spatie\Permission\Traits\HasRoles;
+use Spatie\Permission\Traits\HasPermissions;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, HasRoles, HasUuids, Notifiable, TwoFactorAuthenticatable;
+    use HasFactory, HasRoles, HasPermissions, HasUuids, Notifiable, TwoFactorAuthenticatable;
 
     /*
      * @var list<string>
@@ -23,8 +25,34 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        'role',
+        'branch_id',
+        'is_active',
         'last_accessed_branch_id',
+        'employee_number',
+        'employee_id',
+        'department_id',
+        'manager_id',
+        'phone',
+        'hire_date',
+        'employment_status',
+        'user_type',
+        'address',
+        'date_of_birth',
+        'gender',
+        'nationality',
+        'emergency_contact_name',
+        'emergency_contact_phone',
+        'termination_date',
+        'probation_end_date',
+        'shift_preference',
+        'salary',
+        'hourly_rate',
+        'tax_id',
+        'bank_account',
+        'allergies',
+        'profile_photo',
+        'last_performance_review_date',
+        'performance_rating',
     ];
 
     /**
@@ -47,7 +75,41 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'branch_id' => 'string',
+            'is_active' => 'boolean',
+            'hire_date' => 'datetime',
         ];
+    }
+
+    // Authorization scopes - CRITICAL for data filtering
+    public function scopeForCurrentUser(Builder $query): Builder
+    {
+        if (is_super_admin()) {
+            return $query; // See everything
+        }
+
+        $branchId = get_user_branch_id();
+        if ($branchId) {
+            return $query->where('branch_id', $branchId);
+        }
+
+        return $query->whereRaw('1 = 0'); // No access
+    }
+
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where('is_active', true);
+    }
+
+    public function scopeByRole(Builder $query, string $role): Builder
+    {
+        return $query->whereHas('roles', fn($q) => $q->where('name', $role));
+    }
+
+    // Relationships
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class, 'branch_id');
     }
 
     /**
@@ -56,6 +118,69 @@ class User extends Authenticatable
     public function lastAccessedBranch()
     {
         return $this->belongsTo(Branch::class, 'last_accessed_branch_id');
+    }
+
+    /**
+     * Get the department this user belongs to
+     */
+    public function department()
+    {
+        return $this->belongsTo(Department::class, 'department_id');
+    }
+
+    /**
+     * Get the manager of this user
+     */
+    public function manager()
+    {
+        return $this->belongsTo(User::class, 'manager_id');
+    }
+
+    /**
+     * Get subordinates of this user
+     */
+    public function subordinates()
+    {
+        return $this->hasMany(User::class, 'manager_id');
+    }
+
+    // Authorization methods
+    public function canManageUser(User $targetUser): bool
+    {
+        // Super admins can manage anyone
+        if ($this->hasRole('super-admin')) {
+            return true;
+        }
+
+        // Branch managers can manage users in their branch
+        if ($this->hasRole('branch-manager') &&
+            $targetUser->branch_id === $this->branch_id) {
+            return true;
+        }
+
+        return false;
+    }
+
+    public function getAccessibleBranches()
+    {
+        if ($this->hasRole('super-admin')) {
+            return Branch::all();
+        }
+
+        return collect([$this->branch]);
+    }
+
+    public function canAccessBranch(?string $branchId): bool
+    {
+        if (!$branchId) {
+            return false;
+        }
+
+        if ($this->hasRole('super-admin')) {
+            return true;
+        }
+
+        return $this->branch_id === $branchId;
     }
 
     public function getMorphClass()

@@ -6,6 +6,7 @@ use App\Models\Employee;
 use Livewire\Attributes\Layout;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class HRDashboard extends BaseDashboard
@@ -18,7 +19,22 @@ class HRDashboard extends BaseDashboard
 
     private function verifyAccess(): void
     {
+        $user = auth()->user();
         $role = $this->getUserRoleName();
+        
+        // Log for debugging
+        $allRoles = [];
+        if ($user && is_object($user) && method_exists($user, 'getRoleNames')) {
+            $allRoles = $user->getRoleNames()->toArray();
+        }
+        
+        \Log::info('HRDashboard access check', [
+            'user_id' => $user?->id ?? 'null',
+            'user_email' => $user?->email ?? 'null',
+            'primary_role_from_method' => $role,
+            'all_roles_from_getRoleNames' => $allRoles,
+        ]);
+        
         $allowedRoles = [
             'HR Manager',
             'HR Officer',
@@ -26,9 +42,23 @@ class HRDashboard extends BaseDashboard
         ];
 
         // Allow access if user has allowed role OR is super admin
+        // Check both by string matching and by hasRole method as fallback
         $isAllowed = in_array($role, $allowedRoles) || is_super_admin();
         
+        if (!$isAllowed && $user && is_object($user)) {
+            // Fallback: check using hasRole method
+            $isAllowed = $user->hasRole('HR Manager') 
+                || $user->hasRole('HR Officer')
+                || $user->hasRole('Admin');
+        }
+        
         if (!$isAllowed) {
+            \Log::warning('Unauthorized HR dashboard access', [
+                'user_id' => $user?->id ?? 'null',
+                'primary_role' => $role,
+                'all_roles' => $allRoles,
+                'allowed_roles' => $allowedRoles,
+            ]);
             abort(403, 'Unauthorized access to HR dashboard');
         }
     }
@@ -36,9 +66,14 @@ class HRDashboard extends BaseDashboard
     public function getTotalEmployees(): int
     {
         return $this->remember('total_employees', function () {
-            return Employee::where('branch_id', $this->getBranchId())
-                ->where('status', 'active')
-                ->count();
+            $query = Employee::where('is_active', true);
+
+            $branchId = $this->getBranchId();
+            if ($branchId) {
+                $query->where('branch_id', $branchId);
+            }
+
+            return $query->count();
         });
     }
 
@@ -46,13 +81,18 @@ class HRDashboard extends BaseDashboard
     {
         return $this->remember('on_duty_today', function () {
             try {
-                return DB::table('clock_in_outs')
-                    ->where('branch_id', $this->getBranchId())
-                    ->whereDate('clock_in_time', Carbon::today())
-                    ->distinct('employee_id')
-                    ->count('employee_id');
+                $query = DB::table('clock_ins')
+                    ->whereDate('clock_in_time', Carbon::today());
+
+                // Only filter by branch if the column exists and branch_id is set
+                $branchId = $this->getBranchId();
+                if (\Schema::hasColumn('clock_ins', 'branch_id') && $branchId) {
+                    $query->where('branch_id', $branchId);
+                }
+
+                return $query->distinct('employee_id')->count('employee_id');
             } catch (\Exception $e) {
-                // Table doesn't exist, return 0
+                // Table doesn't exist or query failed, return 0
                 return 0;
             }
         });
@@ -62,12 +102,18 @@ class HRDashboard extends BaseDashboard
     {
         return $this->remember('on_leave_today', function () {
             try {
-                return DB::table('leaves')
-                    ->where('branch_id', $this->getBranchId())
+                $query = DB::table('leave_applications')
                     ->where('status', 'approved')
-                    ->whereDate('date', Carbon::today())
-                    ->distinct('employee_id')
-                    ->count('employee_id');
+                    ->whereDate('start_date', '<=', Carbon::today())
+                    ->whereDate('end_date', '>=', Carbon::today());
+
+                // Only filter by branch if the column exists and branch_id is set
+                $branchId = $this->getBranchId();
+                if (Schema::hasColumn('leave_applications', 'branch_id') && $branchId) {
+                    $query->where('leave_applications.branch_id', $branchId);
+                }
+
+                return $query->distinct('employee_id')->count('employee_id');
             } catch (\Exception $e) {
                 return 0;
             }
@@ -78,10 +124,16 @@ class HRDashboard extends BaseDashboard
     {
         return $this->remember('pending_leave_requests', function () {
             try {
-                return DB::table('leaves')
-                    ->where('branch_id', $this->getBranchId())
-                    ->where('status', 'pending')
-                    ->count();
+                $query = DB::table('leave_applications')
+                    ->where('status', 'pending');
+
+                // Only filter by branch if the column exists and branch_id is set
+                $branchId = $this->getBranchId();
+                if (Schema::hasColumn('leave_applications', 'branch_id') && $branchId) {
+                    $query->where('branch_id', $branchId);
+                }
+
+                return $query->count();
             } catch (\Exception $e) {
                 return 0;
             }
@@ -105,11 +157,18 @@ class HRDashboard extends BaseDashboard
     {
         return $this->remember('employees_by_department', function () {
             try {
-                return DB::table('employees')
-                    ->join('departments', 'employees.department_id', '=', 'departments.id')
-                    ->where('employees.branch_id', $this->getBranchId())
-                    ->groupBy('departments.id', 'departments.name')
-                    ->selectRaw('departments.name, COUNT(employees.id) as count')
+                $query = DB::table('users')
+                    ->join('departments', 'users.department_id', '=', 'departments.id')
+                    ->where('users.user_type', 'employee')
+                    ->where('users.is_active', true);
+
+                $branchId = $this->getBranchId();
+                if ($branchId) {
+                    $query->where('users.branch_id', $branchId);
+                }
+
+                return $query->groupBy('departments.id', 'departments.name')
+                    ->selectRaw('departments.name, COUNT(users.id) as count')
                     ->get();
             } catch (\Exception $e) {
                 return collect();
@@ -121,12 +180,18 @@ class HRDashboard extends BaseDashboard
     {
         return $this->remember('pending_leaves', function () {
             try {
-                return DB::table('leaves')
-                    ->join('employees', 'leaves.employee_id', '=', 'employees.id')
-                    ->where('leaves.branch_id', $this->getBranchId())
-                    ->where('leaves.status', 'pending')
-                    ->selectRaw('leaves.*, employees.name as employee_name')
-                    ->orderBy('leaves.created_at', 'desc')
+                $query = DB::table('leave_applications')
+                    ->join('users', 'leave_applications.employee_id', '=', 'users.id')
+                    ->where('leave_applications.status', 'pending');
+
+                // Only filter by branch if the column exists and branch_id is set
+                $branchId = $this->getBranchId();
+                if (Schema::hasColumn('leave_applications', 'branch_id') && $branchId) {
+                    $query->where('branch_id', $branchId);
+                }
+
+                return $query->selectRaw('leave_applications.*, users.name as employee_name, leave_applications.start_date as date, leave_applications.reason as leave_type')
+                    ->orderBy('leave_applications.created_at', 'desc')
                     ->limit(10)
                     ->get();
             } catch (\Exception $e) {

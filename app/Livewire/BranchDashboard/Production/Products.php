@@ -63,7 +63,7 @@ class Products extends BaseComponent
 
     public function mount($deptSlug){
         $this->dept_slug = $deptSlug;
-        $this->employee =  Employee::where('id', auth('employees')->id())->first();
+        $this->employee =  Employee::where('id', auth()->id())->first();
     }
 
     protected array $bulkActions = [

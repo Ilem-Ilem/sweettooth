@@ -55,7 +55,7 @@
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-md p-6 border-l-4 border-blue-500">
             <p class="text-zinc-600 dark:text-zinc-400 text-sm font-semibold mb-2">TOTAL INVENTORY VALUE</p>
-            <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ number_format($inventoryValuation['grand_total'], 2) }}</p>
+            <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ $this->formatCurrency($inventoryValuation['grand_total']) }}</p>
         </div>
 
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-md p-6 border-l-4 border-green-500">
@@ -71,7 +71,7 @@
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-md p-6 border-l-4 border-orange-500">
             <p class="text-zinc-600 dark:text-zinc-400 text-sm font-semibold mb-2">SELECTED TO POST</p>
             <p class="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                {{ number_format(collect($selectedCategories)->sum(fn($c) => $categoryTotals[$c] ?? 0), 2) }}
+                {{ $this->formatCurrency(collect($selectedCategories)->sum(fn($c) => $categoryTotals[$c] ?? 0)) }}
             </p>
         </div>
     </div>
@@ -110,7 +110,7 @@
                                 </div>
                             </div>
                             <div class="text-right">
-                                <p class="text-xl font-bold text-zinc-900 dark:text-white">{{ number_format($category['total_value'], 2) }}</p>
+                                <p class="text-xl font-bold text-zinc-900 dark:text-white">{{ $this->formatCurrency($category['total_value']) }}</p>
                                 <p class="text-xs text-zinc-500 dark:text-zinc-400">Total Value</p>
                             </div>
                         </div>
@@ -140,8 +140,8 @@
                                                     <td class="px-3 py-2 font-mono text-xs text-zinc-600 dark:text-zinc-400">{{ $item['item_sku'] }}</td>
                                                     <td class="px-3 py-2 text-zinc-600 dark:text-zinc-400">{{ $item['branch_name'] }}</td>
                                                     <td class="px-3 py-2 text-right text-zinc-900 dark:text-white">{{ number_format($item['quantity'], 2) }}</td>
-                                                    <td class="px-3 py-2 text-right font-mono text-zinc-900 dark:text-white">{{ number_format($item['average_cost'], 2) }}</td>
-                                                    <td class="px-3 py-2 text-right font-mono font-semibold text-zinc-900 dark:text-white">{{ number_format($item['value'], 2) }}</td>
+                                                    <td class="px-3 py-2 text-right font-mono text-zinc-900 dark:text-white">{{ $this->formatCurrency($item['average_cost']) }}</td>
+                                                    <td class="px-3 py-2 text-right font-mono font-semibold text-zinc-900 dark:text-white">{{ $this->formatCurrency($item['value']) }}</td>
                                                 </tr>
                                             @endforeach
                                         </tbody>
@@ -194,7 +194,7 @@
                                         <td class="py-2 text-zinc-900 dark:text-white">
                                             {{ $glAccountMappings[$catKey] ?? '1300' }} - {{ $inventoryValuation['categories'][$catKey]['name'] ?? 'Inventory' }}
                                         </td>
-                                        <td class="py-2 text-right font-mono text-green-600 dark:text-green-400">{{ number_format($categoryTotals[$catKey], 2) }}</td>
+                                        <td class="py-2 text-right font-mono text-green-600 dark:text-green-400">{{ $this->formatCurrency($categoryTotals[$catKey]) }}</td>
                                         <td class="py-2 text-right">-</td>
                                     </tr>
                                 @endif
@@ -203,7 +203,7 @@
                                 <td class="py-2 text-zinc-900 dark:text-white">3010 - Opening Balance Equity</td>
                                 <td class="py-2 text-right">-</td>
                                 <td class="py-2 text-right font-mono text-red-600 dark:text-red-400">
-                                    {{ number_format(collect($selectedCategories)->sum(fn($c) => $categoryTotals[$c] ?? 0), 2) }}
+                                    {{ $this->formatCurrency(collect($selectedCategories)->sum(fn($c) => $categoryTotals[$c] ?? 0)) }}
                                 </td>
                             </tr>
                         </tbody>
@@ -211,10 +211,10 @@
                             <tr>
                                 <td class="py-2 text-zinc-900 dark:text-white">TOTAL</td>
                                 <td class="py-2 text-right font-mono text-zinc-900 dark:text-white">
-                                    {{ number_format(collect($selectedCategories)->sum(fn($c) => $categoryTotals[$c] ?? 0), 2) }}
+                                    {{ $this->formatCurrency(collect($selectedCategories)->sum(fn($c) => $categoryTotals[$c] ?? 0)) }}
                                 </td>
                                 <td class="py-2 text-right font-mono text-zinc-900 dark:text-white">
-                                    {{ number_format(collect($selectedCategories)->sum(fn($c) => $categoryTotals[$c] ?? 0), 2) }}
+                                    {{ $this->formatCurrency(collect($selectedCategories)->sum(fn($c) => $categoryTotals[$c] ?? 0)) }}
                                 </td>
                             </tr>
                         </tfoot>
@@ -252,7 +252,7 @@
                                     <span class="font-mono text-xs">{{ $posting['account'] }}</span> - {{ $posting['account_name'] }}
                                 </td>
                                 <td class="px-4 py-3 text-zinc-600 dark:text-zinc-400">{{ Str::limit($posting['description'], 30) }}</td>
-                                <td class="px-4 py-3 text-right font-mono font-semibold text-zinc-900 dark:text-white">{{ number_format($posting['amount'], 2) }}</td>
+                                <td class="px-4 py-3 text-right font-mono font-semibold text-zinc-900 dark:text-white">{{ $this->formatCurrency($posting['amount']) }}</td>
                                 <td class="px-4 py-3 text-center">
                                     <button wire:click="reversePosting({{ $posting['id'] }})" wire:confirm="Are you sure you want to reverse this entry?" class="px-2 py-1 text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-900/50 transition">
                                         Reverse
@@ -264,7 +264,7 @@
                     <tfoot class="bg-zinc-100 dark:bg-zinc-700">
                         <tr>
                             <td colspan="4" class="px-4 py-3 font-semibold text-zinc-900 dark:text-white">Total Previously Posted</td>
-                            <td class="px-4 py-3 text-right font-mono font-bold text-zinc-900 dark:text-white">{{ number_format(collect($postingHistory)->sum('amount'), 2) }}</td>
+                            <td class="px-4 py-3 text-right font-mono font-bold text-zinc-900 dark:text-white">{{ $this->formatCurrency(collect($postingHistory)->sum('amount')) }}</td>
                             <td></td>
                         </tr>
                     </tfoot>
@@ -294,7 +294,7 @@
                 <h3 class="text-lg font-bold text-zinc-900 dark:text-white mb-4">Confirm Posting</h3>
                 <p class="text-zinc-600 dark:text-zinc-400 mb-4">
                     You are about to post inventory valuation of
-                    <span class="font-bold text-zinc-900 dark:text-white">{{ number_format(collect($selectedCategories)->sum(fn($c) => $categoryTotals[$c] ?? 0), 2) }}</span>
+                    <span class="font-bold text-zinc-900 dark:text-white">{{ $this->formatCurrency(collect($selectedCategories)->sum(fn($c) => $categoryTotals[$c] ?? 0)) }}</span>
                     to the General Ledger.
                 </p>
                 <p class="text-sm text-yellow-600 dark:text-yellow-400 mb-4">

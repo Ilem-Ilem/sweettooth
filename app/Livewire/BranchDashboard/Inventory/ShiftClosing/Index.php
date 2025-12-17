@@ -57,7 +57,7 @@ class Index extends BaseComponent
 
     protected function loadCurrentShift()
     {
-        $employee = auth('employees')->user();
+        $employee = auth()->user();
 
         // Get active shift for today (Inventory department)
         $activeShift = Shift::where('employee_id', $employee->id)

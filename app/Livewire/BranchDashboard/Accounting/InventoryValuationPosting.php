@@ -2,12 +2,14 @@
 
 namespace App\Livewire\BranchDashboard\Accounting;
 
+use App\Helpers\Settings;
 use App\Models\Stock;
 use App\Models\Item;
 use App\Models\GlAccount;
 use App\Models\GlEntry;
 use App\Models\AccountingPeriod;
 use App\Models\Branch;
+use App\Services\CurrencyFormattingService;
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Illuminate\Support\Facades\DB;
@@ -357,7 +359,8 @@ class InventoryValuationPosting extends Component
             $this->showConfirmModal = false;
             $this->selectedCategories = [];
 
-            session()->flash('message', "Successfully posted inventory valuation of " . number_format($totalPosted, 2) . " to GL ({$entriesCreated} entries created).");
+            $service = new CurrencyFormattingService();
+            session()->flash('message', "Successfully posted inventory valuation of " . $service->format($totalPosted) . " to GL ({$entriesCreated} entries created).");
 
             $this->dispatch('posting-complete');
 
@@ -395,5 +398,24 @@ class InventoryValuationPosting extends Component
         $this->selectedBranchId = $branchId ? (int)$branchId : null;
         $this->selectedCategories = [];
         $this->categoryTotals = [];
+    }
+
+    /**
+     * Format currency value for inventory valuation display
+     */
+    protected function formatCurrency(float $amount): string
+    {
+        $service = new CurrencyFormattingService();
+        return $service->format($amount);
+    }
+
+    /**
+     * Get currency symbol for valuation display
+     */
+    protected function getCurrencySymbol(string $currency = null): string
+    {
+        $service = new CurrencyFormattingService();
+        $currency = $currency ?? Settings::currencyLocalization('primary_currency', 'NGN');
+        return $service->getSymbol($currency);
     }
 }

@@ -159,10 +159,10 @@
                         <tr>
                             <td colspan="2" class="px-4 py-3 font-semibold text-zinc-900 dark:text-white text-right">Totals:</td>
                             <td class="px-4 py-3 text-right font-semibold {{ $this->totalDebits > 0 ? 'text-green-600 dark:text-green-400' : 'text-zinc-900 dark:text-white' }}">
-                                {{ number_format($this->totalDebits, 2) }}
+                                {{ $this->formatCurrency($this->totalDebits) }}
                             </td>
                             <td class="px-4 py-3 text-right font-semibold {{ $this->totalCredits > 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-900 dark:text-white' }}">
-                                {{ number_format($this->totalCredits, 2) }}
+                                {{ $this->formatCurrency($this->totalCredits) }}
                             </td>
                             <td class="px-4 py-3 text-center">
                                 <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 

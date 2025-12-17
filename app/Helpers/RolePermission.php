@@ -23,8 +23,8 @@ class RolePermission
             return Auth::guard($guard)->user();
         }
 
-        // Try employees guard first, then web guard
-        return Auth::guard('employees')->user() ?? Auth::guard('web')->user();
+        // Unified system - all users authenticated via web guard
+        return Auth::guard('web')->user();
     }
 
     /**
@@ -32,10 +32,7 @@ class RolePermission
      */
     public static function getGuardName(): ?string
     {
-        if (Auth::guard('employees')->check()) {
-            return 'employees';
-        }
-
+        // Unified system - all users authenticated via web guard
         if (Auth::guard('web')->check()) {
             return 'web';
         }

@@ -55,7 +55,7 @@ class ProductTypes extends BaseComponent
     public function mount($deptSlug){
         $this->dept_slug = $deptSlug;
         $this->department = Department::where('slug', $deptSlug)->first();
-        $this->employees_department =  Employee::where('id', auth('employees')->id())->first();
+        $this->employees_department =  Employee::where('id', auth()->id())->first();
 
     }
 

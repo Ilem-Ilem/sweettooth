@@ -15,15 +15,17 @@ class Employee extends Authenticatable
     use HasRoles, HasUuids, Notifiable, SoftDeletes, TwoFactorAuthenticatable;
 
     use RequiresApproval;
-    
-    protected $guard = 'employees';
+    protected $guard_name = 'web';
+    protected $table = 'users';
 
     protected $fillable = [
-        'id', 'branch_id', 'department_id', 'manager_id', 'employee_number', 'name', 'email', 'phone', 'address',
-        'date_of_birth', 'gender', 'nationality', 'emergency_contact_name', 'emergency_contact_phone',
-        'hire_date', 'termination_date', 'status', 'probation_end_date', 'shift_preference',
+        'id', 'name', 'email', 'password', 'branch_id', 'is_active', 'last_accessed_branch_id',
+        'employee_number', 'employee_id', 'department_id', 'manager_id', 'phone', 'hire_date',
+        'employment_status', 'user_type',
+        'address', 'date_of_birth', 'gender', 'nationality', 'emergency_contact_name',
+        'emergency_contact_phone', 'termination_date', 'probation_end_date', 'shift_preference',
         'salary', 'hourly_rate', 'tax_id', 'bank_account', 'allergies', 'profile_photo',
-        'last_performance_review_date', 'performance_rating', 'password',
+        'last_performance_review_date', 'performance_rating',
     ];
 
     public function getMorphClass()
@@ -36,11 +38,16 @@ class Employee extends Authenticatable
         'remember_token',
     ];
 
-    protected $casts = [
-        'email_verified_at' => 'datetime',
-        'password' => 'hashed', // Laravel 10+
-        'is_active' => 'boolean',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+            'branch_id' => 'string',
+            'is_active' => 'boolean',
+            'hire_date' => 'datetime',
+        ];
+    }
 
     public function initials(): string
     {
@@ -65,12 +72,12 @@ class Employee extends Authenticatable
 
     public function manager()
     {
-        return $this->belongsTo(Employee::class, 'manager_id');
+        return $this->belongsTo(User::class, 'manager_id');
     }
 
     public function subordinates()
     {
-        return $this->hasMany(Employee::class, 'manager_id');
+        return $this->hasMany(User::class, 'manager_id');
     }
 
     // Leave Management Relationships

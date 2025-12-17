@@ -3,6 +3,7 @@
 namespace App\Livewire\BranchDashboard\SalesDashboard\ShiftClosing;
 
 use App\Livewire\BaseComponent;
+use App\Livewire\Concerns\SalesDepartmentContext;
 use App\Models\Shift;
 use App\Models\ProductStock;
 use App\Models\Sale;
@@ -12,6 +13,7 @@ use App\Models\Branch;
 use App\Models\Department;
 use App\Models\Product;
 use App\Models\Callback;
+use App\Services\SalesWorkflowService;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
@@ -21,18 +23,14 @@ use TallStackUi\Traits\Interactions;
 #[Layout('components.layouts.app.branch-dashboard')]
 class Index extends BaseComponent
 {
-    use Interactions;
+    use Interactions, SalesDepartmentContext;
 
     #[Url(keep: true)]
     public ?string $b_id = null;
 
-    #[Url(keep: true)]
-    public ?string $salesDeptSlug = null;
+    // Note: salesDeptSlug, branchId, departmentId, departmentName, branchName
+    // are now provided by SalesDepartmentContext trait
 
-    public ?string $branchId = null;
-    public ?int $departmentId = null;
-    public string $departmentName = 'Shift Closing';
-    public string $branchName = '';
     public ?string $currentShiftId = null;
     public $shiftDate;
     public $shiftType = 'morning';
@@ -65,41 +63,18 @@ class Index extends BaseComponent
     public function mount()
     {
         $this->mountBase();
-        $this->loadBranchAndDepartment();
+        $this->initializeDepartmentContext(); // Using trait method
+        $this->departmentName = $this->departmentName ?: 'Shift Closing';
         $this->shiftDate = Carbon::today()->format('Y-m-d');
         $this->loadCurrentShift();
         $this->loadClosingData();
     }
 
-    protected function loadBranchAndDepartment(): void
-    {
-        $this->branchId = request('b_id');
-        if ($this->branchId) {
-            $branch = Branch::find($this->branchId);
-            $this->branchName = $branch?->name ?? 'Unknown Branch';
-        }
-
-        if ($this->salesDeptSlug) {
-            $department = Department::where('slug', $this->salesDeptSlug)
-                ->where('branch_id', $this->branchId)
-                ->first();
-
-            if (!$department) {
-                $department = Department::where('slug', $this->salesDeptSlug)
-                    ->whereNull('branch_id')
-                    ->first();
-            }
-
-            if ($department) {
-                $this->departmentId = $department->id;
-                $this->departmentName = $department->name;
-            }
-        }
-    }
+    // loadBranchAndDepartment is now handled by SalesDepartmentContext trait
 
     protected function loadCurrentShift()
     {
-        $employee = auth('employees')->user();
+        $employee = auth()->user();
 
         // Get active shift for this sales department
         $activeShift = Shift::where('employee_id', $employee->id)
@@ -501,12 +476,34 @@ class Index extends BaseComponent
             ];
 
             $shift->notes = json_encode($reconciliationData);
+
+            // Update workflow metadata
+            $metadata = $shift->metadata ?? [];
+            $metadata['shift_closing_completed'] = true;
+            $metadata['shift_closed_at'] = now()->toIso8601String();
+            $metadata['closed_by'] = auth()->id() ?? auth()->id();
+            $shift->metadata = $metadata;
+            $shift->workflow_state = 'completed';
+            $shift->shift_closed_at = now();
             $shift->save();
+
+            // Mark workflow step as completed (skip for super admins)
+            if (!is_super_admin() && !can_access_all_branches()) {
+                $workflowService = app(SalesWorkflowService::class);
+                $workflowService->completeStep(
+                    auth()->id(),
+                    $this->currentShiftId,
+                    'shift_closing'
+                );
+            }
 
             DB::commit();
             $this->toast()->success('Shift closed successfully!')->send();
             $this->isVerified = true;
             $this->loadClosingData(); // Reload to reflect changes
+
+            // Emit event to update workflow progress in other components
+            $this->dispatch('workflow-state-changed');
         } catch (\Exception $e) {
             DB::rollBack();
             $this->toast()->error('Error closing shift: ' . $e->getMessage())->send();

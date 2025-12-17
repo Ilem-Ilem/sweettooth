@@ -37,7 +37,7 @@ return new class extends Migration
             $table->text('overdue_reason')->nullable();
             $table->timestamps();
 
-            $table->foreign('employee_id')->references('id')->on('employees')->onDelete('cascade');
+            $table->foreign('employee_id')->references('id')->on('users')->onDelete('cascade');
 
             $table->index(['employee_id', 'request_time']);
             $table->index(['status', 'request_time']);

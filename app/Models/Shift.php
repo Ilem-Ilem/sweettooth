@@ -19,6 +19,12 @@ class Shift extends Model
         'clock_out',
         'status',
         'notes',
+        'workflow_state',
+        'metadata',
+        'stock_verified_at',
+        'shift_closed_at',
+        'auto_clocked_out_at',
+        'auto_clock_out_reason',
     ];
 
     protected $casts = [
@@ -27,6 +33,10 @@ class Shift extends Model
         'status' => 'string',
         'clock_in' => 'datetime',
         'clock_out' => 'datetime',
+        'metadata' => 'array',
+        'stock_verified_at' => 'datetime',
+        'shift_closed_at' => 'datetime',
+        'auto_clocked_out_at' => 'datetime',
     ];
 
     public function branch(): BelongsTo
@@ -41,7 +51,12 @@ class Shift extends Model
 
     public function employee(): BelongsTo
     {
-        return $this->belongsTo(Employee::class, 'employee_id', 'id');
+        return $this->belongsTo(User::class, 'employee_id', 'id');
+    }
+
+    public function configuration(): BelongsTo
+    {
+        return $this->belongsTo(ShiftConfiguration::class, 'metadata->config_id');
     }
 
     public function dailyProduces(): HasMany

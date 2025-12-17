@@ -73,7 +73,7 @@ class RequestDispatchAnalytics extends Component
      */
     public function getRequestSummary()
     {
-        $branchId = @Auth::guard('employees')->user()->branch_id ??  request()->get('b_id');
+        $branchId = @Auth::guard('web')->user()->branch_id ??  request()->get('b_id');
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
@@ -98,7 +98,7 @@ class RequestDispatchAnalytics extends Component
      */
     public function getDispatchSummary()
     {
-        $branchId = @Auth::guard('employees')->user()->branch_id ??  request()->get('b_id');
+        $branchId = @Auth::guard('web')->user()->branch_id ??  request()->get('b_id');
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
@@ -123,7 +123,7 @@ class RequestDispatchAnalytics extends Component
      */
     public function getPendingRequests()
     {
-        $branchId = @Auth::guard('employees')->user()->branch_id ??  request()->get('b_id');
+        $branchId = @Auth::guard('web')->user()->branch_id ??  request()->get('b_id');
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
@@ -154,7 +154,7 @@ class RequestDispatchAnalytics extends Component
      */
     public function getMostRequestedItems()
     {
-        $branchId = @Auth::guard('employees')->user()->branch_id ??  request()->get('b_id');
+        $branchId = @Auth::guard('web')->user()->branch_id ??  request()->get('b_id');
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
@@ -185,7 +185,7 @@ class RequestDispatchAnalytics extends Component
      */
     public function getDepartmentBreakdown()
     {
-        $branchId = @Auth::guard('employees')->user()->branch_id ??  request()->get('b_id');
+        $branchId = @Auth::guard('web')->user()->branch_id ??  request()->get('b_id');
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
@@ -217,7 +217,7 @@ class RequestDispatchAnalytics extends Component
      */
     public function getShiftBreakdown()
     {
-        $branchId = @Auth::guard('employees')->user()->branch_id ??  request()->get('b_id');
+        $branchId = @Auth::guard('web')->user()->branch_id ??  request()->get('b_id');
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
@@ -246,7 +246,7 @@ class RequestDispatchAnalytics extends Component
      */
     public function getApprovalTurnaroundTime()
     {
-        $branchId = @Auth::guard('employees')->user()->branch_id ??  request()->get('b_id');
+        $branchId = @Auth::guard('web')->user()->branch_id ??  request()->get('b_id');
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
@@ -286,7 +286,7 @@ class RequestDispatchAnalytics extends Component
      */
     public function getFulfillmentRate()
     {
-        $branchId = @Auth::guard('employees')->user()->branch_id ??  request()->get('b_id');
+        $branchId = @Auth::guard('web')->user()->branch_id ??  request()->get('b_id');
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
@@ -312,7 +312,7 @@ class RequestDispatchAnalytics extends Component
      */
     public function getDailyTrend()
     {
-        $branchId = @Auth::guard('employees')->user()->branch_id ??  request()->get('b_id');
+        $branchId = @Auth::guard('web')->user()->branch_id ??  request()->get('b_id');
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
@@ -350,7 +350,7 @@ class RequestDispatchAnalytics extends Component
      */
     public function getPeriodComparison()
     {
-        $branchId = @Auth::guard('employees')->user()->branch_id ??  request()->get('b_id');
+        $branchId = @Auth::guard('web')->user()->branch_id ??  request()->get('b_id');
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
         $daysDiff = $dateFrom->diffInDays($dateTo);
@@ -432,7 +432,7 @@ class RequestDispatchAnalytics extends Component
 
     public function render()
     {
-        $branchId = @Auth::guard('employees')->user()->branch_id ??  request()->get('b_id');
+        $branchId = @Auth::guard('web')->user()->branch_id ??  request()->get('b_id');
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 

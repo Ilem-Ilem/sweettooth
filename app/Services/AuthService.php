@@ -13,11 +13,11 @@ use Illuminate\Support\Facades\Auth;
 class AuthService
 {
     /**
-     * Get current authenticated user (from any guard)
+     * Get current authenticated user (unified system - web guard only)
      */
     public static function user()
     {
-        return Auth::guard('web')->user() ?? Auth::guard('employees')->user();
+        return Auth::guard('web')->user();
     }
 
     /**
@@ -25,17 +25,30 @@ class AuthService
      */
     public static function check(): bool
     {
-        return Auth::guard('web')->check() || Auth::guard('employees')->check();
+        return Auth::guard('web')->check();
     }
 
     /**
-     * Check if user is super admin (web guard only)
-     * Super admins are ONLY authenticated via web guard, NOT employees guard
+     * Check if user is super admin (role-based in unified system)
+     * 
+     * Super admins have any of these roles:
+     * - super-admin / Super Admin / super_admin
+     * - MD / Managing Director
+     * - admin / Admin (legacy)
      */
     public static function isSuperAdmin(): bool
     {
-        // Super admin = web guard authenticated AND NOT employees guard
-        return Auth::guard('web')->check() && !Auth::guard('employees')->check();
+        $user = self::user();
+        if (!$user) {
+            return false;
+        }
+        
+        // Check for any super-admin equivalent role
+        return $user->hasAnyRole([
+            'super-admin', 'Super Admin', 'super_admin',
+            'MD', 'Managing Director',
+            'admin', 'Admin'
+        ]);
     }
 
     /**
@@ -78,25 +91,23 @@ class AuthService
     }
 
     /**
-     * Get current guard name
+     * Get current guard name (unified system)
      */
     public static function guard(): string
     {
         if (Auth::guard('web')->check()) {
             return 'web';
         }
-        if (Auth::guard('employees')->check()) {
-            return 'employees';
-        }
         return 'none';
     }
 
     /**
-     * Check if user is employee (employees guard)
+     * Check if user is employee (role-based in unified system)
      */
     public static function isEmployee(): bool
     {
-        return Auth::guard('employees')->check() && !Auth::guard('web')->check();
+        $user = self::user();
+        return $user && $user->hasRole('employee');
     }
 
     /**

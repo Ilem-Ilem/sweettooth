@@ -60,11 +60,11 @@
                                 @endif
                             </td>
                             <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                                GHS {{ number_format($product->price, 2) }}
+                                {{ $this->formatPrice($product->price) }}
                             </td>
                             <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                                 @if($product->pivot->department_price)
-                                    <span class="text-green-600 font-medium">GHS {{ number_format($product->pivot->department_price, 2) }}</span>
+                                    <span class="text-green-600 font-medium">{{ $this->formatPrice($product->pivot->department_price) }}</span>
                                 @else
                                     <span class="text-gray-400">-</span>
                                 @endif
@@ -138,7 +138,7 @@
                                             <div class="ml-3 flex-1">
                                                 <div class="font-medium text-gray-900">{{ $product['name'] }}</div>
                                                 <div class="text-sm text-gray-500">
-                                                    SKU: {{ $product['sku'] }} | Price: GHS {{ number_format($product['price'], 2) }}
+                                                    SKU: {{ $product['sku'] }} | Price: {{ $this->formatPrice($product['price']) }}
                                                 </div>
                                             </div>
                                         </label>

@@ -43,6 +43,7 @@
             "App\\Helpers\\":"app/Helpers/"
         },
         "files": [
+            "app/Helpers/AuthorizationHelper.php",
             "app/Helpers/BranchRouteHelper.php",
             "app/Helpers/BranchHelper.php"
         ]

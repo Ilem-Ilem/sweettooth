@@ -239,7 +239,7 @@ class Items extends BaseComponent
         ]);
 
         try {
-            $user = Auth::guard('employees')->user();
+            $user = Auth::guard('web')->user();
             $request = null;
             $msg = '';
 
@@ -390,7 +390,7 @@ class Items extends BaseComponent
             'quantity_after' => $this->stockQuantity,
             'reference_type' => null,
             'reference_id' => null,
-            'moved_by_id' => Auth::guard('employees')->id(),
+            'moved_by_id' => Auth::guard('web')->id(),
             'moved_by_type' => \App\Models\Employee::class,
             'notes' => $this->stockNotes ?: 'Manual adjustment',
             'movement_date' => now(),
@@ -615,7 +615,7 @@ class Items extends BaseComponent
             ];
             
             $request = InventoryApprovalService::requestItemDeletion(
-                Auth::guard('employees')->user(),
+                Auth::guard('web')->user(),
                 $this->pendingItemId,
                 $this->auditReason,
                 $deletionData

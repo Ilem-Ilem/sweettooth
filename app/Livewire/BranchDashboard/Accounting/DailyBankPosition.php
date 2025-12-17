@@ -2,10 +2,12 @@
 
 namespace App\Livewire\BranchDashboard\Accounting;
 
+use App\Helpers\Settings;
 use App\Models\BankAccount;
 use App\Models\DailyBankPosition as DailyBankPositionModel;
 use App\Models\DailyBankTransaction;
 use App\Models\GlEntry;
+use App\Services\CurrencyFormattingService;
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Carbon\Carbon;
@@ -152,5 +154,24 @@ class DailyBankPosition extends Component
     {
         $this->selectedBankAccountId = $bankAccountId;
         $this->loadPositions();
+    }
+
+    /**
+     * Format currency value for bank position display
+     */
+    protected function formatCurrency(float $amount): string
+    {
+        $service = new CurrencyFormattingService();
+        return $service->format($amount);
+    }
+
+    /**
+     * Get currency symbol for bank transactions
+     */
+    protected function getCurrencySymbol(string $currency = null): string
+    {
+        $service = new CurrencyFormattingService();
+        $currency = $currency ?? Settings::currencyLocalization('primary_currency', 'NGN');
+        return $service->getSymbol($currency);
     }
 }

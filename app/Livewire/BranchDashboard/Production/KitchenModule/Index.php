@@ -37,7 +37,7 @@ class Index extends Component
     public function loadCurrentShift()
     {
         $branchId = $this->getBranchId();
-        $employee = Auth::guard('employees')->user();
+        $employee = Auth::guard('web')->user();
 
         // Get today's shift for the currently logged-in employee
         $this->currentShift = Shift::where('branch_id', $branchId)
@@ -66,7 +66,7 @@ class Index extends Component
     public function render()
     {
         $branchId = $this->getBranchId();
-        $employee = Auth::guard('employees')->user();
+        $employee = Auth::guard('web')->user();
 
         // Get production requests for current shift
         $productionRequests = [];

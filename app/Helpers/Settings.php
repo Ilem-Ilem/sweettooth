@@ -220,7 +220,7 @@ abstract class Settings
     private static function getKeyFromModel(?Model $branchModel, ?Model $globalModel, string $key, $default = null)
     {
         // If authenticated as employee, prioritize branch settings
-        if (auth("employees")->id() != null) {
+        if (auth()->id() != null) {
             if ($branchModel == null && $globalModel != null) {
                 return $globalModel->$key ?? $default;
             } else if ($branchModel != null) {

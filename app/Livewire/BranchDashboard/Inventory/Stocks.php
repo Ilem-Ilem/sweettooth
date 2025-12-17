@@ -2,10 +2,12 @@
 
 namespace App\Livewire\BranchDashboard\Inventory;
 
+use App\Helpers\Settings;
 use App\Livewire\BaseComponent;
 use App\Models\Stock;
 use App\Models\StockMovement;
 use App\Services\AuditService;
+use App\Services\CurrencyFormattingService;
 use App\Services\InventoryApprovalService;
 use App\Traits\Exportable;
 use Livewire\Attributes\{Layout, Url, On};
@@ -224,7 +226,7 @@ class Stocks extends BaseComponent
                     'quantity_after' => (float) $this->quantity_available,
                     'reference_type' => null,
                     'reference_id' => null,
-                    'moved_by_id' => Auth::guard('employees')->id(),
+                    'moved_by_id' => Auth::guard('web')->id(),
                     'moved_by_type' => \App\Models\Employee::class,
                     'movement_date' => now(),
                     'notes' => $this->notes ?: 'Manual stock adjustment from Stocks page',
@@ -291,7 +293,7 @@ class Stocks extends BaseComponent
                 ->where('branch_id', $branchId)
                 ->firstOrFail();
 
-            $actor = Auth::guard('employees')->user();
+            $actor = Auth::guard('web')->user();
 
             // Create approval request with adjustment data
             // NOTE: InventoryApprovalService::requestStockAdjustment() already logs this request
@@ -583,5 +585,24 @@ class Stocks extends BaseComponent
             })
             ->orderBy('updated_at', 'desc')
             ->get();
+    }
+
+    /**
+     * Format currency value for stock valuation
+     */
+    protected function formatCurrency(float $amount): string
+    {
+        $service = new CurrencyFormattingService();
+        return $service->format($amount);
+    }
+
+    /**
+     * Get currency symbol for display
+     */
+    protected function getCurrencySymbol(string $currency = null): string
+    {
+        $service = new CurrencyFormattingService();
+        $currency = $currency ?? Settings::currencyLocalization('primary_currency', 'NGN');
+        return $service->getSymbol($currency);
     }
 }

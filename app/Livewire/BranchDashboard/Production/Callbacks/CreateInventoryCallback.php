@@ -154,7 +154,7 @@ class CreateInventoryCallback extends BaseComponent
     protected function loadAvailableShifts()
     {
         $branchId = $this->getBranchId();
-        $employee = auth('employees')->user();
+        $employee = auth()->user();
 
         // Get production shifts from last 30 days
         $this->availableShifts = Shift::where('branch_id', $branchId)
@@ -169,7 +169,7 @@ class CreateInventoryCallback extends BaseComponent
 
     protected function loadCurrentShift()
     {
-        $employee = auth('employees')->user();
+        $employee = auth()->user();
 
         // Find active production shift for this employee
         $activeShift = Shift::where('branch_id', $this->getBranchId())

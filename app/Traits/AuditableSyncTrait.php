@@ -53,7 +53,7 @@ trait AuditableSyncTrait
     ): array {
         // Get current actor if not provided
         if (!$causer) {
-            $causer = auth('employees')->user() ?? auth('web')->user();
+            $causer = auth()->user() ?? auth('web')->user();
         }
 
         // Get previous data for comparison
@@ -65,6 +65,11 @@ trait AuditableSyncTrait
         return DB::transaction(function () use ($model, $relationship, $syncData, $description, $causer, $previousData) {
             // Perform the sync
             $result = $model->{$relationship}()->sync($syncData);
+
+            // Clear permission cache if syncing roles or permissions
+            if ($relationship === 'roles' || $relationship === 'permissions') {
+                $model->forgetCachedPermissions();
+            }
 
             // Log the sync operation
             AuditService::logSync(
@@ -118,7 +123,7 @@ trait AuditableSyncTrait
         ?Model $causer = null
     ): array {
         if (!$causer) {
-            $causer = auth('employees')->user() ?? auth('web')->user();
+            $causer = auth()->user() ?? auth('web')->user();
         }
 
         // Get previous data for comparison
@@ -197,7 +202,7 @@ trait AuditableSyncTrait
         ?Model $causer = null
     ): array {
         if (!$causer) {
-            $causer = auth('employees')->user() ?? auth('web')->user();
+            $causer = auth()->user() ?? auth('web')->user();
         }
 
         $results = [];

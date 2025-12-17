@@ -3,6 +3,7 @@
 namespace App\Livewire\BranchDashboard\Dashboards;
 
 use Livewire\Component;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
 
 /**
@@ -18,60 +19,43 @@ class Router extends Component
     {
         $branchId = request()->query('b_id');
 
-        // Write to file directly for debugging
-        file_put_contents('/tmp/router_debug.log', date('Y-m-d H:i:s') . " - Mount called\n" .
-            "b_id: " . ($branchId ?? 'null') . "\n" .
-            "web user: " . (auth()->user()?->email ?? 'null') . "\n" .
-            "employee user: " . (auth('employees')->user()?->employee_number ?? 'null') . "\n\n", FILE_APPEND);
+        // Get authenticated user - use direct Auth::user() instead of helper to avoid serialization issues
+        $currentUser = Auth::user();
 
-        // If no user authenticated, redirect to login
-        if (!auth()->check() && !auth('employees')->check()) {
+        if (!$currentUser || !($currentUser instanceof \App\Models\User)) {
+            // User not authenticated or serialized - force re-auth
+            Auth::logout();
             return Redirect::route('login');
         }
 
-        // PRIORITY 1: Check if user is authenticated via web guard (Super Admin/MD)
-        // Super Admin users should bypass shift selection entirely
-        // Do this check FIRST and ONLY on web guard, not on employees
-        $webUser = auth()->user();
-        $isWebGuardOnly = auth()->check() && !auth('employees')->check();
-        
         \Log::info('Router component called', [
-            'has_web_user' => $webUser ? true : false,
-            'web_user_id' => $webUser?->id,
-            'web_user_email' => $webUser?->email,
-            'is_web_guard_only' => $isWebGuardOnly,
-            'has_employee_user' => auth('employees')->user() ? true : false,
+            'user_id' => $currentUser->id,
+            'user_email' => $currentUser->email,
+            'user_type' => $currentUser->user_type ?? 'unknown',
+            'roles' => method_exists($currentUser, 'getRoleNames') ? $currentUser->getRoleNames()->toArray() : [],
+            'branch_id' => $branchId,
+            'has_active_shift_check' => $currentUser->user_type === 'employee' ? 'yes' : 'no',
         ]);
-        
-        if ($webUser && $isWebGuardOnly) {
-            try {
-                // Web guard users (super admins) should always go to super-admin dashboard
-                // regardless of whether they have explicit roles assigned
-                \Log::info('Web guard user detected - redirecting to super-admin dashboard', [
-                    'user_id' => $webUser->id,
-                    'email' => $webUser->email,
-                ]);
-                return Redirect::route('branch-dashboard.dashboards.super-admin', ['b_id' => $branchId]);
-            } catch (\Exception $e) {
-                \Log::error('Error handling web guard user', ['error' => $e->getMessage()]);
-            }
+
+        // PRIORITY 1: Super Admin users go to super-admin dashboard
+        if (is_super_admin()) {
+            return Redirect::route('branch-dashboard.dashboards.super-admin', ['b_id' => $branchId]);
         }
 
-        // PRIORITY 2: Get current user (for employee guard)
-        $currentUser = get_user_auth();
-        
-        if (!$currentUser) {
-            return Redirect::route('login');
-        }
-
-        // PRIORITY 3: For employees (employees guard), check if they have an active shift today
-        // Only employees need to clock in
-        if (auth('employees')->check() && !auth()->check()) {  // Make sure they're ONLY on employees guard
+        // PRIORITY 2: Regular employees (non-admin)
+        // Check if they have an active shift today
+        if ($currentUser->user_type === 'employee') {
             $today = now()->startOfDay();
             $hasActiveShift = \App\Models\Shift::where('employee_id', $currentUser->id)
                 ->where('shift_date', '>=', $today)
                 ->where('status', 'active')
                 ->exists();
+
+            \Log::info('Employee shift check', [
+                'user_id' => $currentUser->id,
+                'has_active_shift' => $hasActiveShift,
+                'user_type' => $currentUser->user_type,
+            ]);
 
             if (!$hasActiveShift) {
                 // Employee hasn't clocked in today, redirect to clock-in
@@ -79,12 +63,20 @@ class Router extends Component
             }
         }
 
-        // EMPLOYEES GUARD (Employee Users)
-        // Now check employee roles using SidebarVisibilityService for comprehensive role checking
+        // Check employee roles using SidebarVisibilityService for comprehensive role checking
         $sidebarService = \App\Services\SidebarVisibilityService::class;
 
         // Check for Admin role first (admins should go to HR/Admin, not department dashboards)
-        if ($currentUser->hasRole('Admin')) {
+        $isAdmin = $currentUser->hasRole('Admin') || $currentUser->hasRole('admin');
+        \Log::info('Admin check', ['is_admin' => $isAdmin]);
+        if ($isAdmin) {
+            return Redirect::route('branch-dashboard.dashboard.hr', ['b_id' => $branchId]);
+        }
+
+        // HR roles (check early to prioritize HR over other departments)
+        $isHR = $currentUser->hasRole('HR Manager') || $currentUser->hasRole('HR Officer') || $currentUser->hasRole('Hr') || $sidebarService::canSeeEmployeeManagement($currentUser);
+        \Log::info('HR check', ['is_hr' => $isHR, 'roles' => $currentUser->getRoleNames()->toArray(), 'can_see_employee_management' => $sidebarService::canSeeEmployeeManagement($currentUser)]);
+        if ($isHR) {
             return Redirect::route('branch-dashboard.dashboard.hr', ['b_id' => $branchId]);
         }
 
@@ -93,19 +85,14 @@ class Router extends Component
             return Redirect::route('branch-dashboard.dashboard.production', ['b_id' => $branchId]);
         }
 
-        // Sales roles
+        // Sales roles (check after HR to prevent HR users being redirected to sales)
         if ($sidebarService::canSeeSalesManagement($currentUser)) {
             return Redirect::route('branch-dashboard.dashboard.sales', ['b_id' => $branchId]);
         }
 
-        // Inventory roles (check before HR to prioritize inventory-specific roles)
+        // Inventory roles (check after sales)
         if ($sidebarService::canSeeInventory($currentUser)) {
             return Redirect::route('branch-dashboard.dashboard.inventory', ['b_id' => $branchId]);
-        }
-
-        // HR roles (check after inventory since inventory roles may have view-employees permission)
-        if ($sidebarService::canSeeEmployeeManagement($currentUser)) {
-            return Redirect::route('branch-dashboard.dashboard.hr', ['b_id' => $branchId]);
         }
 
         // Reporting roles
@@ -124,8 +111,8 @@ class Router extends Component
             'user_id' => $currentUser?->id,
             'user_email' => $currentUser?->email ?? 'unknown',
             'employee_number' => $currentUser?->employee_number ?? 'unknown',
-            'web_guard' => auth()->check(),
-            'employee_guard' => auth('employees')->check(),
+            'web_guard' => Auth::check(),
+            'employee_guard' => Auth::check(),
             'accessible_dashboards' => [
                 'production' => $sidebarService::canSeeProduction($currentUser),
                 'sales' => $sidebarService::canSeeSalesManagement($currentUser),

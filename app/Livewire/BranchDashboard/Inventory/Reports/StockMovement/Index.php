@@ -109,7 +109,7 @@ class Index extends Component
                 ->forBranch($this->branchId)
                 ->forDepartment($this->departmentId)
                 ->forPeriod($this->customDateFrom, $this->customDateTo)
-                ->generate(auth('employees')->id());
+                ->generate(auth()->id());
 
             $this->showReportModal = true;
             $this->toast()->success('Stock movement report saved successfully')->send();

@@ -17,10 +17,10 @@ class MDSeeder extends Seeder
      */
     public function run(): void
     {
-        // Create or find the MD role
+        // Create or find the MD role (unified system uses web guard)
         $role = Role::firstOrCreate(
-            ['name' => 'MD'],
-            ['guard_name' => 'employees', 'is_protected' => true]
+            ['name' => 'MD', 'guard_name' => 'web'],
+            ['is_protected' => true]
         );
 
         // ===============================
@@ -68,7 +68,7 @@ class MDSeeder extends Seeder
 
         foreach ($permissions as $perm) {
             Permission::firstOrCreate(
-                ['name' => $perm, 'guard_name' => 'employees'],
+                ['name' => $perm, 'guard_name' => 'web'],
                 ['category' => 'general']
             );
         }
@@ -87,8 +87,25 @@ class MDSeeder extends Seeder
             return;
         }
 
-        // Create MD as Employee (uses 'employees' guard)
+        // Create MD as User in unified system
         $now = now();
+        $user = User::firstOrCreate(
+            ['email' => 'md@sweettooth.com'],
+            [
+                'name' => 'Managing Director',
+                'password' => Hash::make('password'),
+                'branch_id' => $branch->id, // Assign to first branch
+                'is_active' => true,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]
+        );
+
+        // Assign MD role to user (unified system)
+        $user->assignRole($role);
+
+        // Optional: Create legacy Employee record for backward compatibility
+        // (Remove this once all Employee references are updated)
         $mdEmployee = Employee::firstOrCreate(
             ['email' => 'md@sweettooth.com'],
             [
@@ -107,22 +124,8 @@ class MDSeeder extends Seeder
                 'emergency_contact_phone' => '+234-000-000-0000',
                 'hire_date' => now()->format('Y-m-d'),
                 'status' => 'active',
-                'password' => Hash::make('password'), // change after seeding
-                'email_verified_at' => $now,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]
-        );
-
-        // Assign MD role to employee
-        $mdEmployee->assignRole($role);
-
-        // Also create web user for web guard access if needed
-        $user = User::firstOrCreate(
-            ['email' => 'md@sweettooth.com'],
-            [
-                'name' => 'Managing Director',
                 'password' => Hash::make('password'),
+                'email_verified_at' => $now,
                 'created_at' => $now,
                 'updated_at' => $now,
             ]

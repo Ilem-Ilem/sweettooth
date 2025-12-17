@@ -65,7 +65,7 @@ class Index extends Component
 
         try {
             $this->selectedReport->markAsReviewed(
-                auth('employees')->id(),
+                auth()->id(),
                 $this->reviewNotes
             );
 
@@ -92,7 +92,7 @@ class Index extends Component
         try {
             $this->selectedReport->update([
                 'status' => 'rejected',
-                'reviewed_by' => auth('employees')->id(),
+                'reviewed_by' => auth()->id(),
                 'reviewed_at' => now(),
                 'review_notes' => $this->reviewNotes,
             ]);

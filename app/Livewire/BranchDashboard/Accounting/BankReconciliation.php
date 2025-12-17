@@ -2,11 +2,13 @@
 
 namespace App\Livewire\BranchDashboard\Accounting;
 
+use App\Helpers\Settings;
 use App\Models\BankAccount;
 use App\Models\BankReconciliation as BankReconciliationModel;
 use App\Models\GlEntry;
 use App\Models\DailyBankTransaction;
 use App\Services\BankReconciliationService;
+use App\Services\CurrencyFormattingService;
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
@@ -284,5 +286,24 @@ class BankReconciliation extends Component
             'activeTab',
         ]);
         $this->activeTab = 'select';
+    }
+
+    /**
+     * Format currency value for reconciliation display
+     */
+    protected function formatCurrency(float $amount): string
+    {
+        $service = new CurrencyFormattingService();
+        return $service->format($amount);
+    }
+
+    /**
+     * Get currency symbol for reconciliation
+     */
+    protected function getCurrencySymbol(string $currency = null): string
+    {
+        $service = new CurrencyFormattingService();
+        $currency = $currency ?? Settings::currencyLocalization('primary_currency', 'NGN');
+        return $service->getSymbol($currency);
     }
 }

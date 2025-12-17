@@ -8,12 +8,17 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Phase 2: Role Observer
- * 
+ *
  * Watches for changes to roles and logs them for audit purposes.
  * Especially monitors protected roles.
  */
 class RoleObserver
 {
+    /**
+     * Store original values temporarily (not on model to avoid persistence)
+     */
+    protected static array $originalValues = [];
+
     /**
      * Handle the Role "created" event.
      */
@@ -28,8 +33,8 @@ class RoleObserver
      */
     public function updating(Role $role): void
     {
-        // Store original values in a temporary property
-        $role->_original_values = $role->getOriginal();
+        // Store original values in static array (not on model to avoid DB persistence)
+        static::$originalValues[$role->id] = $role->getOriginal();
     }
 
     /**
@@ -37,7 +42,8 @@ class RoleObserver
      */
     public function updated(Role $role): void
     {
-        $oldValues = $role->_original_values ?? [];
+        $oldValues = static::$originalValues[$role->id] ?? [];
+        unset(static::$originalValues[$role->id]); // Clean up
         RolePermissionAuditService::logRoleUpdated($role, $oldValues);
 
         // Alert on protected role changes

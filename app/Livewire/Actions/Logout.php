@@ -15,7 +15,7 @@ class Logout
     {
         // Logout from both guards
         Auth::guard('web')->logout();
-        Auth::guard('employees')->logout();
+        Auth::guard('web')->logout();
 
         // Destroy all session data
         Session::flush();

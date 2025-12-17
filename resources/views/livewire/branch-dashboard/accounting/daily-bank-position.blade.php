@@ -32,7 +32,7 @@
             <div class="card border-left-success">
                 <div class="card-body">
                     <h6 class="text-muted">Total Inflows</h6>
-                    <h4 class="text-success">${{ number_format($summary['total_inflows'], 2) }}</h4>
+                    <h4 class="text-success">{{ $this->formatCurrency($summary['total_inflows']) }}</h4>
                 </div>
             </div>
         </div>
@@ -40,7 +40,7 @@
             <div class="card border-left-danger">
                 <div class="card-body">
                     <h6 class="text-muted">Total Outflows</h6>
-                    <h4 class="text-danger">${{ number_format($summary['total_outflows'], 2) }}</h4>
+                    <h4 class="text-danger">{{ $this->formatCurrency($summary['total_outflows']) }}</h4>
                 </div>
             </div>
         </div>
@@ -49,7 +49,7 @@
                 <div class="card-body">
                     <h6 class="text-muted">Net Movement</h6>
                     <h4 class="@if($summary['net_movement'] >= 0) text-success @else text-danger @endif">
-                        ${{ number_format($summary['net_movement'], 2) }}
+                        {{ $this->formatCurrency($summary['net_movement']) }}
                     </h4>
                 </div>
             </div>
@@ -79,22 +79,22 @@
                     <div class="row">
                         <div class="col-md-6">
                             <h6 class="text-muted">Opening Balance</h6>
-                            <h4>${{ number_format($position['opening_balance'], 2) }}</h4>
+                            <h4>{{ $this->formatCurrency($position['opening_balance']) }}</h4>
                         </div>
                         <div class="col-md-6">
                             <h6 class="text-muted">Closing Balance</h6>
-                            <h4>${{ number_format($position['closing_balance'], 2) }}</h4>
+                            <h4>{{ $this->formatCurrency($position['closing_balance']) }}</h4>
                         </div>
                     </div>
                     <hr>
                     <div class="row">
                         <div class="col-md-6">
                             <h6 class="text-muted">Total Inflow</h6>
-                            <h5 class="text-success">${{ number_format($position['total_inflow'], 2) }}</h5>
+                            <h5 class="text-success">{{ $this->formatCurrency($position['total_inflow']) }}</h5>
                         </div>
                         <div class="col-md-6">
                             <h6 class="text-muted">Total Outflow</h6>
-                            <h5 class="text-danger">${{ number_format($position['total_outflow'], 2) }}</h5>
+                            <h5 class="text-danger">{{ $this->formatCurrency($position['total_outflow']) }}</h5>
                         </div>
                     </div>
                     @if($position['reconciled'])
@@ -143,10 +143,10 @@
                                         </td>
                                         <td class="small">{{ ucfirst(str_replace('_', ' ', $transaction['subtype'])) }}</td>
                                         <td class="text-end">
-                                            <strong class="@if($transaction['type'] === 'inflow') text-success @else text-danger @endif">
-                                                ${{ number_format($transaction['amount'], 2) }}
-                                            </strong>
-                                        </td>
+                                             <strong class="@if($transaction['type'] === 'inflow') text-success @else text-danger @endif">
+                                                 {{ $this->formatCurrency($transaction['amount']) }}
+                                             </strong>
+                                         </td>
                                         <td class="small">{{ $transaction['description'] }}</td>
                                         <td class="small text-muted">{{ $transaction['reference'] }}</td>
                                         <td>
@@ -185,7 +185,7 @@
                 <h6 class="alert-heading">⚠️ Pending Reconciliation</h6>
                 <p class="mb-1">
                     <strong>{{ $summary['unreconciled_count'] }}</strong> transaction(s) pending reconciliation 
-                    worth <strong>${{ number_format($summary['unreconciled_amount'], 2) }}</strong>
+                    worth <strong>{{ $this->formatCurrency($summary['unreconciled_amount']) }}</strong>
                 </p>
                 <a href="{{ route('branch-dashboard.accounting.bank-reconciliation', ['b_id' => request('b_id')]) }}" 
                    class="btn btn-sm btn-warning">

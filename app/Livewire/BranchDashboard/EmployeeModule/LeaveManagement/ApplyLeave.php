@@ -57,7 +57,7 @@ class ApplyLeave extends BaseComponent
 
     protected function initializeLeaveBalances()
     {
-        $employee = auth('employees')->user();
+        $employee = auth()->user();
         $currentYear = now()->year;
 
         // Initialize leave balances for current year if not exists
@@ -118,7 +118,7 @@ class ApplyLeave extends BaseComponent
             return;
         }
 
-        $employee = auth('employees')->user();
+        $employee = auth()->user();
         $currentYear = now()->year;
 
         $balance = EmployeeLeaveBalance::where('employee_id', $employee->id)
@@ -131,7 +131,7 @@ class ApplyLeave extends BaseComponent
 
     public function submit()
     {
-        $employee = auth('employees')->user();
+        $employee = auth()->user();
 
         $this->validate([
             'leave_type_id' => 'required|exists:leave_types,id',
@@ -245,7 +245,7 @@ class ApplyLeave extends BaseComponent
     public function render()
     {
         $leaveTypes = LeaveType::active()->get();
-        $employee = auth('employees')->user();
+        $employee = auth()->user();
         $currentYear = now()->year;
 
         // Get all leave balances for current employee

@@ -105,7 +105,7 @@ class Index extends Component
                 $this->compilationTitle,
                 $this->compilationDescription,
                 $this->b_id ?? current_branch_id(),
-                auth('employees')->id(),
+                auth()->id(),
                 $this->periodFrom,
                 $this->periodTo
             );

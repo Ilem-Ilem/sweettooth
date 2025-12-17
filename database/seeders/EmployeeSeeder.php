@@ -22,7 +22,7 @@ class EmployeeSeeder extends Seeder
         // Get all branches and departments
         $branches = Branch::all();
         $departments = Department::all();
-        $roles = Role::where('guard_name', 'employees')->get()->keyBy('name');
+        $roles = Role::where('guard_name', 'web')->get()->keyBy('name');
 
         if ($branches->isEmpty()) {
             $this->command->warn('No branches found. Please seed branches first.');
@@ -230,12 +230,9 @@ class EmployeeSeeder extends Seeder
         $emailPrefix = strtolower(str_replace(' ', '.', $name)).'.'.$count;
 
         $hireDate = $faker->dateTimeBetween('-3 years', '-1 month')->format('Y-m-d');
-        $status = $faker->randomElement(['active', 'active', 'active', 'on_probation']);
+        $employmentStatus = $faker->randomElement(['active', 'active', 'active', 'active']);
 
         $probationEndDate = null;
-        if ($status === 'on_probation') {
-            $probationEndDate = $faker->dateTimeBetween('now', '+3 months')->format('Y-m-d');
-        }
 
         return Employee::create([
             'id' => $faker->uuid(),
@@ -254,7 +251,9 @@ class EmployeeSeeder extends Seeder
             'emergency_contact_phone' => '+234-'.$faker->numberBetween(800, 909).'-'.$faker->numberBetween(100, 999).'-'.$faker->numberBetween(1000, 9999),
             'hire_date' => $hireDate,
             'termination_date' => null,
-            'status' => $status,
+            'employment_status' => $employmentStatus,
+            'user_type' => 'employee',
+            'is_active' => true,
             'probation_end_date' => $probationEndDate,
             'shift_preference' => $faker->randomElement(['morning', 'afternoon', 'rotating', 'flexible']),
             'salary' => $faker->randomFloat(2, 80000, 350000),

@@ -15,16 +15,22 @@ class RedirectIfAuthenticated
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Check if super-admin is logged in (auth()->user())
+        // Check if user is authenticated (unified system)
         if (Auth::check()) {
-            return redirect($this->getSuperAdminRedirectUrl(Auth::user()));
-        }
+            $user = Auth::user();
 
-        // Check if employee is logged in (auth('employees')->user())
-        if (Auth::guard('employees')->check()) {
-            $employee = Auth::guard('employees')->user();
-            if ($employee->branch_id) {
-                return redirect()->route('branch-dashboard.index', ['b_id' => $employee->branch_id]);
+            // Redirect based on role
+            if (is_super_admin()) {
+                // Super admin - redirect to branch dashboard with default branch
+                return redirect($this->getSuperAdminRedirectUrl($user));
+            } else {
+                // Regular user - redirect to their branch dashboard
+                if ($user->branch_id) {
+                    return redirect()->route('branch-dashboard.index', ['b_id' => $user->branch_id]);
+                } else {
+                    // No branch assigned - redirect to branch selection
+                    return redirect()->route('branch-select');
+                }
             }
         }
 

@@ -40,10 +40,8 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
-        'employees' => [
-            'driver' => 'session',
-            'provider' => 'employees',
-        ],
+        // Employee guard removed - all users now authenticate through web guard
+        // with role-based access control via spatie/laravel-permission
     ],
 
     /*
@@ -55,9 +53,8 @@ return [
     | users are actually retrieved out of your database or other storage
     | system used by the application. Typically, Eloquent is utilized.
     |
-    | If you have multiple user tables or models you may configure multiple
-    | providers to represent the model / table. These providers may then
-    | be assigned to any extra authentication guards you have defined.
+    | All users (admins and employees) now authenticate as App\Models\User
+    | with role-based access control via spatie/laravel-permission.
     |
     | Supported: "database", "eloquent"
     |
@@ -68,15 +65,6 @@ return [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', App\Models\User::class),
         ],
-        'employees' => [
-            'driver' => 'eloquent',
-            'model' => App\Models\Employee::class,
-            'table' => 'employees',
-        ],
-        // 'users' => [
-        //     'driver' => 'database',
-        //     'table' => 'users',
-        // ],
     ],
 
     /*
@@ -102,13 +90,6 @@ return [
         'users' => [
             'provider' => 'users',
             'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
-            'expire' => 60,
-            'throttle' => 60,
-        ],
-
-        'employees' => [
-            'provider' => 'employees',
-            'table' => 'password_reset_tokens',
             'expire' => 60,
             'throttle' => 60,
         ],

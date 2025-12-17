@@ -55,7 +55,7 @@ class LeaveBalance extends BaseComponent
 
     protected function initializeLeaveBalances()
     {
-        $employee = auth('employees')->user();
+        $employee = auth()->user();
         EmployeeLeaveBalance::initializeForEmployee($employee->id, $this->selectedYear);
     }
 
@@ -66,7 +66,7 @@ class LeaveBalance extends BaseComponent
 
     public function render()
     {
-        $employee = auth('employees')->user();
+        $employee = auth()->user();
 
         $balances = EmployeeLeaveBalance::where('employee_id', $employee->id)
             ->where('year', $this->selectedYear)

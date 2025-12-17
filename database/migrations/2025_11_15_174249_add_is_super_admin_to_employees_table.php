@@ -11,11 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('employees', function (Blueprint $table) {
-            if (!Schema::hasColumn('employees', 'is_superadmin')) {
-                $table->boolean('is_superadmin')->nullable()->default(false);
-            }
-        });
+        // Super admin status handled via roles in users table
     }
 
     /**
@@ -23,8 +19,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('employees', function (Blueprint $table) {
-            //
-        });
+        // No-op
     }
 };

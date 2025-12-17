@@ -159,7 +159,7 @@ class ItemRequests extends Component
 
         DB::beginTransaction();
         try {
-            $branch = Auth::guard('employees')->employee()->branch;
+            $branch = Auth::guard('web')->employee()->branch;
 
             // Verify department belongs to this branch or is a global department
             $department = Department::where('id', $this->department_id)
@@ -176,7 +176,7 @@ class ItemRequests extends Component
                 'branch_id' => $branchId,
                 'department_id' => $this->department_id,
                 'request_number' => $requestNumber,
-                'requested_by' => Auth::guard('employees')->id(),
+                'requested_by' => Auth::guard('web')->id(),
                 'request_date' => $this->request_date,
                 'status' => 'pending',
                 'notes' => $this->notes,

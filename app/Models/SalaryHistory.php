@@ -36,7 +36,7 @@ class SalaryHistory extends Model
     // Relationships
     public function employee(): BelongsTo
     {
-        return $this->belongsTo(Employee::class);
+        return $this->belongsTo(User::class, 'employee_id');
     }
 
     public function approvedBy(): MorphTo

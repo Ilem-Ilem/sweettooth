@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Helpers\Settings;
 use App\Models\GlAccount;
 use App\Models\GlEntry;
 use App\Models\AccountingPeriod;
@@ -438,8 +439,34 @@ class AccountingReportService
      */
     private function getNetCashFlow(AccountingPeriod $period): float
     {
-        return $this->getOperatingCashFlow($period) + 
-               $this->getInvestingCashFlow($period) + 
+        return $this->getOperatingCashFlow($period) +
+               $this->getInvestingCashFlow($period) +
                $this->getFinancingCashFlow($period);
     }
-}
+
+    /**
+     * Format currency value for report display
+     */
+    public function formatCurrency(float $amount): string
+    {
+        $service = new CurrencyFormattingService();
+        return $service->format($amount);
+    }
+
+    /**
+     * Get currency symbol for financial reports
+     */
+    public function getCurrencySymbol(string $currency = null): string
+    {
+        $service = new CurrencyFormattingService();
+        $currency = $currency ?? Settings::currencyLocalization('primary_currency', 'NGN');
+        return $service->getSymbol($currency);
+    }
+
+    /**
+     * Get accounting currency from settings
+     */
+    public function getAccountingCurrency(): string
+    {
+        return Settings::currencyLocalization('primary_currency', 'NGN');
+    }

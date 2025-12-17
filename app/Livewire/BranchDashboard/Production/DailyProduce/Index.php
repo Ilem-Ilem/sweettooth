@@ -834,7 +834,7 @@ class Index extends Component
             'production_shift_id' => $produce->shift_id,
             'sales_department_id' => $salesDepartmentId,
             'product_id' => $product->id,
-            'dispatched_by' => Auth::guard('employees')->id(),
+            'dispatched_by' => Auth::guard('web')->id(),
             'quantity' => $quantity,
             'uom' => $product->uom ?? $produce->recipe->unitOfMeasure?->symbol ?? 'units',
             'dispatch_time' => now(),

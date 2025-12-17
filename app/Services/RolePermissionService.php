@@ -24,7 +24,7 @@ class RolePermissionService
         if ($guard) {
             return Auth::guard($guard)->user();
         }
-        return Auth::guard('employees')->user() ?? Auth::guard('web')->user();
+        return Auth::guard('web')->user() ?? Auth::guard('web')->user();
     }
 
     /**
@@ -32,7 +32,7 @@ class RolePermissionService
      */
     public static function getGuardName(): ?string
     {
-        if (Auth::guard('employees')->check()) {
+        if (Auth::guard('web')->check()) {
             return 'employees';
         }
         if (Auth::guard('web')->check()) {
@@ -445,7 +445,7 @@ class RolePermissionService
         }
         
         // Check employees guard
-        $employeeUser = Auth::guard('employees')->user();
+        $employeeUser = Auth::guard('web')->user();
         if ($employeeUser && $employeeUser->hasAnyRole(['Super Admin', 'MD'], 'employees')) {
             return true;
         }

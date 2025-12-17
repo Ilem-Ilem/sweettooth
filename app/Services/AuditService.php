@@ -45,7 +45,7 @@ class AuditService
      * @return AuditLog
      */
     public static function log(
-        ?Model $causer,
+        Model|string|null $causer,
         string $action,
         ?Model $auditable = null,
         ?string $description = null,
@@ -54,6 +54,21 @@ class AuditService
         array $metadata = []
     ): AuditLog {
         try {
+            if (is_string($causer)) {
+                \Log::error('AuditService::log received string causer', [
+                    'causer' => $causer,
+                    'action' => $action,
+                ]);
+                // Try to find the user by ID or name
+                $user = \App\Models\User::find($causer) ?? \App\Models\User::where('name', $causer)->first();
+                if ($user) {
+                    $causer = $user;
+                } else {
+                    \Log::error('Could not find user for causer string', ['causer' => $causer]);
+                    $causer = null;
+                }
+            }
+
             \Log::info('🔵 [AUDIT SERVICE] Creating audit log', [
                 'action' => $action,
                 'status' => $status,

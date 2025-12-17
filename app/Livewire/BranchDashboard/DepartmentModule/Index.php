@@ -374,7 +374,7 @@ class Index extends BaseComponent
             }
 
             // Get current authenticated user (employee or super admin)
-            $user = auth('employees')->user() ?? auth()->user();
+            $user = auth()->user() ?? auth()->user();
             
             if (is_super_admin()) {
                 // ===== SUPER ADMIN DELETION =====
@@ -467,7 +467,7 @@ class Index extends BaseComponent
     public function confirmedBulkDelete(string $message): void
     {
         // Get current authenticated user (employee or super admin)
-        $user = auth('employees')->user() ?? auth()->user();
+        $user = auth()->user() ?? auth()->user();
         
         if (is_super_admin()) {
             // ===== SUPER ADMIN BULK DELETE =====

@@ -77,23 +77,23 @@
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
             <p class="text-gray-600 text-sm font-semibold mb-2">TOTAL ASSETS</p>
-            <p class="text-3xl font-bold text-blue-600">{{ number_format($dashboardStats['total_assets'] ?? 0, 2) }}</p>
+            <p class="text-3xl font-bold text-blue-600">{{ $this->formatCurrency($dashboardStats['total_assets'] ?? 0) }}</p>
             <p class="text-xs text-gray-500 mt-2">{{ $dashboardStats['total_entries'] ?? 0 }} entries</p>
         </div>
 
         <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
             <p class="text-gray-600 text-sm font-semibold mb-2">TOTAL LIABILITIES</p>
-            <p class="text-3xl font-bold text-red-600">{{ number_format($dashboardStats['total_liabilities'] ?? 0, 2) }}</p>
+            <p class="text-3xl font-bold text-red-600">{{ $this->formatCurrency($dashboardStats['total_liabilities'] ?? 0) }}</p>
         </div>
 
         <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
             <p class="text-gray-600 text-sm font-semibold mb-2">TOTAL EQUITY</p>
-            <p class="text-3xl font-bold text-green-600">{{ number_format($dashboardStats['total_equity'] ?? 0, 2) }}</p>
+            <p class="text-3xl font-bold text-green-600">{{ $this->formatCurrency($dashboardStats['total_equity'] ?? 0) }}</p>
         </div>
 
         <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-500">
             <p class="text-gray-600 text-sm font-semibold mb-2">NET INCOME</p>
-            <p class="text-3xl font-bold text-purple-600">{{ number_format($dashboardStats['net_income'] ?? 0, 2) }}</p>
+            <p class="text-3xl font-bold text-purple-600">{{ $this->formatCurrency($dashboardStats['net_income'] ?? 0) }}</p>
         </div>
     </div>
 
@@ -104,15 +104,15 @@
             <div class="space-y-3">
                 <div class="flex justify-between items-center pb-3 border-b">
                     <span class="text-gray-600">Total Revenue</span>
-                    <span class="font-semibold">{{ number_format($dashboardStats['total_revenue'] ?? 0, 2) }}</span>
+                    <span class="font-semibold">{{ $this->formatCurrency($dashboardStats['total_revenue'] ?? 0) }}</span>
                 </div>
                 <div class="flex justify-between items-center pb-3 border-b">
                     <span class="text-gray-600">Total Expenses</span>
-                    <span class="font-semibold">{{ number_format($dashboardStats['total_expenses'] ?? 0, 2) }}</span>
+                    <span class="font-semibold">{{ $this->formatCurrency($dashboardStats['total_expenses'] ?? 0) }}</span>
                 </div>
                 <div class="flex justify-between items-center pt-2">
                     <span class="text-gray-700 font-semibold">Net Income</span>
-                    <span class="text-lg font-bold text-green-600">{{ number_format($dashboardStats['net_income'] ?? 0, 2) }}</span>
+                    <span class="text-lg font-bold text-green-600">{{ $this->formatCurrency($dashboardStats['net_income'] ?? 0) }}</span>
                 </div>
             </div>
         </div>
@@ -122,16 +122,16 @@
             <div class="space-y-3">
                 <div class="flex justify-between items-center pb-3 border-b">
                     <span class="text-gray-600">Total Assets</span>
-                    <span class="font-semibold">{{ number_format($dashboardStats['total_assets'] ?? 0, 2) }}</span>
+                    <span class="font-semibold">{{ $this->formatCurrency($dashboardStats['total_assets'] ?? 0) }}</span>
                 </div>
                 <div class="flex justify-between items-center pb-3 border-b">
                     <span class="text-gray-600">Total Liabilities + Equity</span>
-                    <span class="font-semibold">{{ number_format(($dashboardStats['total_liabilities'] ?? 0) + ($dashboardStats['total_equity'] ?? 0), 2) }}</span>
+                    <span class="font-semibold">{{ $this->formatCurrency(($dashboardStats['total_liabilities'] ?? 0) + ($dashboardStats['total_equity'] ?? 0)) }}</span>
                 </div>
                 <div class="flex justify-between items-center pt-2">
                     <span class="text-gray-700 font-semibold">Difference</span>
                     <span class="text-lg font-bold {{ abs(($dashboardStats['total_assets'] ?? 0) - (($dashboardStats['total_liabilities'] ?? 0) + ($dashboardStats['total_equity'] ?? 0))) < 0.01 ? 'text-green-600' : 'text-red-600' }}">
-                        {{ number_format(abs(($dashboardStats['total_assets'] ?? 0) - (($dashboardStats['total_liabilities'] ?? 0) + ($dashboardStats['total_equity'] ?? 0))), 2) }}
+                        {{ $this->formatCurrency(abs(($dashboardStats['total_assets'] ?? 0) - (($dashboardStats['total_liabilities'] ?? 0) + ($dashboardStats['total_equity'] ?? 0)))) }}
                     </span>
                 </div>
             </div>
@@ -161,8 +161,8 @@
                                 <td class="px-4 py-2">{{ $entry['date'] }}</td>
                                 <td class="px-4 py-2 font-mono text-xs">{{ $entry['account'] }}</td>
                                 <td class="px-4 py-2">{{ $entry['description'] }}</td>
-                                <td class="px-4 py-2 text-right">{{ $entry['debit'] > 0 ? number_format($entry['debit'], 2) : '-' }}</td>
-                                <td class="px-4 py-2 text-right">{{ $entry['credit'] > 0 ? number_format($entry['credit'], 2) : '-' }}</td>
+                                <td class="px-4 py-2 text-right">{{ $entry['debit'] > 0 ? $this->formatCurrency($entry['debit']) : '-' }}</td>
+                                <td class="px-4 py-2 text-right">{{ $entry['credit'] > 0 ? $this->formatCurrency($entry['credit']) : '-' }}</td>
                                 <td class="px-4 py-2 text-xs">{{ $entry['reference'] }}</td>
                             </tr>
                         @endforeach

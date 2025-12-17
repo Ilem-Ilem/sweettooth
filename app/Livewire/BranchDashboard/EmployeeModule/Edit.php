@@ -363,7 +363,7 @@ class Edit extends BaseComponent
         $departments = $this->branch_id
             ? Department::where('branch_id', $this->branch_id)->orWhereNull('branch_id')->get()
             : Department::all();
-        $roles = Role::where('guard_name', 'employees')->get();
+        $roles = Role::where('guard_name', 'web')->get();
 
         return view('livewire.branch-dashboard.employee-module.edit', [
             'departments' => $departments,

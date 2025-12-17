@@ -11,10 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('employees', function (Blueprint $table) {
-            $table->timestamp('email_verified_at')->nullable();
-            $table->rememberToken();
-        });
+        // Auth columns already exist in users table
     }
 
     /**
@@ -22,8 +19,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('employees', function (Blueprint $table) {
-            //
-        });
+        // No-op
     }
 };

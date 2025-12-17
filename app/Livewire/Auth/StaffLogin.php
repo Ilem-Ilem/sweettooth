@@ -3,7 +3,7 @@
 namespace App\Livewire\Auth;
 
 use App\Models\Branch;
-use App\Models\Employee;
+use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
@@ -37,46 +37,46 @@ class StaffLogin extends Component
     }
 
     /**
-     * Handle an incoming authentication request.
+     * Handle an incoming authentication request for staff (unified system).
      */
-
-    // In login() method (building on the no-2FA version above):
     public function login(): void
     {
         $this->validate();
 
         $this->ensureIsNotRateLimited();
 
-        $employee = $this->validateCredentials();
-        // Use the custom guard
-        Auth::guard('employees')->login($employee, $this->remember);
-        // Store branch context in session
-        Session::put('branch_id', $this->branch_id);
+        $user = $this->validateCredentials();
+
+        // Use unified web guard for authentication
+        Auth::guard('web')->login($user, $this->remember);
 
         RateLimiter::clear($this->throttleKey());
         Session::regenerate();
 
-        // Store branch context for DashboardRouter
+        // Store branch context in session for the user's login
+        Session::put('branch_id', $this->branch_id);
         session()->put('current_branch_id', $this->branch_id);
-        $employee->update(['last_accessed_branch_id' => $this->branch_id]);
 
-        // Redirect to DashboardRouter which will route to appropriate dashboard by role
+        // Update user's last accessed branch
+        $user->update(['last_accessed_branch_id' => $this->branch_id]);
+
+        // Redirect to DashboardRouter which will route based on role
         $this->redirectIntended(
             default: route('branch-dashboard.dashboards.router', ['b_id' => $this->branch_id], absolute: false),
             navigate: true
         );
     }
 
-    // Update validateCredentials() to use the guard's provider:
-    protected function validateCredentials(): Employee
+    /**
+     * Validate credentials against unified User model.
+     */
+    protected function validateCredentials(): User
     {
-        // Retrieve employee by email and check password
-        $employee = Employee::where('email', $this->email)->first();
-
-        if (! $employee || ! Auth::guard('employees')->getProvider()->validateCredentials($employee, [
+        // Attempt authentication using Laravel's built-in validation
+        if (!Auth::guard('web')->attempt([
             'email' => $this->email,
             'password' => $this->password
-        ])) {
+        ], false)) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
@@ -84,17 +84,28 @@ class StaffLogin extends Component
             ]);
         }
 
+        // Get the authenticated user
+        $user = Auth::guard('web')->user();
 
-        // Validate branch_id matches employee's branch
-        if ($employee->branch_id !== $this->branch_id) {
+        // Check if user is active
+        if (!$user->is_active) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
-                'branch_id' => __('invalid_branch'),
+                'email' => __('Account is inactive'),
             ]);
         }
 
-        return $employee;
+        // For non-super-admin users, validate branch access
+        if (!is_super_admin() && $user->branch_id !== $this->branch_id) {
+            RateLimiter::hit($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                'branch_id' => __('You do not have access to this branch'),
+            ]);
+        }
+
+        return $user;
     }
 
     /**

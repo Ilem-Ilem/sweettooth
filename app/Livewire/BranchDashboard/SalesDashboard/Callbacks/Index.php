@@ -115,7 +115,7 @@ class Index extends BaseComponent
 
     protected function loadCurrentSalesShift()
     {
-        $employee = auth('employees')->user();
+        $employee = auth()->user();
 
         // First try to find active sales shift for this employee
         $activeShift = \App\Models\SalesShift::where('branch_id', $this->getBranchId())
@@ -180,7 +180,7 @@ class Index extends BaseComponent
         try {
             \Illuminate\Support\Facades\DB::beginTransaction();
 
-            $employee = auth('employees')->user();
+            $employee = auth()->user();
 
             // Create callback record
             ProductDispatchCallback::create([

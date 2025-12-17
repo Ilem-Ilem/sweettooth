@@ -10,15 +10,10 @@ class AccountingAccessControlSeeder extends Seeder
 {
     public function run(): void
     {
-        // Get roles
-        $superAdminRoleWeb = Role::where('name', 'Super Admin')->where('guard_name', 'web')->first();
-        $superAdminRoleEmployees = Role::where('name', 'Super Admin')->where('guard_name', 'employees')->first();
-        
-        $mdRoleWeb = Role::where('name', 'MD')->where('guard_name', 'web')->first();
-        $mdRoleEmployees = Role::where('name', 'MD')->where('guard_name', 'employees')->first();
-        
-        $adminRoleWeb = Role::where('name', 'Admin')->where('guard_name', 'web')->first();
-        $adminRoleEmployees = Role::where('name', 'Admin')->where('guard_name', 'employees')->first();
+        // Get roles (unified system uses web guard only)
+        $superAdminRole = Role::where('name', 'Super Admin')->where('guard_name', 'web')->first();
+        $mdRole = Role::where('name', 'MD')->where('guard_name', 'web')->first();
+        $adminRole = Role::where('name', 'Admin')->where('guard_name', 'web')->first();
 
         // Accounting Permissions
         $permissions = [
@@ -84,14 +79,12 @@ class AccountingAccessControlSeeder extends Seeder
             'link_payments_to_gl' => 'Link payments to GL',
         ];
 
-        // Create all permissions for both guards
-        foreach (['web', 'employees'] as $guard) {
-            foreach ($permissions as $permission => $description) {
-                Permission::firstOrCreate(
-                    ['name' => $permission, 'guard_name' => $guard],
-                    ['description' => $description]
-                );
-            }
+        // Create all permissions for unified web guard system
+        foreach ($permissions as $permission => $description) {
+            Permission::firstOrCreate(
+                ['name' => $permission, 'guard_name' => 'web'],
+                ['description' => $description]
+            );
         }
 
         // Get all accounting permissions
@@ -99,85 +92,29 @@ class AccountingAccessControlSeeder extends Seeder
             ->whereIn('name', array_keys($permissions))
             ->get();
 
-        $permissionsEmployees = Permission::where('guard_name', 'employees')
-            ->whereIn('name', array_keys($permissions))
-            ->get();
-
-        // Assign ALL accounting permissions to Super Admin (web)
-        if ($superAdminRoleWeb) {
-            $superAdminRoleWeb->syncPermissions($permissionsWeb);
+        // Assign ALL accounting permissions to Super Admin (unified system)
+        if ($superAdminRole) {
+            $superAdminRole->syncPermissions($permissionsWeb);
         }
 
-        // Assign ALL accounting permissions to Super Admin (employees)
-        if ($superAdminRoleEmployees) {
-            $superAdminRoleEmployees->syncPermissions($permissionsEmployees);
-        }
-
-        // Assign ALL accounting permissions to MD (web)
-        if ($mdRoleWeb) {
-            $mdRoleWeb->syncPermissions($permissionsWeb);
-        }
-
-        // Assign ALL accounting permissions to MD (employees)
-        if ($mdRoleEmployees) {
-            $mdRoleEmployees->syncPermissions($permissionsEmployees);
+        // Assign ALL accounting permissions to MD (unified system)
+        if ($mdRole) {
+            $mdRole->syncPermissions($permissionsWeb);
         }
 
         // Assign specific accounting permissions to Admin
-        $adminPermissionsWeb = Permission::where('guard_name', 'web')
+        $adminPermissions = Permission::where('guard_name', 'web')
             ->whereIn('name', [
                 'access_accounting',
                 'view_financial_reports',
-                'manage_accounts',
                 'view_gl_accounts',
-                'create_gl_accounts',
-                'edit_gl_accounts',
-                'manage_periods',
-                'view_accounting_periods',
-                'create_accounting_periods',
-                'close_accounting_periods',
-                'lock_accounting_periods',
-                'view_gl_entries',
-                'create_journal_entries',
-                'view_general_ledger',
-                'view_trial_balance',
-                'view_balance_sheet',
-                'view_income_statement',
                 'view_accounting_dashboard',
                 'view_financial_summary',
             ])
             ->get();
 
-        $adminPermissionsEmployees = Permission::where('guard_name', 'employees')
-            ->whereIn('name', [
-                'access_accounting',
-                'view_financial_reports',
-                'manage_accounts',
-                'view_gl_accounts',
-                'create_gl_accounts',
-                'edit_gl_accounts',
-                'manage_periods',
-                'view_accounting_periods',
-                'create_accounting_periods',
-                'close_accounting_periods',
-                'lock_accounting_periods',
-                'view_gl_entries',
-                'create_journal_entries',
-                'view_general_ledger',
-                'view_trial_balance',
-                'view_balance_sheet',
-                'view_income_statement',
-                'view_accounting_dashboard',
-                'view_financial_summary',
-            ])
-            ->get();
-
-        if ($adminRoleWeb) {
-            $adminRoleWeb->syncPermissions($adminPermissionsWeb);
-        }
-
-        if ($adminRoleEmployees) {
-            $adminRoleEmployees->syncPermissions($adminPermissionsEmployees);
+        if ($adminRole) {
+            $adminRole->syncPermissions($adminPermissions);
         }
 
         $this->command->info('✓ Accounting permissions configured');

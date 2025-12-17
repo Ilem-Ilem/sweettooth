@@ -231,7 +231,7 @@ class EmployeeAuditService
         Employee $employee,
         string $terminationDate,
         string $reason,
-        $actor
+        ?\Illuminate\Database\Eloquent\Model $actor
     ): AuditLog {
         return AuditService::log(
             $actor,

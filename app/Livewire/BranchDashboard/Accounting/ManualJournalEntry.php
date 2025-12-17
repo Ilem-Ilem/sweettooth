@@ -2,9 +2,11 @@
 
 namespace App\Livewire\BranchDashboard\Accounting;
 
+use App\Helpers\Settings;
 use App\Models\AccountingPeriod;
 use App\Models\GlAccount;
 use App\Models\GlEntry;
+use App\Services\CurrencyFormattingService;
 use Livewire\Component;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
@@ -122,6 +124,25 @@ class ManualJournalEntry extends Component
         } catch (\Exception $e) {
             throw ValidationException::withMessages(['general' => $e->getMessage()]);
         }
+    }
+
+    /**
+     * Format currency value for journal entry display
+     */
+    protected function formatCurrency(float $amount): string
+    {
+        $service = new CurrencyFormattingService();
+        return $service->format($amount);
+    }
+
+    /**
+     * Get currency symbol for GL entries
+     */
+    protected function getCurrencySymbol(string $currency = null): string
+    {
+        $service = new CurrencyFormattingService();
+        $currency = $currency ?? Settings::currencyLocalization('primary_currency', 'NGN');
+        return $service->getSymbol($currency);
     }
 
     public function render()

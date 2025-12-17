@@ -2,10 +2,12 @@
 
 namespace App\Livewire\BranchDashboard\SalesDashboard\ProductList;
 
+use App\Helpers\Settings;
 use App\Livewire\BaseComponent;
 use App\Models\Branch;
 use App\Models\Department;
 use App\Models\Product;
+use App\Services\CurrencyFormattingService;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\{Layout, Url, Computed};
 use Livewire\WithPagination;
@@ -231,6 +233,25 @@ class Index extends BaseComponent
         $message = $newStatus ? 'Product enabled' : 'Product disabled';
         $this->toast()->success($message)->send();
         unset($this->products);
+    }
+
+    /**
+     * Format price for display
+     */
+    public function formatPrice(float $price): string
+    {
+        $service = new CurrencyFormattingService();
+        return $service->format($price);
+    }
+
+    /**
+     * Get currency symbol
+     */
+    public function getCurrencySymbol(string $currency = null): string
+    {
+        $service = new CurrencyFormattingService();
+        $currency = $currency ?? Settings::currencyLocalization('primary_currency', 'NGN');
+        return $service->getSymbol($currency);
     }
 
     public function render()

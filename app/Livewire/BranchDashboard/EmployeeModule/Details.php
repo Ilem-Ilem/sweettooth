@@ -20,12 +20,18 @@ class Details extends Component
     #[Url(keep: true)]
     public ?string $b_id = null;
 
-    public function mount($employee_number, $id){
+    public function mount($employee_number = null, $id = null){
         // Set b_id from current branch context
         $this->b_id = current_branch_id();
 
-        $employee = Employee::with(['department', 'branch', 'roles'])->
-        where('id', '=',  $id)->where('employee_number', '=', $employee_number)->firstOrFail();
+        if ($employee_number) {
+            $employee = Employee::with(['department', 'branch', 'roles'])
+                ->where('id', $id)
+                ->where('employee_number', $employee_number)
+                ->firstOrFail();
+        } else {
+            $employee = Employee::with(['department', 'branch', 'roles'])->findOrFail($id);
+        }
         $this->employee = $employee;
 
         // Set profile photo URL if available

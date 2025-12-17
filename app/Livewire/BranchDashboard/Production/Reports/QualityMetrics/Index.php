@@ -111,7 +111,7 @@ class Index extends Component
                 ->forBranch($this->b_id ?? current_branch_id())
                 ->forDepartment($this->departmentId)
                 ->forPeriod($this->customDateFrom, $this->customDateTo)
-                ->generate(auth('employees')->id());
+                ->generate(auth()->id());
 
             $this->showReportModal = true;
             $this->toast()->success('Quality report saved successfully')->send();

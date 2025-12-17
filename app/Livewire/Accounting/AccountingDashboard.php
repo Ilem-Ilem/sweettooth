@@ -2,9 +2,11 @@
 
 namespace App\Livewire\Accounting;
 
+use App\Helpers\Settings;
 use App\Models\AccountingPeriod;
 use App\Models\GlEntry;
 use App\Services\AccountingReportService;
+use App\Services\CurrencyFormattingService;
 use Livewire\Component;
 use Livewire\Attributes\Computed;
 
@@ -84,6 +86,34 @@ class AccountingDashboard extends Component
         return GlEntry::where('accounting_period_id', $this->selectedPeriod->id)
             ->where('status', 'posted')
             ->sum('credit');
+    }
+
+    /**
+     * Format currency value for accounting display
+     */
+    protected function formatCurrency(float $amount): string
+    {
+        $service = new CurrencyFormattingService();
+        return $service->format($amount);
+    }
+
+    /**
+     * Get currency symbol for reports
+     */
+    protected function getCurrencySymbol(string $currency = null): string
+    {
+        $service = new CurrencyFormattingService();
+        $currency = $currency ?? Settings::currencyLocalization('primary_currency', 'NGN');
+        return $service->getSymbol($currency);
+    }
+
+    /**
+     * Format percentage for financial metrics
+     */
+    protected function formatPercentage(float $value, int $decimals = 2): string
+    {
+        $service = new CurrencyFormattingService();
+        return $service->formatPercentage($value, $decimals);
     }
 
     public function render()

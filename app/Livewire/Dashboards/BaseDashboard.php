@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Dashboards;
 
+use App\Helpers\Settings;
+use App\Services\CurrencyFormattingService;
 use Livewire\Component;
 use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
@@ -12,11 +14,6 @@ use Carbon\Carbon;
  */
 abstract class BaseDashboard extends Component
 {
-    /**
-     * Current user
-     */
-    protected $user;
-
     /**
      * Current branch ID
      */
@@ -43,7 +40,6 @@ abstract class BaseDashboard extends Component
      */
     public function mount()
     {
-        $this->user = current_actor();
         $this->branchId = current_branch_id();
         $this->setDefaultDateRange();
     }
@@ -66,24 +62,17 @@ abstract class BaseDashboard extends Component
     }
 
     /**
-     * Get current user
-     */
-    public function getUser()
-    {
-        return $this->user ?? current_actor();
-    }
-
-    /**
      * Get user's primary role
      */
     public function getUserRole()
     {
-        if (!$this->user) {
+        $user = auth()->user();
+        if (!$user || !is_object($user)) {
             return null;
         }
 
-        if (method_exists($this->user, 'roles')) {
-            return $this->user->roles()->first();
+        if (method_exists($user, 'roles')) {
+            return $user->roles()->first();
         }
 
         return null;
@@ -94,8 +83,33 @@ abstract class BaseDashboard extends Component
      */
     public function getUserRoleName(): ?string
     {
-        $role = $this->getUserRole();
-        return $role?->name;
+        $user = auth()->user();
+        if (!$user || !is_object($user)) {
+            return null;
+        }
+
+        // Try to get role names using Spatie's method
+        if (method_exists($user, 'getRoleNames')) {
+            $roleNames = $user->getRoleNames();
+            if ($roleNames && $roleNames->isNotEmpty()) {
+                return $roleNames->first();
+            }
+        }
+
+        // Fallback to roles relationship - directly query if lazy-loaded
+        if (method_exists($user, 'roles')) {
+            $role = $user->roles()->first();
+            if ($role) {
+                return $role->name;
+            }
+        }
+
+        // Last resort - check if roles are already loaded as collection
+        if (isset($user->roles) && $user->roles instanceof \Illuminate\Database\Eloquent\Collection && $user->roles->isNotEmpty()) {
+            return $user->roles->first()->name;
+        }
+
+        return null;
     }
 
     /**
@@ -150,12 +164,13 @@ abstract class BaseDashboard extends Component
      */
     protected function hasPermission(string $permission): bool
     {
-        if (!$this->user) {
+        $user = auth()->user();
+        if (!$user || !is_object($user)) {
             return false;
         }
 
-        if (method_exists($this->user, 'hasPermissionTo')) {
-            return $this->user->hasPermissionTo($permission);
+        if (method_exists($user, 'hasPermissionTo')) {
+            return $user->hasPermissionTo($permission);
         }
 
         return false;
@@ -166,12 +181,13 @@ abstract class BaseDashboard extends Component
      */
     protected function hasRole(string $role): bool
     {
-        if (!$this->user) {
+        $user = auth()->user();
+        if (!$user || !is_object($user)) {
             return false;
         }
 
-        if (method_exists($this->user, 'hasRole')) {
-            return $this->user->hasRole($role);
+        if (method_exists($user, 'hasRole')) {
+            return $user->hasRole($role);
         }
 
         return false;
@@ -211,7 +227,25 @@ abstract class BaseDashboard extends Component
      */
     protected function formatCurrency(float $amount): string
     {
-        return '$' . number_format($amount, 2);
+        $service = new CurrencyFormattingService();
+        return $service->format($amount);
+    }
+
+    /**
+     * Get currency symbol
+     */
+    protected function getCurrencySymbol(string $currency): string
+    {
+        $service = new CurrencyFormattingService();
+        return $service->getSymbol($currency);
+    }
+
+    /**
+     * Get primary currency
+     */
+    protected function getPrimaryCurrency(): string
+    {
+        return Settings::currencyLocalization('primary_currency', 'NGN');
     }
 
     /**
@@ -236,8 +270,14 @@ abstract class BaseDashboard extends Component
      */
     protected function handleError(string $operation, \Exception $e): void
     {
+        $user = auth()->user();
+        $userId = null;
+        if ($user && is_object($user)) {
+            $userId = $user->id;
+        }
+        
         \Log::error("Dashboard error in {$operation}: " . $e->getMessage(), [
-            'user_id' => $this->user?->id,
+            'user_id' => $userId,
             'branch_id' => $this->getBranchId(),
             'exception' => $e,
         ]);

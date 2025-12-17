@@ -44,7 +44,7 @@ trait RequiresApprovalWorkflow
      */
     protected function isSuperAdmin(): bool
     {
-        $user = auth()->user() ?? auth('employees')->user();
+        $user = auth()->user() ?? auth()->user();
         return $user && ($user->is_super_admin ?? false);
     }
 
@@ -55,7 +55,7 @@ trait RequiresApprovalWorkflow
      */
     protected function getCurrentActor()
     {
-        return auth()->user() ?? auth('employees')->user();
+        return auth()->user() ?? auth()->user();
     }
 
     /**
@@ -65,7 +65,7 @@ trait RequiresApprovalWorkflow
      */
     protected function getCurrentBranchId(): ?int
     {
-        $user = auth()->user() ?? auth('employees')->user();
+        $user = auth()->user() ?? auth()->user();
         return $user?->branch_id;
     }
 

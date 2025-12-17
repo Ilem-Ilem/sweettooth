@@ -10,15 +10,9 @@ class AccountantRoleSeeder extends Seeder
 {
     public function run(): void
     {
-        // Create Accountant role for web guard (admins)
-        $accountantRoleWeb = Role::firstOrCreate(
+        // Create Accountant role for unified web guard system
+        $accountantRole = Role::firstOrCreate(
             ['name' => 'Accountant', 'guard_name' => 'web'],
-            ['is_protected' => false]
-        );
-
-        // Create Accountant role for employees guard
-        $accountantRoleEmployees = Role::firstOrCreate(
-            ['name' => 'Accountant', 'guard_name' => 'employees'],
             ['is_protected' => false]
         );
 
@@ -91,27 +85,19 @@ class AccountantRoleSeeder extends Seeder
         // Create all permissions for employees guard
         foreach ($permissions as $permission => $description) {
             Permission::firstOrCreate(
-                ['name' => $permission, 'guard_name' => 'employees'],
+                ['name' => $permission, 'guard_name' => 'web'],
                 ['description' => $description]
             );
         }
 
-        // Get all accounting permissions for web guard
-        $allPermissionsWeb = Permission::where('guard_name', 'web')
+        // Get all accounting permissions for unified web guard system
+        $allPermissions = Permission::where('guard_name', 'web')
             ->whereIn('name', array_keys($permissions))
             ->get();
 
-        // Get all accounting permissions for employees guard
-        $allPermissionsEmployees = Permission::where('guard_name', 'employees')
-            ->whereIn('name', array_keys($permissions))
-            ->get();
+        // Assign all accounting permissions to accountant role
+        $accountantRole->syncPermissions($allPermissions);
 
-        // Assign all accounting permissions to accountant role (web guard)
-        $accountantRoleWeb->syncPermissions($allPermissionsWeb);
-
-        // Assign all accounting permissions to accountant role (employees guard)
-        $accountantRoleEmployees->syncPermissions($allPermissionsEmployees);
-
-        $this->command->info('Accountant role created for both guards with ' . count($allPermissionsWeb) . ' permissions');
+        $this->command->info('Accountant role created for unified system with ' . count($allPermissions) . ' permissions');
     }
 }

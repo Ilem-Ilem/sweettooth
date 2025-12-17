@@ -4,10 +4,11 @@ namespace App\Livewire\Auth;
 
 use Livewire\Component;
 use Livewire\Attributes\{Layout, Url};
-use App\Models\{Shift as ShiftModel, Branch, Employee, SalesShift};
-use App\Services\CheckExpiredProducts;
+use App\Models\{Shift as ShiftModel, Branch, Employee, SalesShift, ShiftConfiguration};
+use App\Services\{CheckExpiredProducts, ShiftTimingValidator};
 use Carbon\Carbon;
 use TallStackUi\Traits\Interactions;
+use Illuminate\Support\Facades\Auth;
 
 #[Layout('components.layouts.auth')]
 class Shift extends Component
@@ -26,15 +27,24 @@ class Shift extends Component
 
     public function mount()
     {
+        $this->b_id = session('selected_branch_id');
+        if (!$this->b_id) {
+            // Fallback to first active branch
+            $defaultBranch = \App\Models\Branch::where('is_active', 1)->first();
+            if ($defaultBranch) {
+                $this->b_id = $defaultBranch->id;
+                session(['selected_branch_id' => $this->b_id]);
+            }
+        }
         $this->loadCurrentShift();
     }
 
     public function loadCurrentShift()
     {
-        $employee_id = auth('employees')->id();
+        $user_id = Auth::id();
 
-        // Get today's active shift for this employee
-        $this->currentShift = ShiftModel::where('employee_id', $employee_id)
+        // Get today's active shift for this user
+        $this->currentShift = ShiftModel::where('employee_id', $user_id)
             ->where('shift_date', Carbon::today())
             ->where('status', 'active')
             ->first();
@@ -52,31 +62,58 @@ class Shift extends Component
             'shift_type.in' => 'Invalid shift type selected',
         ]);
 
+        // Get the authenticated user
+        $user = Auth::user();
+
         try {
+            if (!$this->b_id) {
+                $this->toast()->error('No branch selected. Please contact administrator.')->send();
+                return;
+            }
             // Get the Branch
             $branch = Branch::findOrFail($this->b_id);
 
-            // Get the Employee
-            $employee = Employee::findOrFail(auth('employees')->id());
+            // STEP 1: STRICT TIME WINDOW VALIDATION
+            $timingValidator = app(ShiftTimingValidator::class);
+            $timeValidation = $timingValidator->validateStrictTimeWindows(
+                $this->shift_type,
+                $this->b_id
+            );
 
-            // Check if user already has an active shift today
-            $existingShift = ShiftModel::where('employee_id', $employee->id)
-                ->where('shift_date', Carbon::today())
-                ->where('status', 'active')
-                ->first();
+            if (!$timeValidation->isValid()) {
+                $this->toast()->error($timeValidation->getMessage())->send();
 
-            if ($existingShift) {
-                $this->toast()->warning('You already have an active shift today!')->send();
-                return $this->redirectToDashboard($branch);
+                // Log the violation attempt
+                \Log::warning('Clock-in time violation attempt', [
+                    'employee_id' => $user->id,
+                    'shift_type' => $this->shift_type,
+                    'branch_id' => $this->b_id,
+                    'requested_time' => now()->toDateTimeString(),
+                    'violation_message' => $timeValidation->getMessage()
+                ]);
+
+                return;
+            }
+
+            // STEP 2: Check for conflicting shifts
+            $conflictValidation = $timingValidator->validateNoConflictingShifts(
+                $user->id,
+                $this->shift_type,
+                $this->b_id
+            );
+
+            if (!$conflictValidation->isValid()) {
+                $this->toast()->error($conflictValidation->getMessage())->send();
+                return;
             }
 
             // Create a new shift
-            $shift = $this->createShift($branch, $employee);
+            $shift = $this->createShift($branch, $user);
 
-            // Create SalesShift if employee is in sales department
+            // Create SalesShift if user is in sales department
             $salesShift = null;
-            if ($this->isSalesDepartment($employee)) {
-                $salesShift = $this->createSalesShift($branch, $employee, $shift);
+            if ($this->isSalesDepartment($user)) {
+                $salesShift = $this->createSalesShift($branch, $user, $shift);
             }
 
             // Dispatch event to update header
@@ -86,12 +123,19 @@ class Shift extends Component
 
             // Check for expired products if in sales department
             if ($salesShift) {
-                return $this->checkExpiryAndRedirect($branch, $salesShift, $employee);
+                return $this->checkExpiryAndRedirect($branch, $salesShift, $user);
             }
 
             return $this->redirectToDashboard($branch);
 
         } catch (\Exception $e) {
+            \Log::error('Clock-in error', [
+                'employee_id' => $user->id ?? null,
+                'branch_id' => $this->b_id,
+                'shift_type' => $this->shift_type,
+                'error_message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             $this->toast()->error('Error clocking in: ' . $e->getMessage())->send();
         }
     }
@@ -123,11 +167,15 @@ class Shift extends Component
             return $this->redirectToDashboard($branch);
 
         } catch (\Exception $e) {
+            \Log::error('Clock-out error: ' . $e->getMessage(), [
+                'employee_id' => Auth::id(),
+                'shift_id' => $this->currentShift->id ?? null
+            ]);
             $this->toast()->error('Error clocking out: ' . $e->getMessage())->send();
         }
     }
 
-    private function createShift(Branch $branch, Employee $employee)
+    private function createShift(Branch $branch, $user)
     {
         // Generate meaningful shift number: SHFT-YYYYMMDD-XXXX
         $date = Carbon::today()->format('Ymd');
@@ -136,10 +184,14 @@ class Shift extends Component
             ->count() + 1;
         $shiftNumber = sprintf('SHFT-%s-%04d', $date, $count);
 
+        // Get shift configuration for reference
+        $config = ShiftConfiguration::forBranchAndType($branch->id, $this->shift_type)->first();
+
         $shift = new ShiftModel();
         $shift->branch_id = $branch->id;
-        $shift->employee_id = $employee->id;
-        $shift->department_id = $employee->department_id;
+        $shift->employee_id = $user->id;
+        // In unified system, department is determined by role, not stored in user
+        $shift->department_id = $user->department_id ?? null;
         $shift->shift_number = $shiftNumber;
         $shift->shift_date = Carbon::today();
         $shift->shift_type = $this->shift_type;
@@ -147,6 +199,16 @@ class Shift extends Component
         $shift->clock_out = null;
         $shift->status = 'active';
         $shift->notes = $this->notes;
+
+        // Store configuration reference for later use
+        if ($config) {
+            $shift->metadata = [
+                'config_id' => $config->id,
+                'expected_end' => $config->end_time,
+                'auto_clock_out_minutes' => $config->auto_clock_out_minutes
+            ];
+        }
+
         $shift->save();
 
         $this->currentShift = $shift;
@@ -184,21 +246,18 @@ class Shift extends Component
     }
 
     /**
-     * Check if employee is in sales department
+     * Check if user is in sales department (based on role)
      */
-    private function isSalesDepartment(Employee $employee): bool
+    private function isSalesDepartment($user): bool
     {
-        // Assuming sales department name contains "sales" or has a specific ID
-        // Adjust this logic based on your department naming convention
-        return $employee->department &&
-               (stripos($employee->department->name, 'Sales') !== false ||
-                stripos($employee->department->name, 'cashier') !== false);
+        // In unified system, determine sales department by role
+        return $user->hasAnyRole(['cashier', 'sales-manager']);
     }
 
     /**
-     * Create a SalesShift record for sales department employees
+     * Create a SalesShift record for sales department users
      */
-    private function createSalesShift(Branch $branch, Employee $employee, ShiftModel $shift): SalesShift
+    private function createSalesShift(Branch $branch, $user, ShiftModel $shift): SalesShift
     {
         // Generate meaningful sales shift number: SS-YYYYMMDD-XXXX
         $date = Carbon::today()->format('Ymd');
@@ -209,8 +268,8 @@ class Shift extends Component
 
         $salesShift = SalesShift::create([
             'branch_id' => $branch->id,
-            'department_id' => $employee->department_id,
-            'employee_id' => $employee->id,
+            'department_id' => null, // Department determined by role in unified system
+            'employee_id' => $user->id,
             'shift_number' => $shiftNumber,
             'shift_date' => Carbon::today(),
             'shift_type' => $this->shift_type,
@@ -225,15 +284,16 @@ class Shift extends Component
     /**
      * Check for expired products and redirect accordingly
      */
-    private function checkExpiryAndRedirect(Branch $branch, SalesShift $salesShift, Employee $employee)
+    private function checkExpiryAndRedirect(Branch $branch, SalesShift $salesShift, $user)
     {
         $service = new CheckExpiredProducts();
 
-        // Get expired products
+        // Get expired products (department determined by role in unified system)
+        $departmentId = $this->getDepartmentIdForUser($user);
         $expiredProducts = $service->getExpiredProductsForShift(
             $salesShift->id,
             $branch->id,
-            $employee->department_id
+            $departmentId
         );
 
         // If there are expired products, redirect to expiry alerts page
@@ -249,6 +309,21 @@ class Shift extends Component
 
         // No expired products, proceed to dashboard
         return $this->redirectToDashboard($branch);
+    }
+
+    /**
+     * Get department ID for user based on role (unified system)
+     */
+    private function getDepartmentIdForUser($user): ?string
+    {
+        // In unified system, department is determined by role
+        // This is a simplified mapping - adjust based on your needs
+        if ($user->hasRole('cashier')) {
+            // Find sales department
+            return \App\Models\Department::where('name', 'like', '%sales%')->value('id');
+        }
+
+        return null;
     }
 
     public function render()

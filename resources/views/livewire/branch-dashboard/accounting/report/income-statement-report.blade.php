@@ -27,25 +27,25 @@
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-md p-6 border-l-4 border-green-500">
             <p class="text-zinc-600 dark:text-zinc-400 text-sm font-semibold mb-2">TOTAL REVENUE</p>
-            <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ number_format($data['total_revenue'] ?? 0, 2) }}</p>
+            <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ $this->formatCurrency($data['total_revenue'] ?? 0) }}</p>
         </div>
 
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-md p-6 border-l-4 border-blue-500">
             <p class="text-zinc-600 dark:text-zinc-400 text-sm font-semibold mb-2">GROSS PROFIT</p>
-            <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ number_format($data['gross_profit'] ?? 0, 2) }}</p>
+            <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ $this->formatCurrency($data['gross_profit'] ?? 0) }}</p>
             <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Margin: {{ number_format($data['gross_profit_margin'] ?? 0, 1) }}%</p>
         </div>
 
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-md p-6 border-l-4 border-purple-500">
             <p class="text-zinc-600 dark:text-zinc-400 text-sm font-semibold mb-2">EBIT</p>
-            <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ number_format($data['ebit'] ?? 0, 2) }}</p>
+            <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ $this->formatCurrency($data['ebit'] ?? 0) }}</p>
             <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Margin: {{ number_format($data['ebit_margin'] ?? 0, 1) }}%</p>
         </div>
 
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-md p-6 border-l-4 {{ ($data['net_income'] ?? 0) >= 0 ? 'border-green-500' : 'border-red-500' }}">
             <p class="text-zinc-600 dark:text-zinc-400 text-sm font-semibold mb-2">NET INCOME</p>
             <p class="text-2xl font-bold {{ ($data['net_income'] ?? 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400' }}">
-                {{ number_format($data['net_income'] ?? 0, 2) }}
+                {{ $this->formatCurrency($data['net_income'] ?? 0) }}
             </p>
             <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Margin: {{ number_format($data['net_profit_margin'] ?? 0, 1) }}%</p>
         </div>
@@ -65,14 +65,14 @@
                             <span class="font-mono text-sm text-zinc-500 dark:text-zinc-400">{{ $account['account_number'] }}</span>
                             <span class="ml-2 text-zinc-900 dark:text-white">{{ $account['account_name'] }}</span>
                         </div>
-                        <span class="font-mono font-semibold text-zinc-900 dark:text-white">{{ number_format($account['balance'], 2) }}</span>
+                        <span class="font-mono font-semibold text-zinc-900 dark:text-white">{{ $this->formatCurrency($account['balance']) }}</span>
                     </div>
                 @empty
                     <div class="px-6 py-3 text-zinc-500 dark:text-zinc-400 italic">No revenue recorded</div>
                 @endforelse
                 <div class="px-6 py-3 flex justify-between items-center bg-green-100 dark:bg-green-900/30 font-bold">
                     <span class="text-green-800 dark:text-green-300">Total Revenue</span>
-                    <span class="font-mono text-green-800 dark:text-green-300">{{ number_format($data['total_revenue'] ?? 0, 2) }}</span>
+                    <span class="font-mono text-green-800 dark:text-green-300">{{ $this->formatCurrency($data['total_revenue'] ?? 0) }}</span>
                 </div>
 
                 <!-- COGS Section -->
@@ -85,20 +85,20 @@
                             <span class="font-mono text-sm text-zinc-500 dark:text-zinc-400">{{ $account['account_number'] }}</span>
                             <span class="ml-2 text-zinc-900 dark:text-white">{{ $account['account_name'] }}</span>
                         </div>
-                        <span class="font-mono font-semibold text-zinc-900 dark:text-white">{{ number_format($account['balance'], 2) }}</span>
+                        <span class="font-mono font-semibold text-zinc-900 dark:text-white">{{ $this->formatCurrency($account['balance']) }}</span>
                     </div>
                 @empty
                     <div class="px-6 py-3 text-zinc-500 dark:text-zinc-400 italic">No COGS recorded</div>
                 @endforelse
                 <div class="px-6 py-3 flex justify-between items-center bg-orange-100 dark:bg-orange-900/30 font-bold">
                     <span class="text-orange-800 dark:text-orange-300">Total COGS</span>
-                    <span class="font-mono text-orange-800 dark:text-orange-300">{{ number_format($data['total_cogs'] ?? 0, 2) }}</span>
+                    <span class="font-mono text-orange-800 dark:text-orange-300">{{ $this->formatCurrency($data['total_cogs'] ?? 0) }}</span>
                 </div>
 
                 <!-- Gross Profit -->
                 <div class="px-6 py-4 flex justify-between items-center bg-blue-100 dark:bg-blue-900/30 font-bold text-lg">
                     <span class="text-blue-800 dark:text-blue-300">GROSS PROFIT</span>
-                    <span class="font-mono text-blue-800 dark:text-blue-300">{{ number_format($data['gross_profit'] ?? 0, 2) }}</span>
+                    <span class="font-mono text-blue-800 dark:text-blue-300">{{ $this->formatCurrency($data['gross_profit'] ?? 0) }}</span>
                 </div>
 
                 <!-- Operating Expenses -->
@@ -111,14 +111,14 @@
                             <span class="font-mono text-sm text-zinc-500 dark:text-zinc-400">{{ $account['account_number'] }}</span>
                             <span class="ml-2 text-zinc-900 dark:text-white">{{ $account['account_name'] }}</span>
                         </div>
-                        <span class="font-mono font-semibold text-zinc-900 dark:text-white">{{ number_format($account['balance'], 2) }}</span>
+                        <span class="font-mono font-semibold text-zinc-900 dark:text-white">{{ $this->formatCurrency($account['balance']) }}</span>
                     </div>
                 @empty
                     <div class="px-6 py-3 text-zinc-500 dark:text-zinc-400 italic">No operating expenses recorded</div>
                 @endforelse
                 <div class="px-6 py-3 flex justify-between items-center bg-red-100 dark:bg-red-900/30 font-bold">
                     <span class="text-red-800 dark:text-red-300">Total Operating Expenses</span>
-                    <span class="font-mono text-red-800 dark:text-red-300">{{ number_format($data['total_opex'] ?? 0, 2) }}</span>
+                    <span class="font-mono text-red-800 dark:text-red-300">{{ $this->formatCurrency($data['total_opex'] ?? 0) }}</span>
                 </div>
 
                 <!-- Admin Expenses -->
@@ -132,19 +132,19 @@
                                 <span class="font-mono text-sm text-zinc-500 dark:text-zinc-400">{{ $account['account_number'] }}</span>
                                 <span class="ml-2 text-zinc-900 dark:text-white">{{ $account['account_name'] }}</span>
                             </div>
-                            <span class="font-mono font-semibold text-zinc-900 dark:text-white">{{ number_format($account['balance'], 2) }}</span>
+                            <span class="font-mono font-semibold text-zinc-900 dark:text-white">{{ $this->formatCurrency($account['balance']) }}</span>
                         </div>
                     @endforeach
                     <div class="px-6 py-3 flex justify-between items-center bg-purple-100 dark:bg-purple-900/30 font-bold">
                         <span class="text-purple-800 dark:text-purple-300">Total Admin Expenses</span>
-                        <span class="font-mono text-purple-800 dark:text-purple-300">{{ number_format($data['total_admin'] ?? 0, 2) }}</span>
+                        <span class="font-mono text-purple-800 dark:text-purple-300">{{ $this->formatCurrency($data['total_admin'] ?? 0) }}</span>
                     </div>
                 @endif
 
                 <!-- EBIT -->
                 <div class="px-6 py-4 flex justify-between items-center bg-purple-200 dark:bg-purple-900/50 font-bold text-lg">
                     <span class="text-purple-900 dark:text-purple-200">EBIT (Operating Income)</span>
-                    <span class="font-mono text-purple-900 dark:text-purple-200">{{ number_format($data['ebit'] ?? 0, 2) }}</span>
+                    <span class="font-mono text-purple-900 dark:text-purple-200">{{ $this->formatCurrency($data['ebit'] ?? 0) }}</span>
                 </div>
 
                 <!-- Finance Costs -->
@@ -158,19 +158,19 @@
                                 <span class="font-mono text-sm text-zinc-500 dark:text-zinc-400">{{ $account['account_number'] }}</span>
                                 <span class="ml-2 text-zinc-900 dark:text-white">{{ $account['account_name'] }}</span>
                             </div>
-                            <span class="font-mono font-semibold text-zinc-900 dark:text-white">{{ number_format($account['balance'], 2) }}</span>
+                            <span class="font-mono font-semibold text-zinc-900 dark:text-white">{{ $this->formatCurrency($account['balance']) }}</span>
                         </div>
                     @endforeach
                     <div class="px-6 py-3 flex justify-between items-center bg-yellow-100 dark:bg-yellow-900/30 font-bold">
                         <span class="text-yellow-800 dark:text-yellow-300">Total Finance Costs</span>
-                        <span class="font-mono text-yellow-800 dark:text-yellow-300">{{ number_format($data['total_finance'] ?? 0, 2) }}</span>
+                        <span class="font-mono text-yellow-800 dark:text-yellow-300">{{ $this->formatCurrency($data['total_finance'] ?? 0) }}</span>
                     </div>
                 @endif
 
                 <!-- Net Income -->
                 <div class="px-6 py-4 flex justify-between items-center {{ ($data['net_income'] ?? 0) >= 0 ? 'bg-green-200 dark:bg-green-900/50' : 'bg-red-200 dark:bg-red-900/50' }} font-bold text-xl">
                     <span class="{{ ($data['net_income'] ?? 0) >= 0 ? 'text-green-900 dark:text-green-200' : 'text-red-900 dark:text-red-200' }}">NET INCOME</span>
-                    <span class="font-mono {{ ($data['net_income'] ?? 0) >= 0 ? 'text-green-900 dark:text-green-200' : 'text-red-900 dark:text-red-200' }}">{{ number_format($data['net_income'] ?? 0, 2) }}</span>
+                    <span class="font-mono {{ ($data['net_income'] ?? 0) >= 0 ? 'text-green-900 dark:text-green-200' : 'text-red-900 dark:text-red-200' }}">{{ $this->formatCurrency($data['net_income'] ?? 0) }}</span>
                 </div>
             </div>
         @else

@@ -13,6 +13,7 @@ use App\Services\EmployeeAuditService;
 use App\Traits\AuditableSyncTrait;
 use Spatie\Permission\Models\Role;
 use Livewire\Attributes\{Layout, Url, On};
+use Illuminate\Support\Facades\Auth;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Index extends BaseComponent
@@ -265,7 +266,7 @@ class Index extends BaseComponent
                 }
 
                 // SUPER ADMIN: Delete immediately
-                EmployeeAuditService::logEmployeeTermination($employee, $user, 'Employee deleted by admin');
+                EmployeeAuditService::logEmployeeTermination($employee, now()->toDateString(), 'Employee deleted by admin', $user);
                 $employee->delete();
                 $this->dialog()->success('Success', 'Employee deleted successfully!')->send();
                 $this->selectedEmployeeId = null;
@@ -327,7 +328,7 @@ class Index extends BaseComponent
 
             // SUPER ADMIN: Delete immediately
             foreach ($employees as $employee) {
-                EmployeeAuditService::logEmployeeTermination($employee, $user, 'Deleted in bulk by admin');
+                EmployeeAuditService::logEmployeeTermination($employee, now()->toDateString(), 'Deleted in bulk by admin', $user);
                 $employee->delete();
             }
 
@@ -348,7 +349,7 @@ class Index extends BaseComponent
     {
         $this->employeeIdForRole = $employeeId;
         $employee = Employee::find($employeeId);
-        $this->selectedRoles = $employee ? $employee->roles->pluck('id')->toArray() : [];
+        $this->selectedRoles = $employee ? $employee->roles->pluck('id')->map(fn($id) => (string)$id)->toArray() : [];
         $this->showRoleModal = true;
     }
 
@@ -395,7 +396,13 @@ class Index extends BaseComponent
             if (!$this->employeeIdForRole) return;
 
             $employee = Employee::findOrFail($this->employeeIdForRole);
-            $user = current_actor();
+            $user = Auth::user();
+
+            \Log::info('Saving roles', [
+                'employee_id' => $this->employeeIdForRole,
+                'selected_roles' => $this->selectedRoles,
+                'current_roles' => $employee->roles->pluck('name')->toArray(),
+            ]);
 
             if (!is_super_admin()) {
                 // EMPLOYEE: Create approval request using EmployeeApprovalService
@@ -421,21 +428,26 @@ class Index extends BaseComponent
             );
 
             // Log role change
+            $status = 'completed';
             if ($oldRoles !== $this->selectedRoles) {
                 EmployeeAuditService::logRoleChange(
                     $employee,
                     $oldRoles,
                     $this->selectedRoles,
-                    "Roles updated by super admin",
-                    $user
+                    $this->roleReason,
+                    $user,
+                    $status,
                 );
             }
+
+
 
             $this->toast()->success('Roles updated successfully!')->send();
             $this->closeRoleModal();
             $this->roleReason = '';
-
-        } finally {
+            $this->savingRoles = false;
+        } catch (\Exception $e) {
+            $this->toast()->error('Error updating roles: ' . $e->getMessage())->send();
             $this->savingRoles = false;
         }
     }
@@ -448,7 +460,7 @@ class Index extends BaseComponent
         $statuses = ['active', 'inactive', 'terminated', 'on_probation', 'on_leave'];
         $genders = ['male', 'female', 'other', 'prefer_not_to_say'];
         $shifts = ['morning', 'afternoon', 'night', 'rotating', 'flexible'];
-        $roles = Role::where('guard_name', 'employees')->where('name', '!=', 'MD')->get();
+        $roles = Role::where('guard_name', 'web')->where('name', '!=', 'MD')->get();
 
         return view('livewire.branch-dashboard.employee-module.index', [
             'headers' => [

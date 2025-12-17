@@ -89,7 +89,7 @@ class RequestModel extends Component
             return;
         }
 
-        $employee = Auth::guard('employees')->user();
+        $employee = Auth::guard('web')->user();
         $branchId = $this->getBranchId();
         $departmentId = $employee->department_id;
 

@@ -95,7 +95,7 @@ class Index extends Component
             }
 
             $compilationService = new ReportCompilationService();
-            $compilationService->approve($report, auth('employees')->id());
+            $compilationService->approve($report, auth()->id());
 
             $this->toast()->success('Report approved successfully!')->send();
 

@@ -12,7 +12,7 @@
             <div>
                 <h2 class="text-xl font-bold">Production Monitor</h2>
                 <p class="text-sm opacity-90 mt-1">
-                    Track products made in production - {{ auth('employees')->user()->department->name ?? 'Your Department' }}
+                    Track products made in production - {{ auth()->user()?->department?->name ?? 'Your Department' }}
                     @if($currentShift)
                         - {{ \Carbon\Carbon::parse($currentShift->shift_date)->format('l, F d, Y') }} ({{ ucfirst($currentShift->shift_type) }} Shift)
                     @endif

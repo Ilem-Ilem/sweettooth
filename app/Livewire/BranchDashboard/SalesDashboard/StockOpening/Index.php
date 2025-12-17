@@ -2,9 +2,11 @@
 namespace App\Livewire\BranchDashboard\SalesDashboard\StockOpening;
 
 use App\Livewire\BaseComponent;
+use App\Livewire\Concerns\SalesDepartmentContext;
 use App\Models\Product;
 use App\Models\ProductStock;
 use App\Models\Shift;
+use App\Services\SalesWorkflowService;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
@@ -16,18 +18,13 @@ use App\Models\Branch;
 #[Layout('components.layouts.app.branch-dashboard')]
 class Index extends BaseComponent
 {
-    use WithPagination, Interactions;
+    use WithPagination, Interactions, SalesDepartmentContext;
 
     #[Url(keep: true)]
     public ?string $b_id = null;
 
-    #[Url(keep: true)]
-    public ?string $salesDeptSlug = null;
-
-    public ?string $branchId = null;
-    public ?int $departmentId = null;
-    public string $departmentName = 'Stock Opening';
-    public string $branchName = '';
+    // Note: salesDeptSlug, branchId, departmentId, departmentName, branchName
+    // are now provided by SalesDepartmentContext trait
 
     public ?int $quantity = 20;
     public ?string $search = null;
@@ -86,64 +83,22 @@ class Index extends BaseComponent
     public function mount()
     {
         $this->mountBase();
-        $this->loadBranchAndDepartment();
+        $this->initializeDepartmentContext(); // Using trait method
+        $this->departmentName = $this->departmentName ?: 'Stock Opening';
         $this->stockDate = \Carbon\Carbon::today()->format('Y-m-d');
         $this->loadAvailableShifts();
         $this->loadCurrentShift();
         $this->loadStockOpeningData();
     }
 
-    protected function loadBranchAndDepartment(): void
-    {
-        // Load branch
-        $this->branchId = request('b_id');
-        if ($this->branchId) {
-            $branch = Branch::find($this->branchId);
-            $this->branchName = $branch?->name ?? 'Unknown Branch';
-        }
-
-        // Load department from slug
-        if ($this->salesDeptSlug) {
-            // First try to find branch-specific department
-            $department = Department::where('slug', $this->salesDeptSlug)
-                ->where('branch_id', $this->branchId)
-                ->first();
-
-            // If not found, try to find global department (branch_id is null)
-            if (!$department) {
-                $department = Department::where('slug', $this->salesDeptSlug)
-                    ->whereNull('branch_id')
-                    ->first();
-            }
-
-            if ($department) {
-                $this->departmentId = $department->id;
-                $this->departmentName = $department->name;
-            } else {
-                $this->toast()->error('Department not found.')->send();
-            }
-        } else {
-            // If no department slug provided, use employee's department
-            $employee = auth('employees')->user();
-            if ($employee && $employee->department_id) {
-                $this->departmentId = $employee->department_id;
-                $department = Department::find($employee->department_id);
-                $this->departmentName = $department?->name ?? 'Stock Opening';
-            }
-        }
-
-        // Validate branch access
-        if (!$this->branchId) {
-            $this->toast()->error('Branch not specified.')->send();
-        }
-    }
+    // loadBranchAndDepartment is now handled by SalesDepartmentContext trait
 
     /**
      * Load available shifts for date/shift selection
      */
     protected function loadAvailableShifts()
     {
-        $employee = auth('employees')->user();
+        $employee = auth()->user();
         $deptId = $this->departmentId ?? $employee->department_id;
 
         // Get shifts from last 30 days for the sales department
@@ -184,7 +139,7 @@ class Index extends BaseComponent
      */
     protected function loadCurrentShift()
     {
-        $employee = auth('employees')->user();
+        $employee = auth()->user();
 
         // Get active shift for today
         $activeShift = Shift::where('employee_id', $employee->id)
@@ -219,7 +174,7 @@ class Index extends BaseComponent
             $query->forDepartment($this->departmentId);
         } else {
             // Fallback to employee's department if no departmentId is set
-            $employee = auth('employees')->user();
+            $employee = auth()->user();
             if ($employee && $employee->department_id) {
                 // Use the same forDepartment scope for consistency
                 $query->forDepartment($employee->department_id);
@@ -438,14 +393,32 @@ class Index extends BaseComponent
                         'notes'             => $stockOpening['notes'],
                         'total_available'   => $stockOpening['actual_opening'] + $stockOpening['today_additions'],
                         'closing_quantity'  => $stockOpening['actual_opening'] + $stockOpening['today_additions'],
+                        'is_workflow_verified' => true,
+                        'verified_at'       => now(),
+                        'verified_by'       => auth()->id() ?? auth()->id(),
+                        'workflow_step'     => 'opening_verified',
                     ]
                 );
             }
 
             DB::commit();
             $this->isVerified = true;
-            $this->toast()->success('Stock opening saved successfully!')->send();
-            $this->loadStockOpeningData(); // Reload to show saved state
+
+            // Mark workflow step as completed (skip for super admins)
+            if (!is_super_admin() && !can_access_all_branches()) {
+                $workflowService = app(SalesWorkflowService::class);
+                $workflowService->completeStep(
+                    auth()->id(),
+                    $this->currentShiftId,
+                    'stock_opening'
+                );
+            }
+
+            $this->toast()->success('Stock opening completed! Redirecting to POS...')->send();
+
+            // Auto-redirect to POS with department context
+            $this->redirectToPos();
+
         } catch (\Exception $e) {
             DB::rollBack();
             $this->toast()->error('Error saving stock opening: ' . $e->getMessage())->send();
@@ -499,7 +472,7 @@ class Index extends BaseComponent
 
     public function render()
     {
-        $employee = auth('employees')->user();
+        $employee = auth()->user();
         $deptId = $this->departmentId ?? $employee->department_id;
 
         $productTypes = \App\Models\ProductType::whereHas('department', function ($q) use ($deptId) {

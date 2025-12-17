@@ -222,7 +222,7 @@ class ItemDispatches extends Component
 
                     // Log the approval
                     AuditService::log(
-                        Auth::guard('employees')->user(),
+                        Auth::guard('web')->user(),
                         'update',
                         $request,
                         "Approved {$approvedCount} item(s) from request #{$request->request_number}. " .
@@ -332,7 +332,7 @@ class ItemDispatches extends Component
                         'branch_id' => $branchId,
                         'request_id' => $this->requestId,
                         'item_id' => $item['item_id'],
-                        'dispatched_by' => Auth::guard('employees')->id(),
+                        'dispatched_by' => Auth::guard('web')->id(),
                         'quantity' => $dispatchQty,
                         'uom' => $item['uom'],
                         'dispatch_time' => now(),
@@ -353,7 +353,7 @@ class ItemDispatches extends Component
                         'movement_date' => now(),
                         'reference_type' => ItemRequest::class,
                         'reference_id' => $this->requestId,
-                        'moved_by_id' => Auth::guard('employees')->id(),
+                        'moved_by_id' => Auth::guard('web')->id(),
                         'moved_by_type' => \App\Models\Employee::class,
                         'notes' => "Dispatch for request: {$request->request_number}",
                     ]);
@@ -394,7 +394,7 @@ class ItemDispatches extends Component
                 // Log the dispatch
                 if (!empty($dispatchedItems)) {
                     AuditService::log(
-                        Auth::guard('employees')->user(),
+                        Auth::guard('web')->user(),
                         'update',
                         $request,
                         "Dispatched items from request #{$request->request_number}. " .

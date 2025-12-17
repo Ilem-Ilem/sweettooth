@@ -4,7 +4,8 @@ namespace App\Livewire\BranchDashboard;
 
 use Livewire\Component;
 use Livewire\Attributes\{On, Url};
-use App\Models\{Shift as ShiftModel, Branch, Employee};
+use App\Models\{Shift as ShiftModel, Branch, Employee, Department};
+use App\Services\SalesWorkflowService;
 use Carbon\Carbon;
 use TallStackUi\Traits\Interactions;
 
@@ -26,7 +27,7 @@ class HeaderClockInOut extends Component
 
     public function loadCurrentShift()
     {
-        $employee_id = auth('employees')->id();
+        $employee_id = auth()->id();
 
         if (!$employee_id) {
             return;
@@ -75,19 +76,51 @@ class HeaderClockInOut extends Component
                 return;
             }
 
+            // Check if this is a sales employee (skip for super admins)
+            $isSalesEmployee = $this->checkIfSalesEmployee();
+
             // Update shift with clock out time
             $this->currentShift->clock_out = Carbon::now();
-            $this->currentShift->status = 'closed';
+
+            // For sales employees, set to 'active' to trigger shift closing workflow
+            // For other employees, complete the shift immediately
+            if ($isSalesEmployee && !is_super_admin() && !can_access_all_branches()) {
+                $this->currentShift->status = 'active'; // Keep active until shift closing
+                $this->currentShift->workflow_state = 'shift_closing';
+
+                // Update metadata
+                $metadata = $this->currentShift->metadata ?? [];
+                $metadata['clock_out_at'] = now()->toIso8601String();
+                $this->currentShift->metadata = $metadata;
+            } else {
+                $this->currentShift->status = 'closed';
+                $this->currentShift->workflow_state = 'completed';
+            }
+
             $this->currentShift->save();
 
             // Calculate total hours worked
             $totalHours = Carbon::parse($this->currentShift->clock_in)->diffInHours($this->currentShift->clock_out);
             $totalMinutes = Carbon::parse($this->currentShift->clock_in)->diffInMinutes($this->currentShift->clock_out) % 60;
 
-            $this->toast()->success("Clocked out! Total time: {$totalHours}h {$totalMinutes}m")->send();
-
             // Dispatch event to update other components
             $this->dispatch('shift-updated');
+            $this->dispatch('workflow-state-changed');
+
+            // For sales employees, redirect to shift closing
+            if ($isSalesEmployee && !is_super_admin() && !can_access_all_branches()) {
+                $branchId = $this->b_id ?: current_branch_id();
+                $departmentSlug = $this->getEmployeeDepartmentSlug();
+
+                $this->toast()->success("Clocked out! Please complete shift closing.")->send();
+
+                return redirect()->route('branch-dashboard.sales-dashboard.shift-closing.index', [
+                    'salesDeptSlug' => $departmentSlug,
+                    'b_id' => $branchId
+                ]);
+            }
+
+            $this->toast()->success("Clocked out! Total time: {$totalHours}h {$totalMinutes}m")->send();
 
             // Reset state
             $this->currentShift = null;
@@ -100,6 +133,38 @@ class HeaderClockInOut extends Component
         } catch (\Exception $e) {
             $this->toast()->error('Error clocking out: ' . $e->getMessage())->send();
         }
+    }
+
+    /**
+     * Check if current employee is in a sales department
+     */
+    protected function checkIfSalesEmployee(): bool
+    {
+        $employee = auth()->user();
+        if (!$employee || !$employee->department_id) {
+            return false;
+        }
+
+        $department = Department::with('category')->find($employee->department_id);
+        if (!$department || !$department->category) {
+            return false;
+        }
+
+        return strtolower($department->category->name) === 'sales';
+    }
+
+    /**
+     * Get employee's department slug
+     */
+    protected function getEmployeeDepartmentSlug(): ?string
+    {
+        $employee = auth()->user();
+        if (!$employee || !$employee->department_id) {
+            return null;
+        }
+
+        $department = Department::find($employee->department_id);
+        return $department?->slug;
     }
 
     #[On('shift-updated')]

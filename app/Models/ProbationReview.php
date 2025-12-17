@@ -42,12 +42,12 @@ class ProbationReview extends Model
     // Relationships
     public function employee(): BelongsTo
     {
-        return $this->belongsTo(Employee::class);
+        return $this->belongsTo(User::class, 'employee_id');
     }
 
     public function reviewer(): BelongsTo
     {
-        return $this->belongsTo(Employee::class, 'reviewer_id');
+        return $this->belongsTo(User::class, 'reviewer_id');
     }
 
     public function acknowledgedBy(): MorphTo

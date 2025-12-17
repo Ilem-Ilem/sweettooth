@@ -27,7 +27,12 @@ return new class extends Migration
         });
 
         // Update the reason enum to include 'over_stock'
-        DB::statement("ALTER TABLE product_dispatch_callbacks MODIFY reason ENUM('expired', 'damaged', 'quality_issue', 'customer_return', 'over_received', 'over_stock', 'wrong_item', 'other')");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE product_dispatch_callbacks MODIFY reason ENUM('expired', 'damaged', 'quality_issue', 'customer_return', 'over_received', 'over_stock', 'wrong_item', 'other')");
+        } else {
+            // For SQLite, since MODIFY is not supported, we recreate the table or just note it
+            // For now, skip for SQLite tests
+        }
     }
 
     /**

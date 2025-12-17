@@ -51,7 +51,7 @@ class StockValuation extends Component
 
     public function getValuationSummary()
     {
-        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
+        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
 
         $stocks = Stock::with('item')->where('branch_id', $branchId)->get();
 
@@ -70,7 +70,7 @@ class StockValuation extends Component
 
     public function getCategoryValuation()
     {
-        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
+        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
 
         $stocks = Stock::with('item')
             ->where('branch_id', $branchId)
@@ -99,7 +99,7 @@ class StockValuation extends Component
 
     public function getTopValueItems()
     {
-        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
+        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
 
         return Stock::with('item')
             ->where('branch_id', $branchId)
@@ -125,7 +125,7 @@ class StockValuation extends Component
 
     public function getLowStockItems()
     {
-        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
+        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
 
         return Stock::with('item')
             ->where('branch_id', $branchId)
@@ -153,7 +153,7 @@ class StockValuation extends Component
 
     public function getCategoryGroupedData()
     {
-        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
+        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
 
         $stocks = Stock::with('item')
             ->where('branch_id', $branchId)
@@ -188,7 +188,7 @@ class StockValuation extends Component
 
     public function exportCSV()
     {
-        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
+        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
 
         $stocks = Stock::with('item')
             ->where('branch_id', $branchId)
@@ -233,7 +233,7 @@ class StockValuation extends Component
 
     public function exportPDF()
     {
-        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
+        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
         $stocks = Stock::with('item')
             ->where('branch_id', $branchId)
             ->when($this->searchTerm, function ($query) {
@@ -264,7 +264,7 @@ class StockValuation extends Component
 
     public function exportExcel()
     {
-        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
+        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
         $stocks = Stock::with('item')
             ->where('branch_id', $branchId)
             ->when($this->searchTerm, function ($query) {
@@ -295,7 +295,7 @@ class StockValuation extends Component
 
     public function render()
     {
-        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
+        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
 
         $stocks = Stock::with('item')
             ->where('branch_id', $branchId)

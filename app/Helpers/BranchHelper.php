@@ -58,8 +58,8 @@ if (!function_exists('current_branch_id')) {
         }
 
         // Then check authenticated employee's branch
-        if (auth('employees')->check()) {
-            return auth('employees')->user()->branch_id;
+        if (auth()->check()) {
+            return auth()->user()->branch_id;
         }
 
         // Fallback to null if no branch context available
@@ -68,79 +68,81 @@ if (!function_exists('current_branch_id')) {
 }
 
 if (!function_exists('get_user_auth')) {
+    /**
+     * Get current authenticated user (unified system)
+     * @deprecated Use get_current_user() from AuthorizationHelper instead
+     */
     function get_user_auth()
     {
-        return auth("employees")->user() ?? auth()->user();
-    }
-}
-
-if (!function_exists('current_actor')) {
-    function current_actor(): User|Employee|null
-    {
-        if (auth()->check()) {
-            return auth()->user();
+        // Use Auth::id() which works even with corrupted user objects
+        $userId = \Illuminate\Support\Facades\Auth::id();
+        
+        if (!$userId) {
+            return null;
         }
-
-        if (auth('employees')->check()) {
-            return auth('employees')->user();
+        
+        // Load user directly from database to avoid serialization issues
+        $user = \App\Models\User::find($userId);
+        
+        if ($user && is_object($user)) {
+            return $user;
         }
-
+        
         return null;
     }
 }
 
-
-if (!function_exists('is_super_admin')) {
+if (!function_exists('current_actor')) {
     /**
-     * Check if the current user is a super admin.
+     * Get the current authenticated actor (user) in the unified system
      *
-     * A super admin is defined as someone who is authenticated in the
-     * default guard (users) but NOT in the employees guard.
-     *
-     * @return bool
+     * @return \App\Models\User|null
      */
-    function is_super_admin(): bool
+    function current_actor(): ?\App\Models\User
     {
-        return auth()->check() && !auth('employees')->check();
+        // Unified system - all users authenticated via web guard
+        $user = \Illuminate\Support\Facades\Auth::user();
+
+        // Ensure we're returning a User object, not a serialized string
+        if ($user && is_string($user)) {
+            // Try to reload user by ID
+            $userId = \Illuminate\Support\Facades\Auth::id();
+            if ($userId) {
+                $user = \App\Models\User::find($userId);
+                if ($user) {
+                    \Illuminate\Support\Facades\Auth::setUser($user);
+                    return $user;
+                }
+            }
+            \Illuminate\Support\Facades\Auth::logout();
+            return null;
+        }
+
+        if ($user && !is_object($user)) {
+            \Illuminate\Support\Facades\Auth::logout();
+            return null;
+        }
+
+        return $user;
     }
 }
+
+
+// is_super_admin function moved to AuthorizationHelper.php for unified system
 
 if (!function_exists('can_access_all_branches')) {
     /**
      * Check if the current user can access all branches.
      *
-     * Returns true for:
-     * - Super admins (users table, NOT employees guard)
-     * - Users with multi-branch roles (super-admin, md, director, admin)
-     *
-     * Returns false for:
-     * - Regular employees (employees guard users)
-     * - Unauthenticated users
+     * Returns true for super admins who can access all branches.
+     * Returns false for branch-specific users and unauthenticated users.
      *
      * @return bool
      */
     function can_access_all_branches(): bool
     {
-        // Employees can NEVER access all branches
-        if (auth('employees')->check()) {
-            return false;
-        }
-
-        if (!auth()->check()) {
-            return false;
-        }
-
-        // Check if user is super admin (in users table, not employees guard)
-        if (is_super_admin()) {
-            return true;
-        }
-
-        // Check if user has specific roles (requires spatie/laravel-permission)
-        if (method_exists(auth()->user(), 'hasAnyRole')) {
-            return auth()->user()->hasAnyRole(['super-admin', 'md', 'director', 'admin']);
-        }
-
-        return false;
+        // In unified system, only super admins can access all branches
+        return is_super_admin();
     }
 }
 
@@ -161,8 +163,8 @@ if (!function_exists('get_accessible_branches')) {
                 ->get();
         }
 
-        if (auth('employees')->check()) {
-            $branchId = auth('employees')->user()->branch_id;
+        if (auth()->check()) {
+            $branchId = auth()->user()->branch_id;
             return \App\Models\Branch::where('id', $branchId)->get();
         }
 
@@ -224,8 +226,8 @@ if (!function_exists('validate_branch_access')) {
         }
 
         // Regular employees can only access their assigned branch
-        if (auth('employees')->check()) {
-            return auth('employees')->user()->branch_id === $branchId;
+        if (auth()->check()) {
+            return auth()->user()->branch_id === $branchId;
         }
 
         return false;

@@ -140,7 +140,7 @@ class Create extends Component
             'selectedProducts.*.quantity.required'   => 'Please enter quantity.',
         ]);
 
-        $employee     = is_super_admin() ? auth()->user : Auth::guard('employees')->user();
+        $employee     = is_super_admin() ? auth()->user : Auth::guard('web')->user();
         $branchId     = $this->getBranchId();
 
         DB::transaction(function () use ($employee, $branchId) {

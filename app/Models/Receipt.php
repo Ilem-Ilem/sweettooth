@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Helpers\Settings;
+use App\Services\CurrencyFormattingService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -92,43 +94,43 @@ class Receipt extends Model
     }
 
     /**
-     * Accessor: Get formatted subtotal
+     * Accessor: Get formatted subtotal with currency
      */
     public function getFormattedSubtotalAttribute(): string
     {
-        return number_format($this->subtotal, 2);
+        return $this->formatCurrency($this->subtotal);
     }
 
     /**
-     * Accessor: Get formatted tax
+     * Accessor: Get formatted tax with currency
      */
     public function getFormattedTaxAttribute(): string
     {
-        return number_format($this->tax, 2);
+        return $this->formatCurrency($this->tax);
     }
 
     /**
-     * Accessor: Get formatted discount
+     * Accessor: Get formatted discount with currency
      */
     public function getFormattedDiscountAttribute(): string
     {
-        return number_format($this->discount, 2);
+        return $this->formatCurrency($this->discount);
     }
 
     /**
-     * Accessor: Get formatted total
+     * Accessor: Get formatted total with currency
      */
     public function getFormattedTotalAttribute(): string
     {
-        return number_format($this->total, 2);
+        return $this->formatCurrency($this->total);
     }
 
     /**
-     * Accessor: Get formatted change due
+     * Accessor: Get formatted change due with currency
      */
     public function getFormattedChangeDueAttribute(): string
     {
-        return number_format($this->change_due, 2);
+        return $this->formatCurrency($this->change_due);
     }
 
     /**
@@ -207,40 +209,43 @@ class Receipt extends Model
     }
 
     /**
-     * Generate printable receipt content
+     * Generate printable receipt content with dynamic currency
      */
     public function generatePrintContent(): string
     {
+        $currencyService = new CurrencyFormattingService();
+        $symbol = $currencyService->getSymbol();
+
         $content = "=== RECEIPT ===\n";
         $content .= "Receipt #: {$this->receipt_number}\n";
         $content .= "Date: {$this->created_at->format('Y-m-d H:i:s')}\n";
         $content .= "Sale ID: {$this->sale_id}\n";
         $content .= "-------------------\n";
-        $content .= "Subtotal: \${$this->formatted_subtotal}\n";
+        $content .= "Subtotal: {$symbol}{$this->formatted_subtotal}\n";
 
         if ($this->tax > 0) {
-            $content .= "Tax: \${$this->formatted_tax}\n";
+            $content .= "Tax: {$symbol}{$this->formatted_tax}\n";
         }
 
         if ($this->discount > 0) {
-            $content .= "Discount: -\${$this->formatted_discount}\n";
+            $content .= "Discount: -{$symbol}{$this->formatted_discount}\n";
         }
 
         $content .= "-------------------\n";
-        $content .= "TOTAL: \${$this->formatted_total}\n";
+        $content .= "TOTAL: {$symbol}{$this->formatted_total}\n";
         $content .= "-------------------\n";
 
         if (! empty($this->payments)) {
             $content .= "Payments:\n";
             foreach ($this->payments as $payment) {
                 $method = ucfirst($payment['method'] ?? 'Unknown');
-                $amount = number_format($payment['amount'] ?? 0, 2);
-                $content .= "  {$method}: \${$amount}\n";
+                $amount = $this->formatCurrency($payment['amount'] ?? 0);
+                $content .= "  {$method}: {$amount}\n";
             }
         }
 
         if ($this->change_due > 0) {
-            $content .= "Change Due: \${$this->formatted_change_due}\n";
+            $content .= "Change Due: {$symbol}{$this->formatted_change_due}\n";
         }
 
         $content .= "===================\n";
@@ -265,6 +270,15 @@ class Receipt extends Model
     public function getMeta(string $key, $default = null)
     {
         return $this->meta[$key] ?? $default;
+    }
+
+    /**
+     * Format currency amount for receipt display
+     */
+    protected function formatCurrency(float $amount): string
+    {
+        $service = new CurrencyFormattingService();
+        return $service->format($amount);
     }
 
     /**

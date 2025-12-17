@@ -74,7 +74,7 @@ class StockLevelAnalytics extends Component
 
     public function getAvailableItems()
     {
-        $branchId = Auth::guard('employees')->user()?->branch_id  ?? request()->get('b_id');
+        $branchId = Auth::guard('web')->user()?->branch_id  ?? request()->get('b_id');
 
         return Stock::with('item')
             ->where('branch_id', $branchId)
@@ -101,7 +101,7 @@ class StockLevelAnalytics extends Component
      */
     public function getStockSummary()
     {
-        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
+        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
 
         $stocks = Stock::where('branch_id', $branchId)->with('item')->get();
 
@@ -126,7 +126,7 @@ class StockLevelAnalytics extends Component
      */
     public function getHealthStatusBreakdown()
     {
-        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
+        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
 
         return Stock::where('branch_id', $branchId)
             ->selectRaw('health_status, COUNT(*) as count, SUM(quantity_available) as total_qty')
@@ -147,7 +147,7 @@ class StockLevelAnalytics extends Component
      */
     public function getCategoryBreakdown()
     {
-        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
+        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
 
         return Stock::with('item')
             ->where('branch_id', $branchId)
@@ -175,7 +175,7 @@ class StockLevelAnalytics extends Component
      */
     public function getTurnoverAnalysis()
     {
-        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id') ;
+        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id') ;
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
@@ -211,7 +211,7 @@ class StockLevelAnalytics extends Component
      */
     public function getReorderRecommendations()
     {
-        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
+        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
 
         return Stock::with('item')
             ->where('branch_id', $branchId)
@@ -239,7 +239,7 @@ class StockLevelAnalytics extends Component
      */
     public function getStockLevelTrend()
     {
-        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
+        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
@@ -277,7 +277,7 @@ class StockLevelAnalytics extends Component
      */
     public function getPeriodComparison()
     {
-        $branchId = Auth::guard('employees')->user()?->branch_id  ?? request()->get('b_id');
+        $branchId = Auth::guard('web')->user()?->branch_id  ?? request()->get('b_id');
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
         $daysDiff = $dateFrom->diffInDays($dateTo);
@@ -325,7 +325,7 @@ class StockLevelAnalytics extends Component
      */
     public function getSmartInsights()
     {
-        $branchId = Auth::guard('employees')->user()?->branch_id ??  request()->get('b_id');
+        $branchId = Auth::guard('web')->user()?->branch_id ??  request()->get('b_id');
         $summary = $this->getStockSummary();
         $insights = [];
 
@@ -371,7 +371,7 @@ class StockLevelAnalytics extends Component
 
     public function exportCSV()
     {
-        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
+        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
         return redirect(branch_route('branch-dashboard.exports.stock-level-analytics', [
             'format' => 'csv',
             'search' => $this->searchTerm,
@@ -383,7 +383,7 @@ class StockLevelAnalytics extends Component
 
     public function exportPDF()
     {
-        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
+        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
         return redirect(branch_route('branch-dashboard.exports.stock-level-analytics', [
             'format' => 'pdf',
             'search' => $this->searchTerm,
@@ -395,7 +395,7 @@ class StockLevelAnalytics extends Component
 
     public function exportExcel()
     {
-        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
+        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
         return redirect(branch_route('branch-dashboard.exports.stock-level-analytics', [
             'format' => 'excel',
             'search' => $this->searchTerm,
@@ -407,7 +407,7 @@ class StockLevelAnalytics extends Component
 
     public function render()
     {
-        $branchId = Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
+        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
 
         $stocks = Stock::with(['item'])
             ->where('branch_id', $branchId)

@@ -50,7 +50,7 @@ class MyLeaves extends BaseComponent
 
     protected function getFilteredQuery()
     {
-        $employee = auth('employees')->user();
+        $employee = auth()->user();
 
         return LeaveApplication::where('employee_id', $employee->id);
     }
@@ -62,7 +62,7 @@ class MyLeaves extends BaseComponent
 
     public function getRowsProperty()
     {
-        $employee = auth('employees')->user();
+        $employee = auth()->user();
         $query = LeaveApplication::where('employee_id', $employee->id)
             ->with(['leaveType', 'approvedBy', 'rejectedBy', 'cancelledBy']);
 
@@ -96,7 +96,7 @@ class MyLeaves extends BaseComponent
     {
         $leave = LeaveApplication::find($id);
 
-        if (!$leave || $leave->employee_id !== auth('employees')->id()) {
+        if (!$leave || $leave->employee_id !== auth()->id()) {
             $this->toast()->error('Leave application not found.')->send();
             return;
         }
@@ -127,12 +127,12 @@ class MyLeaves extends BaseComponent
         try {
             $leave = LeaveApplication::find($this->selectedLeaveId);
 
-            if (!$leave || $leave->employee_id !== auth('employees')->id()) {
+            if (!$leave || $leave->employee_id !== auth()->id()) {
                 $this->toast()->error('Leave application not found.')->send();
                 return;
             }
 
-            $employee = auth('employees')->user();
+            $employee = auth()->user();
             $leave->cancel($employee->id, $this->cancellation_reason);
 
             // Log the cancellation

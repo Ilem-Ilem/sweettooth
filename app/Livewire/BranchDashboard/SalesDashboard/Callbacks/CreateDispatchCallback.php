@@ -117,7 +117,7 @@ class CreateDispatchCallback extends BaseComponent
 
     protected function loadCurrentSalesShift()
     {
-        $employee = auth('employees')->user();
+        $employee = auth()->user();
 
         // First try to find active sales shift for this employee
         $activeShift = SalesShift::where('branch_id', $this->getBranchId())
@@ -238,7 +238,7 @@ class CreateDispatchCallback extends BaseComponent
                 return;
             }
 
-            $employee = auth('employees')->user();
+            $employee = auth()->user();
 
             $shiftId = $this->selectedSalesShiftId ?? $this->currentSalesShiftId;
 

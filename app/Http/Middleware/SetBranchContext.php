@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\Branch;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 class SetBranchContext
@@ -14,17 +15,21 @@ class SetBranchContext
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // 1. Super-admin (regular auth, NOT employee guard)
-        if (auth()->check() && !auth('employees')->check()) {
-            $this->setSuperAdminBranchContext($request);   // Pass request to validate b_id param
-            $redirect = $this->ensureBranchSlugInUrl($request);
-            if ($redirect) {
-                return $redirect;
+        // Unified system: handle all authenticated users based on roles
+        if (Auth::check()) {
+            $user = Auth::user();
+
+            if (is_super_admin()) {
+                // Super Admin: Session-based branch selection with URL override
+                $this->setSuperAdminBranchContext($request);
+                $redirect = $this->ensureBranchSlugInUrl($request);
+                if ($redirect) {
+                    return $redirect;
+                }
+            } else {
+                // Regular users: Branch-specific context
+                $this->setUserBranchContext($request);
             }
-        }
-        // 2. Regular employee
-        elseif (auth('employees')->check()) {
-            $this->setEmployeeBranchContext($request);     // Pass request to validate b_id param
         }
 
         return $next($request);
@@ -61,7 +66,7 @@ class SetBranchContext
             }
         } elseif (!session()->has('selected_branch_id')) {
             // No b_id in URL and no session set, use default
-            $user = auth()->user();
+            $user = Auth::user();
 
             // Try to use last accessed branch
             $defaultBranch = $user->last_accessed_branch_id;
@@ -176,9 +181,9 @@ class SetBranchContext
      *  3. Session is ALWAYS set to their actual branch_id
      *  4. The BranchMiddleware will validate this on the route
      * --------------------------------------------------------------------- */
-    protected function setEmployeeBranchContext(Request $request): void
+    protected function setUserBranchContext(Request $request): void
     {
-        $employee = auth('employees')->user();
+        $employee = Auth::user();
 
         if ($employee && $employee->branch_id) {
             // Check if employee is trying to access a different branch via URL parameter

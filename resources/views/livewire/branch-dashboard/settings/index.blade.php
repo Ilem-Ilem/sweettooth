@@ -35,43 +35,16 @@
                         </nav>
                     </div>
 
-                    <!-- Tab Content -->
-                    <div class="w-full md:w-3/4 p-6">
-                        @if($activeTab === 'business-config')
-                            <div class="text-gray-500">Business Configuration settings coming soon</div>
-                            {{-- @livewire('super-admin.settings.business-configuration') --}}
-                        @elseif($activeTab === 'currency-localization')
-                            <div class="text-gray-500">Currency & Localization settings coming soon</div>
-                            {{-- @livewire('super-admin.settings.currency-localization') --}}
-                        @elseif($activeTab === 'branch-management')
-                            <div class="text-gray-500">Branch Management settings coming soon</div>
-                            {{-- @livewire('super-admin.settings.branch-management') --}}
-                        @elseif($activeTab === 'inventory-management')
-                            <div class="text-gray-500">Inventory Management settings coming soon</div>
-                            {{-- @livewire('super-admin.settings.inventory-management') --}}
-                        @elseif($activeTab === 'employee-management')
-                            <div class="text-gray-500">Employee Management settings coming soon</div>
-                            {{-- @livewire('super-admin.settings.employee-management') --}}
-                        @elseif($activeTab === 'pos-configuration')
-                            <div class="text-gray-500">POS Configuration settings coming soon</div>
-                            {{-- @livewire('super-admin.settings.pos-configuration') --}}
-                        @elseif($activeTab === 'accounting-cash')
-                            <div class="text-gray-500">Accounting & Cash settings coming soon</div>
-                            {{-- @livewire('super-admin.settings.accounting-cash') --}}
-                        @elseif($activeTab === 'customer-supplier')
-                            <div class="text-gray-500">Customer & Supplier Management settings coming soon</div>
-                            {{-- @livewire('super-admin.settings.customer-supplier') --}}
-                        @elseif($activeTab === 'reports-analytics')
-                            <div class="text-gray-500">Reports & Analytics settings coming soon</div>
-                            {{-- @livewire('super-admin.settings.reports-analytics') --}}
-                        @elseif($activeTab === 'security-access')
-                            <div class="text-gray-500">Security & Access settings coming soon</div>
-                            {{-- @livewire('super-admin.settings.security-access') --}}
-                        @elseif($activeTab === 'notifications-alerts')
-                            <div class="text-gray-500">Notifications & Alerts settings coming soon</div>
-                            {{-- @livewire('super-admin.settings.notifications-alerts') --}}
-                        @endif
-                    </div>
+                     <!-- Tab Content -->
+                     <div class="w-full md:w-3/4 p-6">
+                         @if($activeTab === 'business-config')
+                             @livewire('branch-dashboard.settings.business-configuration')
+                         @elseif($activeTab === 'currency-localization')
+                             @livewire('branch-dashboard.settings.currency-localization')
+                         @elseif($activeTab === 'branch-management')
+                             @livewire('branch-dashboard.settings.branch-management')
+                         @endif
+                     </div>
                 </div>
             </div>
         </main>

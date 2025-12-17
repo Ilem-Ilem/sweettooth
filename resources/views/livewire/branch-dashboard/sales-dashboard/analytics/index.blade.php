@@ -89,10 +89,10 @@
                 <div class="flex justify-between items-start">
                     <div class="flex-1">
                         <p class="text-gray-600 dark:text-gray-400 text-xs font-medium uppercase">Total Sales</p>
-                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mt-1">₦{{ number_format($overview['total_sales'], 2) }}</h3>
+                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mt-1">{{ $this->formatCurrency($overview['total_sales']) }}</h3>
                         <p class="text-xs mt-1 {{ $overview['growth_rate'] >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400' }}">
                             <i class="fas fa-{{ $overview['growth_rate'] >= 0 ? 'arrow-up' : 'arrow-down' }}"></i>
-                            {{ number_format(abs($overview['growth_rate']), 1) }}% vs previous
+                            {{ $this->formatPercentage(abs($overview['growth_rate'])) }} vs previous
                         </p>
                     </div>
                     <div class="bg-blue-100 dark:bg-blue-900 p-2 rounded-lg">
@@ -105,7 +105,7 @@
                 <div class="flex justify-between items-start">
                     <div class="flex-1">
                         <p class="text-gray-600 dark:text-gray-400 text-xs font-medium uppercase">Net Revenue</p>
-                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mt-1">₦{{ number_format($overview['net_revenue'], 2) }}</h3>
+                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mt-1">{{ $this->formatCurrency($overview['net_revenue']) }}</h3>
                         <p class="text-xs mt-1 text-gray-500 dark:text-gray-400">After discounts</p>
                     </div>
                     <div class="bg-green-100 dark:bg-green-900 p-2 rounded-lg">
@@ -134,7 +134,7 @@
                 <div class="flex justify-between items-start">
                     <div class="flex-1">
                         <p class="text-gray-600 dark:text-gray-400 text-xs font-medium uppercase">Avg Order Value</p>
-                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mt-1">₦{{ number_format($overview['avg_order_value'], 2) }}</h3>
+                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mt-1">{{ $this->formatCurrency($overview['avg_order_value']) }}</h3>
                         <p class="text-xs mt-1 text-gray-500 dark:text-gray-400">Per transaction</p>
                     </div>
                     <div class="bg-indigo-100 dark:bg-indigo-900 p-2 rounded-lg">
@@ -148,8 +148,8 @@
                 <div class="flex justify-between items-start">
                     <div class="flex-1">
                         <p class="text-gray-600 dark:text-gray-400 text-xs font-medium uppercase">Gross Profit</p>
-                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mt-1">₦{{ number_format($profit['gross_profit'], 2) }}</h3>
-                        <p class="text-xs mt-1 text-gray-500 dark:text-gray-400">{{ number_format($profit['gross_margin'], 1) }}% margin</p>
+                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mt-1">{{ $this->formatCurrency($profit['gross_profit']) }}</h3>
+                        <p class="text-xs mt-1 text-gray-500 dark:text-gray-400">{{ $this->formatPercentage($profit['gross_margin']) }} margin</p>
                     </div>
                     <div class="bg-emerald-100 dark:bg-emerald-900 p-2 rounded-lg">
                         <i class="fas fa-chart-pie text-emerald-600 dark:text-emerald-400 text-xl"></i>
@@ -161,8 +161,8 @@
                 <div class="flex justify-between items-start">
                     <div class="flex-1">
                         <p class="text-gray-600 dark:text-gray-400 text-xs font-medium uppercase">Total Discount</p>
-                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mt-1">₦{{ number_format($overview['total_discount'], 2) }}</h3>
-                        <p class="text-xs mt-1 text-gray-500 dark:text-gray-400">{{ number_format($overview['discount_rate'], 1) }}% of subtotal</p>
+                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mt-1">{{ $this->formatCurrency($overview['total_discount']) }}</h3>
+                        <p class="text-xs mt-1 text-gray-500 dark:text-gray-400">{{ $this->formatPercentage($overview['discount_rate']) }} of subtotal</p>
                     </div>
                     <div class="bg-orange-100 dark:bg-orange-900 p-2 rounded-lg">
                         <i class="fas fa-tag text-orange-600 dark:text-orange-400 text-xl"></i>
@@ -174,8 +174,8 @@
                 <div class="flex justify-between items-start">
                     <div class="flex-1">
                         <p class="text-gray-600 dark:text-gray-400 text-xs font-medium uppercase">Refunds</p>
-                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mt-1">₦{{ number_format($overview['total_refunds'], 2) }}</h3>
-                        <p class="text-xs mt-1 text-gray-500 dark:text-gray-400">{{ number_format($overview['refund_count']) }} orders ({{ number_format($overview['refund_rate'], 1) }}%)</p>
+                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mt-1">{{ $this->formatCurrency($overview['total_refunds']) }}</h3>
+                        <p class="text-xs mt-1 text-gray-500 dark:text-gray-400">{{ number_format($overview['refund_count']) }} orders ({{ $this->formatPercentage($overview['refund_rate']) }})</p>
                     </div>
                     <div class="bg-red-100 dark:bg-red-900 p-2 rounded-lg">
                         <i class="fas fa-undo text-red-600 dark:text-red-400 text-xl"></i>
@@ -187,7 +187,7 @@
                 <div class="flex justify-between items-start">
                     <div class="flex-1">
                         <p class="text-gray-600 dark:text-gray-400 text-xs font-medium uppercase">Total Tax</p>
-                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mt-1">₦{{ number_format($overview['total_tax'], 2) }}</h3>
+                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mt-1">{{ $this->formatCurrency($overview['total_tax']) }}</h3>
                         <p class="text-xs mt-1 text-gray-500 dark:text-gray-400">Collected</p>
                     </div>
                     <div class="bg-teal-100 dark:bg-teal-900 p-2 rounded-lg">
@@ -265,9 +265,9 @@
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ number_format($payment->count) }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-gray-100">₦{{ number_format($payment->total, 2) }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">₦{{ number_format($payment->total / $payment->count, 2) }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ number_format(($payment->total / $totalAmount) * 100, 1) }}%</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $this->formatCurrency($payment->total) }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ $this->formatCurrency($payment->total / $payment->count) }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ $this->formatPercentage(($payment->total / $totalAmount) * 100) }}</td>
                                 </tr>
                                 @endforeach
                             </tbody>
@@ -328,9 +328,9 @@
                                         <div class="text-xs text-gray-500 dark:text-gray-400">{{ $item->product->sku ?? '' }}</div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ number_format($item->total_quantity, 2) }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-gray-100">₦{{ number_format($item->total_revenue, 2) }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $this->formatCurrency($item->total_revenue) }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ number_format($item->order_count) }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">₦{{ number_format($item->total_revenue / $item->total_quantity, 2) }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ $this->formatCurrency($item->total_revenue / $item->total_quantity) }}</td>
                                 </tr>
                                 @endforeach
                             </tbody>
@@ -382,7 +382,7 @@
                                             {{ number_format($category->total_quantity, 2) }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-gray-100">
-                                            ₦{{ number_format($category->total_revenue, 2) }}
+                                            {{ $this->formatCurrency($category->total_revenue) }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                                             {{ number_format($category->order_count) }}
@@ -395,7 +395,7 @@
                                                     </div>
                                                 </div>
                                                 <span class="text-sm text-gray-600 dark:text-gray-400 ml-2">
-                                                    {{ $totalRevenue > 0 ? number_format(($category->total_revenue / $totalRevenue) * 100, 1) : 0 }}%
+                                                    {{ $this->formatPercentage($totalRevenue > 0 ? ($category->total_revenue / $totalRevenue) * 100 : 0) }}
                                                 </span>
                                             </div>
                                         </td>
@@ -440,9 +440,9 @@
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ $shift['employee_name'] }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ number_format($shift['total_orders']) }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-gray-100">₦{{ number_format($shift['total_sales'], 2) }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $this->formatCurrency($shift['total_sales']) }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm {{ $shift['cash_variance'] == 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400' }}">
-                                        ₦{{ number_format($shift['cash_variance'], 2) }}
+                                        {{ $this->formatCurrency($shift['cash_variance']) }}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <span class="px-2 py-1 text-xs font-semibold rounded-full 
@@ -541,7 +541,7 @@
                     },
                     yAxis: {
                         min: 0,
-                        title: { text: 'Total Sales (₦)' }
+                        title: { text: 'Total Sales ({{ $this->getCurrencySymbol() }})' }
                     },
                     series: [{
                         name: 'Sales',
@@ -562,10 +562,10 @@
                         title: { text: 'Hour of Day' }
                     },
                     yAxis: [
-                        {
-                            title: { text: 'Sales Amount (₦)' },
-                            labels: { format: '₦{value}' }
-                        },
+                         {
+                             title: { text: 'Sales Amount ({{ $this->getCurrencySymbol() }})' },
+                             labels: { format: '{{ $this->getCurrencySymbol() }}{value}' }
+                         },
                         {
                             title: { text: 'Number of Orders' },
                             opposite: true
@@ -598,7 +598,7 @@
                         title: { text: 'Date' }
                     },
                     yAxis: {
-                        title: { text: 'Amount (₦)' }
+                        title: { text: 'Amount ({{ $this->getCurrencySymbol() }})' }
                     },
                     series: [
                         {
@@ -626,7 +626,7 @@
                     },
                     yAxis: {
                         min: 0,
-                        title: { text: 'Revenue (₦)' }
+                        title: { text: 'Revenue ({{ $this->getCurrencySymbol() }})' }
                     },
                     series: [{
                         name: 'Revenue',
@@ -649,13 +649,13 @@
                         },
                         yAxis: {
                             min: 0,
-                            title: { text: 'Revenue (₦)' }
+                            title: { text: 'Revenue ({{ $this->getCurrencySymbol() }})' }
                         },
                         tooltip: {
                             formatter: function() {
                                 const cat = categoryData[this.point.index];
                                 return '<b>' + cat.category_name + '</b><br/>' +
-                                       'Revenue: ₦' + parseFloat(cat.total_revenue).toLocaleString() + '<br/>' +
+                                       'Revenue: {{ $this->getCurrencySymbol() }}' + parseFloat(cat.total_revenue).toLocaleString() + '<br/>' +
                                        'Units Sold: ' + parseFloat(cat.total_quantity).toLocaleString() + '<br/>' +
                                        'Orders: ' + parseInt(cat.order_count).toLocaleString() + '<br/>' +
                                        'Products: ' + parseInt(cat.product_count);

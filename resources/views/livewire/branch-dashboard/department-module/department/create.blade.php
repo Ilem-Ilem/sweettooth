@@ -95,7 +95,7 @@
 
             @if(is_super_admin())
             <div>
-                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Department
+                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Branch
                     *</label>
                 <x-select.styled wire:model="branch_id" :options="$this->getBranches()
                     ->map(fn($branch) => ['label' => $branch->name, 'value' => $branch->id])

@@ -92,7 +92,7 @@ class Index extends Component
         try {
             \Log::info('🔵 [AUDIT APPROVAL] Starting approval process', [
                 'request_id' => $requestId,
-                'approver_id' => auth()->user()?->id ?? auth('employees')->user()?->id,
+                'approver_id' => auth()->user()?->id ?? auth()->user()?->id,
             ]);
 
             $request = ApprovalAuditRequest::find($requestId);
@@ -123,7 +123,7 @@ class Index extends Component
                 'auditable_id' => $auditable->id ?? 'N/A',
             ]);
 
-            $approver = auth()->user() ?? auth('employees')->user();
+            $approver = auth()->user() ?? auth()->user();
             if (!$approver) {
                 throw new \Exception('Could not determine current approver');
             }
@@ -168,7 +168,7 @@ class Index extends Component
             ]);
 
             // Log the error
-            $approver = auth()->user() ?? auth('employees')->user();
+            $approver = auth()->user() ?? auth()->user();
             if ($approver) {
                 try {
                     AuditService::log(
@@ -395,7 +395,7 @@ class Index extends Component
      */
     private function getApprover()
     {
-        return auth()->user() ?? auth('employees')->user();
+        return auth()->user() ?? auth()->user();
     }
 
     /**
@@ -582,7 +582,7 @@ class Index extends Component
         }
 
         try {
-            $approver = auth()->user() ?? auth('employees')->user();
+            $approver = auth()->user() ?? auth()->user();
             
             // Handle purchase rejection - reset status back to draft
             $baseAction = explode(':', $request->action)[0];
@@ -610,7 +610,7 @@ class Index extends Component
             $this->resetPage();
         } catch (\Exception $e) {
             // Log the error
-            $approver = auth()->user() ?? auth('employees')->user();
+            $approver = auth()->user() ?? auth()->user();
             AuditService::log(
                 $approver,
                 'reject_failed',

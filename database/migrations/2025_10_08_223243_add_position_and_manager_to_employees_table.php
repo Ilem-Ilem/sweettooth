@@ -11,10 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('employees', function (Blueprint $table) {
-            $table->uuid('manager_id')->nullable()->after('department_id');
-            $table->foreign('manager_id')->references('id')->on('employees')->onDelete('set null');
-        });
+        // manager_id already added to users table in add_columns_to_users_table migration
     }
 
     /**
@@ -22,9 +19,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('employees', function (Blueprint $table) {
-            $table->dropForeign(['manager_id']);
-            $table->dropColumn('manager_id');
-        });
+        // No-op
     }
 };

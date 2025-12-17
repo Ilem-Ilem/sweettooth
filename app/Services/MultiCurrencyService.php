@@ -2,13 +2,19 @@
 
 namespace App\Services;
 
+use App\Helpers\Settings;
 use App\Models\GlEntry;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
 class MultiCurrencyService
 {
-    private string $baseCurrency = 'USD'; // Default base currency
+    private string $baseCurrency;
+
+    public function __construct()
+    {
+        $this->baseCurrency = Settings::currencyLocalization('primary_currency', 'NGN');
+    }
 
     /**
      * Convert amount from one currency to another

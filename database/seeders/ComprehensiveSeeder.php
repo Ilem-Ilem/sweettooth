@@ -124,7 +124,7 @@ class ComprehensiveSeeder extends Seeder
 
     private function seedPermissionsAndRoles()
     {
-        $role = Role::firstOrCreate(['name' => 'MD']);
+        $role = Role::firstOrCreate(['name' => 'MD', 'guard_name' => 'web']);
         $permissions = [
             'view employees', 'create employees', 'edit employees', 'delete employees',
             'approve employee leave', 'view employee attendance', 'manage payroll',
@@ -159,7 +159,7 @@ class ComprehensiveSeeder extends Seeder
         ];
 
         foreach (array_unique($permissions) as $perm) {
-            Permission::firstOrCreate(['name' => $perm]);
+            Permission::firstOrCreate(['name' => $perm, 'guard_name' => 'web']);
         }
         $role->syncPermissions($permissions);
 
@@ -259,7 +259,7 @@ class ComprehensiveSeeder extends Seeder
     private function seedEmployees($branches, $departments, $count)
     {
         $faker = Faker::create();
-        $roles = Role::where('guard_name', 'employees')->get()->keyBy('name');
+        $roles = Role::where('guard_name', 'web')->get()->keyBy('name');
         $hashedPassword = Hash::make('password');
         $employees = [];
 

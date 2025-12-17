@@ -2,7 +2,9 @@
 
 namespace App\Livewire\BranchDashboard\SalesDashboard\Pos;
 
+use App\Helpers\Settings;
 use App\Livewire\BaseComponent;
+use App\Livewire\Concerns\SalesDepartmentContext;
 use App\Models\Product;
 use App\Models\ProductStock;
 use App\Models\Sale;
@@ -13,6 +15,9 @@ use App\Models\Shift;
 use App\Models\Table;
 use App\Models\Branch;
 use App\Models\Department;
+use App\Services\CurrencyFormattingService;
+use App\Services\PosDocumentService;
+use App\Services\SalesStockVerificationService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -21,13 +26,10 @@ use Livewire\Attributes\{Layout, Url, Computed, On};
 #[Layout('components.layouts.app.branch-dashboard')]
 class Index extends BaseComponent
 {
-    #[Url(keep: true)]
-    public ?string $salesDeptSlug = null;
+    use SalesDepartmentContext;
 
-    public ?string $branchId = null;
-    public ?int $departmentId = null;
-    public string $departmentName = 'POS';
-    public string $branchName = '';
+    // Note: salesDeptSlug, branchId, departmentId, departmentName, branchName
+    // are now provided by SalesDepartmentContext trait
 
     public string $search = '';
     public array $cart = [];
@@ -69,27 +71,36 @@ class Index extends BaseComponent
         'payments.*.amount' => 'numeric|min:0',
     ];
 
+    /**
+     * Format currency value for POS display
+     */
+    protected function formatCurrency(float $amount): string
+    {
+        $service = new CurrencyFormattingService();
+        return $service->format($amount);
+    }
+
     public function mount(): void
     {
-        // dd( auth("employees")->id());
         $this->mountBase();
-        $this->loadBranchAndDepartment();
+        $this->initializeDepartmentContext(); // Using trait method
+        $this->departmentName = $this->departmentName ?: 'POS';
         $this->loadActiveShift(); // Load shift first before checking stock verification
 
-        // Check if stock has been verified for today's shift for this department
-        if (!$this->checkStockVerification()) {
-            // Ensure we have a department slug before redirecting
-            if (!$this->salesDeptSlug) {
-                $this->toast()->error('Department not found. Please contact administrator.')->send();
+        // Super admins bypass stock verification check
+        if (!is_super_admin() && !can_access_all_branches()) {
+            // Check if stock has been verified for today's shift for this department
+            if (!$this->checkStockVerification()) {
+                // Ensure we have a department slug before redirecting
+                if (!$this->salesDeptSlug) {
+                    $this->toast()->error('Department not found. Please contact administrator.')->send();
+                    return;
+                }
+
+                // Redirect to stock opening with department context
+                $this->redirectToStockOpening();
                 return;
             }
-
-            // Redirect to stock opening with department slug
-            $this->redirectRoute('branch-dashboard.sales-dashboard.stock-opening.index', [
-                'salesDeptSlug' => $this->salesDeptSlug,
-                'b_id' => $this->branchId
-            ]);
-            return;
         }
 
         $this->payments = [['method' => 'cash', 'amount' => 0.0]];
@@ -102,60 +113,12 @@ class Index extends BaseComponent
     public function handleBranchChange($branchId)
     {
         $this->branchId = $branchId;
-        $this->loadBranchAndDepartment();
+        $this->initializeDepartmentContext(); // Using trait method
         $this->loadActiveShift();
         $this->resetCart();
     }
 
-    protected function loadBranchAndDepartment(): void
-    {
-        // Load branch - use helper for super admin support
-        if (!$this->branchId) {
-            $this->branchId = current_branch_id();
-        }
-        if ($this->branchId) {
-            $branch = Branch::find($this->branchId);
-            $this->branchName = $branch?->name ?? 'Unknown Branch';
-        }
-
-        // Load department from slug
-        if ($this->salesDeptSlug) {
-            // First try to find branch-specific department
-            $department = Department::where('slug', $this->salesDeptSlug)
-                ->where('branch_id', $this->branchId)
-                ->first();
-
-            // If not found, try to find global department (branch_id is null)
-            if (!$department) {
-                $department = Department::where('slug', $this->salesDeptSlug)
-                    ->whereNull('branch_id')
-                    ->first();
-            }
-
-            if ($department) {
-                $this->departmentId = $department->id;
-                $this->departmentName = $department->name;
-            } else {
-                $this->toast()->error('Department not found.')->send();
-            }
-        } else {
-            // If no slug provided, get from employee's department and set the slug
-            $employee = auth('employees')->user();
-            if ($employee && $employee->department_id) {
-                $department = Department::find($employee->department_id);
-                if ($department) {
-                    $this->departmentId = $department->id;
-                    $this->departmentName = $department->name;
-                    $this->salesDeptSlug = $department->slug;
-                }
-            }
-        }
-
-        // Validate branch access
-        if (!$this->branchId) {
-            $this->toast()->error('Branch not specified.')->send();
-        }
-    }
+    // loadBranchAndDepartment is now handled by SalesDepartmentContext trait
 
     protected function checkTableManagement(): void
     {
@@ -170,6 +133,11 @@ class Index extends BaseComponent
 
     protected function checkStockVerification(): bool
     {
+        // Super admins bypass verification
+        if (is_super_admin() || can_access_all_branches()) {
+            return true;
+        }
+
         // Check if stock opening has been saved for today's shift for this department
         // This is department-level, not employee-level: once any employee from the department
         // verifies stock for the shift, all other employees can access POS
@@ -186,27 +154,14 @@ class Index extends BaseComponent
             $shiftType = $shift?->shift_type ?? 'morning';
         }
 
-        // Get products from this department
-        $productIds = Product::query()
-            ->forDepartment($this->departmentId)
-            ->where(function ($q) {
-                $q->whereNull('branch_id')
-                    ->orWhere('branch_id', $this->branchId);
-            })
-            ->pluck('id');
-
-        if ($productIds->isEmpty()) {
-            // No products in this department, allow access
-            return true;
-        }
-
-        // Check if any stock has been opened for today's shift for this department
-        $stockCount = ProductStock::whereDate('stock_date', Carbon::today())
-            ->where('shift_type', $shiftType)
-            ->whereIn('product_id', $productIds)
-            ->count();
-
-        return $stockCount > 0;
+        // Use the verification service
+        $verificationService = app(SalesStockVerificationService::class);
+        return $verificationService->checkStockVerificationForShift(
+            $this->departmentId,
+            Carbon::today()->toDateString(),
+            $shiftType,
+            $this->branchId
+        );
     }
 
     public function toggleTableManagement(): void
@@ -253,7 +208,7 @@ class Index extends BaseComponent
 
     protected function loadActiveShift(): void
     {
-        $shift = Shift::where('employee_id', auth("employees")->id())
+        $shift = Shift::where('employee_id', auth()->id())
             ->where('status', 'active')
             ->whereDate('shift_date', Carbon::today())
             ->first();
@@ -471,7 +426,7 @@ class Index extends BaseComponent
                 'sales_shift_id' => null, // Nullable - using general shifts table instead
                 'branch_id' => $this->branchId,
                 'department_id' => $this->departmentId,
-                'sold_by' => auth("employees")->id(),
+                'sold_by' => auth()->id(),
                 'sale_number' => 'POS-' . Carbon::now()->format('Ymd-His'),
                 'sale_time' => Carbon::now(),
                 'subtotal' => $this->subtotal,
@@ -574,7 +529,7 @@ class Index extends BaseComponent
             'sales_shift_id' => null, // Nullable - using general shifts table instead
             'branch_id' => $this->branchId,
             'department_id' => $this->departmentId,
-            'sold_by' => auth("employees")->id(),
+            'sold_by' => auth()->id(),
             'sale_number' => 'HOLD-' . Carbon::now()->format('Ymd-His'),
             'sale_time' => Carbon::now(),
             'subtotal' => $this->subtotal,
@@ -669,51 +624,8 @@ class Index extends BaseComponent
 
     protected function buildReceiptHtml(Sale $sale): string
     {
-        $lines = '';
-        foreach ($sale->saleItems()->with('product')->get() as $item) {
-            $name = $item->product->name ?? 'Product';
-            $qty = number_format($item->quantity, 2);
-            $price = number_format($item->unit_price, 2);
-            $total = number_format($item->total, 2);
-            $lines .= "<tr><td class=\"pr-2\">{$name}</td><td class=\"text-right pr-2\">{$qty} x {$price}</td><td class=\"text-right\">{$total}</td></tr>";
-        }
-        $paymentsHtml = '';
-        foreach ($this->payments as $p) {
-            $m = strtoupper($p['method']);
-            $a = number_format((float)$p['amount'], 2);
-            $paymentsHtml .= "<div class=\"flex justify-between\"><span>{$m}</span><span>GHS {$a}</span></div>";
-        }
-        $subtotal = number_format($this->subtotal, 2);
-        $discount = number_format($this->discount, 2);
-        $tax = number_format($this->tax, 2);
-        $total = number_format($this->total, 2);
-        $change = number_format($this->changeDue, 2);
-        $date = Carbon::now()->format('Y-m-d H:i');
-        return <<<HTML
-<div class="text-sm">
-    <div class="text-center font-semibold">Sales Receipt</div>
-    <div class="text-center text-xs text-zinc-500">{$date}</div>
-    <hr class="my-2 border-zinc-200"/>
-    <table class="w-full text-xs">
-        <tbody>
-            {$lines}
-        </tbody>
-    </table>
-    <hr class="my-2 border-zinc-200"/>
-    <div class="space-y-0.5">
-        <div class="flex justify-between"><span>Subtotal</span><span>GHS {$subtotal}</span></div>
-        <div class="flex justify-between"><span>Discount</span><span>GHS {$discount}</span></div>
-        <div class="flex justify-between"><span>Tax</span><span>GHS {$tax}</span></div>
-        <div class="flex justify-between font-semibold"><span>Total</span><span>GHS {$total}</span></div>
-    </div>
-    <hr class="my-2 border-zinc-200"/>
-    <div class="space-y-0.5">
-        {$paymentsHtml}
-        <div class="flex justify-between"><span>Change</span><span>GHS {$change}</span></div>
-    </div>
-    <div class="mt-2 text-center text-xs">Thank you</div>
-</div>
-HTML;
+        $documentService = new PosDocumentService();
+        return $documentService->generateBrandedReceiptHtml($sale);
     }
 
     // Table Management Methods
@@ -807,7 +719,7 @@ HTML;
                     'sales_shift_id' => null, // Nullable - using general shifts table instead
                     'branch_id' => $this->branchId,
                     'department_id' => $this->departmentId,
-                    'sold_by' => auth("employees")->id(),
+                    'sold_by' => auth()->id(),
                     'sale_number' => 'TAB-' . $table->table_number . '-' . Carbon::now()->format('Ymd-His'),
                     'sale_time' => Carbon::now(),
                     'subtotal' => $this->subtotal,
@@ -971,6 +883,42 @@ HTML;
         $table->update(['is_active' => !$table->is_active]);
         unset($this->tables);
         $this->toast()->success('Table status updated.')->send();
+    }
+
+    /**
+     * Send receipt notification via email to customer
+     */
+    public function sendReceiptEmail(?string $customerEmail = null): void
+    {
+        if (!$this->currentSaleId) {
+            $this->toast()->warning('No sale found.')->send();
+            return;
+        }
+
+        if (!$customerEmail) {
+            $this->toast()->warning('Customer email is required.')->send();
+            return;
+        }
+
+        try {
+            $sale = Sale::find($this->currentSaleId);
+            $receipt = $sale->receipts()->latest()->first();
+
+            if (!$receipt) {
+                $this->toast()->error('No receipt found for this sale.')->send();
+                return;
+            }
+
+            // Send notification
+            $notification = new \App\Notifications\SalesReceiptNotification($receipt);
+            \Illuminate\Support\Facades\Notification::route('mail', $customerEmail)
+                ->notify($notification);
+
+            $this->toast()->success('Receipt sent to ' . $customerEmail)->send();
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to send receipt email: ' . $e->getMessage());
+            $this->toast()->error('Failed to send receipt: ' . $e->getMessage())->send();
+        }
     }
 
     public function render()

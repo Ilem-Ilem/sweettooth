@@ -12,14 +12,6 @@ class Index extends Component
         ['id' => 'business-config', 'name' => 'Business Configuration'],
         ['id' => 'currency-localization', 'name' => 'Currency & Localization'],
         ['id' => 'branch-management', 'name' => 'Branch Management'],
-        ['id' => 'inventory-management', 'name' => 'Inventory Management'],
-        ['id' => 'employee-management', 'name' => 'Employee Management'],
-        ['id' => 'pos-configuration', 'name' => 'POS Configuration'],
-        ['id' => 'accounting-cash', 'name' => 'Accounting & Cash'],
-        ['id' => 'customer-supplier', 'name' => 'Customer & Supplier Management'],
-        ['id' => 'reports-analytics', 'name' => 'Reports & Analytics'],
-        ['id' => 'security-access', 'name' => 'Security & Access'],
-        ['id' => 'notifications-alerts', 'name' => 'Notifications & Alerts'],
     ];
 
     public function mount()

@@ -122,7 +122,7 @@ class ManageAllocations extends BaseComponent
     public function saveAllocations()
     {
         try {
-            $allocator = auth('employees')->user();
+            $allocator = auth()->user();
 
             foreach ($this->allocations as $allocation) {
                 if ($allocation['allocated_days'] > 0) {
@@ -159,7 +159,7 @@ class ManageAllocations extends BaseComponent
     public function bulkAllocateDefaults()
     {
         try {
-            $allocator = auth('employees')->user();
+            $allocator = auth()->user();
             $employees = Employee::all();
             $leaveTypes = LeaveType::active()->get();
             $count = 0;

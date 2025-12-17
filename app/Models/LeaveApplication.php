@@ -46,7 +46,7 @@ class LeaveApplication extends Model
     // Relationships
     public function employee()
     {
-        return $this->belongsTo(Employee::class);
+        return $this->belongsTo(User::class, 'employee_id');
     }
 
     public function leaveType()

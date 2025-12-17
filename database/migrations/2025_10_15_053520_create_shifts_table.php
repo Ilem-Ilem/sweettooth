@@ -18,7 +18,7 @@ return new class extends Migration
             $table->unsignedBigInteger('department_id');
             $table->foreign('department_id')->references('id')->on('departments')->onDelete('cascade');
             $table->uuid('employee_id')->nullable()->index();
-            $table->foreign('employee_id')->references('id')->on('employees')->onDelete('cascade');
+            $table->foreign('employee_id')->references('id')->on('users')->onDelete('cascade');
             $table->string('shift_number')->unique();
             $table->date('shift_date');
             $table->enum('shift_type', ['morning', 'afternoon', 'night']);

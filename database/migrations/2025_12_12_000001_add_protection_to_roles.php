@@ -13,21 +13,24 @@ return new class extends Migration {
         // Add protection columns to roles table
         Schema::table('roles', function (Blueprint $table) {
             // Mark core system roles that cannot be deleted
-            $table->boolean('is_protected')->default(false)->after('guard_name');
-            $table->text('description')->nullable()->after('is_protected');
-            $table->integer('display_order')->default(0)->after('description');
-            
-            $table->index('is_protected');
+            if (!Schema::hasColumn('roles', 'is_protected')) {
+                $table->boolean('is_protected')->default(false)->after('guard_name');
+                $table->index('is_protected');
+            }
+            if (!Schema::hasColumn('roles', 'description')) {
+                $table->text('description')->nullable()->after('is_protected');
+            }
+            if (!Schema::hasColumn('roles', 'display_order')) {
+                $table->integer('display_order')->default(0)->after('description');
+            }
         });
 
         // Add columns to permissions for better organization
         Schema::table('permissions', function (Blueprint $table) {
-            $table->boolean('is_protected')->default(false)->after('guard_name');
-            $table->text('description')->nullable()->after('is_protected');
-            $table->string('category')->default('general')->after('description');
-            
-            $table->index('is_protected');
-            $table->index('category');
+            if (!Schema::hasColumn('permissions', 'is_protected')) {
+                $table->boolean('is_protected')->default(false)->after('guard_name');
+                $table->index('is_protected');
+            }
         });
 
         // Mark existing critical roles as protected
@@ -42,14 +45,29 @@ return new class extends Migration {
     public function down(): void
     {
         Schema::table('permissions', function (Blueprint $table) {
-            $table->dropIndex(['category']);
-            $table->dropIndex(['is_protected']);
-            $table->dropColumn(['is_protected', 'description', 'category']);
+            if (Schema::hasColumn('permissions', 'is_protected')) {
+                $table->dropIndex(['is_protected']);
+                $table->dropColumn(['is_protected']);
+            }
         });
 
         Schema::table('roles', function (Blueprint $table) {
-            $table->dropIndex(['is_protected']);
-            $table->dropColumn(['is_protected', 'description', 'display_order']);
+            if (Schema::hasColumn('roles', 'is_protected')) {
+                $table->dropIndex(['is_protected']);
+            }
+            $columnsToDrop = [];
+            if (Schema::hasColumn('roles', 'is_protected')) {
+                $columnsToDrop[] = 'is_protected';
+            }
+            if (Schema::hasColumn('roles', 'description')) {
+                $columnsToDrop[] = 'description';
+            }
+            if (Schema::hasColumn('roles', 'display_order')) {
+                $columnsToDrop[] = 'display_order';
+            }
+            if (!empty($columnsToDrop)) {
+                $table->dropColumn($columnsToDrop);
+            }
         });
     }
 };

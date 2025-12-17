@@ -79,7 +79,7 @@
                     </button>
 
                     <!-- Branch Selector (for non-super-admin) -->
-                    @if(auth('employees')->check())
+                    @if(auth()->check())
                         <select onchange="window.location.href = '{{ url('branch-dashboard/dashboard/router') }}?b_id=' + this.value" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
                             @foreach(\App\Models\Branch::where('is_active', true)->get() as $branch)
                                 <option value="{{ $branch->id }}" {{ current_branch_id() === $branch->id ? 'selected' : '' }}>

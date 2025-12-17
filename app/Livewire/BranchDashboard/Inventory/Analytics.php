@@ -2,12 +2,14 @@
 
 namespace App\Livewire\BranchDashboard\Inventory;
 
+use App\Helpers\Settings;
 use App\Livewire\BaseComponent;
 use App\Models\Stock;
 use App\Models\StockMovement;
 use App\Models\Purchase;
 use App\Models\ItemRequest;
 use App\Models\Item;
+use App\Services\CurrencyFormattingService;
 use App\Traits\Exportable;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\{Layout, On, Url};
@@ -691,6 +693,34 @@ class Analytics extends BaseComponent
             'department_breakdown' => $this->departmentBreakdown,
             'performance_metrics' => $this->performanceMetrics,
         ];
+    }
+
+    /**
+     * Format currency value for inventory display
+     */
+    protected function formatCurrency(float $amount): string
+    {
+        $service = new CurrencyFormattingService();
+        return $service->format($amount);
+    }
+
+    /**
+     * Get currency symbol for display
+     */
+    protected function getCurrencySymbol(string $currency = null): string
+    {
+        $service = new CurrencyFormattingService();
+        $currency = $currency ?? Settings::currencyLocalization('primary_currency', 'NGN');
+        return $service->getSymbol($currency);
+    }
+
+    /**
+     * Format percentage for display
+     */
+    protected function formatPercentage(float $value, int $decimals = 2): string
+    {
+        $service = new CurrencyFormattingService();
+        return $service->formatPercentage($value, $decimals);
     }
 
     public function render()

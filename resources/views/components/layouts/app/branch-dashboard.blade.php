@@ -22,7 +22,11 @@
             </flux:navlist.group>
 
             @php
-                $currentUser = auth()->user() ?? auth('employees')->user();
+                $currentUser = auth()->user();
+                // Ensure currentUser is a User object, not a string
+                if ($currentUser && is_string($currentUser)) {
+                    $currentUser = null;
+                }
                 $isSuperAdmin = is_super_admin();
                 $sidebarService = \App\Services\SidebarVisibilityService::class;
 
@@ -148,6 +152,11 @@
 
                 </flux:navlist.group>
 
+                <flux:navlist.item icon="question-mark-circle" :href="branch_route('branch-dashboard.organization.helper')"
+                    :current="request()->routeIs('branch-dashboard.organization.helper')" wire:navigate>
+                    {{ __('Helper') }}
+                </flux:navlist.item>
+
                 @if ($sidebarService::canSeeAuditManagement($currentUser))
                 <flux:navlist.item icon="document-text" :href="branch_route('branch-dashboard.audit.index')"
                     :current="request()->routeIs('branch-dashboard.audit.*')" wire:navigate>
@@ -190,12 +199,18 @@
                         :href="branch_route('branch-dashboard.inventory.item-dispatches')"
                         :current="request()->routeIs('branch-dashboard.inventory.item-dispatches')" wire:navigate>
                         {{ __('Dispatches') }}
-                    </flux:navlist.item>
-                  
-                </flux:navlist.group>
+                     </flux:navlist.item>
 
-                <flux:navlist.group :heading="__('Callbacks')" class="grid" expandable
-                    :expanded="request()->routeIs('branch-dashboard.inventory.callbacks.*')">
+                     <flux:navlist.item icon="question-mark-circle"
+                         :href="branch_route('branch-dashboard.inventory.helper')"
+                         :current="request()->routeIs('branch-dashboard.inventory.helper')" wire:navigate>
+                         {{ __('Helper') }}
+                     </flux:navlist.item>
+
+                 </flux:navlist.group>
+
+                 <flux:navlist.group :heading="__('Callbacks')" class="grid" expandable
+                     :expanded="request()->routeIs('branch-dashboard.inventory.callbacks.*')">
                     <flux:navlist.item icon="arrow-uturn-left"
                         :href="branch_route('branch-dashboard.inventory.callbacks.index')"
                         :current="request()->routeIs('branch-dashboard.inventory.callbacks.index')" wire:navigate>
@@ -314,7 +329,11 @@
 
             {{-- ==================== DYNAMIC PRODUCTION MENU ==================== --}}
             @php
-                $employee = \Illuminate\Support\Facades\Auth::guard('employees')->user();
+                $employee = \Illuminate\Support\Facades\Auth::user();
+                // Safety check: ensure employee is a User object
+                if ($employee && is_string($employee)) {
+                    $employee = null;
+                }
                 $branchId = request()->get('b_id');
                 $departments = collect();
                 $OPEN_PRODUCTION = false;
@@ -423,10 +442,18 @@
                         {{ __('No production departments') }}
                     </div>
                 @endforelse
-            </flux:navlist.group>
-            @endif
+             </flux:navlist.group>
+             @endif
 
-            @if($sidebarService::canSeeProductionCallbacks($currentUser))
+             @if($sidebarService::canSeeProduction($currentUser))
+             <flux:navlist.item icon="question-mark-circle"
+                 :href="branch_route('branch-dashboard.production.helper')"
+                 :current="request()->routeIs('branch-dashboard.production.helper')" wire:navigate>
+                 {{ __('Production Helper') }}
+             </flux:navlist.item>
+             @endif
+
+             @if($sidebarService::canSeeProductionCallbacks($currentUser))
             <flux:navlist.group :heading="__('Production Callbacks')" class="grid" expandable
                 :expanded="request()->routeIs('branch-dashboard.production.callbacks.*')">
                 <flux:navlist.item icon="arrow-uturn-left"
@@ -478,6 +505,12 @@
                     :href="branch_route('branch-dashboard.sales-dashboard.shift-closing.index')"
                     :current="request()->routeIs('branch-dashboard.sales-dashboard.shift-closing.*')" wire:navigate>
                     {{ __('Shift Closing') }}
+                </flux:navlist.item>
+
+                <flux:navlist.item icon="question-mark-circle"
+                    :href="branch_route('branch-dashboard.sales-dashboard.helper')"
+                    :current="request()->routeIs('branch-dashboard.sales-dashboard.helper')" wire:navigate>
+                    {{ __('Helper') }}
                 </flux:navlist.item>
 
                 <flux:navlist.group :heading="__('Callbacks')" class="grid" expandable
@@ -603,7 +636,7 @@
 
         <!-- Desktop User Menu -->
         <flux:dropdown class="hidden lg:block" position="bottom" align="start">
-            <flux:profile :name="get_user_auth()->name" :initials="get_user_auth()->initials()"
+            <flux:profile :name="get_user_auth()?->name ?? 'User'" :initials="get_user_auth()?->initials() ?? 'U'"
                 icon:trailing="chevrons-up-down" />
 
             <flux:menu class="w-[220px]">
@@ -613,12 +646,12 @@
                             <span class="relative flex h-8 w-8 shrink-0 overflow-hidden rounded-lg">
                                 <span
                                     class="flex h-full w-full items-center justify-center rounded-lg bg-neutral-200 text-black dark:bg-neutral-700 dark:text-white">
-                                    {{ get_user_auth()->initials() }}
+                                    {{ get_user_auth()?->initials() ?? 'U' }}
                                 </span>
                             </span>
                             <div class="grid flex-1 text-start text-sm leading-tight">
-                                <span class="truncate font-semibold">{{ get_user_auth()->name }}</span>
-                                <span class="truncate text-xs">{{ get_user_auth()->email }}</span>
+                                <span class="truncate font-semibold">{{ get_user_auth()?->name ?? 'User' }}</span>
+                                <span class="truncate text-xs">{{ get_user_auth()?->email ?? 'user@example.com' }}</span>
                             </div>
                         </div>
                     </div>
@@ -650,7 +683,7 @@
         <flux:spacer />
 
         <flux:dropdown position="top" align="end">
-            <flux:profile :initials="get_user_auth()->initials()" icon-trailing="chevron-down" />
+            <flux:profile :initials="get_user_auth()?->initials() ?? 'U'" icon-trailing="chevron-down" />
 
             <flux:menu>
                 <flux:menu.radio.group>
@@ -659,13 +692,13 @@
                             <span class="relative flex h-8 w-8 shrink-0 overflow-hidden rounded-lg">
                                 <span
                                     class="flex h-full w-full items-center justify-center rounded-lg bg-neutral-200 text-black dark:bg-neutral-700 dark:text-white">
-                                    {{ get_user_auth()->initials() }}
+                                    {{ get_user_auth()?->initials() ?? 'U' }}
                                 </span>
                             </span>
 
                             <div class="grid flex-1 text-start text-sm leading-tight">
-                                <span class="truncate font-semibold">{{ get_user_auth()->name }}</span>
-                                <span class="truncate text-xs">{{ get_user_auth()->email }}</span>
+                                <span class="truncate font-semibold">{{ get_user_auth()?->name ?? 'User' }}</span>
+                                <span class="truncate text-xs">{{ get_user_auth()?->email ?? 'user@example.com' }}</span>
                             </div>
                         </div>
                     </div>
@@ -706,10 +739,10 @@
 
         <flux:spacer />
 
-        <!-- Clock In Section + Digital Clock -->
+        <!-- Shift Status & Digital Clock -->
         <div class="flex items-center gap-6 text-sm text-zinc-700 dark:text-zinc-200 me-3">
-            <!-- Livewire Clock In/Out Component -->
-            @livewire('branch-dashboard.header-clock-in-out', ['b_id' => request()->query('b_id')])
+            <!-- Shift Status Header Component -->
+            @livewire('shift-status-header')
 
             <!-- Digital Clock -->
             <div x-data="{ currentTime: '' }" x-init="setInterval(() => {
@@ -798,7 +831,7 @@
 
         <!-- Desktop User Menu -->
         <flux:dropdown position="top" align="end">
-            <flux:profile class="cursor-pointer" :initials="get_user_auth()->initials()" />
+            <flux:profile class="cursor-pointer" :initials="get_user_auth()?->initials() ?? 'U'" />
 
             <flux:menu>
                 <flux:menu.radio.group>
@@ -807,13 +840,13 @@
                             <span class="relative flex h-8 w-8 shrink-0 overflow-hidden rounded-lg">
                                 <span
                                     class="flex h-full w-full items-center justify-center rounded-lg bg-neutral-200 text-black dark:bg-neutral-700 dark:text-white">
-                                    {{ get_user_auth()->initials() }}
+                                    {{ get_user_auth()?->initials() ?? 'U' }}
                                 </span>
                             </span>
 
                             <div class="grid flex-1 text-start text-sm leading-tight">
-                                <span class="truncate font-semibold">{{ get_user_auth()->name }}</span>
-                                <span class="truncate text-xs">{{ get_user_auth()->email }}</span>
+                                <span class="truncate font-semibold">{{ get_user_auth()?->name ?? 'User' }}</span>
+                                <span class="truncate text-xs">{{ get_user_auth()?->email ?? 'user@example.com' }}</span>
                             </div>
                         </div>
                     </div>

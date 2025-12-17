@@ -315,14 +315,18 @@
         :filter="['quantity' => 'quantity', 'search' => 'search']" :quantity="[10, 25, 50, 100]">
         @interact('row', $row)
             @php
-                $detailsUrl = branch_route('branch-dashboard.employee.details', ['employee_number' => $row->employee_number, 'id' => $row->id, 'b_id' => $b_id]);
+                $params = ['id' => $row->id, 'b_id' => $b_id];
+                if ($row->employee_number) {
+                    $params['employee_number'] = $row->employee_number;
+                }
+                $detailsUrl = branch_route('branch-dashboard.employee.details', $params);
             @endphp
             <tr wire:navigate href="{{ $detailsUrl }}" class="cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700/50 transition-colors">
         @endinteract
 
         @interact('column_name', $row)
             <a class="flex items-center"
-                href="{{ branch_route('branch-dashboard.employee.details', ['employee_number' => $row->employee_number, 'id' => $row->id]) }}"
+                href="{{ branch_route('branch-dashboard.employee.details', $row->employee_number ? ['employee_number' => $row->employee_number, 'id' => $row->id] : ['id' => $row->id]) }}"
                 wire:navigate>
                 <div
                     class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium text-sm mr-2">
@@ -394,7 +398,7 @@
                         <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                 </button>
-                @if (auth('employees')->id() == $row->id)
+                @if (auth()->id() == $row->id)
                 <i>(You)</i>
                 @else
                   <a href="{{ branch_route('branch-dashboard.employee.edit', ['id'=>$row->id]) }}"
@@ -460,10 +464,10 @@
                     </p>
                     @foreach($roles as $role)
                         <label class="flex items-center p-3 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer transition-colors">
-                            <input type="checkbox" 
-                                wire:model="selectedRoles" 
-                                value="{{ $role->id }}"
-                                class="w-5 h-5 text-purple-600 bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-600 rounded focus:ring-purple-500 dark:focus:ring-purple-600 focus:ring-2">
+                             <input type="checkbox"
+                                 wire:model="selectedRoles"
+                                 value="{{ $role->id }}"
+                                 class="w-5 h-5 text-purple-600 bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-600 rounded focus:ring-purple-500 dark:focus:ring-purple-600 focus:ring-2">
                             <span class="ml-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">{{ ucfirst($role->name) }}</span>
                         </label>
                     @endforeach

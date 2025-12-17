@@ -59,7 +59,7 @@ class ExpiryAlerts extends Component
 
     public function loadExpiryData()
     {
-        $employee = Auth::guard('employees')->user();
+        $employee = Auth::guard('web')->user();
         $service = new CheckExpiredProducts();
 
         // Get expired products
@@ -80,7 +80,7 @@ class ExpiryAlerts extends Component
     public function confirmStillGood($productStockId, $productName)
     {
         try {
-            $employee = Auth::guard('employees')->user();
+            $employee = Auth::guard('web')->user();
             $service = new CheckExpiredProducts();
 
             $service->confirmStillGood(
@@ -122,7 +122,7 @@ class ExpiryAlerts extends Component
                 'callbackQuantity' => 'required|numeric|min:0|max:' . $quantity,
             ]);
 
-            $employee = Auth::guard('employees')->user();
+            $employee = Auth::guard('web')->user();
             $service = new CheckExpiredProducts();
 
             $service->markAsCallback(

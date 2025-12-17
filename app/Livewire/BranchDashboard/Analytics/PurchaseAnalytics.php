@@ -120,7 +120,7 @@ class PurchaseAnalytics extends Component
         }
         
         // Fall back to URL param or auth user's branch
-        return Auth::guard('employees')->user()?->branch_id ?? request()->get('b_id');
+        return Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
     }
 
     public function getPurchaseTrendData()

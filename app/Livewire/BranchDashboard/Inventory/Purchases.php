@@ -2,6 +2,7 @@
 
 namespace App\Livewire\BranchDashboard\Inventory;
 
+use App\Helpers\Settings;
 use App\Models\Item;
 use App\Models\Stock;
 use App\Models\Branch;
@@ -12,6 +13,7 @@ use Livewire\WithPagination;
 use App\Models\StockMovement;
 use App\Models\PurchaseApprovalRequest;
 use App\Services\AuditService;
+use App\Services\CurrencyFormattingService;
 use App\Services\PurchaseAuditApprovalService;
 use App\Traits\Exportable;
 use Illuminate\Support\Facades\DB;
@@ -183,7 +185,7 @@ class Purchases extends Component
 
             $branchId = $this->getBranchId();
             $branch = is_super_admin() ? Branch::where('id', $branchId)->First() :
-                Auth::guard('employees')->user()->branch;
+                Auth::guard('web')->user()->branch;
 
             $purchaseNumber = Purchase::generatePurchaseNumber($branch->code);
 
@@ -312,7 +314,7 @@ class Purchases extends Component
             $branchId = $this->getBranchId();
 
             $purchaseNumber = Purchase::generatePurchaseNumber(
-                Auth::guard('employees')->user()->branch->code
+                Auth::guard('web')->user()->branch->code
             );
 
             $totalFobFc = 0;
@@ -414,7 +416,7 @@ class Purchases extends Component
         ]);
 
         try {
-            $actor = Auth::guard('employees')->user();
+            $actor = Auth::guard('web')->user();
             $branchId = $this->getBranchId();
 
             // Find the purchase by ID from pending data
@@ -764,5 +766,32 @@ class Purchases extends Component
             $this->toast()->error('Export failed: ' . $e->getMessage())->send();
             return;
         }
+    }
+
+    /**
+     * Format currency value for inventory pricing
+     */
+    protected function formatCurrency(float $amount): string
+    {
+        $service = new CurrencyFormattingService();
+        return $service->format($amount);
+    }
+
+    /**
+     * Get currency symbol for display
+     */
+    protected function getCurrencySymbol(string $currency = null): string
+    {
+        $service = new CurrencyFormattingService();
+        $currency = $currency ?? Settings::currencyLocalization('primary_currency', 'NGN');
+        return $service->getSymbol($currency);
+    }
+
+    /**
+     * Get primary currency for inventory operations
+     */
+    protected function getPrimaryCurrency(): string
+    {
+        return Settings::currencyLocalization('primary_currency', 'NGN');
     }
 }

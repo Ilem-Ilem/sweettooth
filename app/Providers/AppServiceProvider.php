@@ -61,7 +61,7 @@ class AppServiceProvider extends ServiceProvider
         ]);
 
         Auth::macro('employee', function () {
-            return Auth::guard('employees')->user();
+            return Auth::guard('web')->user();
         });
 
         // Register custom Blade directives for role/permission checks

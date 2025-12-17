@@ -30,23 +30,23 @@
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-md p-6 border-l-4 border-blue-500">
             <p class="text-zinc-600 dark:text-zinc-400 text-sm font-semibold mb-2">TOTAL ASSETS</p>
-            <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ number_format($data['total_assets'] ?? 0, 2) }}</p>
+            <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ $this->formatCurrency($data['total_assets'] ?? 0) }}</p>
         </div>
 
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-md p-6 border-l-4 border-red-500">
             <p class="text-zinc-600 dark:text-zinc-400 text-sm font-semibold mb-2">TOTAL LIABILITIES</p>
-            <p class="text-2xl font-bold text-red-600 dark:text-red-400">{{ number_format($data['total_liabilities'] ?? 0, 2) }}</p>
+            <p class="text-2xl font-bold text-red-600 dark:text-red-400">{{ $this->formatCurrency($data['total_liabilities'] ?? 0) }}</p>
         </div>
 
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-md p-6 border-l-4 border-purple-500">
             <p class="text-zinc-600 dark:text-zinc-400 text-sm font-semibold mb-2">TOTAL EQUITY</p>
-            <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ number_format($data['total_equity_with_re'] ?? 0, 2) }}</p>
+            <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ $this->formatCurrency($data['total_equity_with_re'] ?? 0) }}</p>
         </div>
 
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-md p-6 border-l-4 {{ ($data['is_balanced'] ?? false) ? 'border-green-500' : 'border-yellow-500' }}">
             <p class="text-zinc-600 dark:text-zinc-400 text-sm font-semibold mb-2">BALANCE CHECK</p>
             <p class="text-2xl font-bold {{ ($data['is_balanced'] ?? false) ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400' }}">
-                {{ ($data['is_balanced'] ?? false) ? 'Balanced' : 'Diff: ' . number_format(abs($data['difference'] ?? 0), 2) }}
+                {{ ($data['is_balanced'] ?? false) ? 'Balanced' : 'Diff: ' . $this->formatCurrency(abs($data['difference'] ?? 0)) }}
             </p>
         </div>
     </div>
@@ -91,7 +91,7 @@
                                 <span class="font-mono text-sm text-zinc-500 dark:text-zinc-400">{{ $account['account_number'] }}</span>
                                 <span class="ml-2 text-zinc-900 dark:text-white">{{ $account['account_name'] }}</span>
                             </div>
-                            <span class="font-mono font-semibold text-zinc-900 dark:text-white">{{ number_format($account['balance'], 2) }}</span>
+                            <span class="font-mono font-semibold text-zinc-900 dark:text-white">{{ $this->formatCurrency($account['balance']) }}</span>
                         </div>
                     @endforeach
                 </div>
@@ -100,7 +100,7 @@
             @endif
             <div class="px-6 py-4 flex justify-between items-center bg-blue-100 dark:bg-blue-900/30 font-bold">
                 <span class="text-blue-800 dark:text-blue-300">TOTAL ASSETS</span>
-                <span class="font-mono text-blue-800 dark:text-blue-300">{{ number_format($data['total_assets'] ?? 0, 2) }}</span>
+                <span class="font-mono text-blue-800 dark:text-blue-300">{{ $this->formatCurrency($data['total_assets'] ?? 0) }}</span>
             </div>
         </div>
 
@@ -118,7 +118,7 @@
                                 <span class="font-mono text-sm text-zinc-500 dark:text-zinc-400">{{ $account['account_number'] }}</span>
                                 <span class="ml-2 text-zinc-900 dark:text-white">{{ $account['account_name'] }}</span>
                             </div>
-                            <span class="font-mono font-semibold text-zinc-900 dark:text-white">{{ number_format($account['balance'], 2) }}</span>
+                            <span class="font-mono font-semibold text-zinc-900 dark:text-white">{{ $this->formatCurrency($account['balance']) }}</span>
                         </div>
                     @endforeach
                 </div>
@@ -127,7 +127,7 @@
             @endif
             <div class="px-6 py-3 flex justify-between items-center bg-red-100 dark:bg-red-900/30 font-bold">
                 <span class="text-red-800 dark:text-red-300">Total Liabilities</span>
-                <span class="font-mono text-red-800 dark:text-red-300">{{ number_format($data['total_liabilities'] ?? 0, 2) }}</span>
+                <span class="font-mono text-red-800 dark:text-red-300">{{ $this->formatCurrency($data['total_liabilities'] ?? 0) }}</span>
             </div>
 
             <!-- Equity -->
@@ -142,7 +142,7 @@
                                 <span class="font-mono text-sm text-zinc-500 dark:text-zinc-400">{{ $account['account_number'] }}</span>
                                 <span class="ml-2 text-zinc-900 dark:text-white">{{ $account['account_name'] }}</span>
                             </div>
-                            <span class="font-mono font-semibold text-zinc-900 dark:text-white">{{ number_format($account['balance'], 2) }}</span>
+                            <span class="font-mono font-semibold text-zinc-900 dark:text-white">{{ $this->formatCurrency($account['balance']) }}</span>
                         </div>
                     @endforeach
                 </div>
@@ -153,18 +153,18 @@
                         <span class="font-mono text-sm text-zinc-500 dark:text-zinc-400">3020</span>
                         <span class="ml-2 text-zinc-900 dark:text-white">Retained Earnings</span>
                     </div>
-                    <span class="font-mono font-semibold text-zinc-900 dark:text-white">{{ number_format($data['retained_earnings'] ?? 0, 2) }}</span>
+                    <span class="font-mono font-semibold text-zinc-900 dark:text-white">{{ $this->formatCurrency($data['retained_earnings'] ?? 0) }}</span>
                 </div>
             @endif
             <div class="px-6 py-3 flex justify-between items-center bg-purple-100 dark:bg-purple-900/30 font-bold">
                 <span class="text-purple-800 dark:text-purple-300">Total Equity</span>
-                <span class="font-mono text-purple-800 dark:text-purple-300">{{ number_format($data['total_equity_with_re'] ?? 0, 2) }}</span>
+                <span class="font-mono text-purple-800 dark:text-purple-300">{{ $this->formatCurrency($data['total_equity_with_re'] ?? 0) }}</span>
             </div>
 
             <!-- Total L&E -->
             <div class="px-6 py-4 flex justify-between items-center bg-zinc-200 dark:bg-zinc-700 font-bold text-lg">
                 <span class="text-zinc-900 dark:text-white">TOTAL LIABILITIES & EQUITY</span>
-                <span class="font-mono text-zinc-900 dark:text-white">{{ number_format($data['total_liabilities_equity'] ?? 0, 2) }}</span>
+                <span class="font-mono text-zinc-900 dark:text-white">{{ $this->formatCurrency($data['total_liabilities_equity'] ?? 0) }}</span>
             </div>
         </div>
     </div>

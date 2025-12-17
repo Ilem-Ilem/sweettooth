@@ -18,7 +18,7 @@ class ExportController extends Controller
      */
     public function stockLevelAnalytics(Request $request)
     {
-        $branchId = Auth::guard('employees')->user()?->branch_id ?? $request->get('b_id');
+        $branchId = Auth::guard('web')->user()?->branch_id ?? $request->get('b_id');
         
         $stocks = Stock::with(['item'])
             ->where('branch_id', $branchId)
@@ -88,7 +88,7 @@ class ExportController extends Controller
      */
     public function healthChecks(Request $request)
     {
-        $branchId = Auth::guard('employees')->user()?->branch_id ?? $request->get('b_id');
+        $branchId = Auth::guard('web')->user()?->branch_id ?? $request->get('b_id');
         
         $healthChecks = HealthCheck::with(['stock.item', 'stock.branch', 'checker'])
             ->whereHas('stock', function ($q) use ($branchId) {
@@ -123,7 +123,7 @@ class ExportController extends Controller
      */
     public function itemRequests(Request $request)
     {
-        $branchId = Auth::guard('employees')->user()?->branch_id ?? $request->get('b_id');
+        $branchId = Auth::guard('web')->user()?->branch_id ?? $request->get('b_id');
         
         $requests = ItemRequest::with(['branch', 'department', 'requester', 'requestDetails'])
             ->where('branch_id', $branchId)

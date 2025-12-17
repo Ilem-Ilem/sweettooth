@@ -35,8 +35,8 @@ return new class extends Migration
             $table->timestamp('acknowledged_at')->nullable();
             $table->timestamps();
 
-            $table->foreign('employee_id')->references('id')->on('employees')->onDelete('cascade');
-            $table->foreign('reviewer_id')->references('id')->on('employees')->onDelete('cascade');
+            $table->foreign('employee_id')->references('id')->on('users')->onDelete('cascade');
+            $table->foreign('reviewer_id')->references('id')->on('users')->onDelete('cascade');
         });
     }
 

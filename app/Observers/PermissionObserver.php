@@ -8,12 +8,17 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Phase 2: Permission Observer
- * 
+ *
  * Watches for changes to permissions and logs them for audit purposes.
  * Especially monitors protected permissions.
  */
 class PermissionObserver
 {
+    /**
+     * Store original values temporarily (not on model to avoid persistence)
+     */
+    protected static array $originalValues = [];
+
     /**
      * Handle the Permission "created" event.
      */
@@ -28,8 +33,8 @@ class PermissionObserver
      */
     public function updating(Permission $permission): void
     {
-        // Store original values in a temporary property
-        $permission->_original_values = $permission->getOriginal();
+        // Store original values in static array (not on model to avoid DB persistence)
+        static::$originalValues[$permission->id] = $permission->getOriginal();
     }
 
     /**
@@ -37,7 +42,8 @@ class PermissionObserver
      */
     public function updated(Permission $permission): void
     {
-        $oldValues = $permission->_original_values ?? [];
+        $oldValues = static::$originalValues[$permission->id] ?? [];
+        unset(static::$originalValues[$permission->id]); // Clean up
         RolePermissionAuditService::logPermissionUpdated($permission, $oldValues);
 
         // Alert on protected permission changes

@@ -105,25 +105,7 @@
     <!-- Clock In View -->
     <div x-data="{
         selectedShift: '',
-        isOpen: false,
-        errorMessage: '',
-        checkShiftTime(shift) {
-            const now = new Date();
-            const currentHour = now.getHours();
-            const currentMinutes = now.getMinutes();
-            const currentTime = currentHour + (currentMinutes / 60);
-            const afternoonStart = 13; // 1:00 PM
-            if (shift === 'Afternoon' && currentTime < afternoonStart) {
-                this.errorMessage = 'Not yet time for Afternoon shift! It starts at 1:00 PM.';
-                return false;
-            }
-            if (shift === 'Morning' && currentTime >= afternoonStart) {
-                this.errorMessage = 'Morning shift is over! It ends at 1:00 PM.';
-                return false;
-            }
-            this.errorMessage = '';
-            return true;
-        }
+        isOpen: false
     }" class="w-full max-w-2xl p-8 md:p-12 card rounded-3xl">
 
         <div class="text-center mb-8">
@@ -140,6 +122,7 @@
         <div class="bg-blue-50 dark:bg-zinc-800 rounded-2xl p-6 mb-8 text-center border border-blue-200 dark:border-zinc-700">
             <p class="text-gray-700 dark:text-gray-300 text-sm font-semibold">{{ now()->format('l, F j, Y') }}</p>
             <p class="text-3xl font-bold text-blue-600 dark:text-blue-400 mt-2" x-data x-text="new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })"></p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Server-side time validation enabled</p>
         </div>
 
         <!-- Shift Selection -->
@@ -168,38 +151,33 @@
                 x-cloak
             >
                 <div
-                    @click="if (checkShiftTime('Morning')) {
-                        selectedShift = 'Morning Shift (6 AM - 1 PM)';
-                        isOpen = false;
-                        $wire.set('shift_type', 'morning');
-                    }"
+                    @click="selectedShift = 'Morning Shift (6 AM - 12 PM)';
+                            isOpen = false;
+                            $wire.set('shift_type', 'morning');"
                     class="shift-option px-6 py-4 cursor-pointer text-gray-900 dark:text-gray-200 rounded-t-xl border-b border-gray-200 dark:border-zinc-700 transition duration-200"
                 >
                     <div class="font-semibold">Morning Shift</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">6:00 AM - 1:00 PM</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">6:00 AM - 12:00 PM (Strict)</div>
                 </div>
 
                 <div
-                    @click="if (checkShiftTime('Afternoon')) {
-                        selectedShift = 'Afternoon Shift (1 PM - 8 PM)';
-                        isOpen = false;
-                        $wire.set('shift_type', 'afternoon');
-                    }"
+                    @click="selectedShift = 'Afternoon Shift (12 PM - 8 PM)';
+                            isOpen = false;
+                            $wire.set('shift_type', 'afternoon');"
                     class="shift-option px-6 py-4 cursor-pointer text-gray-900 dark:text-gray-200 border-b border-gray-200 dark:border-zinc-700 transition duration-200"
                 >
                     <div class="font-semibold">Afternoon Shift</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">1:00 PM - 8:00 PM</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">12:00 PM - 8:00 PM (Strict)</div>
                 </div>
 
                 <div
                     @click="selectedShift = 'Full Time (No Shift)';
                             $wire.set('shift_type', 'full_time');
-                            isOpen = false;
-                            errorMessage = ''"
+                            isOpen = false;"
                     class="shift-option px-6 py-4 cursor-pointer text-gray-900 dark:text-gray-200 rounded-b-xl transition duration-200"
                 >
                     <div class="font-semibold">Full Time</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">No specific shift hours</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">No time restrictions</div>
                 </div>
             </div>
         </div>
@@ -212,37 +190,23 @@
                       placeholder="Add any notes about your shift..."></textarea>
         </div>
 
-        <!-- Error Message -->
-        <div x-show="errorMessage" class="mb-8 p-5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-xl text-center font-bold error-alert shadow-md border border-red-300 dark:border-red-700" x-cloak>
-            <p x-text="errorMessage"></p>
-        </div>
-
         <!-- Selected Shift Display and Actions -->
-        <div x-show="selectedShift && !errorMessage" class="mb-8" x-cloak>
+        <div x-show="selectedShift" class="mb-8" x-cloak>
             <div class="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-400 dark:border-blue-700 rounded-xl p-6 mb-6">
                 <p class="text-sm font-semibold text-gray-700 dark:text-gray-400 mb-2 uppercase tracking-wider">Selected Shift</p>
                 <p class="text-xl font-bold text-blue-600 dark:text-blue-400" x-text="selectedShift"></p>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <button
-                    @click="selectedShift = ''; isOpen = false; errorMessage = ''; $wire.set('shift_type', '')"
-                    class="bg-gray-300 hover:bg-gray-400 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-gray-900 dark:text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-xl transition duration-200 font-semibold text-lg"
-                >
-                    Clear
-                </button>
-
-                <button
-                    wire:click="clockIn"
-                    class="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800 text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-xl transition duration-200 font-semibold flex items-center justify-center gap-3 text-lg"
-                >
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                    </svg>
-                    <span wire:loading.remove wire:target="clockIn">Clock In</span>
-                    <span wire:loading wire:target="clockIn">Clocking in...</span>
-                </button>
-            </div>
+            <button
+                wire:click="clockIn"
+                class="w-full bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800 text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-xl transition duration-200 font-semibold flex items-center justify-center gap-3 text-lg"
+            >
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+                <span wire:loading.remove wire:target="clockIn">Clock In</span>
+                <span wire:loading wire:target="clockIn">Validating time...</span>
+            </button>
         </div>
 
         <div class="mt-8 text-center">

@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth:web,employees', 'setBranchContext', 'branch', 'redirect-super-admin'])->prefix('branch-dashboard')->name('branch-dashboard.')->group(function () {
+Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin'])->prefix('branch-dashboard')->name('branch-dashboard.')->group(function () {
     // Dashboard Router - Redirects to appropriate dashboard based on role
     Route::get('/dashboard/router', App\Livewire\BranchDashboard\Dashboards\Router::class)->name('dashboards.router');
 
@@ -31,7 +31,7 @@ Route::middleware(['auth:web,employees', 'setBranchContext', 'branch', 'redirect
 
     Route::get('/employees', App\Livewire\BranchDashboard\EmployeeModule\Index::class)->name('employee.index');
     Route::get('employee/create', App\Livewire\BranchDashboard\EmployeeModule\Create::class)->name('employee.create');
-    Route::get('/employee//{employee_number}/{id}/', \App\Livewire\BranchDashboard\EmployeeModule\Details::class)->name('employee.details');
+    Route::get('/employee/{employee_number?}/{id}/', \App\Livewire\BranchDashboard\EmployeeModule\Details::class)->name('employee.details');
     Route::get('/employee/{id}/edit', \App\Livewire\BranchDashboard\EmployeeModule\Edit::class)->name('employee.edit');
     // ROLE MANAGEMENT (Super Admin Only)
     Route::middleware('protect-roles')->get('roles', \App\Livewire\BranchDashboard\Roles\Index::class)->name('roles.index');
@@ -77,10 +77,25 @@ Route::middleware(['auth:web,employees', 'setBranchContext', 'branch', 'redirect
     Route::get('departments/category', \App\Livewire\BranchDashboard\DepartmentModule\Category::class)->name('branch.departments.category');
     Route::get('/department/category/create', \App\Livewire\BranchDashboard\DepartmentModule\Cartegory\Create::class)->name('department.category.create');
     Route::get('department/category/{id}/edit', \App\Livewire\BranchDashboard\DepartmentModule\Cartegory\Edit::class)->name('department.category.edit');
+
+    // Organization Helper
+    Route::get('organization/helper', \App\Livewire\BranchDashboard\Organization\Helper::class)->name('organization.helper');
+
+    // Inventory Helper
+    Route::get('inventory/helper', \App\Livewire\BranchDashboard\Inventory\Helper::class)->name('inventory.helper');
+
+    // Sales Helper
+    Route::get('sales-dashboard/helper', \App\Livewire\BranchDashboard\SalesDashboard\Helper::class)->name('sales-dashboard.helper');
+
+    // Production Helper
+    Route::get('production/helper', \App\Livewire\BranchDashboard\Production\Helper::class)->name('production.helper');
+
     // Shift Selection functionality
-  
     Route::get('auth/shift', \App\Livewire\Auth\Shift::class)->name('select_shift');
-    // Inventory routes
+
+    // Routes requiring active shift (all work functions)
+    Route::middleware(['require_active_shift'])->group(function () {
+        // Inventory routes
     Route::prefix('inventory')->name('inventory.')->group(function () {
         Route::get('items', \App\Livewire\BranchDashboard\Inventory\Items::class)->name('items');
         Route::get('purchases', \App\Livewire\BranchDashboard\Inventory\Purchases::class)->name('purchases');
@@ -251,26 +266,30 @@ Route::middleware(['auth:web,employees', 'setBranchContext', 'branch', 'redirect
     });
 
     // Sales Dashboard routes - Modular System
-    Route::prefix('sales-dashboard')->name('sales-dashboard.')->group(function () {
+    // Protected by workflow middleware for proper step validation
+    Route::prefix('sales-dashboard')->name('sales-dashboard.')->middleware([
+        'validate-sales-department-context'
+    ])->group(function () {
 
-        // Helper function to register sales department routes
+        // Helper function to register sales department routes with workflow protection
         $registerSalesDepartmentRoutes = function () {
-            // POS Routes
-            Route::prefix('pos')->name('pos.')->group(function () {
+            // POS Routes - Requires stock verification to be completed
+            Route::prefix('pos')->name('pos.')->middleware(['validate-sales-workflow'])->group(function () {
                 Route::get('/{salesDeptSlug?}', \App\Livewire\BranchDashboard\SalesDashboard\Pos\Index::class)->name('index');
             });
 
+            // Analytics - Less restrictive, no workflow validation needed
             Route::prefix('analytics')->name('analytics.')->group(function () {
                 Route::get('/{salesDeptSlug?}', \App\Livewire\BranchDashboard\SalesDashboard\Analytics\Index::class)->name('index');
             });
 
-            // My Sales - Personal Sales Dashboard
+            // My Sales - Personal Sales Dashboard, less restrictive
             Route::prefix('my-sales')->name('my-sales.')->group(function () {
                 Route::get('/{salesDeptSlug?}', \App\Livewire\BranchDashboard\SalesDashboard\MySales\Index::class)->name('index');
             });
 
-            // Shift Closing - Sales (department-based)
-            Route::prefix('shift-closing')->name('shift-closing.')->group(function () {
+            // Shift Closing - Sales (department-based) - Protected by workflow
+            Route::prefix('shift-closing')->name('shift-closing.')->middleware(['validate-sales-workflow'])->group(function () {
                 Route::get('/{salesDeptSlug?}', \App\Livewire\BranchDashboard\SalesDashboard\ShiftClosing\Index::class)->name('index');
             });
         };
@@ -278,7 +297,8 @@ Route::middleware(['auth:web,employees', 'setBranchContext', 'branch', 'redirect
         // Expiry Alerts - shown after clock-in
         Route::get('/expiry-alerts', \App\Livewire\BranchDashboard\SalesDashboard\ExpiryAlerts::class)->name('expiry-alerts');
 
-        Route::prefix('stock-opening')->name('stock-opening.')->group(function () {
+        // Stock Opening - Entry point for workflow, protected by department context
+        Route::prefix('stock-opening')->name('stock-opening.')->middleware(['validate-sales-workflow'])->group(function () {
             Route::get('/{salesDeptSlug?}', \App\Livewire\BranchDashboard\SalesDashboard\StockOpening\Index::class)->name('index');
         });
 
@@ -297,4 +317,5 @@ Route::middleware(['auth:web,employees', 'setBranchContext', 'branch', 'redirect
         // Execute dynamic sales department routes
         $registerSalesDepartmentRoutes();
     });
+    }); // Close require_active_shift middleware group
 });

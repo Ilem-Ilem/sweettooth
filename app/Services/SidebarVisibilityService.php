@@ -13,12 +13,12 @@ use Illuminate\Database\Eloquent\Model;
 class SidebarVisibilityService
 {
     /**
-     * Check if user is a super admin (web guard authenticated)
+     * Check if user is a super admin
      * Super admins should see everything
      */
     public static function isSuperAdmin(): bool
     {
-        return \Illuminate\Support\Facades\Auth::guard('web')->check() ?? auth()->check();
+        return is_super_admin();
     }
 
     /**
@@ -38,14 +38,14 @@ class SidebarVisibilityService
 
     /**
      * Check if user can see Organization section
-     * Only Admin, Super Admin, and MD can see this
+     * Admin, Super Admin, MD, and HR Manager can see this
      */
     public static function canSeeOrganization(Model $user): bool
     {
         // Super Admin, Admin, MD can see everything
         if (self::isSuperAdmin()) return true;
-        
-        return $user->hasAnyRole(['Admin', 'MD', 'Managing Director']);
+
+        return $user->hasAnyRole(['Admin', 'MD', 'Managing Director', 'HR Manager']);
     }
 
     /**
@@ -97,19 +97,16 @@ class SidebarVisibilityService
 
     /**
      * Check if user can see Inventory section
-     * Only those with inventory-specific roles (excluding super admins/admins/MD who see everything)
+     * Only inventory-specific roles should see this section
      */
     public static function canSeeInventory(Model $user): bool
     {
         // Super Admin, Admin, MD can see everything - don't show for them as separate section
         if (self::isSuperAdmin()) return false;
         if ($user->hasAnyRole(['Admin', 'MD', 'Managing Director'])) return false;
-        
-        // Only show inventory for inventory-specific roles
-        return $user->hasAnyRole(['Inventory Manager']) 
-            || $user->can('view-stock-levels')
-            || $user->can('receive-stock')
-            || $user->can('view-inventory-reports');
+
+        // Only inventory roles should see inventory section
+        return $user->hasAnyRole(['Inventory Manager', 'Store Keeper', 'Stock Controller']);
     }
 
     /**
@@ -151,33 +148,34 @@ class SidebarVisibilityService
     public static function canSeeAnalytics(Model $user): bool
     {
         if (self::isSuperAdmin()) return true;
-        
+
+        // HR Manager should not see analytics (only organization items)
+        if ($user->hasRole('HR Manager')) return false;
+
         return $user->can('view-analytics')
             || $user->hasAnyRole(['Super Admin', 'reporting_manager', 'admin']);
     }
 
     /**
      * Check if user can see Production section
-     * Don't show for Super Admin/Admin/MD (they see everything already)
+     * Only production-specific roles should see this section
      */
     public static function canSeeProduction(Model $user): bool
     {
         // Super Admin, Admin, MD see everything - don't show separate sections
         if (self::isSuperAdmin()) return false;
         if ($user->hasAnyRole(['Admin', 'MD', 'Managing Director'])) return false;
-        
-        return $user->can('view-production-queue')
-            || $user->can('start-production')
-            || $user->can('manage-recipes')
-            || $user->hasAnyRole([
-                'Head of Production',
-                'Chef',
-                'Head of Gelato',
-                'Confectionaries Manager',
-                'Kitchen Staff',
-                'Gelato Production Staff',
-                'Confectionaries Production Staff',
-            ]);
+
+        // Only production roles should see production section
+        return $user->hasAnyRole([
+            'Head of Production',
+            'Chef',
+            'Head of Gelato',
+            'Confectioneries Manager',
+            'Kitchen Staff',
+            'Gelato Production Staff',
+            'Confectioneries Production Staff',
+        ]);
     }
 
     /**
@@ -191,11 +189,11 @@ class SidebarVisibilityService
             || $user->can('approve-callbacks')
             || $user->hasAnyRole([
                 'Super Admin',
-                'head_of_production',
-                'chef',
-                'head_of_gelato',
-                'confectionaries_manager',
-                'admin'
+                'Head of Production',
+                'Chef',
+                'Head of Gelato',
+                'Confectioneries Manager',
+                'Admin'
             ]);
     }
 
@@ -205,19 +203,19 @@ class SidebarVisibilityService
     public static function canSeeSalesManagement(Model $user): bool
     {
         if (self::isSuperAdmin()) return true;
-        
+
         return $user->can('process-sale')
             || $user->can('view-daily-sales')
             || $user->can('close-register')
             || $user->hasAnyRole([
                 'Super Admin',
-                'sales_manager',
-                'till_supervisor',
-                'cashier',
-                'corner_store_manager',
-                'corner_store_staff',
-                'confectionaries_sales_staff',
-                'admin'
+                'Sales Manager',
+                'Till Supervisor',
+                'Cashier',
+                'Corner Store Manager',
+                'Corner Store Staff',
+                'Confectionaries Sales Staff',
+                'Admin'
             ]);
     }
 
@@ -270,7 +268,7 @@ class SidebarVisibilityService
         if (self::isSuperAdmin()) return true;
         
         return $user->can('view-stock-levels')
-            || $user->hasAnyRole(['Super Admin', 'sales_manager', 'admin']);
+            || $user->hasAnyRole(['Super Admin', 'Sales Manager', 'Admin']);
     }
 
     /**

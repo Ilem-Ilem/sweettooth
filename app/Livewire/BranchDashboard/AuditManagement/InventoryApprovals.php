@@ -27,7 +27,7 @@ class InventoryApprovals extends Component
     
     public function render()
     {
-        $branchId = Auth::guard('employees')->user()->branch_id;
+        $branchId = Auth::guard('web')->user()->branch_id;
         
         $query = ApprovalAuditRequest::where('branch_id', $branchId)
             ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus))
@@ -62,13 +62,13 @@ class InventoryApprovals extends Component
     {
         try {
             $auditable = null;
-            $branchId = Auth::guard('employees')->user()->branch_id;
+            $branchId = Auth::guard('web')->user()->branch_id;
             
             $request = ApprovalAuditRequest::where('id', $requestId)
                 ->where('branch_id', $branchId)
                 ->firstOrFail();
             
-            $approver = Auth::guard('employees')->user();
+            $approver = Auth::guard('web')->user();
             list($action, $id) = explode(':', $request->action);
 
             if (str_contains($request->action, 'stock_adjustment')) {
@@ -108,13 +108,13 @@ class InventoryApprovals extends Component
         ]);
         
         try {
-            $branchId = Auth::guard('employees')->user()->branch_id;
+            $branchId = Auth::guard('web')->user()->branch_id;
             
             $request = ApprovalAuditRequest::where('id', $requestId)
                 ->where('branch_id', $branchId)
                 ->firstOrFail();
             
-            $approver = Auth::guard('employees')->user();
+            $approver = Auth::guard('web')->user();
             
             InventoryApprovalService::rejectStockAdjustment($request, $approver, $this->rejectionComment);
             

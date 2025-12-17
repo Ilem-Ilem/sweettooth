@@ -20,7 +20,7 @@ return new class extends Migration
             $table->decimal('carried_forward', 8, 2)->default(0); // From previous year
             $table->timestamps();
 
-            $table->foreign('employee_id')->references('id')->on('employees')->onDelete('cascade');
+            $table->foreign('employee_id')->references('id')->on('users')->onDelete('cascade');
             $table->unique(['employee_id', 'leave_type_id', 'year']);
         });
     }

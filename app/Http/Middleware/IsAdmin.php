@@ -4,17 +4,22 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
-use App\Services\AuthService;
 
 class IsAdmin
 {
     /**
      * Handle an incoming request.
-     * Only super admins can pass
+     *
+     * Only super admin users can pass through this middleware.
+     * Uses unified authorization helper for consistent role checking.
      */
     public function handle(Request $request, Closure $next): Response
     {
-        AuthService::requireSuperAdmin();
+        // Use unified helper - super admin role required
+        if (!is_super_admin()) {
+            abort(403, 'Super admin access required');
+        }
+
         return $next($request);
     }
 }

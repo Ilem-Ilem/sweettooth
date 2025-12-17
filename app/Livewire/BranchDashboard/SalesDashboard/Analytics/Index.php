@@ -2,20 +2,24 @@
 
 namespace App\Livewire\BranchDashboard\SalesDashboard\Analytics;
 
+use App\Helpers\Settings;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\SalesShift;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\ProductType;
+use App\Services\CurrencyFormattingService;
 use App\Traits\Exportable;
 use Livewire\Component;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Layout;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Response;
 
+#[Layout('components.layouts.app.branch-dashboard')]
 class Index extends Component
 {
     use Exportable;
@@ -528,5 +532,33 @@ class Index extends Component
             'categories' => $this->categorySales,
             'profit' => $this->profitAnalysis
         ]);
+    }
+
+    /**
+     * Format currency value for display
+     */
+    protected function formatCurrency(float $amount): string
+    {
+        $service = new CurrencyFormattingService();
+        return $service->format($amount);
+    }
+
+    /**
+     * Get currency symbol
+     */
+    protected function getCurrencySymbol(string $currency = null): string
+    {
+        $service = new CurrencyFormattingService();
+        $currency = $currency ?? Settings::currencyLocalization('primary_currency', 'NGN');
+        return $service->getSymbol($currency);
+    }
+
+    /**
+     * Format percentage for display
+     */
+    protected function formatPercentage(float $value, int $decimals = 2): string
+    {
+        $service = new CurrencyFormattingService();
+        return $service->formatPercentage($value, $decimals);
     }
 }

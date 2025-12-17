@@ -59,7 +59,7 @@ class Index extends BaseComponent
         $this->mountBase();
         $this->b_id = current_branch_id();
         $this->loadBranchAndDepartment();
-        $this->employeeId = auth('employees')->id();
+        $this->employeeId = auth()->id();
         $this->setDateRange('today');
     }
 
@@ -99,7 +99,7 @@ class Index extends BaseComponent
                 $this->departmentName = $department->name;
             }
         } else {
-            $employee = auth('employees')->user();
+            $employee = auth()->user();
             if ($employee && $employee->department_id) {
                 $this->departmentId = $employee->department_id;
                 $department = Department::find($employee->department_id);

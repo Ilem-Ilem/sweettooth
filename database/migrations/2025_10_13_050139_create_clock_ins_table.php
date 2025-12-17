@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('clock_ins', function (Blueprint $table) {
             $table->id();
             $table->uuid('employee_id');
-            $table->foreign('employee_id')->references('id')->on('employees')->onDelete('cascade');
+            $table->foreign('employee_id')->references('id')->on('users')->onDelete('cascade');
             $table->dateTimeTz('date');
             $table->string('shift');
             $table->dateTimeTz('clock_in_time');

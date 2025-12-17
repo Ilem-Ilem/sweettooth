@@ -115,7 +115,7 @@ class StockTakes extends Component
         DB::beginTransaction();
         try {
             $branchId = $this->getBranchId();
-            $branch = Auth::guard('employees')->user()->employee->branch;
+            $branch = Auth::guard('web')->user()->employee->branch;
 
             $stockTakeNumber = StockTake::generateStockTakeNumber($branch->code);
 
@@ -124,7 +124,7 @@ class StockTakes extends Component
                 'stock_take_number' => $stockTakeNumber,
                 'stock_take_date' => $this->stock_take_date,
                 'type' => $this->type,
-                'conducted_by' => Auth::guard('employees')->id(),
+                'conducted_by' => Auth::guard('web')->id(),
                 'status' => 'in_progress',
                 'notes' => $this->notes,
             ]);
@@ -154,7 +154,7 @@ class StockTakes extends Component
 
             // Log the stock take creation
             AuditService::log(
-                Auth::guard('employees')->user(),
+                Auth::guard('web')->user(),
                 'create',
                 $stockTake,
                 "Created {$this->type} stock take #{$stockTakeNumber} on {$this->stock_take_date}. " .
@@ -200,7 +200,7 @@ class StockTakes extends Component
 
         // Log the stock take completion
         AuditService::log(
-            Auth::guard('employees')->user(),
+            Auth::guard('web')->user(),
             'update',
             $stockTake,
             "Completed stock take #{$stockTake->stock_take_number} (type: {$stockTake->type}). " .

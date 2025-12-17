@@ -108,7 +108,7 @@ class Index extends BaseComponent
             }
         } else {
             // If no department slug provided, use employee's department
-            $employee = auth('employees')->user();
+            $employee = auth()->user();
             if ($employee && $employee->department_id) {
                 $this->departmentId = $employee->department_id;
                 $department = Department::find($employee->department_id);
@@ -187,7 +187,7 @@ class Index extends BaseComponent
 
         DB::beginTransaction();
         try {
-            $employee = auth('employees')->user();
+            $employee = auth()->user();
             $dispatch = $this->selectedDispatch;
 
             // Update dispatch status
@@ -281,7 +281,7 @@ class Index extends BaseComponent
     {
         DB::beginTransaction();
         try {
-            $employee = auth('employees')->user();
+            $employee = auth()->user();
             $dispatch = ProductDispatch::find($dispatchId);
 
             if (!$dispatch) {

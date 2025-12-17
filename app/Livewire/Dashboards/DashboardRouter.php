@@ -26,7 +26,7 @@ class DashboardRouter extends Component
 
         // WEB GUARD (Super Admin)
         // Web guard users (super admins) should always go to super-admin dashboard
-        if (auth()->check() && !auth('employees')->check()) {
+        if (auth()->check() && !auth()->check()) {
             return redirect()->route('branch-dashboard.dashboards.super-admin', ['b_id' => $branchId]);
         }
 
@@ -34,7 +34,7 @@ class DashboardRouter extends Component
         $sidebarService = \App\Services\SidebarVisibilityService::class;
 
         // Check clock-in requirement
-        if (auth('employees')->check()) {
+        if (auth()->check()) {
             $today = now()->startOfDay();
             $clockedInToday = $user->clockIns()
                 ->where('date', '>=', $today)

@@ -71,7 +71,7 @@ class StockMonitor extends BaseComponent
     public function loadCurrentShift()
     {
         $branchId = $this->getBranchId();
-        $employee = auth('employees')->user();
+        $employee = auth()->user();
 
         // Get today's shift for the employee's department
         $this->currentShift = Shift::where('branch_id', $branchId)
@@ -245,7 +245,7 @@ class StockMonitor extends BaseComponent
     public function render()
     {
         $branchId = $this->getBranchId();
-        $employee = auth('employees')->user();
+        $employee = auth()->user();
 
         // Get available shifts for this department
         $availableShifts = Shift::where('branch_id', $branchId)

@@ -69,20 +69,20 @@ class CreateOrUpdate extends Component
      * Department name - required field
      * @var string|null
      */
-    public ?string $name=',.';
+    public ?string $name='';
 
     /**
      * Department category ID - required field
      * Must exist in department_categories table
      * @var string|null
      */
-    public ?string $category_id=',.';
+    public ?string $category_id='';
 
     /**
      * Department description - optional field
      * @var string|null
      */
-    public ?string $description=',.';
+    public ?string $description='';
 
     /**
      * ID of department being edited (create mode = empty)
@@ -344,10 +344,27 @@ class CreateOrUpdate extends Component
         $branch_id = is_super_admin() ? $this->branch_id : $this->b_id;
         
         // Get current authenticated user (employee or super admin)
-        $user = current_actor();
-        if (!$user) {
+        $user = Auth::user();
+        if (!$user || !is_object($user)) {
             $this->toast()->error('Authentication failed. Please log in again.')->send();
             return;
+        }
+
+        // Handle case where user is serialized as string (recovery logic)
+        if (is_string($user)) {
+            $userId = Auth::id();
+            if ($userId) {
+                $user = \App\Models\User::find($userId);
+                if ($user) {
+                    Auth::setUser($user);
+                } else {
+                    $this->toast()->error('Authentication failed. Please log in again.')->send();
+                    return;
+                }
+            } else {
+                $this->toast()->error('Authentication failed. Please log in again.')->send();
+                return;
+            }
         }
 
         // Prepare department data for create/update

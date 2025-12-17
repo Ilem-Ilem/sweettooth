@@ -23,18 +23,18 @@ class DatabaseSeeder extends Seeder
             // 1. Permissions & Roles (Critical - must be first)
             PermissionSeeder::class,
             RoleSeeder::class,
-            WebRoleSeeder::class, // Create web guard roles for super admin
-            ProtectedRoleSeeder::class,
+            // WebRoleSeeder::class, // Skip - included in RoleSeeder
+            // ProtectedRoleSeeder::class, // Skip - included in RoleSeeder
 
             // 2. Accounting Setup (Before any other seeders)
             ChartOfAccountsSeeder::class,
             AccountingAccessControlSeeder::class,
 
-            // 3. Super Admin User (Before branch setup)
-            SuperAdminUserSeeder::class,
-
+            // 3. Super Admin & Users (Before branch setup)
+            // SuperAdminUserSeeder::class, // Skip - using new UserSeeder
             // 4. Branch & Department Setup
             BranchSeeder::class,
+            BranchUserSeeder::class,
             MDSeeder::class,
             UnitOfMeasureSeeder::class,
 

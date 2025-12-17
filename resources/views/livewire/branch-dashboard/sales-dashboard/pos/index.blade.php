@@ -208,7 +208,7 @@
                             ">{{ $table->table_number }}</div>
                             @if($hasOrder)
                                 <div class="text-[10px] font-medium text-orange-700 dark:text-orange-400">
-                                    GHS {{ number_format($orderTotal, 2) }}
+                                    {{ $this->formatCurrency($orderTotal) }}
                                 </div>
                             @endif
                         </div>
@@ -293,7 +293,7 @@
                     @endphp
                     <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 flex flex-col gap-2 bg-white dark:bg-zinc-900">
                         <div class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ $product->name }}</div>
-                        <div class="text-xs text-zinc-500">GHS {{ number_format($product->price ?? 0, 2) }}</div>
+                        <div class="text-xs text-zinc-500">{{ $this->formatCurrency($product->price ?? 0) }}</div>
                         <div class="text-xs">
                             @if($available === 0)
                                 <span class="inline-flex items-center px-2 py-0.5 rounded-md text-red-700 bg-red-100 dark:text-red-400 dark:bg-red-900/30">Out of Stock</span>
@@ -331,7 +331,7 @@
                         <div class="flex-1">
                             <div class="font-semibold text-zinc-900 dark:text-zinc-100">{{ $product->name }}</div>
                             <div class="flex items-center gap-3 mt-1">
-                                <span class="text-sm text-zinc-500">GHS {{ number_format($product->price ?? 0, 2) }}</span>
+                                <span class="text-sm text-zinc-500">{{ $this->formatCurrency($product->price ?? 0) }}</span>
                                 <span class="text-xs">
                                     @if($available === 0)
                                         <span class="inline-flex items-center px-2 py-0.5 rounded-md text-red-700 bg-red-100 dark:text-red-400 dark:bg-red-900/30">Out of Stock</span>
@@ -377,7 +377,7 @@
                         <div class="p-3 flex items-center gap-2">
                             <div class="flex-1">
                                 <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $line['name'] }}</div>
-                                <div class="text-xs text-zinc-500">GHS {{ number_format($line['price'], 2) }}</div>
+                                <div class="text-xs text-zinc-500">{{ $this->formatCurrency($line['price']) }}</div>
                                 <div class="text-xs mt-0.5">
                                     @if($line['available'] === 0)
                                         <span class="inline-flex items-center px-2 py-0.5 rounded-md text-red-700 bg-red-100 dark:text-red-400 dark:bg-red-900/30">Out of Stock</span>
@@ -404,7 +404,7 @@
                                     +
                                 </button>
                             </div>
-                            <div class="w-20 text-right text-sm font-semibold text-zinc-900 dark:text-zinc-100">GHS {{ number_format($line['qty'] * $line['price'], 2) }}</div>
+                            <div class="w-20 text-right text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ $this->formatCurrency($line['qty'] * $line['price']) }}</div>
                             <button type="button" wire:click="remove('{{ $key }}')" class="inline-flex items-center justify-center w-8 h-8 rounded-md bg-rose-600 text-white hover:bg-rose-500">
                                 ×
                             </button>
@@ -417,7 +417,7 @@
                 <div class="p-3 space-y-2 border-t border-zinc-200 dark:border-zinc-800">
                     <div class="flex items-center justify-between text-sm text-zinc-700 dark:text-zinc-300">
                         <span>Subtotal</span>
-                        <span>GHS {{ number_format($subtotal, 2) }}</span>
+                        <span>{{ $this->formatCurrency($subtotal) }}</span>
                     </div>
                     <div class="flex items-center justify-between text-sm text-zinc-700 dark:text-zinc-300">
                         <span>Discount</span>
@@ -425,11 +425,11 @@
                     </div>
                     <div class="flex items-center justify-between text-sm text-zinc-700 dark:text-zinc-300">
                         <span>Tax</span>
-                        <span>GHS {{ number_format($tax, 2) }}</span>
+                        <span>{{ $this->formatCurrency($tax) }}</span>
                     </div>
                     <div class="flex items-center justify-between text-base font-semibold text-zinc-900 dark:text-zinc-100">
                         <span>Total</span>
-                        <span>GHS {{ number_format($total, 2) }}</span>
+                        <span>{{ $this->formatCurrency($total) }}</span>
                     </div>
                     <div class="border-t border-zinc-200 dark:border-zinc-800 pt-2 mt-2">
                         <div class="flex items-center justify-between mb-2">
