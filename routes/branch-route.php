@@ -13,12 +13,13 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
     Route::get('/dashboards/supervisor', App\Livewire\BranchDashboard\Dashboards\SupervisorDashboard::class)->name('dashboards.supervisor');
 
     // Legacy Role-Specific Dashboards (kept for backward compatibility)
-    Route::get('/dashboard/inventory', App\Livewire\Dashboards\InventoryDashboard::class)->name('dashboard.inventory');
-    Route::get('/dashboard/production/{deptSlug?}', App\Livewire\Dashboards\ProductionDashboard::class)->name('dashboard.production');
-    Route::get('/dashboard/sales/{salesDeptSlug?}', App\Livewire\Dashboards\SalesDashboard::class)->name('dashboard.sales');
-    Route::get('/dashboard/hr', \App\Livewire\Dashboards\HRDashboard::class)->name('dashboard.hr');
-    Route::get('/dashboard/admin', \App\Livewire\Dashboards\BranchAdminDashboard::class)->name('dashboard.admin');
-    Route::get('/dashboard/super-admin', \App\Livewire\Dashboards\SuperAdminDashboard::class)->name('dashboard.super-admin');
+    Route::middleware('role_or_permission:view_inventory_dashboard')->get('/dashboard/inventory', App\Livewire\Dashboards\InventoryDashboard::class)->name('dashboard.inventory');
+    Route::middleware('role_or_permission:view_production_dashboard')->get('/dashboard/production/{deptSlug?}', App\Livewire\Dashboards\ProductionDashboard::class)->name('dashboard.production');
+    Route::middleware('role_or_permission:view-sales-dashboard')->get('/dashboard/sales/{salesDeptSlug?}', App\Livewire\Dashboards\SalesDashboard::class)->name('dashboard.sales');
+    Route::middleware('role_or_permission:view-sales-dashboard')->get('/dashboard/corner-store', App\Livewire\Dashboards\CornerStoreDashboard::class)->name('dashboard.corner-store');
+    Route::middleware('role_or_permission:manage_organization')->get('/dashboard/hr', \App\Livewire\Dashboards\HRDashboard::class)->name('dashboard.hr');
+    Route::middleware('role_or_permission:manage_branches')->get('/dashboard/admin', \App\Livewire\Dashboards\BranchAdminDashboard::class)->name('dashboard.admin');
+    Route::middleware('role_or_permission:manage_system')->get('/dashboard/super-admin', \App\Livewire\Dashboards\SuperAdminDashboard::class)->name('dashboard.super-admin');
 
     // Root dashboard path - redirect to router for role-based redirect
     Route::get('/', function () {
@@ -29,54 +30,59 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
         return redirect()->route('branch-dashboard.dashboards.router');
     })->name('index');
 
-    Route::get('/employees', App\Livewire\BranchDashboard\EmployeeModule\Index::class)->name('employee.index');
-    Route::get('employee/create', App\Livewire\BranchDashboard\EmployeeModule\Create::class)->name('employee.create');
-    Route::get('/employee/{employee_number?}/{id}/', \App\Livewire\BranchDashboard\EmployeeModule\Details::class)->name('employee.details');
-    Route::get('/employee/{id}/edit', \App\Livewire\BranchDashboard\EmployeeModule\Edit::class)->name('employee.edit');
+    // ====== ORGANIZATION SECTION (HR Manager, HR Officer, Admin) ======
+    Route::middleware('role_or_permission:manage_organization')->group(function () {
+        // Employee Management
+        Route::get('/employees', App\Livewire\BranchDashboard\EmployeeModule\Index::class)->name('employee.index');
+        Route::get('employee/create', App\Livewire\BranchDashboard\EmployeeModule\Create::class)->name('employee.create');
+        Route::get('employee/{id}/edit', \App\Livewire\BranchDashboard\EmployeeModule\Edit::class)->name('employee.edit');
+        Route::get('/employee/{employee_number?}/{id}/', \App\Livewire\BranchDashboard\EmployeeModule\Details::class)->name('employee.details');
+        
+        // Clock-In Board Routes
+        Route::prefix('clock-in-board')->name('clock-in-board.')->group(function () {
+            Route::get('/', \App\Livewire\BranchDashboard\EmployeeModule\ClockInModule\TodayIndex::class)->name('today');
+            Route::get('all', \App\Livewire\BranchDashboard\EmployeeModule\ClockInModule\GeneralClockInBoard::class)->name('all');
+            Route::get('employee/{employee}/history', \App\Livewire\BranchDashboard\EmployeeModule\ClockInModule\EmployeeHistory::class)->name('employee-history');
+        });
+
+        // Leave Management routes
+        Route::prefix('leave')->name('leave.')->group(function () {
+            Route::get('/types', \App\Livewire\BranchDashboard\EmployeeModule\LeaveManagement\LeaveTypes::class)->name('types');
+            Route::get('/apply', \App\Livewire\BranchDashboard\EmployeeModule\LeaveManagement\ApplyLeave::class)->name('apply');
+            Route::get('/my-leaves', \App\Livewire\BranchDashboard\EmployeeModule\LeaveManagement\MyLeaves::class)->name('my-leaves');
+            Route::get('/approve', \App\Livewire\BranchDashboard\EmployeeModule\LeaveManagement\ApproveLeave::class)->name('approve');
+            Route::get('/balance', \App\Livewire\BranchDashboard\EmployeeModule\LeaveManagement\LeaveBalance::class)->name('balance');
+            Route::get('/manage-allocations', \App\Livewire\BranchDashboard\EmployeeModule\LeaveManagement\ManageAllocations::class)->name('manage-allocations');
+        });
+
+        // DEPARTMENT / DEPARTMENT CATEGORY SECTION 
+        Route::get('departments', App\Livewire\BranchDashboard\DepartmentModule\Index::class)->name('branch.departments.index');
+        Route::get('department/create', \App\Livewire\BranchDashboard\DepartmentModule\Department\CreateOrUpdate::class)->name('department.create');
+        Route::get('department/{id}/edit', \App\Livewire\BranchDashboard\DepartmentModule\Department\CreateOrUpdate::class)->name('department.edit');
+        Route::get('departments/category', \App\Livewire\BranchDashboard\DepartmentModule\Category::class)->name('branch.departments.category');
+        Route::get('/department/category/create', \App\Livewire\BranchDashboard\DepartmentModule\Cartegory\Create::class)->name('department.category.create');
+        Route::get('department/category/{id}/edit', \App\Livewire\BranchDashboard\DepartmentModule\Cartegory\Edit::class)->name('department.category.edit');
+        
+        // ROLE ASSIGNMENT (HR can manage roles within their branch)
+        Route::get('role-assignments', \App\Livewire\BranchDashboard\EmployeeModule\RolePermission\AssignRole::class)->name('role-assignments.index');
+        Route::get('/role-permisssion', \App\Livewire\BranchDashboard\EmployeeModule\RolePermission\Index::class)->name('role-permission');
+    });
+    
     // ROLE MANAGEMENT (Super Admin Only)
-    Route::middleware('protect-roles')->get('roles', \App\Livewire\BranchDashboard\Roles\Index::class)->name('roles.index');
+    Route::middleware('role_or_permission:manage_roles')->get('roles', \App\Livewire\BranchDashboard\Roles\Index::class)->name('roles.index');
     
     // BRANCH MANAGEMENT (Super Admin Only)
-    Route::get('branches', \App\Livewire\BranchDashboard\Branches\Index::class)->name('branches.index');
-    Route::get('deleted-branches', \App\Livewire\BranchDashboard\Branches\DeleteBranch::class)->name('branches.deleted');
+    Route::middleware('role_or_permission:manage_branches')->get('branches', \App\Livewire\BranchDashboard\Branches\Index::class)->name('branches.index');
+    Route::middleware('role_or_permission:manage_branches')->get('deleted-branches', \App\Livewire\BranchDashboard\Branches\DeleteBranch::class)->name('branches.deleted');
 
     // SETTINGS (Super Admin Only)
-    Route::get('settings', \App\Livewire\BranchDashboard\Settings\Index::class)->name('settings.index');
+    Route::middleware('role_or_permission:manage_settings')->get('settings', \App\Livewire\BranchDashboard\Settings\Index::class)->name('settings.index');
 
     // MD REPORTS (Super Admin Only)
-    Route::prefix('md-reports')->name('md-reports.')->group(function () {
+    Route::middleware('role_or_permission:view_reports')->prefix('md-reports')->name('md-reports.')->group(function () {
         Route::get('dashboard', \App\Livewire\BranchDashboard\MDReports\Dashboard\Index::class)->name('dashboard');
         Route::get('view/{id}', \App\Livewire\BranchDashboard\MDReports\ViewReport\Index::class)->name('view');
     });
-    
-    // ROLE ASSIGNMENT
-    Route::get('role-assignments', \App\Livewire\BranchDashboard\EmployeeModule\RolePermission\AssignRole::class)->name('role-assignments.index');
-    Route::get('/role-permisssion', \App\Livewire\BranchDashboard\EmployeeModule\RolePermission\Index::class)->name('role-permission');
-
-    // Clock-In Board Routes
-    Route::prefix('clock-in-board')->name('clock-in-board.')->group(function () {
-        Route::get('/', \App\Livewire\BranchDashboard\EmployeeModule\ClockInModule\TodayIndex::class)->name('today');
-        Route::get('all', \App\Livewire\BranchDashboard\EmployeeModule\ClockInModule\GeneralClockInBoard::class)->name('all');
-        Route::get('employee/{employee}/history', \App\Livewire\BranchDashboard\EmployeeModule\ClockInModule\EmployeeHistory::class)->name('employee-history');
-    });
-
-    // Leave Management routes
-    Route::prefix('leave')->name('leave.')->group(function () {
-        Route::get('/types', \App\Livewire\BranchDashboard\EmployeeModule\LeaveManagement\LeaveTypes::class)->name('types');
-        Route::get('/apply', \App\Livewire\BranchDashboard\EmployeeModule\LeaveManagement\ApplyLeave::class)->name('apply');
-        Route::get('/my-leaves', \App\Livewire\BranchDashboard\EmployeeModule\LeaveManagement\MyLeaves::class)->name('my-leaves');
-        Route::get('/approve', \App\Livewire\BranchDashboard\EmployeeModule\LeaveManagement\ApproveLeave::class)->name('approve');
-        Route::get('/balance', \App\Livewire\BranchDashboard\EmployeeModule\LeaveManagement\LeaveBalance::class)->name('balance');
-        Route::get('/manage-allocations', \App\Livewire\BranchDashboard\EmployeeModule\LeaveManagement\ManageAllocations::class)->name('manage-allocations');
-    });
-
-    // DEPARTMENT / DEPARTMENT CATEGORY SECTION 
-    Route::get('departments', App\Livewire\BranchDashboard\DepartmentModule\Index::class)->name('branch.departments.index');
-    Route::get('department/create', \App\Livewire\BranchDashboard\DepartmentModule\Department\CreateOrUpdate::class)->name('department.create');
-    Route::get('department/{id}/edit', \App\Livewire\BranchDashboard\DepartmentModule\Department\CreateOrUpdate::class)->name('department.edit');
-    Route::get('departments/category', \App\Livewire\BranchDashboard\DepartmentModule\Category::class)->name('branch.departments.category');
-    Route::get('/department/category/create', \App\Livewire\BranchDashboard\DepartmentModule\Cartegory\Create::class)->name('department.category.create');
-    Route::get('department/category/{id}/edit', \App\Livewire\BranchDashboard\DepartmentModule\Cartegory\Edit::class)->name('department.category.edit');
 
     // Organization Helper
     Route::get('organization/helper', \App\Livewire\BranchDashboard\Organization\Helper::class)->name('organization.helper');

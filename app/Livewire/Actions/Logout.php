@@ -8,8 +8,7 @@ use Illuminate\Support\Facades\Session;
 class Logout
 {
     /**
-     * Log the current user out of the application.
-     * Handles both super admin (web guard) and employee (employees guard) logout
+     * Handles unified web guard logout for all users
      */
     public function __invoke()
     {

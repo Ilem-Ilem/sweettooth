@@ -244,7 +244,7 @@ class RoleSeeder extends Seeder
             'display_order' => 45,
         ]);
         $cornerStoreStaff->givePermissionTo([
-            'process-sale', 'view-stock-levels',
+            'view-sales-dashboard', 'process-sale', 'view-daily-sales', 'view-stock-levels',
         ]);
 
         $stockController = Role::create([

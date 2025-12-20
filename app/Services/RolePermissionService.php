@@ -190,6 +190,9 @@ class RolePermissionService
             );
         }
 
+        // Validate department-role compatibility
+        self::validateRoleForDepartment($user, $roleName);
+
         // Log assignment
         Log::info('Role assigned to user', [
             'user_id' => $user->id,
@@ -278,7 +281,7 @@ class RolePermissionService
         }
 
         $permissions = Permission::whereIn('id', $permissionIds)
-            ->where('guard_name', $role->guard_name)
+            ->where('guard_name', 'web')
             ->get();
 
         // Log permission sync
@@ -387,7 +390,7 @@ class RolePermissionService
     /**
      * Get all roles grouped by protection status
      */
-    public static function getRolesByProtection(string $guardName = 'employees'): array
+    public static function getRolesByProtection(string $guardName = 'web'): array
     {
         return Cache::remember("roles_by_protection_{$guardName}", self::CACHE_TTL, function () use ($guardName) {
             $roles = Role::where('guard_name', $guardName)
@@ -405,7 +408,7 @@ class RolePermissionService
     /**
      * Get all permissions grouped by category
      */
-    public static function getPermissionsByCategory(string $guardName = 'employees'): array
+    public static function getPermissionsByCategory(string $guardName = 'web'): array
     {
         return Cache::remember("permissions_by_category_{$guardName}", self::CACHE_TTL, function () use ($guardName) {
             return Permission::where('guard_name', $guardName)
@@ -426,7 +429,6 @@ class RolePermissionService
     public static function clearCache(): void
     {
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
-        Cache::forget('roles_by_protection_employees');
         Cache::forget('roles_by_protection_web');
         Cache::forget('permissions_by_category_employees');
         Cache::forget('permissions_by_category_web');
@@ -517,7 +519,7 @@ class RolePermissionService
     /**
      * Get role by name with guard
      */
-    public static function getRoleByName(string $name, string $guardName = 'employees'): ?Role
+    public static function getRoleByName(string $name, string $guardName = 'web'): ?Role
     {
         return Role::where('name', $name)
             ->where('guard_name', $guardName)
@@ -575,5 +577,76 @@ class RolePermissionService
         ];
 
         return $hierarchy[$role] ?? 0;
+    }
+
+    /**
+     * Validate that a role is compatible with user's department
+     * 
+     * @throws \Exception
+     */
+    public static function validateRoleForDepartment(Model $user, string $roleName): void
+    {
+        // Get user's department
+        if (!isset($user->department_id) || !$user->department_id) {
+            throw new \Exception('User must be assigned to a department before assigning roles');
+        }
+
+        $department = \App\Models\Department::find($user->department_id);
+        if (!$department) {
+            throw new \Exception('User department not found');
+        }
+
+        // Define role-to-department mappings
+        $roleToDepartments = [
+            // Production roles
+            'Kitchen Staff' => ['Kitchen'],
+            'Chef' => ['Kitchen'],
+            'Gelato Production Staff' => ['Gelato Production'],
+            'Head of Gelato' => ['Gelato Production'],
+            'Confectionaries Production Staff' => ['Confectionaries Production'],
+            'Confectionaries Manager' => ['Confectionaries Production'],
+            
+            // Sales roles
+            'Cashier' => ['Till'],
+            'Till Supervisor' => ['Till'],
+            'Corner Store Staff' => ['Corner Store'],
+            'Corner Store Manager' => ['Corner Store'],
+            'Confectionaries Sales Staff' => ['Confectionaries Sales'],
+            'Sales Manager' => ['Till', 'Corner Store', 'Confectionaries Sales'],
+            
+            // Support roles
+            'Stock Controller' => ['Inventory/Store'],
+            'Store Keeper' => ['Inventory/Store'],
+            'HR Officer' => ['HR'],
+            'HR Manager' => ['HR'],
+            
+            // Admin roles (can be assigned to any department)
+            'Admin' => ['*'],
+            'Super Admin' => ['*'],
+            'Managing Director' => ['*'],
+            'MD' => ['*'],
+            'Head of Production' => ['*'],
+            'Supervisor' => ['*'],
+        ];
+
+        // Check if role exists in mapping
+        if (!isset($roleToDepartments[$roleName])) {
+            throw new \Exception("Role '{$roleName}' is not defined for department assignment");
+        }
+
+        $allowedDepts = $roleToDepartments[$roleName];
+
+        // Check if role is allowed in all departments
+        if (in_array('*', $allowedDepts)) {
+            return;
+        }
+
+        // Check if user's department is in the allowed list
+        if (!in_array($department->name, $allowedDepts)) {
+            throw new \Exception(
+                "Users in the {$department->name} department cannot be assigned the '{$roleName}' role. " .
+                "This role is only for: " . implode(', ', $allowedDepts)
+            );
+        }
     }
 }

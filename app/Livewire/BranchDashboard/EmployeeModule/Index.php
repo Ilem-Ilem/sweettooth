@@ -404,6 +404,15 @@ class Index extends BaseComponent
                 'current_roles' => $employee->roles->pluck('name')->toArray(),
             ]);
 
+            // Validate all selected roles against employee's department
+            $selectedRoleNames = Role::whereIn('id', $this->selectedRoles)
+                ->pluck('name')
+                ->toArray();
+            
+            foreach ($selectedRoleNames as $roleName) {
+                \App\Services\RolePermissionService::validateRoleForDepartment($employee, $roleName);
+            }
+
             if (!is_super_admin()) {
                 // EMPLOYEE: Create approval request using EmployeeApprovalService
                 EmployeeApprovalService::requestRoleSync(
@@ -420,12 +429,15 @@ class Index extends BaseComponent
 
             // SUPER ADMIN: Update immediately
             $oldRoles = $employee->roles->pluck('name')->toArray();
+            $syncData = array_map('intval', $this->selectedRoles);
             $this->syncWithAudit(
                 $employee,
                 'roles',
-                $this->selectedRoles,
+                $syncData,
                 "Updated roles for {$employee->name}"
             );
+
+            $employee->load('roles');
 
             // Log role change
             $status = 'completed';

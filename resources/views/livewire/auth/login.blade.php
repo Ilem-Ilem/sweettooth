@@ -44,4 +44,11 @@
             </flux:button>
         </div>
     </form>
+
+    <!-- Staff Login Button -->
+    <div class="text-center">
+        <flux:link :href="route('staff-login')" variant="outline" class="w-full">
+            {{ __('I am a staff') }}
+        </flux:link>
+    </div>
 </div>

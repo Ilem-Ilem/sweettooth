@@ -38,7 +38,7 @@ trait RequiresApprovalWorkflow
 {
     /**
      * Determine if current user is super admin
-     * Works with both guards: web (User) and employees (Employee)
+      * Works with unified web guard system
      *
      * @return bool
      */

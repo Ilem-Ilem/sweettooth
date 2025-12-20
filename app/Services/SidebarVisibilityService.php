@@ -58,7 +58,8 @@ class SidebarVisibilityService
         return $user->can('view-employees') 
             || $user->can('create-employees')
             || $user->can('edit-employees')
-            || $user->hasAnyRole(['Super Admin', 'Admin']);
+            || $user->can('manage_organization')
+            || $user->hasAnyRole(['Super Admin', 'Admin', 'HR Manager', 'HR Officer']);
     }
 
     /**
@@ -67,6 +68,9 @@ class SidebarVisibilityService
     public static function canSeeDepartments(Model $user): bool
     {
         if (self::isSuperAdmin()) return true;
+        
+        // Hide departments for HR Manager/Officer (they don't need to manage departments)
+        if ($user->hasAnyRole(['HR Manager', 'HR Officer'])) return false;
         
         return $user->can('view-departments')
             || $user->hasAnyRole(['Super Admin', 'admin', 'manager']);
@@ -81,7 +85,8 @@ class SidebarVisibilityService
         
         return $user->can('manage-leave')
             || $user->can('approve-leave')
-            || $user->hasAnyRole(['Super Admin', 'leave_manager']);
+            || $user->can('manage_organization')
+            || $user->hasAnyRole(['Super Admin', 'leave_manager', 'HR Manager', 'HR Officer']);
     }
 
     /**
@@ -90,6 +95,9 @@ class SidebarVisibilityService
     public static function canSeeAuditManagement(Model $user): bool
     {
         if (self::isSuperAdmin()) return true;
+        
+        // Hide audit for HR Manager/Officer
+        if ($user->hasAnyRole(['HR Manager', 'HR Officer'])) return false;
         
         return $user->can('view-audit-logs')
             || $user->hasAnyRole(['Super Admin', 'auditor']);
@@ -303,7 +311,8 @@ class SidebarVisibilityService
         if (self::isSuperAdmin()) return true;
         
         return $user->can('assign-roles')
-            || $user->hasAnyRole(['Super Admin', 'admin']);
+            || $user->can('manage_organization')
+            || $user->hasAnyRole(['Super Admin', 'admin', 'HR Manager', 'HR Officer']);
     }
 
     /**

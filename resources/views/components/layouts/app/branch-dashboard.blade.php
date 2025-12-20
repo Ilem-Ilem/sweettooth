@@ -106,14 +106,18 @@
                         </flux:navlist.item>
                     </flux:navlist.group>
 
+                    @if ($sidebarService::canSeeRolesPermissions($currentUser))
                     <flux:navlist.item icon="user-plus" :href="branch_route('branch-dashboard.role-permission')"
                         :current="request()->routeIs('branch-dashboard.employee.role-permission')" wire:navigate>
                         {{ __('Roles') }}
                     </flux:navlist.item>
+                    @endif
+                    @if ($sidebarService::canSeeRoleAssignments($currentUser))
                     <flux:navlist.item icon="user-plus" :href="branch_route('branch-dashboard.role-assignments.index')"
                         :current="request()->routeIs('branch-dashboard.role-assignments.index')" wire:navigate>
                         {{ __('Assign Roles') }}
                     </flux:navlist.item>
+                    @endif
                     {{-- //role-assignments.index --}}
                 </flux:navlist.group>
                 @endif

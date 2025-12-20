@@ -30,7 +30,7 @@ class Employee extends Authenticatable
 
     public function getMorphClass()
     {
-        return 'employee';
+        return 'user';
     }
 
     protected $hidden = [

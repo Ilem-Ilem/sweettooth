@@ -84,7 +84,12 @@ class Edit extends BaseComponent
         // Set b_id from current branch context
         $this->b_id = current_branch_id();
 
-        $employee = Employee::findOrFail($id);
+        $employee = Employee::find($id);
+
+        if (!$employee) {
+            $this->toast()->error('Employee not found')->send();
+            return redirect()->route('branch-dashboard.employee.index', ['b_id' => $this->b_id]);
+        }
 
         $this->employeeId = $employee->id;
         $this->branch_id = $employee->branch_id;
@@ -101,7 +106,7 @@ class Edit extends BaseComponent
         $this->emergency_contact_phone = $employee->emergency_contact_phone;
         $this->hire_date = $employee->hire_date;
         $this->termination_date = $employee->termination_date;
-        $this->status = $employee->status;
+        $this->status = $employee->status ?? 'active';
         $this->probation_end_date = $employee->probation_end_date;
         $this->shift_preference = $employee->shift_preference;
         $this->salary = $employee->salary;
@@ -350,7 +355,7 @@ class Edit extends BaseComponent
             EmployeeAuditService::logEmployeeUpdate($employee, $changes, $user);
 
             $this->toast()->success('Employee updated successfully!')->send();
-            $this->redirectRoute('branch-dashboard.employees.index', ['b_id' => $this->b_id]);
+            $this->redirectRoute('branch-dashboard.employee.index', ['b_id' => $this->b_id]);
 
         } finally {
             $this->updatingEmployee = false;

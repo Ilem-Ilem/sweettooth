@@ -46,7 +46,7 @@ class SalesDashboard extends BaseDashboard
             'cashier',
             'corner_store_manager',
             'corner_store_staff',
-            'confectionaries_sales_staff',
+            'confectioneries_sales_staff',
             'admin',
         ];
 

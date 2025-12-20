@@ -92,7 +92,8 @@ class PermissionSeeder extends Seeder
             ['name' => 'view-stock-history', 'description' => 'View stock transaction history', 'category' => 'inventory'],
             ['name' => 'manage-inventory-settings', 'description' => 'Manage inventory settings', 'category' => 'inventory'],
 
-            // ===== SALES PERMISSIONS (11) =====
+            // ===== SALES PERMISSIONS (12) =====
+            ['name' => 'view-sales-dashboard', 'description' => 'Access sales dashboard', 'category' => 'sales'],
             ['name' => 'process-sale', 'description' => 'Process sales transactions', 'category' => 'sales'],
             ['name' => 'issue-refund', 'description' => 'Issue refunds', 'category' => 'sales'],
             ['name' => 'view-daily-sales', 'description' => 'View daily sales', 'category' => 'sales'],
@@ -132,6 +133,30 @@ class PermissionSeeder extends Seeder
             ['name' => 'view-kpi-metrics', 'description' => 'View KPI metrics', 'category' => 'reporting'],
             ['name' => 'export-data', 'description' => 'Export system data', 'category' => 'reporting'],
             ['name' => 'view-activity-timeline', 'description' => 'View activity timeline', 'category' => 'reporting'],
+
+            // ===== DASHBOARD ACCESS PERMISSIONS =====
+            ['name' => 'view_inventory_dashboard', 'description' => 'Access inventory dashboard', 'category' => 'dashboard'],
+            ['name' => 'view_production_dashboard', 'description' => 'Access production dashboard', 'category' => 'dashboard'],
+            ['name' => 'view_sales_dashboard', 'description' => 'Access sales dashboard', 'category' => 'dashboard'],
+            ['name' => 'view_corner_store_dashboard', 'description' => 'Access corner store dashboard', 'category' => 'dashboard'],
+            ['name' => 'view_hr_dashboard', 'description' => 'Access HR dashboard', 'category' => 'dashboard'],
+            ['name' => 'view_admin_dashboard', 'description' => 'Access admin dashboard', 'category' => 'dashboard'],
+            ['name' => 'view_super_admin_dashboard', 'description' => 'Access super admin dashboard', 'category' => 'dashboard'],
+
+            // ===== ORGANIZATIONAL MANAGEMENT PERMISSIONS =====
+            ['name' => 'manage_organization', 'description' => 'Manage organization (employees, departments)', 'category' => 'organization'],
+            ['name' => 'manage_roles', 'description' => 'Manage user roles and permissions', 'category' => 'organization'],
+            ['name' => 'manage_branches', 'description' => 'Manage branches', 'category' => 'organization'],
+            ['name' => 'manage_settings', 'description' => 'Manage system settings', 'category' => 'organization'],
+            ['name' => 'view_reports', 'description' => 'View system reports', 'category' => 'organization'],
+
+            // ===== ACCOUNTING ACCESS PERMISSIONS =====
+            ['name' => 'access_accounting', 'description' => 'Access accounting module', 'category' => 'accounting'],
+            ['name' => 'view_financial_reports', 'description' => 'View financial reports', 'category' => 'accounting'],
+            ['name' => 'manage_accounts', 'description' => 'Manage chart of accounts', 'category' => 'accounting'],
+            ['name' => 'manage_periods', 'description' => 'Manage accounting periods', 'category' => 'accounting'],
+            ['name' => 'create_journal_entries', 'description' => 'Create journal entries', 'category' => 'accounting'],
+            ['name' => 'reconcile_bank_accounts', 'description' => 'Reconcile bank accounts', 'category' => 'accounting'],
         ];
 
         // Create all permissions
@@ -145,5 +170,6 @@ class PermissionSeeder extends Seeder
         }
 
         echo "✅ " . count($permissions) . " permissions created successfully.\n";
+        echo "   Permissions added include: view-sales-dashboard (sales)\n";
     }
 }

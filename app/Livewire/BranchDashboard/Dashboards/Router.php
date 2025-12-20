@@ -85,6 +85,11 @@ class Router extends Component
             return Redirect::route('branch-dashboard.dashboard.production', ['b_id' => $branchId]);
         }
 
+        // Corner Store Staff/Manager - dedicated dashboard
+        if ($currentUser->hasRole('Corner Store Staff') || $currentUser->hasRole('Corner Store Manager')) {
+            return Redirect::route('branch-dashboard.dashboard.corner-store', ['b_id' => $branchId]);
+        }
+
         // Sales roles (check after HR to prevent HR users being redirected to sales)
         if ($sidebarService::canSeeSalesManagement($currentUser)) {
             return Redirect::route('branch-dashboard.dashboard.sales', ['b_id' => $branchId]);

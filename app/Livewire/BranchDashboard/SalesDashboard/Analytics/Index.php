@@ -546,7 +546,7 @@ class Index extends Component
     /**
      * Get currency symbol
      */
-    protected function getCurrencySymbol(string $currency = null): string
+    protected function getCurrencySymbol(?string $currency = null): string
     {
         $service = new CurrencyFormattingService();
         $currency = $currency ?? Settings::currencyLocalization('primary_currency', 'NGN');

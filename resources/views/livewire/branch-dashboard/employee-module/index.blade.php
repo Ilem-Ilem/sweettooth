@@ -361,7 +361,7 @@
                     'on_leave' => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
                 ];
             @endphp
-            <span class="px-2 py-1 text-xs font-semibold rounded-full {{ $statusColors[$row->status] ?? 'bg-gray-100 text-gray-800' }}">
+            <span class="px-2 py-1 text-xs font-semibold rounded-full border border-zinc-300 dark:border-zinc-600 {{ $statusColors[$row->status] ?? 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200' }}">
                 {{ ucfirst(str_replace('_', ' ', $row->status)) }}
             </span>
         @endinteract
@@ -464,10 +464,10 @@
                     </p>
                     @foreach($roles as $role)
                         <label class="flex items-center p-3 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer transition-colors">
-                             <input type="checkbox"
-                                 wire:model="selectedRoles"
-                                 value="{{ $role->id }}"
-                                 class="w-5 h-5 text-purple-600 bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-600 rounded focus:ring-purple-500 dark:focus:ring-purple-600 focus:ring-2">
+                              <input type="checkbox"
+                                  wire:model="selectedRoles"
+                                  value="{{ $role->id }}"
+                                  class="w-5 h-5 accent-purple-600 bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-600 rounded focus:ring-purple-500 dark:focus:ring-purple-600 focus:ring-2">
                             <span class="ml-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">{{ ucfirst($role->name) }}</span>
                         </label>
                     @endforeach

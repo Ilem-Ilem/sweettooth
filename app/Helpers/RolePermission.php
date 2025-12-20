@@ -462,7 +462,7 @@ class RolePermission
     {
         $guardName = $guard ?? self::getGuardName() ?? 'employees';
 
-        $modelClass = $guardName === 'employees' ? Employee::class : User::class;
+        $modelClass = $guardName === 'web' ? User::class : Employee::class;
 
         return $modelClass::role($role)->get()->toArray();
     }
@@ -474,7 +474,7 @@ class RolePermission
     {
         $guardName = $guard ?? self::getGuardName() ?? 'employees';
 
-        $modelClass = $guardName === 'employees' ? Employee::class : User::class;
+        $modelClass = $guardName === 'web' ? User::class : Employee::class;
 
         return $modelClass::permission($permission)->get()->toArray();
     }

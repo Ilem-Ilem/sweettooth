@@ -56,4 +56,11 @@
             </flux:button>
         </div>
     </form>
+
+    <!-- Admin Login Button -->
+    <div class="text-center">
+        <flux:link :href="route('login')" variant="outline" class="w-full">
+            {{ __('I am an admin') }}
+        </flux:link>
+    </div>
 </div>

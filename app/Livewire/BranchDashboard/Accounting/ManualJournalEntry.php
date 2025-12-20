@@ -138,7 +138,7 @@ class ManualJournalEntry extends Component
     /**
      * Get currency symbol for GL entries
      */
-    protected function getCurrencySymbol(string $currency = null): string
+    protected function getCurrencySymbol(?string $currency = null): string
     {
         $service = new CurrencyFormattingService();
         $currency = $currency ?? Settings::currencyLocalization('primary_currency', 'NGN');

@@ -599,7 +599,7 @@ class Stocks extends BaseComponent
     /**
      * Get currency symbol for display
      */
-    protected function getCurrencySymbol(string $currency = null): string
+    protected function getCurrencySymbol(?string $currency = null): string
     {
         $service = new CurrencyFormattingService();
         $currency = $currency ?? Settings::currencyLocalization('primary_currency', 'NGN');

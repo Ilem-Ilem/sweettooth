@@ -15,9 +15,9 @@ class SuperAdminUserSeeder extends Seeder
     {
         // Create super admin user
         $superAdmin = User::firstOrCreate(
-            ['email' => 'admin@sweettooth.local'],
+            ['email' => 'md@gmail.com'],
             [
-                'name' => 'Super Admin',
+                'name' => 'Managing Director',
                 'password' => bcrypt('password'), // Change this in production!
             ]
         );

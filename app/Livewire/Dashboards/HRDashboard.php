@@ -81,12 +81,14 @@ class HRDashboard extends BaseDashboard
     {
         return $this->remember('on_duty_today', function () {
             try {
-                $query = DB::table('clock_ins')
-                    ->whereDate('clock_in_time', Carbon::today());
+                $query = DB::table('shifts')
+                    ->where('shift_date', Carbon::today())
+                    ->where('status', 'active')
+                    ->whereNotNull('clock_in');
 
-                // Only filter by branch if the column exists and branch_id is set
+                // Filter by branch
                 $branchId = $this->getBranchId();
-                if (\Schema::hasColumn('clock_ins', 'branch_id') && $branchId) {
+                if ($branchId) {
                     $query->where('branch_id', $branchId);
                 }
 
