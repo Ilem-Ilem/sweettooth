@@ -3,17 +3,15 @@
 namespace App\Livewire\BranchDashboard\Production;
 
 use App\Livewire\BaseComponent;
+use App\Models\ApprovalAuditRequest;
 use App\Models\Department;
 use App\Models\Item;
 use App\Models\Product;
 use App\Models\Recipe;
-use App\Models\RecipeIngredient;
 use App\Services\ProductionAuditService;
-use App\Models\ApprovalAuditRequest;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Livewire\Attributes\{Layout, On, Url};
-use App\Models\Employee;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
+use Livewire\Attributes\Url;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Recipes extends BaseComponent
@@ -44,7 +42,6 @@ class Recipes extends BaseComponent
 
     // public bool $isEditing = false;
 
-
     #[Url(keep: true)]
     public ?string $dept_slug = null;
 
@@ -52,15 +49,19 @@ class Recipes extends BaseComponent
 
     // Audit modal for delete requests
     public bool $showAuditModal = false;
+
     public ?string $auditAction = null;
+
     public string $auditReason = '';
+
     public ?int $pendingRecipeId = null;
 
-    public function mount($deptSlug){
+    public function mount($deptSlug)
+    {
         $this->dept_slug = $deptSlug;
         $this->department = Department::where('slug', $deptSlug)->first();
 
-        if (!$this->department) {
+        if (! $this->department) {
             abort(404, 'Department not found');
         }
     }
@@ -90,7 +91,9 @@ class Recipes extends BaseComponent
 
         return Recipe::query()
             ->where('branch_id', $branchId)
-            ->where('department_id', $this->department->id)
+            ->when(!is_super_admin(), function ($query) {
+                $query->where('department_id', $this->department->id);
+            })
             ->with(['department', 'createdBy', 'ingredients.item'])
             ->when($this->search, function ($query) {
                 $query->where('product_name', 'like', '%'.$this->search.'%')
@@ -134,7 +137,6 @@ class Recipes extends BaseComponent
         }
     }
 
-
     public function render()
     {
         $rows = $this->getFilteredQuery()->paginate($this->quantity ?? 10);
@@ -169,7 +171,7 @@ class Recipes extends BaseComponent
             'products' => $products,
             'items' => $items,
             'department' => $this->department,
-            'dept_slug'=>$this->dept_slug
+            'dept_slug' => $this->dept_slug,
         ]);
     }
 
@@ -219,29 +221,27 @@ class Recipes extends BaseComponent
 
     public function confirmedDelete(string $message): void
     {
-        if (!$this->recipeId) {
+        if (! $this->recipeId) {
             return;
         }
 
-        // Super admin bypass - delete directly without audit
+        // Super admin bypass - delete directly with audit
         if (is_super_admin()) {
             try {
                 $recipe = Recipe::findOrFail($this->recipeId);
-                
-                // Log recipe deletion to audit trail using actor pattern
+                $actor = current_actor();
                 ProductionAuditService::logRecipeDeleted(
-                    current_actor(),
+                    $actor,
                     $recipe,
-                    'Super admin deletion'
+                    'Super admin direct delete'
                 );
-
-                $recipe->ingredients()->delete();
                 $recipe->delete();
                 $this->dialog()->success('Success', 'Recipe deleted successfully!')->send();
                 $this->recipeId = null;
             } catch (\Exception $e) {
-                $this->dialog()->error('Error', 'Failed to delete recipe: ' . $e->getMessage())->send();
+                $this->dialog()->error('Error', 'Failed to delete recipe: '.$e->getMessage())->send();
             }
+
             return;
         }
 
@@ -249,7 +249,6 @@ class Recipes extends BaseComponent
         $this->auditAction = 'delete_recipe';
         $this->pendingRecipeId = $this->recipeId;
         $this->showAuditModal = true;
-        $this->dialog()->close();
     }
 
     public function cancelledDelete(string $message): void
@@ -267,6 +266,7 @@ class Recipes extends BaseComponent
                 ->confirm('Confirm', 'confirmedBulkDelete', 'Confirmed Successfully')
                 ->cancel('Cancel', 'cancelledBulkDelete', 'Cancelled Successfully')
                 ->send();
+
             return;
         }
 
@@ -279,12 +279,12 @@ class Recipes extends BaseComponent
     public function confirmedBulkDelete(string $message): void
     {
         // This is for super admin bulk delete
-        if (!is_super_admin()) {
+        if (! is_super_admin()) {
             return;
         }
 
         $actor = current_actor();
-        
+
         foreach ($this->selectedIds as $id) {
             $recipe = Recipe::find($id);
             if ($recipe) {
@@ -315,7 +315,7 @@ class Recipes extends BaseComponent
         ]);
 
         $requester = current_actor();
-        
+
         if ($this->auditAction === 'delete_recipe' && $this->pendingRecipeId) {
             ApprovalAuditRequest::create([
                 'requester_id' => $requester->id,
@@ -352,5 +352,4 @@ class Recipes extends BaseComponent
         $this->auditAction = null;
         $this->pendingRecipeId = null;
     }
-
 }

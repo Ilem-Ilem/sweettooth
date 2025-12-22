@@ -587,8 +587,8 @@ class Index extends BaseComponent
             ->active()
             ->available();
 
-        // CRITICAL: Filter by department - only show products assigned to this department
-        if ($this->departmentId) {
+        // CRITICAL: Filter by department - only show products assigned to this department unless super admin
+        if (!is_super_admin() && $this->departmentId) {
             $q->forDepartment($this->departmentId);
         }
 

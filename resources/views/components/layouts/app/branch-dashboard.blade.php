@@ -338,6 +338,10 @@
                 if ($employee && is_string($employee)) {
                     $employee = null;
                 }
+                // Reload to ensure department and roles relationships are loaded
+                if ($employee && method_exists($employee, 'load')) {
+                    $employee->load('department', 'roles');
+                }
                 $branchId = request()->get('b_id');
                 $departments = collect();
                 $OPEN_PRODUCTION = false;
@@ -352,6 +356,7 @@
                 // Department-specific production roles
                 $departmentRestrictedRoles = [
                     'Chef',
+                    'Kitchen Staff',
                     'Head of Gelato',
                     'Confectionaries Manager',
                     'Gelato Production Staff',
@@ -370,10 +375,9 @@
                 ];
             @endphp
 
-            @if ($sidebarService::canSeeEmployeeManagement($currentUser))
-            <flux:navlist.group :heading="__('Employee Management')">
+            @if ($sidebarService::canSeeProduction($currentUser))
                 @php
-                if ($branchId && $sidebarService::canSeeProduction($currentUser)) {
+                if ($branchId) {
                     $departments = \App\Models\Department::where(
                         fn($q) => $q->where('branch_id', $branchId)->orWhereNull('branch_id'),
                     )
@@ -409,7 +413,6 @@
                         'branch-dashboard.production.callbacks.create-inventory',
                         'branch-dashboard.production.callbacks.approve-sales-callbacks',
                         'branch-dashboard.production.module.index',
-                        'branch-dashboard.production.module.stock-monitor',
                     ];
                     
                     $isProductionRoute = in_array($currentRoute, $nonDepartmentRoutes);
@@ -417,7 +420,6 @@
                     $OPEN_PRODUCTION = ($departments->isNotEmpty() || $OPEN_DEPT !== null || $isProductionRoute);
                 }
             @endphp
-            </flux:navlist.group>
             @endif
 
             @if ($OPEN_PRODUCTION)

@@ -328,23 +328,41 @@
                         @error('roleGuard') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                     </div>
 
-                    <!-- Permissions -->
-                    <div>
-                        <div class="flex items-center justify-between mb-2">
-                            <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300">Assign Permissions</label>
-                            <div class="flex items-center gap-2">
-                                <button type="button" wire:click="openCreatePermissionModal" class="text-sm px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center">
-                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                                    </svg>
-                                    New
-                                </button>
-                                <button type="button" wire:click="toggleAllPermissions" class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline">
-                                    {{ count($selectedPermissions) === count($allPermissions) ? 'Deselect All' : 'Select All' }}
-                                </button>
-                            </div>
-                        </div>
-                        <div class="space-y-2 max-h-64 overflow-y-auto p-3 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-zinc-50 dark:bg-zinc-800">
+                     <!-- Permissions -->
+                     <div>
+                         <div class="flex items-center justify-between mb-2">
+                             <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300">Assign Permissions</label>
+                             <div class="flex items-center gap-2">
+                                 <button type="button" wire:click="openCreatePermissionModal" class="text-sm px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center">
+                                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                     </svg>
+                                     New
+                                 </button>
+                                 <button type="button" wire:click="toggleAllPermissions" class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline">
+                                     {{ count($selectedPermissions) === count($allPermissions) ? 'Deselect All' : 'Select All' }}
+                                 </button>
+                             </div>
+                         </div>
+
+                         <!-- Permission Search -->
+                         <div class="mb-3">
+                             <div class="relative">
+                                 <input type="text" wire:model.live="permissionSearch" placeholder="Search permissions..." class="w-full pl-10 pr-10 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500 text-sm">
+                                 <svg class="absolute left-3 top-2.5 w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                 </svg>
+                                 @if($permissionSearch)
+                                     <button wire:click="$set('permissionSearch', null)" class="absolute right-3 top-2.5 w-5 h-5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" title="Clear search">
+                                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                         </svg>
+                                     </button>
+                                 @endif
+                             </div>
+                         </div>
+
+                         <div class="space-y-2 max-h-64 overflow-y-auto p-3 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-zinc-50 dark:bg-zinc-800">
                             @foreach($allPermissions as $permission)
                                 <label class="flex items-center p-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-lg cursor-pointer transition-colors">
                                     <input type="checkbox" wire:model="selectedPermissions" value="{{ $permission->id }}" class="w-4 h-4 text-blue-600 border-zinc-300 rounded focus:ring-blue-500">

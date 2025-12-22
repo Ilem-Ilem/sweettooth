@@ -191,7 +191,7 @@ if (!function_exists('get_user_branch_id')) {
      * Get the branch ID for the current user.
      *
      * - Super admins: returns session-selected branch (allows switching)
-     * - Employees: returns their assigned branch
+     * - Employees: returns their assigned branch or department's branch
      * - Unauthenticated: returns null
      *
      * @return string|null
@@ -214,12 +214,14 @@ if (!function_exists('get_user_branch_id')) {
             return $defaultBranch?->id;
         }
 
-        // Regular users use their assigned branch
+        // Regular users: try multiple sources for branch
+        
+        // 1. Direct branch_id on user
         if (isset($user->branch_id) && $user->branch_id) {
             return $user->branch_id;
         }
 
-        // Fallback: get branch from department
+        // 2. Get branch from department_id
         if (isset($user->department_id) && $user->department_id) {
             $department = \App\Models\Department::where('id', $user->department_id)->first();
             if ($department && $department->branch_id) {
@@ -227,27 +229,20 @@ if (!function_exists('get_user_branch_id')) {
             }
         }
 
-        // Last fallback: if user has department relationship loaded
+        // 3. Try loaded department relationship
         if (method_exists($user, 'department') && $user->department) {
-            return $user->department->branch_id;
+            if ($user->department->branch_id) {
+                return $user->department->branch_id;
+            }
         }
 
-        return null;
+        // 4. Last resort: get first active branch
+        $defaultBranch = Branch::where('is_active', 1)->first();
+        return $defaultBranch?->id;
     }
 }
 
-if (!function_exists('current_branch_id')) {
-    /**
-     * Get the current branch ID (wrapper for backwards compatibility).
-     * 
-     * @deprecated Use get_user_branch_id() instead
-     * @return string|null
-     */
-    function current_branch_id(): ?string
-    {
-        return get_user_branch_id();
-    }
-}
+
 
 if (!function_exists('validate_branch_access')) {
     /**
@@ -373,32 +368,6 @@ if (!function_exists('set_current_branch')) {
     }
 }
 
-if (!function_exists('current_branch')) {
-    /**
-     * Get the current branch model instance.
-     *
-     * @return \App\Models\Branch|null
-     */
-    function current_branch(): ?\App\Models\Branch
-    {
-        $branchId = get_user_branch_id();
 
-        if (!$branchId) {
-            return null;
-        }
 
-        return Branch::find($branchId);
-    }
-}
 
-if (!function_exists('current_actor')) {
-    /**
-     * Get the current acting user (super admin or employee).
-     *
-     * @return \App\Models\User|\App\Models\Employee|null
-     */
-    function current_actor()
-    {
-        return get_current_user();
-    }
-}

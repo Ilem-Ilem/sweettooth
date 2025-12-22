@@ -19,6 +19,11 @@ class EmployeeApprovalService
 
         $requester = current_actor();
 
+        // Validate requester
+        if (!$requester) {
+            throw new \Exception('Invalid requester or requester not authenticated');
+        }
+
         $request = ApprovalAuditRequest::create([
             'branch_id' => $employeeData['branch_id'] ?? current_branch_id(),
             'requester_id' => $requester->id,
@@ -56,11 +61,19 @@ class EmployeeApprovalService
             }
 
             // Remove non-fillable fields from payload
-            $selectedRoles = $payload['selectedRoles'] ?? [];
+            $selectedRoleIds = $payload['selectedRoles'] ?? [];
             unset($payload['selectedRoles']);
 
             // Create the employee
             $employee = Employee::create($payload);
+
+            // Convert role IDs to role names if provided
+            $selectedRoles = [];
+            if (!empty($selectedRoleIds)) {
+                $selectedRoles = \Spatie\Permission\Models\Role::whereIn('id', $selectedRoleIds)
+                    ->pluck('name')
+                    ->toArray();
+            }
 
             // Sync roles if provided
             if (!empty($selectedRoles)) {
@@ -85,6 +98,11 @@ class EmployeeApprovalService
         }
 
         $requester = current_actor();
+
+        // Validate requester
+        if (!$requester) {
+            throw new \Exception('Invalid requester or requester not authenticated');
+        }
 
         // Build payload with employee ID and changes
         $payload = array_merge($changes, [
@@ -133,7 +151,7 @@ class EmployeeApprovalService
             $employee = Employee::findOrFail($employeeId);
 
             // Extract roles and original values from payload
-            $selectedRoles = $payload['selectedRoles'] ?? [];
+            $selectedRoleIds = $payload['selectedRoles'] ?? [];
             $originalValues = $payload['original_values'] ?? [];
             unset($payload['selectedRoles'], $payload['original_values'], $payload['id']);
 
@@ -150,6 +168,14 @@ class EmployeeApprovalService
 
             // Update the employee
             $employee->update($payload);
+
+            // Convert role IDs to role names if provided
+            $selectedRoles = [];
+            if (!empty($selectedRoleIds)) {
+                $selectedRoles = \Spatie\Permission\Models\Role::whereIn('id', $selectedRoleIds)
+                    ->pluck('name')
+                    ->toArray();
+            }
 
             // Sync roles if provided
             if (!empty($selectedRoles)) {
@@ -252,7 +278,7 @@ class EmployeeApprovalService
     /**
      * Create a pending role sync request
      */
-    public static function requestRoleSync(Employee $employee, array $newRoles, string $reason): ApprovalAuditRequest
+    public static function requestRoleSync(Employee $employee, array $newRoleIds, string $reason): ApprovalAuditRequest
     {
         // Validate employee exists
         if (!$employee->exists) {
@@ -261,6 +287,14 @@ class EmployeeApprovalService
 
         $requester = current_actor();
         $oldRoles = $employee->roles->pluck('name')->toArray();
+
+        // Convert new role IDs to role names
+        $newRoles = [];
+        if (!empty($newRoleIds)) {
+            $newRoles = \Spatie\Permission\Models\Role::whereIn('id', $newRoleIds)
+                ->pluck('name')
+                ->toArray();
+        }
 
         $request = ApprovalAuditRequest::create([
             'branch_id' => $employee->branch_id ?? current_branch_id(),

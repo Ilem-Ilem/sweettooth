@@ -3,16 +3,20 @@
 namespace App\Livewire\BranchDashboard\Production;
 
 use App\Livewire\BaseComponent;
-use App\Models\{Product, Employee};
-use App\Models\ProductType;
-use App\Models\Department;
 use App\Models\ApprovalAuditRequest;
-use Livewire\Attributes\{Layout, On, Url};
+use App\Models\Department;
+use App\Models\Employee;
+use App\Models\Product;
+use App\Models\ProductType;
+use App\Models\User;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
+use Livewire\Attributes\Url;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Products extends BaseComponent
 {
-    #[Url(keep:true)]
+    #[Url(keep: true)]
     public ?string $b_id = null;
 
     // Listen for branch changes from BranchSelector (for super admins)
@@ -24,46 +28,71 @@ class Products extends BaseComponent
     }
 
     public ?int $quantity = 10;
+
     public ?string $search = null;
+
     public ?int $filterProductType = null;
+
     public ?int $filterDepartment = null;
+
     public ?string $filterStatus = null;
 
     // Modal states
     public bool $showModal = false;
+
     public ?string $productId = null;
+
     public bool $isEditing = false;
 
     // Form fields
     public string $name = '';
+
     public string $sku = '';
+
     public ?int $product_type_id = null;
+
     public ?int $category_id = null;
+
     public string $description = '';
+
     public $price = 0;
+
     public $cost = null;
+
     public int $shelf_life_days = 0;
+
     public ?int $uom_id = null;
+
     public bool $is_active = true;
+
     public bool $is_available = true;
+
     public string $image_url = '';
+
     public array $allergens = [];
+
     public array $tags = [];
-    public ?Employee $employee = null;
+
+    public User|Employee|null $employee = null;
 
     // Audit modal for approval requests
     public bool $showAuditModal = false;
+
     public ?string $auditAction = null;          // create|edit|delete
+
     public string $auditReason = '';              // User-provided reason
+
     public $pendingItemId = null;            // Product ID pending action
+
     public array $pendingItemData = [];           // Data to save on approval
 
     #[Url(keep: true)]
     public ?string $dept_slug = null;
 
-    public function mount($deptSlug){
+    public function mount($deptSlug)
+    {
         $this->dept_slug = $deptSlug;
-        $this->employee =  Employee::where('id', auth()->id())->first();
+        $this->employee = Employee::where('id', auth()->id())->first();
     }
 
     protected array $bulkActions = [
@@ -85,40 +114,44 @@ class Products extends BaseComponent
         return $this->b_id ? $this->b_id : request()->query('b_id');
     }
 
-protected function getFilteredQuery()
-{
-    $departmentId = Department::where('slug', $this->dept_slug)->firstOrFail()->id;
+    protected function getFilteredQuery()
+    {
+        $departmentId = Department::where('slug', $this->dept_slug)->firstOrFail()->id;
 
-    return Product::query()
-        ->with(['productType.department', 'unitOfMeasure', 'recipes' => function ($query) use ($departmentId) {
-            $query->where('department_id', $departmentId);
-        }])
-        ->when($this->search, function ($query) {
-            $query->where('name', 'like', '%' . $this->search . '%')
-                  ->orWhere('sku', 'like', '%' . $this->search . '%')
-                  ->orWhere('description', 'like', '%' . $this->search . '%');
-        })
-        ->when($this->filterProductType, function ($query) {
-            $query->where('product_type_id', $this->filterProductType);
-        })
-        ->whereHas('productType', function ($q) use ($departmentId) {
-            $q->where('department_id', $departmentId);
-        })
-        ->when($this->filterStatus !== null, function ($query) {
-            match ($this->filterStatus) {
-                'active'      => $query->where('is_active', true),
-                'inactive'    => $query->where('is_active', false),
-                'available'   => $query->where('is_available', true),
-                'unavailable' => $query->where('is_available', false),
-                default       => null,
-            };
-        })
-        ->where(function ($query) {
-            $query->whereNull('branch_id')
-                  ->orWhere('branch_id', $this->getBranchId());
-        })
-        ->orderBy('created_at', 'desc');
-}
+        return Product::query()
+            ->with(['productType.department', 'unitOfMeasure', 'recipes' => function ($query) use ($departmentId) {
+                if (!is_super_admin()) {
+                    $query->where('department_id', $departmentId);
+                }
+            }])
+            ->when($this->search, function ($query) {
+                $query->where('name', 'like', '%'.$this->search.'%')
+                    ->orWhere('sku', 'like', '%'.$this->search.'%')
+                    ->orWhere('description', 'like', '%'.$this->search.'%');
+            })
+            ->when($this->filterProductType, function ($query) {
+                $query->where('product_type_id', $this->filterProductType);
+            })
+            ->when(!is_super_admin(), function ($query) use ($departmentId) {
+                $query->whereHas('productType', function ($q) use ($departmentId) {
+                    $q->where('department_id', $departmentId);
+                });
+            })
+            ->when($this->filterStatus !== null, function ($query) {
+                match ($this->filterStatus) {
+                    'active' => $query->where('is_active', true),
+                    'inactive' => $query->where('is_active', false),
+                    'available' => $query->where('is_available', true),
+                    'unavailable' => $query->where('is_available', false),
+                    default => null,
+                };
+            })
+            ->where(function ($query) {
+                $query->whereNull('branch_id')
+                    ->orWhere('branch_id', $this->getBranchId());
+            })
+            ->orderBy('created_at', 'desc');
+    }
 
     public function updatedSearch()
     {
@@ -162,12 +195,12 @@ protected function getFilteredQuery()
 
     private function generateSku()
     {
-        if (!$this->isEditing && !empty($this->product_type_id) && !empty($this->name)) {
+        if (! $this->isEditing && ! empty($this->product_type_id) && ! empty($this->name)) {
             $productType = ProductType::find($this->product_type_id);
             if ($productType) {
                 $nameCode = strtoupper(substr(preg_replace('/[^A-Za-z]/', '', $this->name), 0, 3));
                 $randomCode = str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
-                $this->sku = $productType->code . '-' . $nameCode . '-' . $randomCode;
+                $this->sku = $productType->code.'-'.$nameCode.'-'.$randomCode;
             }
         }
     }
@@ -175,12 +208,22 @@ protected function getFilteredQuery()
     public function render()
     {
         $rows = $this->getFilteredQuery()->paginate($this->quantity ?? 10);
-        $productTypes = ProductType::with('department')->where('department_id',  Department::where('slug', $this->dept_slug)->first()->id)->active()->ordered()->get();
+        $productTypes = ProductType::with('department')->where('department_id', Department::where('slug', $this->dept_slug)->first()->id)->active()->ordered()->get();
         $departments = Department::whereHas('category', function ($q) {
             $q->where('name', 'Production');
         })->orderBy('name')->get();
         $unitOfMeasures = \App\Models\UnitOfMeasure::orderBy('name')->get();
-        
+
+        // Determine employee's department
+        if (is_super_admin()) {
+            $employees_department = Department::where('slug', $this->dept_slug)->first();
+        } elseif ($this->employee) {
+            $employees_department = Department::where('id', $this->employee->department_id)->first();
+        } else {
+            // Fallback: use the requested department
+            $employees_department = Department::where('slug', $this->dept_slug)->first();
+        }
+
         return view('livewire.branch-dashboard.production.products', [
             'headers' => [
                 ['index' => 'id', 'label' => '#'],
@@ -198,8 +241,7 @@ protected function getFilteredQuery()
             'productTypes' => $productTypes,
             'departments' => $departments,
             'unitOfMeasures' => $unitOfMeasures,
-            'employees_department'=> is_super_admin() ? Department::where('slug', $this->dept_slug)->first() :
-            Department::where('id',$this->employee->department_id)->first()
+            'employees_department' => $employees_department,
         ]);
     }
 
@@ -251,7 +293,7 @@ protected function getFilteredQuery()
         ];
 
         if ($this->isEditing) {
-            $rules['sku'] = 'required|string|max:255|unique:products,sku,' . $this->productId;
+            $rules['sku'] = 'required|string|max:255|unique:products,sku,'.$this->productId;
         } else {
             $rules['sku'] = 'required|string|max:255|unique:products,sku';
         }
@@ -279,6 +321,7 @@ protected function getFilteredQuery()
         // Super admin bypass - save directly without audit
         if (is_super_admin()) {
             $this->saveProduct($productData);
+
             return;
         }
 
@@ -307,7 +350,7 @@ protected function getFilteredQuery()
             // Refresh the component to show updated data
             $this->dispatch('refresh');
         } catch (\Exception $e) {
-            $this->toast()->error('Failed to save product: ' . $e->getMessage())->send();
+            $this->toast()->error('Failed to save product: '.$e->getMessage())->send();
         }
     }
 
@@ -324,20 +367,28 @@ protected function getFilteredQuery()
 
     public function confirmedDelete(string $message): void
     {
-        if (!$this->productId) {
+        if (! $this->productId) {
             return;
         }
 
-        // Super admin bypass - delete directly without audit
+        // Super admin bypass - delete directly with audit log
         if (is_super_admin()) {
             try {
                 $product = Product::findOrFail($this->productId);
                 $product->delete();
+                // Log the delete action
+                \App\Services\AuditService::log(
+                    auth()->user(),
+                    'delete',
+                    $product,
+                    'Super admin direct delete of product'
+                );
                 $this->dialog()->success('Success', 'Product deleted successfully!')->send();
                 $this->productId = null;
             } catch (\Exception $e) {
-                $this->dialog()->error('Error', 'Failed to delete product: ' . $e->getMessage())->send();
+                $this->dialog()->error('Error', 'Failed to delete product: '.$e->getMessage())->send();
             }
+
             return;
         }
 
@@ -346,7 +397,6 @@ protected function getFilteredQuery()
         $this->pendingItemId = $this->productId;
         $this->pendingItemData = ['id' => $this->productId];
         $this->showAuditModal = true;
-        $this->dialog()->close();
     }
 
     public function cancelledDelete(string $message): void
@@ -360,10 +410,11 @@ protected function getFilteredQuery()
         // Super admin - proceed directly
         if (is_super_admin()) {
             $this->dialog()
-                ->question('Warning!', 'Are you sure you want to delete ' . count($this->selectedIds) . ' product(s)?')
+                ->question('Warning!', 'Are you sure you want to delete '.count($this->selectedIds).' product(s)?')
                 ->confirm('Confirm', 'confirmedBulkDelete', 'Confirmed Successfully')
                 ->cancel('Cancel', 'cancelledBulkDelete', 'Cancelled Successfully')
                 ->send();
+
             return;
         }
 
@@ -375,11 +426,21 @@ protected function getFilteredQuery()
     public function confirmedBulkDelete(string $message): void
     {
         // This is for super admin bulk delete
-        if (!is_super_admin()) {
+        if (! is_super_admin()) {
             return;
         }
 
+        $products = Product::whereIn('id', $this->selectedIds)->get();
         Product::whereIn('id', $this->selectedIds)->delete();
+        // Log the bulk delete
+        foreach ($products as $product) {
+            \App\Services\AuditService::log(
+                auth()->user(),
+                'delete',
+                $product,
+                'Super admin bulk delete of product'
+            );
+        }
         $this->dialog()->success('Success', 'Products deleted successfully!')->send();
         $this->selectedIds = [];
     }
@@ -423,7 +484,7 @@ protected function getFilteredQuery()
         ]);
 
         $requester = current_actor();
-        
+
         if ($this->auditAction === 'bulk_delete') {
             // For bulk delete, store all IDs in payload
             ApprovalAuditRequest::create([
@@ -441,7 +502,7 @@ protected function getFilteredQuery()
             ApprovalAuditRequest::create([
                 'requester_id' => $requester->id,
                 'requester_type' => get_class($requester),
-                'action' => 'product:' . $this->auditAction,
+                'action' => 'product:'.$this->auditAction,
                 'description' => $this->auditReason,
                 'payload' => $this->pendingItemData,
                 'status' => 'pending',

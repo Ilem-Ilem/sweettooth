@@ -36,6 +36,7 @@ class Index extends BaseComponent
     // Permission form
     public string $permissionName = '';
     public string $permissionGuard = 'web';
+    public ?string $permissionSearch = null;
 
     // Standalone permission form
     public string $standalonePermissionName = '';
@@ -169,6 +170,7 @@ class Index extends BaseComponent
         $this->roleName = '';
         $this->roleGuard = 'web';
         $this->selectedPermissions = [];
+        $this->permissionSearch = null;
         $this->selectedRoleId = null;
         $this->isEditing = false;
     }
@@ -277,8 +279,9 @@ class Index extends BaseComponent
 
     public function updatedRoleGuard()
     {
-        // Clear selected permissions when guard changes
+        // Clear selected permissions and search when guard changes
         $this->selectedPermissions = [];
+        $this->permissionSearch = null;
     }
 
     public function toggleAllPermissions()
@@ -364,7 +367,14 @@ class Index extends BaseComponent
         $rows = $this->getFilteredQuery()->paginate($this->quantity ?? 10);
 
         // Filter permissions by the selected guard
-        $allPermissions = Permission::where('guard_name', $this->roleGuard)->get();
+        $allPermissionsQuery = Permission::where('guard_name', $this->roleGuard);
+
+        // Apply search filter if provided
+        if ($this->permissionSearch) {
+            $allPermissionsQuery->where('name', 'like', '%' . $this->permissionSearch . '%');
+        }
+
+        $allPermissions = $allPermissionsQuery->get();
 
         return view('livewire.branch-dashboard.roles.index', [
             'headers' => [

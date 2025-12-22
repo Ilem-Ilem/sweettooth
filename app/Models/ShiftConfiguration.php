@@ -48,7 +48,7 @@ class ShiftConfiguration extends Model
     /**
      * Check if current time is within clock-in window (STRICT ENFORCEMENT)
      */
-    public function isWithinStrictClockInWindow(Carbon $currentTime = null): bool
+    public function isWithinStrictClockInWindow(?Carbon $currentTime = null): bool
     {
         $now = $currentTime ?? Carbon::now($this->timezone);
 
@@ -80,7 +80,7 @@ class ShiftConfiguration extends Model
     /**
      * Check if shift should auto clock out
      */
-    public function shouldAutoClockOut(Carbon $clockInTime, Carbon $currentTime = null): bool
+    public function shouldAutoClockOut(Carbon $clockInTime, ?Carbon $currentTime = null): bool
     {
         $now = $currentTime ?? Carbon::now($this->timezone);
 

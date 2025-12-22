@@ -170,8 +170,10 @@ class SidebarVisibilityService
      */
     public static function canSeeProduction(Model $user): bool
     {
-        // Super Admin, Admin, MD see everything - don't show separate sections
-        if (self::isSuperAdmin()) return false;
+        // Super admins should see everything including production
+        if (self::isSuperAdmin()) return true;
+
+        // Admin, MD see everything - don't show separate sections
         if ($user->hasAnyRole(['Admin', 'MD', 'Managing Director'])) return false;
 
         // Only production roles should see production section

@@ -24,6 +24,7 @@
             Clock Out
         </button>
     @else
+        @if(!is_super_admin())
         <!-- Clock In Button -->
         <a
             href="{{ route('branch-dashboard.select_shift') }}"
@@ -35,6 +36,7 @@
             </svg>
             Clock In
         </a>
+        @endif
     @endif
 
     <!-- Shift Warnings/Alerts -->

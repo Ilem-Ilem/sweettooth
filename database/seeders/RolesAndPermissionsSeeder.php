@@ -155,14 +155,11 @@ class RolesAndPermissionsSeeder extends Seeder
                     // Leave management (own branch)
                     'manage-leave', 'approve-leave',
 
-                    // Attendance (own branch)
-                    'view-attendance',
-
                     // Audit (own branch)
                     'view-audit-logs',
 
-                    // Approvals (own branch)
-                    'view-approvals', 'approve-requests', 'reject-requests',
+                    // Dashboard access
+                    'view_inventory_dashboard', 'view_production_dashboard', 'view-sales-dashboard', 'view_sales_dashboard',
                 ],
             ],
             [
@@ -195,14 +192,11 @@ class RolesAndPermissionsSeeder extends Seeder
                     // Leave management (own team)
                     'manage-leave', 'approve-leave',
 
-                    // Attendance (own team)
-                    'view-attendance',
-
                     // Audit (limited)
                     'view-audit-logs',
 
-                    // Approvals (limited)
-                    'view-approvals', 'approve-requests', 'reject-requests',
+                    // Dashboard access
+                    'view_inventory_dashboard', 'view_production_dashboard', 'view-sales-dashboard', 'view_sales_dashboard',
                 ],
             ],
             [
@@ -230,11 +224,8 @@ class RolesAndPermissionsSeeder extends Seeder
                     // Leave management (own)
                     'manage-leave',
 
-                    // Clock in/out
-                    'clock.in',
-
-                    // Attendance (own)
-                    'view-attendance',
+                    // Dashboard access
+                    'view_inventory_dashboard', 'view_production_dashboard', 'view-sales-dashboard', 'view_sales_dashboard',
                 ],
             ],
             [
@@ -247,10 +238,10 @@ class RolesAndPermissionsSeeder extends Seeder
                     'manage-roles-assignments', 'view-employee-details',
 
                     // Organization management
-                    'manage_organization',
+                    'manage_organization', 'manage_branches',
 
                     // Dashboard access
-                    'view_hr_dashboard',
+                    'view_hr_dashboard', 'view_inventory_dashboard', 'view_production_dashboard', 'view-sales-dashboard', 'view_sales_dashboard',
 
                     // Reports
                     'view_reports',
@@ -266,10 +257,10 @@ class RolesAndPermissionsSeeder extends Seeder
                     'view-employee-details',
 
                     // Organization management
-                    'manage_organization',
+                    'manage_organization', 'manage_branches',
 
                     // Dashboard access
-                    'view_hr_dashboard',
+                    'view_hr_dashboard', 'view_inventory_dashboard', 'view_production_dashboard', 'view-sales-dashboard', 'view_sales_dashboard',
 
                     // Reports
                     'view_reports',
@@ -290,14 +281,124 @@ class RolesAndPermissionsSeeder extends Seeder
                 ],
             ],
             [
+                'name' => 'Head of Production',
+                'permissions' => [
+                    // Production permissions
+                    'view-production-queue', 'create-production-order', 'start-production', 'complete-production',
+                    'approve-production', 'manage-recipes', 'view-recipes', 'view-production-reports',
+                    'view-batch-history', 'edit-production-order', 'cancel-production',
+
+                    // Dashboard access
+                    'view_production_dashboard',
+
+                    // Inventory permissions
+                    'view-stock-levels', 'view-inventory-reports',
+
+                    // Reports
+                    'view_reports',
+                ],
+            ],
+            [
+                'name' => 'Chef',
+                'permissions' => [
+                    // Production permissions
+                    'view-production-queue', 'start-production', 'complete-production',
+                    'view-recipes', 'view-production-reports', 'view-batch-history',
+                    'approve-production',
+
+                    // Dashboard access
+                    'view_production_dashboard',
+
+                    // Inventory viewing
+                    'view-stock-levels',
+                ],
+            ],
+            [
                 'name' => 'Kitchen Staff',
                 'permissions' => [
                     // Production permissions
                     'view-production-queue', 'start-production', 'complete-production',
                     'view-recipes', 'view-production-reports', 'view-batch-history',
 
+                    // Dashboard access
+                    'view_production_dashboard',
+
                     // Inventory viewing
-                    'view-inventory',
+                    'view-stock-levels',
+                ],
+            ],
+            [
+                'name' => 'Head of Gelato',
+                'permissions' => [
+                    // Production permissions
+                    'view-production-queue', 'start-production', 'complete-production',
+                    'view-recipes', 'view-production-reports', 'view-batch-history',
+                    'approve-production',
+
+                    // Dashboard access
+                    'view_production_dashboard',
+
+                    // Inventory viewing
+                    'view-stock-levels',
+                ],
+            ],
+            [
+                'name' => 'Gelato Production Staff',
+                'permissions' => [
+                    // Production permissions
+                    'view-production-queue', 'start-production', 'complete-production',
+                    'view-recipes', 'view-production-reports', 'view-batch-history',
+
+                    // Dashboard access
+                    'view_production_dashboard',
+
+                    // Inventory viewing
+                    'view-stock-levels',
+                ],
+            ],
+            [
+                'name' => 'Confectionaries Manager',
+                'permissions' => [
+                    // Production permissions
+                    'view-production-queue', 'start-production', 'complete-production',
+                    'view-recipes', 'view-production-reports', 'view-batch-history',
+                    'approve-production',
+
+                    // Dashboard access
+                    'view_production_dashboard',
+
+                    // Inventory permissions
+                    'view-stock-levels', 'adjust-inventory', 'view-inventory-reports',
+
+                    // Sales permissions
+                    'view-sales-dashboard', 'process-sale', 'view-daily-sales', 'view-sales-reports',
+
+                    // Reports
+                    'view_reports',
+                ],
+            ],
+            [
+                'name' => 'Confectionaries Production Staff',
+                'permissions' => [
+                    // Production permissions
+                    'view-production-queue', 'start-production', 'complete-production',
+                    'view-recipes', 'view-production-reports', 'view-batch-history',
+
+                    // Dashboard access
+                    'view_production_dashboard',
+
+                    // Inventory viewing
+                    'view-stock-levels',
+                ],
+            ],
+            [
+                'name' => 'Confectionaries Sales Staff',
+                'permissions' => [
+                    // Sales permissions
+                    'process-sale', 'view-daily-sales', 'view-sales-reports',
+
+                    // Inventory viewing
+                    'view-stock-levels',
                 ],
             ],
             [
@@ -308,7 +409,7 @@ class RolesAndPermissionsSeeder extends Seeder
                     'view-sales-reports', 'view-sales-transactions',
 
                     // Inventory viewing
-                    'view-inventory',
+                    'view-stock-levels',
                 ],
             ],
             [
@@ -319,6 +420,9 @@ class RolesAndPermissionsSeeder extends Seeder
                     'close-register', 'view-sales-reports', 'manage-sales-discounts',
                     'view-sales-transactions', 'edit-sales-transactions', 'void-sales-transactions',
                     'manage-payment-methods', 'view-till-records',
+
+                    // Dashboard access
+                    'view-sales-dashboard', 'view_sales_dashboard',
 
                     // Reports
                     'view_reports',
@@ -331,7 +435,7 @@ class RolesAndPermissionsSeeder extends Seeder
                     'process-sale', 'view-daily-sales', 'view-sales-reports',
 
                     // Inventory viewing
-                    'view-inventory',
+                    'view-stock-levels',
                 ],
             ],
             [
@@ -342,10 +446,10 @@ class RolesAndPermissionsSeeder extends Seeder
                     'close-register', 'view-sales-reports', 'view-sales-transactions',
 
                     // Inventory viewing
-                    'view-inventory', 'adjust-inventory',
+                    'view-stock-levels', 'adjust-inventory',
 
-                    // Corner store dashboard
-                    'view_corner_store_dashboard',
+                    // Dashboard access
+                    'view_corner_store_dashboard', 'view-sales-dashboard', 'view_sales_dashboard', 'view_inventory_dashboard',
                 ],
             ],
         ];

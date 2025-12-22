@@ -21,8 +21,8 @@ class Details extends Component
     public ?string $b_id = null;
 
     public function mount($employee_number = null, $id = null){
-        // Set b_id from current branch context
-        $this->b_id = current_branch_id();
+        // Set b_id from URL parameter or current branch context
+        $this->b_id = request()->query('b_id') ?? current_branch_id();
 
         if ($employee_number) {
             $employee = Employee::with(['department', 'branch', 'roles'])

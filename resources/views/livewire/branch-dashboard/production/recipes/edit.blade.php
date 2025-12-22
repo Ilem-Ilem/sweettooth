@@ -20,24 +20,24 @@
                 <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Basic Information</h3>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Product Name *</label>
-                        <select wire:model.live="productName"
-                                class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
-                            <option value="">Select Product</option>
-                            @foreach($products as $product)
-                                <option value="{{ $product->name }}">{{ $product->name }}</option>
-                            @endforeach
-                        </select>
-                        @error('productName') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
-                    </div>
+                     <div>
+                         <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Product *</label>
+                         <select wire:model.live="product_id"
+                                 class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                             <option value="">Select Product</option>
+                             @foreach($products as $product)
+                                 <option value="{{ $product->id }}">{{ $product->name }}</option>
+                             @endforeach
+                         </select>
+                         @error('product_id') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                     </div>
 
-                    <div>
-                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">SKU *</label>
-                        <input type="text" wire:model="sku"
-                               class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
-                        @error('sku') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
-                    </div>
+                     <div>
+                         <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">SKU</label>
+                         <input type="text" wire:model="sku" readonly
+                                class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 cursor-not-allowed">
+                         <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Auto-filled from selected product</p>
+                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">

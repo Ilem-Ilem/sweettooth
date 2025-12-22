@@ -81,8 +81,8 @@ class Edit extends BaseComponent
 
     public function mount($id)
     {
-        // Set b_id from current branch context
-        $this->b_id = current_branch_id();
+        // Set b_id from URL parameter or current branch context
+        $this->b_id = request()->query('b_id') ?? current_branch_id();
 
         $employee = Employee::find($id);
 
@@ -117,7 +117,7 @@ class Edit extends BaseComponent
         $this->existing_photo = $employee->profile_photo;
         $this->last_performance_review_date = $employee->last_performance_review_date;
         $this->performance_rating = $employee->performance_rating;
-        $this->selectedRoles = $employee->roles->pluck('name')->toArray();
+        $this->selectedRoles = $employee->roles->pluck('id')->map(fn($id) => (string)$id)->toArray();
     }
 
     // Listen for branch changes from BranchSelector (for super admins)

@@ -2,28 +2,24 @@
 
 namespace App\Livewire\BranchDashboard\Production\Recipes;
 
+use App\Models\ApprovalAuditRequest;
 use App\Models\Department;
 use App\Models\Item;
 use App\Models\Product;
 use App\Models\Recipe;
 use App\Models\RecipeIngredient;
-use App\Models\ApprovalAuditRequest;
 use App\Models\UnitOfMeasure;
-use App\Services\ProductionAuditService;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
-use Livewire\Attributes\Computed;
 use Livewire\Component;
 use TallStackUi\Traits\Interactions;
-
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Edit extends Component
 {
     use Interactions;
-    
+
     #[Url(keep: true)]
     public ?string $b_id = null;
 
@@ -31,7 +27,7 @@ class Edit extends Component
     public ?int $recipe_id = null;
 
     // Form fields
-    public ?int $product_id = null;
+    public ?string $product_id = null;
 
     public string $productName = '';
 
@@ -56,16 +52,20 @@ class Edit extends Component
     // Recipe Ingredients
     public array $ingredients = [];
 
-    #[Url(keep:true)]
+    #[Url(keep: true)]
     public ?string $dept_slug = null;
 
     public ?Department $department = null;
 
     // Audit modal for approval requests
     public bool $showAuditModal = false;
+
     public ?string $auditAction = null;          // edit|delete
+
     public string $auditReason = '';              // User-provided reason
+
     public ?int $pendingItemId = null;            // Recipe ID pending action
+
     public array $pendingItemData = [];           // Data to save on approval
 
     public function mount($id, $deptSlug)
@@ -74,7 +74,7 @@ class Edit extends Component
         $this->dept_slug = $deptSlug;
         $this->department = Department::where('slug', $deptSlug)->first();
 
-        if (!$this->department) {
+        if (! $this->department) {
             abort(404, 'Department not found');
         }
 
@@ -90,7 +90,7 @@ class Edit extends Component
         $this->sku = $recipe->sku;
         $this->product_type_id = $recipe->product_type_id;
         $this->cost_per_unit = $recipe->cost_per_unit;
-        $this->uom = $recipe->uom ?? 'grams';
+        $this->uom = $recipe->unitOfMeasure?->symbol ?? 'grams';
         $this->yield_quantity = $recipe->yield_quantity ?? 1;
         $this->preparation_time = $recipe->preparation_time;
         $this->status = $recipe->status ?? 'active';
@@ -104,7 +104,7 @@ class Edit extends Component
                 'id' => $ingredient->id,
                 'item_id' => $ingredient->item_id,
                 'quantity' => $ingredient->quantity,
-                'uom' => $ingredient->uom,
+                'uom' => $ingredient->unitOfMeasure?->symbol ?? 'grams',
                 'cost_per_unit' => $ingredient->cost_per_unit,
                 'waste_percentage' => $ingredient->waste_percentage,
                 'notes' => $ingredient->notes,
@@ -123,18 +123,23 @@ class Edit extends Component
         if ($this->product_id) {
             $product = Product::with('productType')->find($this->product_id);
             if ($product) {
+                $this->productName = $product->name;
+                $this->sku = $product->sku;
                 $this->yield_quantity = $product->recipe_yield ?? 1;
-                $this->uom = $product->uom ?? 'grams';
-                
+                $this->uom = $product->unitOfMeasure?->symbol ?? 'grams';
+
                 // Auto-populate product type from product's actual ProductType relationship
                 if ($product->productType) {
                     // Store the product_type_id for later use in validation
                     $this->product_type_id = $product->product_type_id ?? null;
                 }
             }
+        } else {
+            $this->productName = '';
+            $this->sku = '';
+            $this->product_type_id = null;
         }
     }
-
 
     public function addIngredient()
     {
@@ -170,9 +175,10 @@ class Edit extends Component
     {
         $rules = [
             'productName' => 'required|string|max:255',
-            'sku' => 'required|string|max:255|unique:recipes,sku,' . $this->recipe_id,
+            'sku' => 'required|string|max:255|unique:recipes,sku,'.$this->recipe_id,
             'department_id' => 'required|exists:departments,id',
             'product_type_id' => 'required|exists:product_types,id',
+            'cost_per_unit' => 'required|numeric|min:0.0001',
             'uom' => 'required|in:grams,kg,liters,ml,pcs,units',
             'yield_quantity' => 'required|numeric|min:0.01',
             'preparation_time' => 'nullable|integer|min:0',
@@ -181,7 +187,7 @@ class Edit extends Component
             'ingredients.*.item_id' => 'required|exists:items,id',
             'ingredients.*.quantity' => 'required|numeric|min:0.01',
             'ingredients.*.uom' => 'required|string',
-            'ingredients.*.cost_per_unit' => 'required|numeric|min:0',
+            'ingredients.*.cost_per_unit' => 'required|numeric|min:0.0001',
             'ingredients.*.waste_percentage' => 'nullable|numeric|min:0|max:100',
         ];
 
@@ -193,6 +199,7 @@ class Edit extends Component
             $costPerUnit = (float) $ing['cost_per_unit'];
             $wastePercent = (float) ($ing['waste_percentage'] ?? 0);
             $actualQuantity = $quantity * (1 + ($wastePercent / 100));
+
             return $actualQuantity * $costPerUnit;
         });
         $costPerUnit = $totalCost / max((float) $this->yield_quantity, 1);
@@ -208,7 +215,7 @@ class Edit extends Component
             'uom' => $this->uom,
             'yield_quantity' => $this->yield_quantity,
             'preparation_time' => $this->preparation_time,
-            'instructions' => !empty($this->instructions) ? json_encode(array_values($this->instructions)) : null,
+            'instructions' => ! empty($this->instructions) ? json_encode(array_values($this->instructions)) : null,
             'status' => $this->status,
             'ingredients' => $this->ingredients,
         ];
@@ -216,6 +223,7 @@ class Edit extends Component
         // Super admin bypass - save directly without audit
         if (is_super_admin()) {
             $this->saveRecipe($recipeData);
+
             return;
         }
 
@@ -255,9 +263,10 @@ class Edit extends Component
             });
 
             $this->toast()->success('Recipe updated successfully')->send();
+
             return $this->redirect(branch_route('branch-dashboard.production.recipes.index', ['deptSlug' => $this->dept_slug]), navigate: true);
         } catch (\Exception $e) {
-            $this->toast()->error('Failed to update recipe: ' . $e->getMessage())->send();
+            $this->toast()->error('Failed to update recipe: '.$e->getMessage())->send();
         }
     }
 
@@ -268,11 +277,11 @@ class Edit extends Component
         ]);
 
         $requester = current_actor();
-        
+
         ApprovalAuditRequest::create([
             'requester_id' => $requester->id,
             'requester_type' => get_class($requester),
-            'action' => 'recipe:' . $this->auditAction,
+            'action' => 'recipe:'.$this->auditAction,
             'description' => $this->auditReason,
             'payload' => $this->pendingItemData,
             'status' => 'pending',
@@ -281,14 +290,14 @@ class Edit extends Component
 
         $this->closeAuditModal();
         $this->toast()->success('Approval request submitted')->send();
-        
+
         // For delete requests, redirect to recipes index
         if ($this->auditAction === 'delete_recipe') {
             return $this->redirect(branch_route('branch-dashboard.production.recipes.index', ['deptSlug' => $this->dept_slug]), navigate: true);
         }
-        
+
         // For edit requests, stay on edit page
-        return;
+
     }
 
     /**
@@ -301,6 +310,7 @@ class Edit extends Component
         // Super admin bypass - delete directly without audit
         if (is_super_admin()) {
             $this->deleteRecipe($recipe);
+
             return;
         }
 
@@ -324,9 +334,10 @@ class Edit extends Component
             });
 
             $this->toast()->success('Recipe deleted successfully')->send();
+
             return $this->redirect(branch_route('branch-dashboard.production.recipes.index', ['deptSlug' => $this->dept_slug]), navigate: true);
         } catch (\Exception $e) {
-            $this->toast()->error('Failed to delete recipe: ' . $e->getMessage())->send();
+            $this->toast()->error('Failed to delete recipe: '.$e->getMessage())->send();
         }
     }
 
@@ -338,8 +349,6 @@ class Edit extends Component
         $this->pendingItemId = null;
         $this->pendingItemData = [];
     }
-
-
 
     public function render()
     {
@@ -360,21 +369,14 @@ class Edit extends Component
         $items = Item::where('branch_id', $branchId)
             ->orderBy('name')
             ->get();
-        
+
         // Get product types for the department
         $productTypes = \App\Models\ProductType::where('department_id', $this->department->id)
-            ->whereHas('products', function ($q) use ($branchId) {
-                $q->where('is_active', 1)
-                    ->where(function ($query) use ($branchId) {
-                        $query->whereNull('branch_id')
-                            ->orWhere('branch_id', $branchId);
-                    });
-            })
             ->orderBy('sort_order')
             ->get();
 
         // Get all units of measure
-        $unitsOfMeasure = UnitOfMeasure::active()->get();
+        $unitsOfMeasure = UnitOfMeasure::active();
 
         return view('livewire.branch-dashboard.production.recipes.edit', [
             'products' => $products,

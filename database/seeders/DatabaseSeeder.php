@@ -31,7 +31,7 @@ class DatabaseSeeder extends Seeder
             AccountingAccessControlSeeder::class,
 
             // 3. Super Admin & Users (Before branch setup)
-            // SuperAdminUserSeeder::class, // Skip - using new UserSeeder
+            SuperAdminUserSeeder::class,
             // 4. Branch & Department Setup
             BranchSeeder::class,
             BranchUserSeeder::class,

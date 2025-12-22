@@ -82,8 +82,8 @@ class Create extends BaseComponent
 
     public function mount()
     {
-        // Set b_id from current branch context (works for both employees and super admins)
-        $this->b_id = current_branch_id();
+        // Set b_id from URL parameter or current branch context
+        $this->b_id = request()->query('b_id') ?? current_branch_id();
 
         $this->hire_date = date('Y-m-d');
 

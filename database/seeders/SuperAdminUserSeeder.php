@@ -15,10 +15,11 @@ class SuperAdminUserSeeder extends Seeder
     {
         // Create super admin user
         $superAdmin = User::firstOrCreate(
-            ['email' => 'md@gmail.com'],
+            ['email' => 'admin@sweettooth.local'],
             [
-                'name' => 'Managing Director',
+                'name' => 'Super Admin',
                 'password' => bcrypt('password'), // Change this in production!
+                'is_active' => true,
             ]
         );
 
@@ -27,11 +28,12 @@ class SuperAdminUserSeeder extends Seeder
             ->where('guard_name', 'web')
             ->first();
 
-        if ($superAdminRole && !$superAdmin->hasRole('Super Admin')) {
-            $superAdmin->assignRole($superAdminRole);
+        if ($superAdminRole) {
+            $superAdmin->syncRoles([$superAdminRole]);
+            $this->command->info('✅ Super Admin user created/verified: ' . $superAdmin->email);
+            $this->command->warn('⚠️  Default password is "password" - CHANGE THIS IN PRODUCTION!');
+        } else {
+            $this->command->error('❌ Super Admin role not found. Run RoleSeeder first!');
         }
-
-        $this->command->info('✅ Super Admin user created/verified: admin@sweettooth.local');
-        $this->command->warn('⚠️  Default password is "password" - CHANGE THIS IN PRODUCTION!');
     }
 }

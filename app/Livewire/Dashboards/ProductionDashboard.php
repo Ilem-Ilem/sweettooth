@@ -25,6 +25,13 @@ class ProductionDashboard extends BaseDashboard
             if ($department) {
                 $this->departmentId = $department->id;
             }
+        } else {
+            // If no department slug provided, try to auto-assign from user's department
+            $userDepartment = $this->getUserDepartment();
+            if ($userDepartment) {
+                $this->departmentId = $userDepartment->id;
+                $this->deptSlug = $userDepartment->slug;
+            }
         }
         
         // Verify user has production access

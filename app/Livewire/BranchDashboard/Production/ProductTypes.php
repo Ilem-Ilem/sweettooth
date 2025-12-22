@@ -2,16 +2,19 @@
 
 namespace App\Livewire\BranchDashboard\Production;
 
-use App\Models\Employee;
-use App\Models\Department;
-use App\Models\ProductType;
 use App\Livewire\BaseComponent;
-use Livewire\Attributes\{Layout, On, Url};
+use App\Models\Department;
+use App\Models\Employee;
+use App\Models\ProductType;
+use App\Models\User;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
+use Livewire\Attributes\Url;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class ProductTypes extends BaseComponent
 {
-    #[Url(keep:true)]
+    #[Url(keep: true)]
     public ?string $b_id = null;
 
     // Listen for branch changes from BranchSelector (for super admins)
@@ -23,39 +26,49 @@ class ProductTypes extends BaseComponent
     }
 
     public ?int $quantity = 10;
+
     public ?string $search = null;
+
     public ?string $filterStatus = null;
+
     public ?int $filterDepartment = null;
 
     // Modal states
     public bool $showModal = false;
+
     public ?int $productTypeId = null;
+
     public bool $isEditing = false;
 
     // Form fields
     public ?int $department_id = null;
+
     public string $name = '';
+
     public string $code = '';
+
     public string $description = '';
+
     public string $status = 'active';
+
     public int $sort_order = 0;
 
-    public ?Employee $employees_department = null;
-    public ?Department $department = null;
+    public User|Employee|null $employees_department = null;
 
+    public ?Department $department = null;
 
     protected array $bulkActions = [
         'delete' => ['label' => 'Delete Selected', 'method' => 'bulkDelete'],
     ];
 
-
     #[Url(keep: true)]
     public ?string $dept_slug = null;
 
-    public function mount($deptSlug){
+    public function mount($deptSlug)
+    {
         $this->dept_slug = $deptSlug;
         $this->department = Department::where('slug', $deptSlug)->first();
-        $this->employees_department =  Employee::where('id', auth()->id())->first();
+        $this->employees_department = Employee::where('id', auth()->id())->first();
 
     }
 
@@ -78,13 +91,15 @@ class ProductTypes extends BaseComponent
     {
 
         return ProductType::query()
-            ->where('department_id', $this->department->id)
+            ->when(!is_super_admin(), function ($query) {
+                $query->where('department_id', $this->department->id);
+            })
             ->with(['department', 'department.category'])
             ->withCount('products')
             ->when($this->search, function ($query) {
-                $query->where('name', 'like', '%' . $this->search . '%')
-                      ->orWhere('code', 'like', '%' . $this->search . '%')
-                      ->orWhere('description', 'like', '%' . $this->search . '%');
+                $query->where('name', 'like', '%'.$this->search.'%')
+                    ->orWhere('code', 'like', '%'.$this->search.'%')
+                    ->orWhere('description', 'like', '%'.$this->search.'%');
             })
             ->when($this->filterStatus, function ($query) {
                 $query->where('status', $this->filterStatus);
@@ -174,7 +189,7 @@ class ProductTypes extends BaseComponent
         ];
 
         if ($this->isEditing) {
-            $rules['code'] = 'required|string|max:50|unique:product_types,code,' . $this->productTypeId;
+            $rules['code'] = 'required|string|max:50|unique:product_types,code,'.$this->productTypeId;
         } else {
             $rules['code'] = 'required|string|max:50|unique:product_types,code';
         }
@@ -222,10 +237,20 @@ class ProductTypes extends BaseComponent
             // Check if it has products
             if ($productType->products()->count() > 0) {
                 $this->dialog()->error('Error', 'Cannot delete product type with associated products!')->send();
+
                 return;
             }
 
             $productType->delete();
+            // Log the delete for super admin
+            if (is_super_admin()) {
+                \App\Services\AuditService::log(
+                    auth()->user(),
+                    'delete',
+                    $productType,
+                    'Super admin direct delete of product type'
+                );
+            }
             $this->dialog()->success('Success', 'Product type deleted successfully!')->send();
             $this->productTypeId = null;
         }
@@ -240,7 +265,7 @@ class ProductTypes extends BaseComponent
     public function bulkDeleteItems(): void
     {
         $this->dialog()
-            ->question('Warning!', 'Are you sure you want to delete ' . count($this->selectedIds) . ' product type(s)?')
+            ->question('Warning!', 'Are you sure you want to delete '.count($this->selectedIds).' product type(s)?')
             ->confirm('Confirm', 'confirmedBulkDelete', 'Confirmed Successfully')
             ->cancel('Cancel', 'cancelledBulkDelete', 'Cancelled Successfully')
             ->send();
@@ -248,9 +273,24 @@ class ProductTypes extends BaseComponent
 
     public function confirmedBulkDelete(string $message): void
     {
+        $productTypes = ProductType::whereIn('id', $this->selectedIds)
+            ->whereDoesntHave('products')
+            ->get();
         ProductType::whereIn('id', $this->selectedIds)
             ->whereDoesntHave('products')
             ->delete();
+
+        // Log for super admin
+        if (is_super_admin()) {
+            foreach ($productTypes as $productType) {
+                \App\Services\AuditService::log(
+                    auth()->user(),
+                    'delete',
+                    $productType,
+                    'Super admin bulk delete of product type'
+                );
+            }
+        }
 
         $this->dialog()->success('Success', 'Product types deleted successfully!')->send();
         $this->selectedIds = [];

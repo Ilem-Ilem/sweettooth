@@ -1,8 +1,5 @@
 {
     "preset": "laravel",
-    "rules": {
-        "no_unused_variables": true
-    },
     "exclude": [
         "app/Models"
     ]

@@ -163,7 +163,6 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
             // Module
             Route::prefix('module')->name('module.')->group(function () {
                 Route::get('/', \App\Livewire\BranchDashboard\Production\KitchenModule\Index::class)->name('index');
-                Route::get('/stock-monitor', \App\Livewire\BranchDashboard\Production\KitchenModule\StockMonitor::class)->name('stock-monitor');
             });
 
             // Raw Material Tracking
@@ -179,8 +178,14 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
             Route::get('/approve-sales-callbacks', \App\Livewire\BranchDashboard\Production\Callbacks\ApproveCallbacks::class)->name('approve-sales-callbacks');
         });
 
-        // Production Reports
+        // Production Reports - Grouped
         Route::prefix('reports')->name('reports.')->group(function () {
+            // Grouped report pages
+            Route::get('/operations', \App\Livewire\BranchDashboard\Production\Reports\OperationsReports::class)->name('operations');
+            Route::get('/performance', \App\Livewire\BranchDashboard\Production\Reports\PerformanceReports::class)->name('performance');
+            Route::get('/planning', \App\Livewire\BranchDashboard\Production\Reports\PlanningReports::class)->name('planning');
+
+            // Individual reports (kept for backward compatibility)
             Route::get('/efficiency', \App\Livewire\BranchDashboard\Production\Reports\ProductionEfficiency\Index::class)->name('efficiency');
             Route::get('/quality', \App\Livewire\BranchDashboard\Production\Reports\QualityMetrics\Index::class)->name('quality');
             Route::get('/waste', \App\Livewire\BranchDashboard\Production\Reports\WasteAnalysis\Index::class)->name('waste');

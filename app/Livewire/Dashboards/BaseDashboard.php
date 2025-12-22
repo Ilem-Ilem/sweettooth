@@ -25,6 +25,11 @@ abstract class BaseDashboard extends Component
     protected ?string $roleId = null;
 
     /**
+     * Current authenticated user
+     */
+    protected $user = null;
+
+    /**
      * Cache duration in minutes
      */
     protected int $cacheDuration = 60;
@@ -41,6 +46,7 @@ abstract class BaseDashboard extends Component
     public function mount()
     {
         $this->branchId = current_branch_id();
+        $this->user = auth()->user();
         $this->setDefaultDateRange();
     }
 
@@ -83,7 +89,8 @@ abstract class BaseDashboard extends Component
      */
     public function getUserRoleName(): ?string
     {
-        $user = auth()->user();
+        // Use cached user from mount if available, otherwise get from auth
+        $user = $this->user ?? auth()->user();
         if (!$user || !is_object($user)) {
             return null;
         }

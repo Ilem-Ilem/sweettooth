@@ -45,24 +45,64 @@ if (!function_exists('current_branch_id')) {
     /**
      * Get the current branch ID based on user context.
      *
-     * Returns the branch ID from session (for super admins) or from
-     * the authenticated employee's branch assignment.
+     * Returns the branch ID from (in priority order):
+     * 1. URL parameter (?b_id=) - if not empty
+     * 2. Session (for super admins who can switch branches)
+     * 3. Authenticated user's branch_id
+     * 4. Authenticated user's department's branch_id
+     * 5. First active branch (always fallback)
      *
-     * @return int|null
+     * @return string|null
      */
     function current_branch_id(): ?string
     {
-        // First check session (for super admins who can switch branches)
-        if (session()->has('selected_branch_id')) {
+        // First check URL parameter (highest priority) - only if non-empty
+        if (request()->has('b_id')) {
+            $b_id = request()->query('b_id');
+            if ($b_id && trim($b_id) !== '') {
+                session(['selected_branch_id' => $b_id]);
+                return $b_id;
+            }
+        }
+
+        // Check session
+        if (session()->has('selected_branch_id') && session('selected_branch_id')) {
             return session('selected_branch_id');
         }
 
-        // Then check authenticated employee's branch
+        // Check authenticated user's context
         if (auth()->check()) {
-            return auth()->user()->branch_id;
+            $user = auth()->user();
+            
+            // Try direct branch_id first
+            if (isset($user->branch_id) && $user->branch_id) {
+                session(['selected_branch_id' => $user->branch_id]);
+                return $user->branch_id;
+            }
+            
+            // Try to get branch from user's department
+            if (isset($user->department_id) && $user->department_id) {
+                $department = \App\Models\Department::find($user->department_id);
+                if ($department && $department->branch_id) {
+                    session(['selected_branch_id' => $department->branch_id]);
+                    return $department->branch_id;
+                }
+            }
+            
+            // Try loaded relationship
+            if (method_exists($user, 'department') && $user->department && $user->department->branch_id) {
+                session(['selected_branch_id' => $user->department->branch_id]);
+                return $user->department->branch_id;
+            }
         }
 
-        // Fallback to null if no branch context available
+        // Final fallback - get and cache first active branch
+        $defaultBranch = \App\Models\Branch::where('is_active', 1)->first();
+        if ($defaultBranch) {
+            session(['selected_branch_id' => $defaultBranch->id]);
+            return $defaultBranch->id;
+        }
+
         return null;
     }
 }
@@ -103,13 +143,18 @@ if (!function_exists('current_actor')) {
         // Unified system - all users authenticated via web guard
         $user = \Illuminate\Support\Facades\Auth::user();
 
+        // If no user, return null
+        if (!$user) {
+            return null;
+        }
+
         // Ensure we're returning a User object, not a serialized string
-        if ($user && is_string($user)) {
+        if (is_string($user)) {
             // Try to reload user by ID
             $userId = \Illuminate\Support\Facades\Auth::id();
             if ($userId) {
                 $user = \App\Models\User::find($userId);
-                if ($user) {
+                if ($user && is_object($user)) {
                     \Illuminate\Support\Facades\Auth::setUser($user);
                     return $user;
                 }
@@ -118,7 +163,16 @@ if (!function_exists('current_actor')) {
             return null;
         }
 
-        if ($user && !is_object($user)) {
+        // If not a User instance, reload by ID
+        if (!$user instanceof \App\Models\User) {
+            $userId = \Illuminate\Support\Facades\Auth::id();
+            if ($userId) {
+                $user = \App\Models\User::find($userId);
+                if ($user && is_object($user)) {
+                    \Illuminate\Support\Facades\Auth::setUser($user);
+                    return $user;
+                }
+            }
             \Illuminate\Support\Facades\Auth::logout();
             return null;
         }

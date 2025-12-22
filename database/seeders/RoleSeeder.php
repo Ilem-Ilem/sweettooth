@@ -97,7 +97,7 @@ class RoleSeeder extends Seeder
             'manage-staff-schedule', 'manage-leave', 'approve-leave', 'view-payroll',
             'manage-payroll', 'view-hr-reports', 'manage-roles-assignments',
             'view-employee-details', 'view-analytics', 'view-dashboard',
-            'view-department-reports', 'view-branches',
+            'view-department-reports', 'view-branches', 'manage_organization',
         ]);
 
         $inventoryManager = Role::create([
