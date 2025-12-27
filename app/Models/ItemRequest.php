@@ -16,13 +16,21 @@ class ItemRequest extends Model
         'branch_id',
         'department_id',
         'request_number',
-        'requested_by',
+        'requested_by_id',
+        'requested_by_type',
         'request_date',
         'required_date',
         'shift',
         'status',
-        'approved_by',
+        'approved_by_id',
+        'approved_by_type',
         'approved_at',
+        'cancelled_by_id',
+        'cancelled_by_type',
+        'cancelled_at',
+        'dispatched_by_id',
+        'dispatched_by_type',
+        'dispatched_at',
         'notes',
     ];
 
@@ -75,6 +83,22 @@ class ItemRequest extends Model
     public function creator(): MorphTo
     {
         return $this->morphTo('requested_by');
+    }
+
+    /**
+     * Alias for creator relationship (for backward compatibility)
+     */
+    public function requester(): MorphTo
+    {
+        return $this->creator();
+    }
+
+    /**
+     * Alias for creator relationship (for backward compatibility)
+     */
+    public function requestedBy(): MorphTo
+    {
+        return $this->creator();
     }
 
     public function approver(): MorphTo

@@ -3,76 +3,112 @@
 namespace App\Livewire\BranchDashboard\EmployeeModule;
 
 use App\Livewire\BaseComponent;
-use App\Models\Employee;
 use App\Models\Branch;
 use App\Models\Department;
-use App\Models\ApprovalAuditRequest;
-use App\Services\AuditService;
+use App\Models\Employee;
 use App\Services\EmployeeApprovalService;
 use App\Services\EmployeeAuditService;
 use App\Traits\AuditableSyncTrait;
 use Illuminate\Support\Facades\Hash;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
+use Livewire\Attributes\Url;
 use Livewire\WithFileUploads;
 use Spatie\Permission\Models\Role;
-use Livewire\Attributes\{Layout, Url, On};
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Create extends BaseComponent
 {
-    use WithFileUploads, AuditableSyncTrait;
+    use AuditableSyncTrait, WithFileUploads;
 
     // Employee form
     #[Url(keep: true)]
-    public  $b_id;
+    public $b_id;
 
     public ?string $branch_id = null;
+
     public ?string $department_id = null;
+
     public string $employee_number = '';
+
     public string $name = '';
+
     public string $email = '';
+
     public ?string $phone = null;
+
     public ?string $address = null;
+
     public ?string $date_of_birth = null;
+
     public ?string $gender = null;
+
     public string $nationality = 'Nigerian';
+
     public ?string $emergency_contact_name = null;
+
     public ?string $emergency_contact_phone = null;
+
     public string $position = '';
+
     public ?string $hire_date = null;
+
     public ?string $termination_date = null;
+
     public string $status = 'active';
+
     public ?string $probation_end_date = null;
+
     public ?string $shift_preference = null;
+
     public ?float $salary = null;
+
     public ?float $hourly_rate = null;
+
     public ?string $tax_id = null;
+
     public ?string $bank_account = null;
+
     public ?string $allergies = null;
+
     public $profile_photo = null;
+
     public ?string $last_performance_review_date = null;
+
     public ?float $performance_rating = null;
+
     public array $selectedRoles = [];
 
     // Reason modal state for employees
     public bool $showCreationReasonModal = false;
+
     public string $creationReason = '';
+
     public bool $creatingEmployee = false;
 
     // Modal states for creating branch/department
     public bool $showCreateBranchModal = false;
+
     public bool $showCreateDepartmentModal = false;
 
     // Branch form fields
     public string $branch_name = '';
+
     public string $branch_code = '';
+
     public string $branch_location = '';
+
     public ?string $branch_phone = null;
+
     public ?string $branch_email = null;
 
     // Department form fields
     public string $dept_name = '';
+
     public ?string $dept_branch_id = null;
+
     public string $dept_type = 'production';
+
     public ?string $dept_description = null;
 
     protected function getModelClass(): string
@@ -139,7 +175,6 @@ class Create extends BaseComponent
         $this->branch_email = null;
     }
 
-
     // Department creation methods
     public function openCreateDepartmentModal()
     {
@@ -182,7 +217,7 @@ class Create extends BaseComponent
 
     /**
      * Initiate employee creation workflow
-     * 
+     *
      * For super admins: Proceeds directly to save
      * For employees: Shows reason modal first
      */
@@ -245,17 +280,20 @@ class Create extends BaseComponent
     {
         if (strlen($this->creationReason) < 5) {
             $this->toast()->error('Reason must be at least 5 characters long')->send();
+
             return;
         }
-        
+
         $this->showCreationReasonModal = false;
         $this->saveEmployee();
     }
 
     public function saveEmployee()
     {
-        if ($this->creatingEmployee) return; // Prevent double-click
-        
+        if ($this->creatingEmployee) {
+            return;
+        } // Prevent double-click
+
         $this->creatingEmployee = true;
 
         try {
@@ -324,7 +362,7 @@ class Create extends BaseComponent
 
             $user = current_actor();
 
-            if (!is_super_admin()) {
+            if (! is_super_admin()) {
                 // EMPLOYEE: Create approval request using EmployeeApprovalService
                 $approvalPayload = array_merge($data, [
                     'branch_id' => $this->b_id,
@@ -335,6 +373,7 @@ class Create extends BaseComponent
 
                 $this->toast()->success('Employee creation request submitted for approval!')->send();
                 $this->redirectRoute('branch-dashboard.employee.index', ['b_id' => $this->b_id]);
+
                 return;
             }
 
@@ -342,14 +381,14 @@ class Create extends BaseComponent
             $employee = Employee::create($data);
 
             // Sync roles with audit
-            if (!empty($this->selectedRoles)) {
+            if (! empty($this->selectedRoles)) {
                 $oldRoles = [];
                 $employee->syncRoles($this->selectedRoles);
                 EmployeeAuditService::logRoleChange(
                     $employee,
                     $oldRoles,
                     $this->selectedRoles,
-                    "Initial role assignment during employee creation",
+                    'Initial role assignment during employee creation',
                     $user
                 );
             }
@@ -358,6 +397,7 @@ class Create extends BaseComponent
             EmployeeAuditService::logEmployeeCreation($employee, $user);
 
             $this->toast()->success('Employee created successfully!')->send();
+
             return redirect()->route('branch-dashboard.employee.index', ['b_id' => $this->b_id]);
 
         } finally {
@@ -368,7 +408,7 @@ class Create extends BaseComponent
     private function generateEmployeeNumber()
     {
         $branch = Branch::find($this->b_id);
-        if (!$branch) {
+        if (! $branch) {
             return '';
         }
 
@@ -377,17 +417,18 @@ class Create extends BaseComponent
 
         // Get the last employee for this branch
         $lastEmployee = Employee::where('branch_id', $this->b_id)
-            ->where('employee_number', 'like', 'EMP-' . $branchCode . '-%')
+            ->where('employee_number', 'like', 'EMP-'.$branchCode.'-%')
             ->orderBy('employee_number', 'desc')
             ->first();
 
         if ($lastEmployee) {
             // Extract the last 4 digits from the employee number
             $lastNumber = intval(substr($lastEmployee->employee_number, -4));
-            return 'EMP-' . $branchCode . '-' . str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
+
+            return 'EMP-'.$branchCode.'-'.str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
         }
 
-        return 'EMP-' . $branchCode . '-0001';
+        return 'EMP-'.$branchCode.'-0001';
     }
 
     public function render()

@@ -4,32 +4,39 @@ namespace App\Livewire\BranchDashboard\EmployeeModule\LeaveManagement;
 
 use App\Livewire\BaseComponent;
 use App\Models\LeaveApplication;
-use App\Models\EmployeeLeaveBalance;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Livewire\WithPagination;
 use TallStackUi\Traits\Interactions;
-use Illuminate\Support\Facades\Storage;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class ApproveLeave extends BaseComponent
 {
-    use WithPagination, Interactions;
+    use Interactions, WithPagination;
 
     #[Url(keep: true)]
     public ?string $b_id = null;
 
     public ?int $quantity = 20;
+
     public ?string $search = null;
+
     public ?string $status_filter = '';
 
     // Modals
     public $showApprovalModal = false;
+
     public $showRejectionModal = false;
+
     public $showDetailsModal = false;
+
     public $selectedLeaveId = null;
+
     public ?LeaveApplication $selectedLeave = null;
+
     public $approval_notes = '';
+
     public $rejection_reason = '';
 
     // Table headers
@@ -73,14 +80,14 @@ class ApproveLeave extends BaseComponent
 
         if ($this->search) {
             $query->where(function ($q) {
-                $q->where('application_number', 'like', '%' . $this->search . '%')
-                  ->orWhere('reason', 'like', '%' . $this->search . '%')
-                  ->orWhereHas('employee', function ($q) {
-                      $q->where('name', 'like', '%' . $this->search . '%');
-                  })
-                  ->orWhereHas('leaveType', function ($q) {
-                      $q->where('name', 'like', '%' . $this->search . '%');
-                  });
+                $q->where('application_number', 'like', '%'.$this->search.'%')
+                    ->orWhere('reason', 'like', '%'.$this->search.'%')
+                    ->orWhereHas('employee', function ($q) {
+                        $q->where('name', 'like', '%'.$this->search.'%');
+                    })
+                    ->orWhereHas('leaveType', function ($q) {
+                        $q->where('name', 'like', '%'.$this->search.'%');
+                    });
             });
         }
 
@@ -91,8 +98,9 @@ class ApproveLeave extends BaseComponent
     {
         $this->selectedLeave = LeaveApplication::with(['employee', 'leaveType', 'approvedBy', 'rejectedBy', 'cancelledBy'])->find($id);
 
-        if (!$this->selectedLeave) {
+        if (! $this->selectedLeave) {
             $this->toast()->error('Leave application not found.')->send();
+
             return;
         }
 
@@ -109,8 +117,9 @@ class ApproveLeave extends BaseComponent
     {
         $leave = LeaveApplication::find($id);
 
-        if (!$leave || $leave->status !== 'pending') {
+        if (! $leave || $leave->status !== 'pending') {
             $this->toast()->error('Leave application not found or not pending.')->send();
+
             return;
         }
 
@@ -135,13 +144,14 @@ class ApproveLeave extends BaseComponent
         try {
             $leave = LeaveApplication::find($this->selectedLeaveId);
 
-            if (!$leave || $leave->status !== 'pending') {
+            if (! $leave || $leave->status !== 'pending') {
                 $this->toast()->error('Leave application not found or not pending.')->send();
+
                 return;
             }
 
             // $approver = auth()->user();
-            $approver =  current_actor();
+            $approver = current_actor();
             $leave->approve($approver->id, get_class($approver), $this->approval_notes);
 
             $this->toast()->success("Leave application {$leave->application_number} approved successfully.")->send();
@@ -149,7 +159,7 @@ class ApproveLeave extends BaseComponent
             $this->resetPage();
 
         } catch (\Exception $e) {
-            $this->toast()->error('Error approving leave: ' . $e->getMessage())->send();
+            $this->toast()->error('Error approving leave: '.$e->getMessage())->send();
         }
     }
 
@@ -157,8 +167,9 @@ class ApproveLeave extends BaseComponent
     {
         $leave = LeaveApplication::find($id);
 
-        if (!$leave || $leave->status !== 'pending') {
+        if (! $leave || $leave->status !== 'pending') {
             $this->toast()->error('Leave application not found or not pending.')->send();
+
             return;
         }
 
@@ -183,22 +194,23 @@ class ApproveLeave extends BaseComponent
         try {
             $leave = LeaveApplication::find($this->selectedLeaveId);
 
-            if (!$leave || $leave->status !== 'pending') {
+            if (! $leave || $leave->status !== 'pending') {
                 $this->toast()->error('Leave application not found or not pending.')->send();
+
                 return;
             }
 
             // $rejecter = auth()->user();
             $rejecter = current_actor();
 
-            $leave->reject($rejecter->id, get_class($rejecter) ,$this->rejection_reason);
+            $leave->reject($rejecter->id, get_class($rejecter), $this->rejection_reason);
 
             $this->toast()->success("Leave application {$leave->application_number} rejected.")->send();
             $this->closeRejectionModal();
             $this->resetPage();
 
         } catch (\Exception $e) {
-            $this->toast()->error('Error rejecting leave: ' . $e->getMessage())->send();
+            $this->toast()->error('Error rejecting leave: '.$e->getMessage())->send();
         }
     }
 

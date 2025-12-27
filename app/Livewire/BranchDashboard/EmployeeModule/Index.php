@@ -3,30 +3,35 @@
 namespace App\Livewire\BranchDashboard\EmployeeModule;
 
 use App\Livewire\BaseComponent;
-use App\Models\Employee;
-use App\Models\Department;
 use App\Models\Branch;
-use App\Models\ApprovalAuditRequest;
-use App\Services\AuditService;
+use App\Models\Department;
+use App\Models\Employee;
 use App\Services\EmployeeApprovalService;
 use App\Services\EmployeeAuditService;
 use App\Traits\AuditableSyncTrait;
-use Spatie\Permission\Models\Role;
-use Livewire\Attributes\{Layout, Url, On};
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
+use Livewire\Attributes\Url;
+use Spatie\Permission\Models\Role;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Index extends BaseComponent
 {
     use AuditableSyncTrait;
+
     public ?int $quantity = 10;
+
     public ?string $search = null;
+
     public ?string $advancedSearch = null;
+
     public ?string $dateFrom = null;
+
     public ?string $dateTo = null;
 
     #[Url(keep: true)]
-    public  $b_id;
+    public $b_id;
 
     public function mount()
     {
@@ -46,20 +51,27 @@ class Index extends BaseComponent
     // Filter fields
     #[Url()]
     public ?string $filterStatus = null;
+
     #[Url()]
     public ?string $filterDepartment = null;
+
     #[Url()]
     public ?string $filterBranch = null;
+
     #[Url()]
     public ?string $filterGender = null;
+
     #[Url()]
     public ?string $filterShift = null;
+
     #[Url()]
     public ?string $hireDateFrom = null;
-    #[Url()]
 
+    #[Url()]
     public ?string $hireDateTo = null;
+
     public ?string $terminationDateFrom = null;
+
     #[Url()]
     public ?string $terminationDateTo = null;
     #[Url()]
@@ -69,17 +81,25 @@ class Index extends BaseComponent
 
     // Role assignment state
     public bool $showRoleModal = false;
+
     public ?string $employeeIdForRole = null;
+
     public array $selectedRoles = [];
-    
+
+    public string $roleSearch = '';
+
     // Role reason modal state
     public bool $showRoleReasonModal = false;
+
     public string $roleReason = '';
+
     public bool $savingRoles = false;
 
     // Delete reason modal state
     public bool $showDeleteReasonModal = false;
+
     public string $deleteReason = '';
+
     public bool $deletingEmployee = false;
 
     protected function getModelClass(): string
@@ -95,29 +115,29 @@ class Index extends BaseComponent
     protected function getFilteredQuery()
     {
         return Employee::query()
-        ->latest()
+            ->latest()
             ->where('branch_id', $this->b_id)
             ->with(['branch', 'department', 'roles'])
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
-                    $q->where('name', 'like', '%' . $this->search . '%')
-                        ->orWhere('email', 'like', '%' . $this->search . '%')
-                        ->orWhere('employee_number', 'like', '%' . $this->search . '%')
-                        ->orWhere('position', 'like', '%' . $this->search . '%');
+                    $q->where('name', 'like', '%'.$this->search.'%')
+                        ->orWhere('email', 'like', '%'.$this->search.'%')
+                        ->orWhere('employee_number', 'like', '%'.$this->search.'%')
+                        ->orWhere('position', 'like', '%'.$this->search.'%');
                 });
             })
             ->when($this->advancedSearch, function ($query) {
                 $query->where(function ($q) {
-                    $q->where('name', 'like', '%' . $this->advancedSearch . '%')
-                        ->orWhere('email', 'like', '%' . $this->advancedSearch . '%')
-                        ->orWhere('employee_number', 'like', '%' . $this->advancedSearch . '%')
-                        ->orWhere('position', 'like', '%' . $this->advancedSearch . '%')
-                        ->orWhere('phone', 'like', '%' . $this->advancedSearch . '%')
+                    $q->where('name', 'like', '%'.$this->advancedSearch.'%')
+                        ->orWhere('email', 'like', '%'.$this->advancedSearch.'%')
+                        ->orWhere('employee_number', 'like', '%'.$this->advancedSearch.'%')
+                        ->orWhere('position', 'like', '%'.$this->advancedSearch.'%')
+                        ->orWhere('phone', 'like', '%'.$this->advancedSearch.'%')
                         ->orWhereHas('branch', function ($branchQuery) {
-                            $branchQuery->where('name', 'like', '%' . $this->advancedSearch . '%');
+                            $branchQuery->where('name', 'like', '%'.$this->advancedSearch.'%');
                         })
                         ->orWhereHas('department', function ($deptQuery) {
-                            $deptQuery->where('name', 'like', '%' . $this->advancedSearch . '%');
+                            $deptQuery->where('name', 'like', '%'.$this->advancedSearch.'%');
                         });
                 });
             })
@@ -193,7 +213,7 @@ class Index extends BaseComponent
 
         return response()->streamDownload(function () use ($csv) {
             echo $csv;
-        }, 'employees-' . date('Y-m-d') . '.csv', [
+        }, 'employees-'.date('Y-m-d').'.csv', [
             'Content-Type' => 'text/csv',
         ]);
     }
@@ -217,7 +237,7 @@ class Index extends BaseComponent
 
     public function initiateDeleteEmployee(string $message): void
     {
-        if (!is_super_admin()) {
+        if (! is_super_admin()) {
             $this->showDeleteReasonModal = true;
         } else {
             $this->confirmedDeleteEmployee($message);
@@ -235,17 +255,20 @@ class Index extends BaseComponent
     {
         if (strlen($this->deleteReason) < 5) {
             $this->toast()->error('Reason must be at least 5 characters long')->send();
+
             return;
         }
-        
+
         $this->showDeleteReasonModal = false;
         $this->confirmedDeleteEmployee('Confirmed Successfully');
     }
 
     public function confirmedDeleteEmployee(string $message): void
     {
-        if ($this->deletingEmployee) return;
-        
+        if ($this->deletingEmployee) {
+            return;
+        }
+
         $this->deletingEmployee = true;
 
         try {
@@ -253,7 +276,7 @@ class Index extends BaseComponent
                 $employee = Employee::findOrFail($this->selectedEmployeeId);
                 $user = current_actor();
 
-                if (!is_super_admin()) {
+                if (! is_super_admin()) {
                     // EMPLOYEE: Create approval request using EmployeeApprovalService
                     EmployeeApprovalService::requestDelete(
                         $employee,
@@ -262,6 +285,7 @@ class Index extends BaseComponent
 
                     $this->toast()->success('Employee deletion request submitted for approval!')->send();
                     $this->selectedEmployeeId = null;
+
                     return;
                 }
 
@@ -286,7 +310,7 @@ class Index extends BaseComponent
     public function bulkDeleteEmployees(): void
     {
         $this->dialog()
-            ->question('Warning!', 'Are you sure you want to delete ' . count($this->selectedIds) . ' employee(s)?')
+            ->question('Warning!', 'Are you sure you want to delete '.count($this->selectedIds).' employee(s)?')
             ->confirm('Confirm', 'initiateBulkDelete', 'Confirmed Successfully')
             ->cancel('Cancel', 'cancelledBulkDelete', 'Cancelled Successfully')
             ->send();
@@ -294,7 +318,7 @@ class Index extends BaseComponent
 
     public function initiateBulkDelete(string $message): void
     {
-        if (!is_super_admin()) {
+        if (! is_super_admin()) {
             $this->showDeleteReasonModal = true;
         } else {
             $this->confirmedBulkDelete($message);
@@ -303,15 +327,17 @@ class Index extends BaseComponent
 
     public function confirmedBulkDelete(string $message): void
     {
-        if ($this->deletingEmployee) return;
-        
+        if ($this->deletingEmployee) {
+            return;
+        }
+
         $this->deletingEmployee = true;
 
         try {
             $user = current_actor();
             $employees = Employee::whereIn('id', $this->selectedIds)->get();
 
-            if (!is_super_admin()) {
+            if (! is_super_admin()) {
                 // EMPLOYEE: Create approval requests for each employee
                 foreach ($employees as $employee) {
                     EmployeeApprovalService::requestDelete(
@@ -320,9 +346,10 @@ class Index extends BaseComponent
                     );
                 }
 
-                $this->toast()->success(count($this->selectedIds) . ' employee deletion request(s) submitted for approval!')->send();
+                $this->toast()->success(count($this->selectedIds).' employee deletion request(s) submitted for approval!')->send();
                 $this->selectedIds = [];
                 $this->deleteReason = '';
+
                 return;
             }
 
@@ -332,7 +359,7 @@ class Index extends BaseComponent
                 $employee->delete();
             }
 
-            $this->dialog()->success('Success', count($this->selectedIds) . ' employee(s) deleted successfully!')->send();
+            $this->dialog()->success('Success', count($this->selectedIds).' employee(s) deleted successfully!')->send();
             $this->selectedIds = [];
         } finally {
             $this->deletingEmployee = false;
@@ -349,7 +376,7 @@ class Index extends BaseComponent
     {
         $this->employeeIdForRole = $employeeId;
         $employee = Employee::find($employeeId);
-        $this->selectedRoles = $employee ? $employee->roles->pluck('id')->map(fn($id) => (string)$id)->toArray() : [];
+        $this->selectedRoles = $employee ? $employee->roles->pluck('id')->map(fn ($id) => (string) $id)->toArray() : [];
         $this->showRoleModal = true;
     }
 
@@ -358,11 +385,12 @@ class Index extends BaseComponent
         $this->showRoleModal = false;
         $this->employeeIdForRole = null;
         $this->selectedRoles = [];
+        $this->roleSearch = '';
     }
 
     public function initiateRoleSave(): void
     {
-        if (!is_super_admin()) {
+        if (! is_super_admin()) {
             $this->showRoleReasonModal = true;
         } else {
             $this->saveRoles();
@@ -379,21 +407,26 @@ class Index extends BaseComponent
     {
         if (strlen($this->roleReason) < 5) {
             $this->toast()->error('Reason must be at least 5 characters long')->send();
+
             return;
         }
-        
+
         $this->showRoleReasonModal = false;
         $this->saveRoles();
     }
 
     public function saveRoles(): void
     {
-        if ($this->savingRoles) return;
-        
+        if ($this->savingRoles) {
+            return;
+        }
+
         $this->savingRoles = true;
 
         try {
-            if (!$this->employeeIdForRole) return;
+            if (! $this->employeeIdForRole) {
+                return;
+            }
 
             $employee = Employee::findOrFail($this->employeeIdForRole);
             $user = Auth::user();
@@ -408,12 +441,12 @@ class Index extends BaseComponent
             $selectedRoleNames = Role::whereIn('id', $this->selectedRoles)
                 ->pluck('name')
                 ->toArray();
-            
+
             foreach ($selectedRoleNames as $roleName) {
                 \App\Services\RolePermissionService::validateRoleForDepartment($employee, $roleName);
             }
 
-            if (!is_super_admin()) {
+            if (! is_super_admin()) {
                 // EMPLOYEE: Create approval request using EmployeeApprovalService
                 EmployeeApprovalService::requestRoleSync(
                     $employee,
@@ -424,6 +457,8 @@ class Index extends BaseComponent
                 $this->toast()->success('Role update request submitted for approval!')->send();
                 $this->closeRoleModal();
                 $this->roleReason = '';
+                $this->savingRoles = false;
+
                 return;
             }
 
@@ -439,40 +474,105 @@ class Index extends BaseComponent
 
             $employee->load('roles');
 
-            // Log role change
+            // Log role change - compare new role names with old ones
+            $newRoles = $employee->roles->pluck('name')->toArray();
             $status = 'completed';
-            if ($oldRoles !== $this->selectedRoles) {
+            if ($oldRoles !== $newRoles) {
                 EmployeeAuditService::logRoleChange(
                     $employee,
                     $oldRoles,
-                    $this->selectedRoles,
+                    $newRoles,
                     $this->roleReason,
                     $user,
                     $status,
                 );
             }
 
-
-
             $this->toast()->success('Roles updated successfully!')->send();
             $this->closeRoleModal();
             $this->roleReason = '';
             $this->savingRoles = false;
         } catch (\Exception $e) {
-            $this->toast()->error('Error updating roles: ' . $e->getMessage())->send();
+            $this->toast()->error('Error updating roles: '.$e->getMessage())->send();
+            \Log::error('Error saving roles', [
+                'employee_id' => $this->employeeIdForRole,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             $this->savingRoles = false;
         }
     }
 
+    /**
+     * Get roles grouped by department category
+     */
+    protected function getRolesGroupedByDepartment()
+    {
+        $query = Role::where('guard_name', 'web')
+            ->where('name', '!=', 'MD');
+
+        // Apply search filter if provided
+        if (! empty($this->roleSearch)) {
+            $searchTerm = '%'.$this->roleSearch.'%';
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('name', 'like', $searchTerm)
+                    ->orWhere('description', 'like', $searchTerm);
+            });
+        }
+
+        $roles = $query->get();
+
+        // Group by category (Admin, Production, Sales, HR, Inventory)
+        $grouped = [
+            'Admin Roles' => [],
+            'Production Roles' => [],
+            'Sales Roles' => [],
+            'HR Roles' => [],
+            'Inventory Roles' => [],
+            'Other Roles' => [],
+        ];
+
+        foreach ($roles as $role) {
+            $category = $this->getRoleCategory($role->name);
+            $grouped[$category][] = $role;
+        }
+
+        // Remove empty categories
+        return array_filter($grouped, fn ($roles) => count($roles) > 0);
+    }
+
+    /**
+     * Determine role category based on role name
+     */
+    protected function getRoleCategory($roleName): string
+    {
+        $roleName = strtolower($roleName);
+
+        if (in_array($roleName, ['admin', 'super admin', 'managing director'])) {
+            return 'Admin Roles';
+        } elseif (str_contains($roleName, 'production') || str_contains($roleName, 'chef') || str_contains($roleName, 'gelato') || str_contains($roleName, 'confectionar')) {
+            return 'Production Roles';
+        } elseif (str_contains($roleName, 'sale') || str_contains($roleName, 'cashier') || str_contains($roleName, 'till') || str_contains($roleName, 'corner store')) {
+            return 'Sales Roles';
+        } elseif (str_contains($roleName, 'hr') || str_contains($roleName, 'human resource')) {
+            return 'HR Roles';
+        } elseif (str_contains($roleName, 'inventory') || str_contains($roleName, 'stock') || str_contains($roleName, 'store keeper')) {
+            return 'Inventory Roles';
+        }
+
+        return 'Other Roles';
+    }
+
     public function render()
     {
-        $rows = $this->getFilteredQuery()->paginate((int)($this->quantity ?? 10));
+        $rows = $this->getFilteredQuery()->paginate((int) ($this->quantity ?? 10));
         $branches = Branch::where('is_active', true)->get();
         $departments = Department::all();
         $statuses = ['active', 'inactive', 'terminated', 'on_probation', 'on_leave'];
         $genders = ['male', 'female', 'other', 'prefer_not_to_say'];
         $shifts = ['morning', 'afternoon', 'night', 'rotating', 'flexible'];
         $roles = Role::where('guard_name', 'web')->where('name', '!=', 'MD')->get();
+        $rolesGroupedByDepartment = $this->getRolesGroupedByDepartment();
 
         return view('livewire.branch-dashboard.employee-module.index', [
             'headers' => [
@@ -492,8 +592,9 @@ class Index extends BaseComponent
             'genders' => $genders,
             'shifts' => $shifts,
             'roles' => $roles,
+            'rolesGroupedByDepartment' => $rolesGroupedByDepartment,
         ]);
     }
 }
 
-#'livewire.branch-dashbord.employee-module.index'
+// 'livewire.branch-dashbord.employee-module.index'

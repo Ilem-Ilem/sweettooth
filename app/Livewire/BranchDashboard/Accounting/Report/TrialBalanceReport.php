@@ -2,10 +2,10 @@
 
 namespace App\Livewire\BranchDashboard\Accounting\Report;
 
-use App\Services\TrialBalanceService;
 use App\Models\AccountingPeriod;
-use Livewire\Component;
+use App\Services\TrialBalanceService;
 use Livewire\Attributes\Layout;
+use Livewire\Component;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class TrialBalanceReport extends Component
@@ -13,7 +13,9 @@ class TrialBalanceReport extends Component
     protected TrialBalanceService $tbService;
 
     public ?int $periodId = null;
+
     public ?int $comparePeriodId = null;
+
     public bool $isComparative = false;
 
     public function boot()
@@ -41,14 +43,14 @@ class TrialBalanceReport extends Component
 
     public function toggleComparative()
     {
-        $this->isComparative = !$this->isComparative;
+        $this->isComparative = ! $this->isComparative;
     }
 
     public function exportToCsv()
     {
         $data = $this->tbService->exportTrialBalance($this->periodId);
-        $filename = 'trial_balance_' . now()->format('Y-m-d_His') . '.csv';
-        
+        $filename = 'trial_balance_'.now()->format('Y-m-d_His').'.csv';
+
         return response()->streamDownload(function () use ($data) {
             $f = fopen('php://output', 'w');
             fputcsv($f, array_keys($data[0]));

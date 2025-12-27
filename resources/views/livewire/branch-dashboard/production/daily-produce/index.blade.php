@@ -271,7 +271,7 @@
                             <div>
                                 <label class="text-xs text-red-600 dark:text-red-400 font-medium">Callback (Damaged):</label>
                                 <input type="number" step="0.01" min="0"
-                                       wire:model.blur="editingQuantities.{{ $produce['id'] }}.callback_quantity"
+                                       wire:model.live="editingQuantities.{{ $produce['id'] }}.callback_quantity"
                                        wire:change="updateQuantity({{ $produce['id'] }}, 'callback_quantity')"
                                        class="w-full mt-1 px-3 py-2 text-sm border border-red-300 dark:border-red-600 rounded bg-red-50 dark:bg-red-900/20 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-red-500">
                             </div>
@@ -282,14 +282,14 @@
                             <div>
                                 <label class="text-xs text-zinc-600 dark:text-zinc-400 font-medium">Sent Out:</label>
                                 <input type="number" step="0.01" min="0"
-                                       wire:model.blur="editingQuantities.{{ $produce['id'] }}.sent_out_quantity"
+                                       wire:model.live="editingQuantities.{{ $produce['id'] }}.sent_out_quantity"
                                        wire:change="updateQuantity({{ $produce['id'] }}, 'sent_out_quantity')"
                                        class="w-full mt-1 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500">
                             </div>
                             <div>
                                 <label class="text-xs text-zinc-600 dark:text-zinc-400 font-medium">For Order:</label>
                                 <input type="number" step="0.01" min="0"
-                                       wire:model.blur="editingQuantities.{{ $produce['id'] }}.order_quantity"
+                                       wire:model.live="editingQuantities.{{ $produce['id'] }}.order_quantity"
                                        wire:change="updateQuantity({{ $produce['id'] }}, 'order_quantity')"
                                        class="w-full mt-1 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500">
                             </div>
@@ -308,7 +308,7 @@
                             <div>
                                 <label class="text-xs text-zinc-600 dark:text-zinc-400 font-medium">Closing (Physical Count):</label>
                                 <input type="number" step="0.01" min="0"
-                                       wire:model.blur="editingQuantities.{{ $produce['id'] }}.closing_quantity"
+                                       wire:model.live="editingQuantities.{{ $produce['id'] }}.closing_quantity"
                                        wire:change="updateQuantity({{ $produce['id'] }}, 'closing_quantity')"
                                        class="w-full mt-1 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500">
                             </div>
@@ -347,10 +347,11 @@
                                 <thead class="bg-zinc-100 dark:bg-zinc-800">
                                     <tr>
                                         <th class="px-3 py-2 text-left font-semibold text-zinc-700 dark:text-zinc-300">Ingredient</th>
-                                        <th class="px-3 py-2 text-center font-semibold text-zinc-700 dark:text-zinc-300">Per Product</th>
-                                        <th class="px-3 py-2 text-center font-semibold text-zinc-700 dark:text-zinc-300">Requested</th>
-                                        <th class="px-3 py-2 text-center font-semibold text-zinc-700 dark:text-zinc-300">Approved</th>
+                                        <th class="px-3 py-2 text-center font-semibold text-zinc-700 dark:text-zinc-300">Per Batch</th>
+                                        <th class="px-3 py-2 text-center font-semibold text-zinc-700 dark:text-zinc-300">Total Needed</th>
                                         <th class="px-3 py-2 text-center font-semibold text-zinc-700 dark:text-zinc-300">Dispatched</th>
+                                        <th class="px-3 py-2 text-center font-semibold text-zinc-700 dark:text-zinc-300">Used</th>
+                                        <th class="px-3 py-2 text-center font-semibold text-zinc-700 dark:text-zinc-300">Remaining</th>
                                         <th class="px-3 py-2 text-center font-semibold text-zinc-700 dark:text-zinc-300">Can Make</th>
                                         <th class="px-3 py-2 text-center font-semibold text-zinc-700 dark:text-zinc-300">Shortage</th>
                                     </tr>
@@ -365,24 +366,29 @@
                                             @endif
                                         </td>
                                         <td class="px-3 py-2 text-center text-zinc-700 dark:text-zinc-300">
-                                            {{ number_format($ingredient['quantity_per_product'], 2) }} {{ $ingredient['uom'] }}
+                                            {{ number_format($ingredient['quantity_per_batch'], 2) }} {{ $ingredient['uom'] }}
                                         </td>
                                         <td class="px-3 py-2 text-center text-zinc-700 dark:text-zinc-300">
-                                            {{ number_format($ingredient['quantity_requested'], 2) }} {{ $ingredient['uom'] }}
+                                            {{ number_format($ingredient['total_needed_for_request'], 2) }} {{ $ingredient['uom'] }}
                                         </td>
                                         <td class="px-3 py-2 text-center">
-                                            <span class="{{ $ingredient['quantity_approved'] < $ingredient['quantity_requested'] ? 'text-orange-600 dark:text-orange-400' : 'text-zinc-700 dark:text-zinc-300' }}">
-                                                {{ number_format($ingredient['quantity_approved'], 2) }} {{ $ingredient['uom'] }}
-                                            </span>
-                                        </td>
-                                        <td class="px-3 py-2 text-center">
-                                            <span class="{{ $ingredient['quantity_dispatched'] < $ingredient['quantity_approved'] ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-green-600 dark:text-green-400 font-semibold' }}">
+                                            <span class="text-green-600 dark:text-green-400 font-semibold">
                                                 {{ number_format($ingredient['quantity_dispatched'], 2) }} {{ $ingredient['uom'] }}
                                             </span>
                                         </td>
+                                        <td class="px-3 py-2 text-center">
+                                            <span class="text-blue-600 dark:text-blue-400">
+                                                {{ number_format($ingredient['quantity_used'], 2) }} {{ $ingredient['uom'] }}
+                                            </span>
+                                        </td>
+                                        <td class="px-3 py-2 text-center">
+                                            <span class="{{ $ingredient['quantity_remaining'] >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400' }}">
+                                                {{ number_format($ingredient['quantity_remaining'], 2) }} {{ $ingredient['uom'] }}
+                                            </span>
+                                        </td>
                                         <td class="px-3 py-2 text-center font-semibold">
-                                            <span class="{{ $ingredient['producable_quantity'] == 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400' }}">
-                                                {{ number_format($ingredient['producable_quantity']) }} pcs
+                                            <span class="{{ $ingredient['producable_batches'] == 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400' }}">
+                                                {{ number_format($ingredient['producable_batches']) }} batches
                                             </span>
                                         </td>
                                         <td class="px-3 py-2 text-center">
@@ -423,18 +429,17 @@
                         <div class="overflow-x-auto">
                             <table class="w-full text-xs border border-zinc-200 dark:border-zinc-700">
                                 <thead class="bg-blue-100 dark:bg-blue-900/50">
-                                    <tr>
-                                        <th class="px-3 py-2 text-left font-semibold text-blue-900 dark:text-blue-100">Batch #</th>
-                                        <th class="px-3 py-2 text-center font-semibold text-blue-900 dark:text-blue-100">Produced</th>
-                                        <th class="px-3 py-2 text-center font-semibold text-blue-900 dark:text-blue-100">Approved</th>
-                                        <th class="px-3 py-2 text-center font-semibold text-blue-900 dark:text-blue-100">Rejected</th>
-                                        <th class="px-3 py-2 text-center font-semibold text-orange-900 dark:text-orange-100 bg-orange-50 dark:bg-orange-900/20">Sales Dept</th>
-                                        <th class="px-3 py-2 text-center font-semibold text-green-900 dark:text-green-100 bg-green-50 dark:bg-green-900/20">Sent Out</th>
-                                        <th class="px-3 py-2 text-center font-semibold text-purple-900 dark:text-purple-100 bg-purple-50 dark:bg-purple-900/20">For Order</th>
-                                        <th class="px-3 py-2 text-center font-semibold text-blue-900 dark:text-blue-100">Remaining</th>
-                                        <th class="px-3 py-2 text-center font-semibold text-blue-900 dark:text-blue-100">Status</th>
-                                        <th class="px-3 py-2 text-left font-semibold text-blue-900 dark:text-blue-100">Details</th>
-                                    </tr>
+                                     <tr>
+                                         <th class="px-3 py-2 text-left font-semibold text-blue-900 dark:text-blue-100">Batch #</th>
+                                         <th class="px-3 py-2 text-center font-semibold text-blue-900 dark:text-blue-100">Produced</th>
+                                         <th class="px-3 py-2 text-center font-semibold text-blue-900 dark:text-blue-100">Approved</th>
+                                         <th class="px-3 py-2 text-center font-semibold text-blue-900 dark:text-blue-100">Rejected</th>
+                                         <th class="px-3 py-2 text-center font-semibold text-green-900 dark:text-green-100 bg-green-50 dark:bg-green-900/20">Dispatch Allocations</th>
+                                         <th class="px-3 py-2 text-center font-semibold text-purple-900 dark:text-purple-100 bg-purple-50 dark:bg-purple-900/20">For Order</th>
+                                         <th class="px-3 py-2 text-center font-semibold text-blue-900 dark:text-blue-100">Remaining</th>
+                                         <th class="px-3 py-2 text-center font-semibold text-blue-900 dark:text-blue-100">Status</th>
+                                         <th class="px-3 py-2 text-left font-semibold text-blue-900 dark:text-blue-100">Details</th>
+                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
                                     @foreach($produce['batches'] as $batch)
@@ -459,29 +464,52 @@
                                             {{ number_format($batch['quantity_rejected'], 2) }}
                                         </td>
 
-                                        <!-- Sales Department Selection (REQUIRED for dispatch) -->
-                                        <td class="px-3 py-2 bg-orange-50 dark:bg-orange-900/10">
-                                            <select wire:model="batchSalesDepartments.{{ $batch['id'] }}"
-                                                    class="w-full px-2 py-1 text-xs border border-orange-300 dark:border-orange-600 rounded bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-orange-500">
-                                                <option value="">-- Select Dept --</option>
-                                                @foreach($salesDepartments as $dept)
-                                                    <option value="{{ $dept['id'] }}">{{ $dept['name'] }}</option>
-                                                @endforeach
-                                            </select>
-                                        </td>
-
-                                        <!-- Sent Out (EDITABLE) -->
-                                        <td class="px-3 py-2 bg-green-50 dark:bg-green-900/10">
-                                            <input type="number" step="0.01" min="0" max="{{ $batch['quantity_approved'] }}"
-                                                   wire:model.blur="batchQuantities.{{ $batch['id'] }}.quantity_sent_out"
-                                                   wire:change="updateBatchQuantity({{ $batch['id'] }}, 'quantity_sent_out')"
-                                                   class="w-20 px-2 py-1 text-center border border-green-300 dark:border-green-600 rounded bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-green-500">
-                                        </td>
+                                         <!-- Dispatch Allocations (MULTIPLE) -->
+                                         <td class="px-3 py-2 bg-green-50 dark:bg-green-900/10">
+                                             <div class="space-y-1">
+                                                 @if(isset($batchDispatches[$batch['id']]) && count($batchDispatches[$batch['id']]) > 0)
+                                                     @php
+                                                         $totalAllocated = 0;
+                                                     @endphp
+                                                     @foreach($batchDispatches[$batch['id']] as $index => $dispatch)
+                                                         @php
+                                                             $currentQuantity = (float) ($dispatch['quantity'] ?? 0);
+                                                             $remainingForThisDispatch = $batch['quantity_approved'] - ($totalAllocated - $currentQuantity);
+                                                             $totalAllocated += $currentQuantity;
+                                                         @endphp
+                                                         <div class="flex items-center gap-1 text-xs">
+                                                             <select wire:model.live="batchDispatches.{{ $batch['id'] }}.{{ $index }}.sales_department_id"
+                                                                     class="flex-1 px-1 py-0.5 text-xs border border-green-300 dark:border-green-600 rounded bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100">
+                                                                 @foreach($salesDepartments as $dept)
+                                                                     <option value="{{ $dept['id'] }}">{{ $dept['name'] }}</option>
+                                                                 @endforeach
+                                                             </select>
+                                                             <input type="number" step="0.01" min="0" max="{{ $remainingForThisDispatch }}"
+                                                                    wire:model.live="batchDispatches.{{ $batch['id'] }}.{{ $index }}.quantity"
+                                                                    class="w-16 px-1 py-0.5 text-center border border-green-300 dark:border-green-600 rounded bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100">
+                                                             <button type="button" wire:click="removeBatchDispatch({{ $batch['id'] }}, {{ $index }})"
+                                                                     class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
+                                                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                                                 </svg>
+                                                             </button>
+                                                         </div>
+                                                     @endforeach
+                                                 @endif
+                                                 <button type="button" wire:click="addBatchDispatch({{ $batch['id'] }})"
+                                                         class="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1">
+                                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                                     </svg>
+                                                     Add Dispatch
+                                                 </button>
+                                             </div>
+                                         </td>
 
                                         <!-- For Order (EDITABLE) -->
                                         <td class="px-3 py-2 bg-purple-50 dark:bg-purple-900/10">
                                             <input type="number" step="0.01" min="0" max="{{ $batch['quantity_approved'] }}"
-                                                   wire:model.blur="batchQuantities.{{ $batch['id'] }}.quantity_for_order"
+                                                   wire:model.live="batchQuantities.{{ $batch['id'] }}.quantity_for_order"
                                                    wire:change="updateBatchQuantity({{ $batch['id'] }}, 'quantity_for_order')"
                                                    class="w-20 px-2 py-1 text-center border border-purple-300 dark:border-purple-600 rounded bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-purple-500">
                                         </td>
@@ -570,34 +598,34 @@
 
         <!-- Summary Cards -->
         <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
-            <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                <p class="text-xs text-blue-600 dark:text-blue-400 font-medium">Total Produced</p>
-                <p class="text-2xl font-bold text-blue-700 dark:text-blue-300 mt-1">
-                    {{ number_format(collect($dailyProduces)->sum('produced_quantity'), 2) }}
-                </p>
-            </div>
-            <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                <p class="text-xs text-red-600 dark:text-red-400 font-medium">Total Callback (Damaged)</p>
-                <p class="text-2xl font-bold text-red-700 dark:text-red-300 mt-1">
-                    {{ number_format(collect($dailyProduces)->sum('callback_quantity'), 2) }}
-                </p>
-            </div>
-            <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-                <p class="text-xs text-green-600 dark:text-green-400 font-medium">Total Net Available</p>
-                <p class="text-2xl font-bold text-green-700 dark:text-green-300 mt-1">
-                    {{ number_format(collect($dailyProduces)->sum('net_available'), 2) }}
-                </p>
-            </div>
-            <div class="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg p-4">
-                <p class="text-xs text-teal-600 dark:text-teal-400 font-medium">Total Sent Out</p>
-                <p class="text-2xl font-bold text-teal-700 dark:text-teal-300 mt-1">
-                    {{ number_format(collect($dailyProduces)->sum('sent_out_quantity'), 2) }}
-                </p>
-            </div>
+             <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                 <p class="text-xs text-blue-600 dark:text-blue-400 font-medium">Total Produced</p>
+                 <p class="text-2xl font-bold text-blue-700 dark:text-blue-300 mt-1">
+                     {{ number_format(collect($dailyProduces)->where('produced_quantity', '>', 0)->sum('produced_quantity'), 2) }}
+                 </p>
+             </div>
+             <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                 <p class="text-xs text-red-600 dark:text-red-400 font-medium">Total Callback (Damaged)</p>
+                 <p class="text-2xl font-bold text-red-700 dark:text-red-300 mt-1">
+                     {{ number_format(collect($dailyProduces)->where('produced_quantity', '>', 0)->sum('callback_quantity'), 2) }}
+                 </p>
+             </div>
+             <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                 <p class="text-xs text-green-600 dark:text-green-400 font-medium">Total Net Available</p>
+                 <p class="text-2xl font-bold text-green-700 dark:text-green-300 mt-1">
+                     {{ number_format(collect($dailyProduces)->where('produced_quantity', '>', 0)->sum('net_available'), 2) }}
+                 </p>
+             </div>
+             <div class="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg p-4">
+                 <p class="text-xs text-teal-600 dark:text-teal-400 font-medium">Total Sent Out</p>
+                 <p class="text-2xl font-bold text-teal-700 dark:text-teal-300 mt-1">
+                     {{ number_format(collect($dailyProduces)->where('produced_quantity', '>', 0)->sum('sent_out_quantity'), 2) }}
+                 </p>
+             </div>
             <div class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
                 <p class="text-xs text-purple-600 dark:text-purple-400 font-medium">Total Closing</p>
                 <p class="text-2xl font-bold text-purple-700 dark:text-purple-300 mt-1">
-                    {{ number_format(collect($dailyProduces)->sum('closing_quantity'), 2) }}
+                    {{ number_format(collect($dailyProduces)->where('produced_quantity', '>', 0)->sum('closing_quantity'), 2) }}
                 </p>
             </div>
         </div>

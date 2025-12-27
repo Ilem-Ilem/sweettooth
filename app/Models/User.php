@@ -77,6 +77,7 @@ class User extends Authenticatable
             'branch_id' => 'string',
             'is_active' => 'boolean',
             'hire_date' => 'datetime',
+            'last_performance_review_date' => 'datetime',
         ];
     }
 

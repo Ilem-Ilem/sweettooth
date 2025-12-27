@@ -12,10 +12,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('roles', function (Blueprint $table) {
-            if (!Schema::hasColumn('roles', 'description')) {
+            if (! Schema::hasColumn('roles', 'description')) {
                 $table->string('description')->nullable()->after('guard_name');
             }
-            if (!Schema::hasColumn('roles', 'display_order')) {
+            if (! Schema::hasColumn('roles', 'display_order')) {
                 $table->integer('display_order')->default(0)->after('description');
             }
         });
@@ -34,7 +34,7 @@ return new class extends Migration
             if (Schema::hasColumn('roles', 'display_order')) {
                 $columnsToDrop[] = 'display_order';
             }
-            if (!empty($columnsToDrop)) {
+            if (! empty($columnsToDrop)) {
                 $table->dropColumn($columnsToDrop);
             }
         });

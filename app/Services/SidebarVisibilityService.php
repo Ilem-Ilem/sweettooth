@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * Sidebar Visibility Control Service
- * 
+ *
  * Controls which sidebar menu items are visible based on user roles and permissions.
  * Integrates with the permission system to show/hide menu sections.
  */
@@ -31,7 +31,7 @@ class SidebarVisibilityService
         if (self::isSuperAdmin()) {
             return true;
         }
-        
+
         // For employees guard, check roles
         return $user->hasAnyRole(['Super Admin', 'MD', 'Managing Director', 'Admin']);
     }
@@ -43,7 +43,9 @@ class SidebarVisibilityService
     public static function canSeeOrganization(Model $user): bool
     {
         // Super Admin, Admin, MD can see everything
-        if (self::isSuperAdmin()) return true;
+        if (self::isSuperAdmin()) {
+            return true;
+        }
 
         return $user->hasAnyRole(['Admin', 'MD', 'Managing Director', 'HR Manager']);
     }
@@ -53,9 +55,11 @@ class SidebarVisibilityService
      */
     public static function canSeeEmployeeManagement(Model $user): bool
     {
-        if (self::isSuperAdmin()) return true;
-        
-        return $user->can('view-employees') 
+        if (self::isSuperAdmin()) {
+            return true;
+        }
+
+        return $user->can('view-employees')
             || $user->can('create-employees')
             || $user->can('edit-employees')
             || $user->can('manage_organization')
@@ -67,11 +71,15 @@ class SidebarVisibilityService
      */
     public static function canSeeDepartments(Model $user): bool
     {
-        if (self::isSuperAdmin()) return true;
-        
+        if (self::isSuperAdmin()) {
+            return true;
+        }
+
         // Hide departments for HR Manager/Officer (they don't need to manage departments)
-        if ($user->hasAnyRole(['HR Manager', 'HR Officer'])) return false;
-        
+        if ($user->hasAnyRole(['HR Manager', 'HR Officer'])) {
+            return false;
+        }
+
         return $user->can('view-departments')
             || $user->hasAnyRole(['Super Admin', 'admin', 'manager']);
     }
@@ -81,8 +89,10 @@ class SidebarVisibilityService
      */
     public static function canSeeLeaveManagement(Model $user): bool
     {
-        if (self::isSuperAdmin()) return true;
-        
+        if (self::isSuperAdmin()) {
+            return true;
+        }
+
         return $user->can('manage-leave')
             || $user->can('approve-leave')
             || $user->can('manage_organization')
@@ -94,11 +104,15 @@ class SidebarVisibilityService
      */
     public static function canSeeAuditManagement(Model $user): bool
     {
-        if (self::isSuperAdmin()) return true;
-        
+        if (self::isSuperAdmin()) {
+            return true;
+        }
+
         // Hide audit for HR Manager/Officer
-        if ($user->hasAnyRole(['HR Manager', 'HR Officer'])) return false;
-        
+        if ($user->hasAnyRole(['HR Manager', 'HR Officer'])) {
+            return false;
+        }
+
         return $user->can('view-audit-logs')
             || $user->hasAnyRole(['Super Admin', 'auditor']);
     }
@@ -110,11 +124,15 @@ class SidebarVisibilityService
     public static function canSeeInventory(Model $user): bool
     {
         // Super Admin, Admin, MD can see everything - don't show for them as separate section
-        if (self::isSuperAdmin()) return false;
-        if ($user->hasAnyRole(['Admin', 'MD', 'Managing Director'])) return false;
+        if (self::isSuperAdmin()) {
+            return false;
+        }
+        if ($user->hasAnyRole(['Admin', 'MD', 'Managing Director'])) {
+            return false;
+        }
 
         // Only inventory roles should see inventory section
-        return $user->hasAnyRole(['Inventory Manager', 'Store Keeper', 'Stock Controller']);
+        return $user->hasAnyRole(['Inventory Manager', 'Store Keeper', 'Stock Controller', 'Store Manager']);
     }
 
     /**
@@ -122,11 +140,15 @@ class SidebarVisibilityService
      */
     public static function canSeeInventoryManagement(Model $user): bool
     {
-        if (self::isSuperAdmin()) return true;
-        
+        if (self::isSuperAdmin()) {
+            return true;
+        }
+
         // Hide for super admins/admins/MD as they see everything
-        if ($user->hasAnyRole(['Admin', 'MD', 'Managing Director'])) return false;
-        
+        if ($user->hasAnyRole(['Admin', 'MD', 'Managing Director'])) {
+            return false;
+        }
+
         // Only show for inventory-specific roles
         return $user->hasAnyRole(['Inventory Manager'])
             && ($user->can('view-stock-levels')
@@ -139,11 +161,15 @@ class SidebarVisibilityService
      */
     public static function canSeeInventoryCallbacks(Model $user): bool
     {
-        if (self::isSuperAdmin()) return true;
-        
+        if (self::isSuperAdmin()) {
+            return true;
+        }
+
         // Hide for super admins/admins/MD as they see everything
-        if ($user->hasAnyRole(['Admin', 'MD', 'Managing Director'])) return false;
-        
+        if ($user->hasAnyRole(['Admin', 'MD', 'Managing Director'])) {
+            return false;
+        }
+
         // Only show for inventory-specific roles
         return $user->hasAnyRole(['Inventory Manager'])
             && ($user->can('view-callbacks')
@@ -155,10 +181,14 @@ class SidebarVisibilityService
      */
     public static function canSeeAnalytics(Model $user): bool
     {
-        if (self::isSuperAdmin()) return true;
+        if (self::isSuperAdmin()) {
+            return true;
+        }
 
         // HR Manager should not see analytics (only organization items)
-        if ($user->hasRole('HR Manager')) return false;
+        if ($user->hasRole('HR Manager')) {
+            return false;
+        }
 
         return $user->can('view-analytics')
             || $user->hasAnyRole(['Super Admin', 'reporting_manager', 'admin']);
@@ -171,10 +201,14 @@ class SidebarVisibilityService
     public static function canSeeProduction(Model $user): bool
     {
         // Super admins should see everything including production
-        if (self::isSuperAdmin()) return true;
+        if (self::isSuperAdmin()) {
+            return true;
+        }
 
         // Admin, MD see everything - don't show separate sections
-        if ($user->hasAnyRole(['Admin', 'MD', 'Managing Director'])) return false;
+        if ($user->hasAnyRole(['Admin', 'MD', 'Managing Director'])) {
+            return false;
+        }
 
         // Only production roles should see production section
         return $user->hasAnyRole([
@@ -193,8 +227,10 @@ class SidebarVisibilityService
      */
     public static function canSeeProductionCallbacks(Model $user): bool
     {
-        if (self::isSuperAdmin()) return true;
-        
+        if (self::isSuperAdmin()) {
+            return true;
+        }
+
         return $user->can('view-callbacks')
             || $user->can('approve-callbacks')
             || $user->hasAnyRole([
@@ -203,7 +239,7 @@ class SidebarVisibilityService
                 'Chef',
                 'Head of Gelato',
                 'Confectioneries Manager',
-                'Admin'
+                'Admin',
             ]);
     }
 
@@ -212,7 +248,24 @@ class SidebarVisibilityService
      */
     public static function canSeeSalesManagement(Model $user): bool
     {
-        if (self::isSuperAdmin()) return true;
+        if (self::isSuperAdmin()) {
+            return true;
+        }
+
+        // Explicitly exclude production roles from seeing sales
+        $productionRoles = [
+            'Head of Production',
+            'Chef',
+            'Head of Gelato',
+            'Confectionaries Manager',
+            'Kitchen Staff',
+            'Gelato Production Staff',
+            'Confectionaries Production Staff',
+        ];
+
+        if ($user->hasAnyRole($productionRoles)) {
+            return false;
+        }
 
         return $user->can('process-sale')
             || $user->can('view-daily-sales')
@@ -225,7 +278,7 @@ class SidebarVisibilityService
                 'Corner Store Manager',
                 'Corner Store Staff',
                 'Confectionaries Sales Staff',
-                'Admin'
+                'Admin',
             ]);
     }
 
@@ -236,9 +289,13 @@ class SidebarVisibilityService
     public static function canSeeInventoryDashboard(Model $user): bool
     {
         // Super Admin, Admin, MD see everything - don't show separate inventory
-        if (self::isSuperAdmin()) return false;
-        if ($user->hasAnyRole(['Admin', 'MD', 'Managing Director', 'Super Admin'])) return true;
-        
+        if (self::isSuperAdmin()) {
+            return false;
+        }
+        if ($user->hasAnyRole(['Admin', 'MD', 'Managing Director', 'Super Admin'])) {
+            return true;
+        }
+
         // Exclude sales-only roles from seeing inventory
         $salesOnlyRoles = [
             'Till Supervisor',
@@ -275,8 +332,10 @@ class SidebarVisibilityService
      */
     public static function canSeeSalesManagerItems(Model $user): bool
     {
-        if (self::isSuperAdmin()) return true;
-        
+        if (self::isSuperAdmin()) {
+            return true;
+        }
+
         return $user->can('view-stock-levels')
             || $user->hasAnyRole(['Super Admin', 'Sales Manager', 'Admin']);
     }
@@ -286,8 +345,10 @@ class SidebarVisibilityService
      */
     public static function canSeeReporting(Model $user): bool
     {
-        if (self::isSuperAdmin()) return true;
-        
+        if (self::isSuperAdmin()) {
+            return true;
+        }
+
         return $user->can('view-reports')
             || $user->can('generate-reports')
             || $user->hasAnyRole(['Super Admin', 'reporting_manager', 'admin']);
@@ -298,8 +359,10 @@ class SidebarVisibilityService
      */
     public static function canSeeAccounting(Model $user): bool
     {
-        if (self::isSuperAdmin()) return true;
-        
+        if (self::isSuperAdmin()) {
+            return true;
+        }
+
         return $user->can('access_accounting')
             || $user->can('view_financial_reports')
             || $user->hasAnyRole(['Super Admin', 'MD', 'Managing Director', 'admin', 'accountant']);
@@ -310,8 +373,10 @@ class SidebarVisibilityService
      */
     public static function canSeeRoleAssignments(Model $user): bool
     {
-        if (self::isSuperAdmin()) return true;
-        
+        if (self::isSuperAdmin()) {
+            return true;
+        }
+
         return $user->can('assign-roles')
             || $user->can('manage_organization')
             || $user->hasAnyRole(['Super Admin', 'admin', 'HR Manager', 'HR Officer']);
@@ -322,8 +387,10 @@ class SidebarVisibilityService
      */
     public static function canSeeRolesPermissions(Model $user): bool
     {
-        if (self::isSuperAdmin()) return true;
-        
+        if (self::isSuperAdmin()) {
+            return true;
+        }
+
         return $user->can('view-roles')
             || $user->hasAnyRole(['Super Admin', 'admin']);
     }
@@ -333,8 +400,10 @@ class SidebarVisibilityService
      */
     public static function canSeeBranchManagement(Model $user): bool
     {
-        if (self::isSuperAdmin()) return true;
-        
+        if (self::isSuperAdmin()) {
+            return true;
+        }
+
         return $user->can('view-branches')
             || $user->hasAnyRole(['Super Admin', 'admin']);
     }
@@ -344,8 +413,10 @@ class SidebarVisibilityService
      */
     public static function canSeeMDReports(Model $user): bool
     {
-        if (self::isSuperAdmin()) return true;
-        
+        if (self::isSuperAdmin()) {
+            return true;
+        }
+
         return $user->can('view-reports')
             || $user->hasAnyRole(['Super Admin', 'MD', 'Managing Director', 'admin']);
     }
@@ -355,8 +426,10 @@ class SidebarVisibilityService
      */
     public static function canSeeSettings(Model $user): bool
     {
-        if (self::isSuperAdmin()) return true;
-        
+        if (self::isSuperAdmin()) {
+            return true;
+        }
+
         return $user->can('manage-settings')
             || $user->hasAnyRole(['Super Admin', 'admin']);
     }

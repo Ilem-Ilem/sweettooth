@@ -12,6 +12,7 @@ class ProductDispatch extends Model
     protected $fillable = [
         'branch_id',
         'daily_produce_id',
+        'production_record_id',
         'production_shift_id',
         'sales_shift_id',
         'sales_department_id',
@@ -48,6 +49,11 @@ class ProductDispatch extends Model
     public function dailyProduce(): BelongsTo
     {
         return $this->belongsTo(DailyProduce::class);
+    }
+
+    public function productionRecord(): BelongsTo
+    {
+        return $this->belongsTo(ProductionRecord::class);
     }
 
     public function productionShift(): BelongsTo

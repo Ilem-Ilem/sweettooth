@@ -3,10 +3,9 @@
 namespace App\Livewire\BranchDashboard\Accounting\Report;
 
 use App\Services\CashFlowStatementService;
-use Livewire\Component;
 use Carbon\Carbon;
-
 use Livewire\Attributes\Layout;
+use Livewire\Component;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class CashFlowStatementReport extends Component
@@ -14,19 +13,22 @@ class CashFlowStatementReport extends Component
     protected CashFlowStatementService $cfsService;
 
     public ?string $startDate = null;
+
     public ?string $endDate = null;
+
     public bool $showBankSummary = false;
+
     public bool $showCashSummary = false;
 
     public function boot()
     {
         $this->cfsService = app(CashFlowStatementService::class);
-        
+
         // Default to current month
-        if (!$this->startDate) {
+        if (! $this->startDate) {
             $this->startDate = now()->startOfMonth()->format('Y-m-d');
         }
-        if (!$this->endDate) {
+        if (! $this->endDate) {
             $this->endDate = now()->endOfMonth()->format('Y-m-d');
         }
     }
@@ -59,12 +61,12 @@ class CashFlowStatementReport extends Component
 
     public function toggleBankSummary()
     {
-        $this->showBankSummary = !$this->showBankSummary;
+        $this->showBankSummary = ! $this->showBankSummary;
     }
 
     public function toggleCashSummary()
     {
-        $this->showCashSummary = !$this->showCashSummary;
+        $this->showCashSummary = ! $this->showCashSummary;
     }
 
     public function resetFilters()
@@ -79,9 +81,9 @@ class CashFlowStatementReport extends Component
             startDate: $this->startDate ? Carbon::createFromFormat('Y-m-d', $this->startDate) : null,
             endDate: $this->endDate ? Carbon::createFromFormat('Y-m-d', $this->endDate) : null,
         );
-        
-        $filename = 'cash_flow_statement_' . now()->format('Y-m-d_His') . '.csv';
-        
+
+        $filename = 'cash_flow_statement_'.now()->format('Y-m-d_His').'.csv';
+
         return response()->streamDownload(function () use ($data) {
             $f = fopen('php://output', 'w');
             foreach ($data as $row) {

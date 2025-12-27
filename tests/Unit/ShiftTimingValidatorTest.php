@@ -1,23 +1,24 @@
 <?php
 
-use App\Services\ShiftTimingValidator;
 use App\Models\Branch;
+use App\Services\ShiftTimingValidator;
 use Carbon\Carbon;
-use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
 
 class ShiftTimingValidatorTest extends TestCase
 {
     use RefreshDatabase;
+
     public function test_morning_shift_strict_6am_to_12pm_validation()
     {
-        $validator = new ShiftTimingValidator();
+        $validator = new ShiftTimingValidator;
         $branch = Branch::create([
             'id' => \Illuminate\Support\Str::uuid(),
             'name' => 'Test Branch',
             'code' => 'TEST',
             'location' => 'Test Location',
-            'is_active' => true
+            'is_active' => true,
         ]);
 
         // BEFORE 6 AM: Should fail
@@ -45,13 +46,13 @@ class ShiftTimingValidatorTest extends TestCase
 
     public function test_afternoon_shift_strict_12pm_to_8pm_validation()
     {
-        $validator = new ShiftTimingValidator();
+        $validator = new ShiftTimingValidator;
         $branch = Branch::create([
             'id' => \Illuminate\Support\Str::uuid(),
             'name' => 'Test Branch 2',
             'code' => 'TEST2',
             'location' => 'Test Location 2',
-            'is_active' => true
+            'is_active' => true,
         ]);
 
         // BEFORE 12 PM: Should fail
@@ -77,13 +78,13 @@ class ShiftTimingValidatorTest extends TestCase
 
     public function test_full_time_shift_no_restrictions()
     {
-        $validator = new ShiftTimingValidator();
+        $validator = new ShiftTimingValidator;
         $branch = Branch::create([
             'id' => \Illuminate\Support\Str::uuid(),
             'name' => 'Test Branch 3',
             'code' => 'TEST3',
             'location' => 'Test Location 3',
-            'is_active' => true
+            'is_active' => true,
         ]);
 
         // Any time should pass for full_time
@@ -95,7 +96,7 @@ class ShiftTimingValidatorTest extends TestCase
 
         foreach ($times as $time) {
             $result = $validator->validateStrictTimeWindows('full_time', $branch->id, $time);
-            $this->assertTrue($result->isValid(), "Full time should allow clock-in at " . $time->format('H:i'));
+            $this->assertTrue($result->isValid(), 'Full time should allow clock-in at '.$time->format('H:i'));
         }
     }
 }

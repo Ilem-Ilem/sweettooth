@@ -12,13 +12,13 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('production_records', function (Blueprint $table) {
-            if (!Schema::hasColumn('production_records', 'unit_cost')) {
+            if (! Schema::hasColumn('production_records', 'unit_cost')) {
                 $table->decimal('unit_cost', 15, 2)->nullable()->default(0)
                     ->after('quantity_remaining')
                     ->comment('Calculated standard cost per unit');
             }
 
-            if (!Schema::hasColumn('production_records', 'total_production_cost')) {
+            if (! Schema::hasColumn('production_records', 'total_production_cost')) {
                 $table->decimal('total_production_cost', 15, 2)->nullable()->default(0)
                     ->after('unit_cost')
                     ->comment('Total cost of production batch');

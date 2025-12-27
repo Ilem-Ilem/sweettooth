@@ -13,6 +13,7 @@ class ShiftEndingWarning extends Notification implements ShouldQueue
     use Queueable;
 
     public Shift $shift;
+
     public int $minutesRemaining;
 
     /**
@@ -44,7 +45,7 @@ class ShiftEndingWarning extends Notification implements ShouldQueue
             ->greeting("Hi {$notifiable->name},")
             ->line("Your {$shiftType} shift will end in **{$this->minutesRemaining} minutes**.")
             ->line("**Clocked In:** {$this->shift->clock_in->format('g:i A')}")
-            ->line("**Expected End:** " . $this->shift->configuration?->end_time ?? 'Based on shift duration')
+            ->line('**Expected End:** '.$this->shift->configuration?->end_time ?? 'Based on shift duration')
             ->action('Clock Out Now', route('branch-dashboard.select_shift', ['b_id' => $this->shift->branch_id]))
             ->line('Remember to complete any pending work before your shift ends.')
             ->salutation('Best regards, Management Team');

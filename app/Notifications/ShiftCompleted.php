@@ -13,6 +13,7 @@ class ShiftCompleted extends Notification implements ShouldQueue
     use Queueable;
 
     public Shift $shift;
+
     public string $completionReason;
 
     /**

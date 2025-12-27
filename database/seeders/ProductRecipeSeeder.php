@@ -345,6 +345,46 @@ class ProductRecipeSeeder extends Seeder
                     ['item' => 'Salt - Table Salt', 'quantity' => 5, 'uom' => 'grams', 'cost_per_unit' => 0.001, 'waste_percentage' => 0],
                 ],
             ],
+            'Vanilla Gelato Base' => [
+                'product_type' => 'gelato_base',
+                'yield_quantity' => 8, // 8 liters of base
+                'preparation_time' => 45,
+                'instructions' => json_encode([
+                    'Heat milk and cream to 85°C',
+                    'Whisk in sugar until dissolved',
+                    'Add vanilla extract and mix well',
+                    'Cool to 4°C',
+                    'Age in refrigerator for 4-12 hours',
+                    'Store at -18°C until use',
+                ]),
+                'ingredients' => [
+                    ['item' => 'Milk - Fresh Whole', 'quantity' => 4, 'uom' => 'liters', 'cost_per_unit' => 3, 'waste_percentage' => 2],
+                    ['item' => 'Cream - Heavy Whipping', 'quantity' => 1, 'uom' => 'liters', 'cost_per_unit' => 10, 'waste_percentage' => 2],
+                    ['item' => 'Sugar - White Granulated', 'quantity' => 500, 'uom' => 'grams', 'cost_per_unit' => 0.001, 'waste_percentage' => 3],
+                    ['item' => 'Vanilla Extract - Pure', 'quantity' => 20, 'uom' => 'ml', 'cost_per_unit' => 0.05, 'waste_percentage' => 0],
+                ],
+            ],
+            'Fruit Gummies' => [
+                'product_type' => 'candies',
+                'yield_quantity' => 100, // 100 pieces
+                'preparation_time' => 180, // 3 hours including setting time
+                'instructions' => json_encode([
+                    'Heat fruit puree and sugar to 80°C',
+                    'Dissolve gelatin in hot mixture',
+                    'Add citric acid and mix well',
+                    'Strain through fine mesh',
+                    'Pour into molds',
+                    'Cool at room temperature for 30 minutes',
+                    'Refrigerate for 2 hours until set',
+                    'Unmold and store in cool place',
+                ]),
+                'ingredients' => [
+                    ['item' => 'Gelatin Powder', 'quantity' => 20, 'uom' => 'grams', 'cost_per_unit' => 0.02, 'waste_percentage' => 1],
+                    ['item' => 'Sugar - White Granulated', 'quantity' => 400, 'uom' => 'grams', 'cost_per_unit' => 0.001, 'waste_percentage' => 3],
+                    ['item' => 'Fruit Puree', 'quantity' => 300, 'uom' => 'grams', 'cost_per_unit' => 0.005, 'waste_percentage' => 5],
+                    ['item' => 'Citric Acid', 'quantity' => 5, 'uom' => 'grams', 'cost_per_unit' => 0.03, 'waste_percentage' => 0],
+                ],
+            ],
         ];
 
         // Create recipes for products

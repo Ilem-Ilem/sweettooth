@@ -9,27 +9,36 @@ use App\Models\ItemRequestDetail;
 use App\Models\Stock;
 use App\Services\AuditService;
 use App\Traits\Exportable;
-use Livewire\Component;
-use Livewire\WithPagination;
-use Livewire\Attributes\{Layout, Url, On};
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
+use Livewire\Attributes\Url;
+use Livewire\Component;
+use Livewire\WithPagination;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class ItemRequests extends Component
 {
-    use WithPagination, Exportable;
+    use Exportable, WithPagination;
+
     #[Url(keep: true)]
     public ?string $b_id = null;
+
     public $search = '';
+
     public $filterDepartment = '';
+
     public $filterStatus = '';
 
     protected $updatesQueryString = ['search', 'filterDepartment', 'filterStatus'];
 
     public $requestId;
+
     public $department_id = '';
+
     public $request_date;
+
     public $notes;
 
     public $table_quantity = 15;
@@ -37,11 +46,15 @@ class ItemRequests extends Component
     public $quantity;
 
     public $requestItems = [];
+
     public $itemIndex = 0;
 
     public $showModal = false;
+
     public $isEditing = false;
+
     public $showDetailModal = false;
+
     public $selectedRequest = null;
 
     protected $rules = [
@@ -62,7 +75,6 @@ class ItemRequests extends Component
     {
         return $this->b_id ? $this->b_id : request()->query('b_id');
     }
-
 
     public function mount()
     {
@@ -86,17 +98,17 @@ class ItemRequests extends Component
             ->where('branch_id', $branchId)
             ->when($this->search, function ($q) {
                 $q->where(function ($query) {
-                    $query->where('request_number', 'like', '%' . $this->search . '%')
+                    $query->where('request_number', 'like', '%'.$this->search.'%')
                         ->orWhereHas('requester', function ($subQuery) {
-                            $subQuery->where('name', 'like', '%' . $this->search . '%');
+                            $subQuery->where('name', 'like', '%'.$this->search.'%');
                         })
                         ->orWhereHas('department', function ($subQuery) {
-                            $subQuery->where('name', 'like', '%' . $this->search . '%');
+                            $subQuery->where('name', 'like', '%'.$this->search.'%');
                         });
                 });
             })
-            ->when($this->filterDepartment, fn($q) => $q->where('department_id', $this->filterDepartment))
-            ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus))
+            ->when($this->filterDepartment, fn ($q) => $q->where('department_id', $this->filterDepartment))
+            ->when($this->filterStatus, fn ($q) => $q->where('status', $this->filterStatus))
             ->orderBy('created_at', 'desc');
 
         $requests = $query->paginate($this->table_quantity);
@@ -153,6 +165,7 @@ class ItemRequests extends Component
                 $this->addError("requestItems.{$index}.quantity_requested",
                     "Requested quantity for {$selectedItem->name} ({$item['quantity_requested']}) exceeds available stock ({$availableQuantity}).");
                 session()->flash('error', 'Some items have insufficient stock. Please adjust quantities.');
+
                 return;
             }
         }
@@ -163,12 +176,11 @@ class ItemRequests extends Component
 
             // Verify department belongs to this branch or is a global department
             $department = Department::where('id', $this->department_id)
-                ->where(function($q) use ($branchId) {
+                ->where(function ($q) use ($branchId) {
                     $q->where('branch_id', $branchId)
-                      ->orWhereNull('branch_id');
+                        ->orWhereNull('branch_id');
                 })
                 ->firstOrFail();
-
 
             $requestNumber = ItemRequest::generateRequestNumber($branch->code, $department->name);
 
@@ -186,12 +198,12 @@ class ItemRequests extends Component
                 if (empty($item['item_id'])) {
                     continue; // Skip items with no item_id
                 }
-                
+
                 $selectedItem = Item::find($item['item_id']);
-                if (!$selectedItem) {
+                if (! $selectedItem) {
                     continue; // Skip if item not found
                 }
-                
+
                 ItemRequestDetail::create([
                     'request_id' => $request->id,
                     'item_id' => $item['item_id'],
@@ -208,8 +220,8 @@ class ItemRequests extends Component
                 current_actor(),
                 'create',
                 $request,
-                "Created item request #{$requestNumber} from {$departmentName} department. " .
-                "Items: " . count($this->requestItems) . ", Request Date: {$this->request_date}. " .
+                "Created item request #{$requestNumber} from {$departmentName} department. ".
+                'Items: '.count($this->requestItems).", Request Date: {$this->request_date}. ".
                 "Notes: {$this->notes}",
                 'completed'
             );
@@ -220,7 +232,7 @@ class ItemRequests extends Component
             $this->resetFields();
         } catch (\Exception $e) {
             DB::rollBack();
-            session()->flash('error', 'Error creating request: ' . $e->getMessage());
+            session()->flash('error', 'Error creating request: '.$e->getMessage());
         }
     }
 
@@ -285,6 +297,7 @@ class ItemRequests extends Component
     protected function getAllSelectableIds(): array
     {
         $branchId = $this->getBranchId();
+
         return ItemRequest::where('branch_id', $branchId)->pluck('id')->toArray();
     }
 
@@ -298,18 +311,19 @@ class ItemRequests extends Component
 
             if ($requests->isEmpty()) {
                 session()->flash('warning', 'No requests to export.');
+
                 return;
             }
 
             $response = $this->export(
-                'item-requests-' . now()->format('Y-m-d'),
+                'item-requests-'.now()->format('Y-m-d'),
                 $requests,
                 'exports.inventory.item-requests',
                 'pdf'
             );
             $response->send();
         } catch (\Exception $e) {
-            session()->flash('error', 'Export failed: ' . $e->getMessage());
+            session()->flash('error', 'Export failed: '.$e->getMessage());
         }
     }
 
@@ -323,18 +337,19 @@ class ItemRequests extends Component
 
             if ($requests->isEmpty()) {
                 session()->flash('warning', 'No requests to export.');
+
                 return;
             }
 
             $response = $this->export(
-                'item-requests-' . now()->format('Y-m-d'),
+                'item-requests-'.now()->format('Y-m-d'),
                 $requests,
                 'exports.inventory.item-requests',
                 'excel'
             );
             $response->send();
         } catch (\Exception $e) {
-            session()->flash('error', 'Export failed: ' . $e->getMessage());
+            session()->flash('error', 'Export failed: '.$e->getMessage());
         }
     }
 
@@ -348,6 +363,7 @@ class ItemRequests extends Component
 
             if ($requests->isEmpty()) {
                 session()->flash('warning', 'No requests to export.');
+
                 return;
             }
 
@@ -368,13 +384,14 @@ class ItemRequests extends Component
             });
 
             return $this->export(
-                'item-requests-' . now()->format('Y-m-d'),
+                'item-requests-'.now()->format('Y-m-d'),
                 $data,
                 'exports.inventory.item-requests',
                 'excel'
             );
         } catch (\Exception $e) {
-            session()->flash('error', 'Export failed: ' . $e->getMessage());
+            session()->flash('error', 'Export failed: '.$e->getMessage());
+
             return;
         }
     }
@@ -390,17 +407,17 @@ class ItemRequests extends Component
             ->where('branch_id', $branchId)
             ->when($this->search, function ($q) {
                 $q->where(function ($query) {
-                    $query->where('request_number', 'like', '%' . $this->search . '%')
+                    $query->where('request_number', 'like', '%'.$this->search.'%')
                         ->orWhereHas('requester', function ($subQuery) {
-                            $subQuery->where('name', 'like', '%' . $this->search . '%');
+                            $subQuery->where('name', 'like', '%'.$this->search.'%');
                         })
                         ->orWhereHas('department', function ($subQuery) {
-                            $subQuery->where('name', 'like', '%' . $this->search . '%');
+                            $subQuery->where('name', 'like', '%'.$this->search.'%');
                         });
                 });
             })
-            ->when($this->filterDepartment, fn($q) => $q->where('department_id', $this->filterDepartment))
-            ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus))
+            ->when($this->filterDepartment, fn ($q) => $q->where('department_id', $this->filterDepartment))
+            ->when($this->filterStatus, fn ($q) => $q->where('status', $this->filterStatus))
             ->orderBy('created_at', 'desc')
             ->get();
     }

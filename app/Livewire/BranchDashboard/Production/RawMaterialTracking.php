@@ -7,6 +7,9 @@ use App\Models\Shift;
 use App\Models\Recipe;
 use App\Models\Item;
 use App\Models\Department;
+use App\Models\ItemRequest;
+use App\Models\ItemRequestDetail;
+use App\Models\ProductionRequest;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\{Layout, On, Url};
 use Livewire\Component;
@@ -34,6 +37,7 @@ class RawMaterialTracking extends Component
     public $filterRecipe = '';
     public $filterVarianceType = '';
     public $currentShift = null;
+    public $viewMode = 'utilization'; // 'utilization' or 'dispatches'
 
     // Date range filters
     public $filterStartDate = null;
@@ -47,6 +51,9 @@ class RawMaterialTracking extends Component
     public ?Department $department = null;
 
     public function mount($deptSlug = null){
+        // Initialize view mode
+        $this->viewMode = 'utilization';
+
         // Get dept_slug from parameter or URL query
         $this->dept_slug = $deptSlug ?? request()->query('dept_slug') ?? request()->query('deptSlug');
 
@@ -130,6 +137,15 @@ class RawMaterialTracking extends Component
         $this->resetPage();
     }
 
+    public function updatedViewMode()
+    {
+        $this->resetPage();
+        // Reset filters that don't apply to the new view mode
+        if ($this->viewMode === 'dispatches') {
+            $this->filterVarianceType = '';
+        }
+    }
+
     public function resetFilters()
     {
         $this->filterRecipe = '';
@@ -137,6 +153,8 @@ class RawMaterialTracking extends Component
         $this->filterStartDate = today()->format('Y-m-d');
         $this->filterEndDate = today()->format('Y-m-d');
         $this->filterMode = 'shift';
+        $this->viewMode = 'utilization';
+        $this->selectedShiftId = $this->currentShift?->id;
         $this->resetPage();
     }
 
@@ -159,74 +177,167 @@ class RawMaterialTracking extends Component
             ->orderBy('product_name')
             ->get();
 
-        // Query raw material utilizations - DEPARTMENT BASED on dept_slug
-        $query = RawMaterialUtilization::with(['shift', 'recipe', 'item'])
-            ->whereHas('shift', function($q) use ($branchId) {
+        // Query data based on view mode
+        if ($this->viewMode === 'utilization') {
+            // Query raw material utilizations - DEPARTMENT BASED on dept_slug
+            $query = RawMaterialUtilization::with(['shift', 'recipe', 'item'])
+                ->whereHas('shift', function($q) use ($branchId) {
+                    $q->where('branch_id', $branchId)
+                      ->where('department_id', $this->department->id);
+                });
+
+            // Apply filters based on mode
+            if ($this->filterMode === 'shift' && $this->selectedShiftId) {
+                // Shift-based filtering
+                $query->where('shift_id', $this->selectedShiftId);
+            } elseif ($this->filterMode === 'date_range' && $this->filterStartDate && $this->filterEndDate) {
+                // Date range filtering
+                $query->whereHas('shift', function($q) {
+                    $q->whereBetween('shift_date', [$this->filterStartDate, $this->filterEndDate]);
+                });
+            }
+
+            // Apply other filters
+            $query->when($this->filterRecipe, fn($q) => $q->where('recipe_id', $this->filterRecipe))
+                  ->when($this->filterVarianceType, fn($q) => $q->where('variance_type', $this->filterVarianceType))
+                  ->orderBy('created_at', 'desc');
+
+            $data = $query->paginate(15);
+            $dataType = 'utilizations';
+        } else {
+            // Query dispatched items for production - DEPARTMENT BASED on dept_slug
+            $query = ItemRequestDetail::with([
+                'item',
+                'itemRequest',
+                'itemRequest.productionRequests.recipe',
+                'itemRequest.productionRequests.shift'
+            ])
+            ->whereHas('itemRequest', function($q) use ($branchId) {
+                $q->where('branch_id', $branchId)
+                  ->where('department_id', $this->department->id);
+            })
+            ->where('quantity_dispatched', '>', 0);
+
+            // Apply filters based on mode
+            if ($this->filterMode === 'shift' && $this->selectedShiftId) {
+                // Filter by production requests for this shift
+                $query->whereHas('itemRequest.productionRequests', function($q) {
+                    $q->where('shift_id', $this->selectedShiftId);
+                });
+            } elseif ($this->filterMode === 'date_range' && $this->filterStartDate && $this->filterEndDate) {
+                // Filter by shift date range through production requests
+                $query->whereHas('itemRequest.productionRequests.shift', function($q) {
+                    $q->whereBetween('shift_date', [$this->filterStartDate, $this->filterEndDate]);
+                });
+            }
+
+            // Apply recipe filter (through production requests)
+            $query->when($this->filterRecipe, function($q) {
+                $q->whereHas('itemRequest.productionRequests', function($subQ) {
+                    $subQ->where('recipe_id', $this->filterRecipe);
+                });
+            });
+
+            $query->orderBy('updated_at', 'desc');
+
+            $data = $query->paginate(15);
+            $dataType = 'dispatches';
+        }
+
+        // Calculate summary statistics based on view mode
+        if ($this->viewMode === 'utilization') {
+            $summary = [
+                'total_items' => 0,
+                'within_tolerance' => 0,
+                'over_used' => 0,
+                'under_used' => 0,
+                'total_cost_impact' => 0,
+                'efficiency_percentage' => 0,
+            ];
+
+            // Build summary query based on filter mode
+            $summaryQuery = RawMaterialUtilization::whereHas('shift', function($q) use ($branchId) {
                 $q->where('branch_id', $branchId)
                   ->where('department_id', $this->department->id);
             });
 
-        // Apply filters based on mode
-        if ($this->filterMode === 'shift' && $this->selectedShiftId) {
-            // Shift-based filtering
-            $query->where('shift_id', $this->selectedShiftId);
-        } elseif ($this->filterMode === 'date_range' && $this->filterStartDate && $this->filterEndDate) {
-            // Date range filtering
-            $query->whereHas('shift', function($q) {
-                $q->whereBetween('shift_date', [$this->filterStartDate, $this->filterEndDate]);
-            });
-        }
+            if ($this->filterMode === 'shift' && $this->selectedShiftId) {
+                $summaryQuery->where('shift_id', $this->selectedShiftId);
+            } elseif ($this->filterMode === 'date_range' && $this->filterStartDate && $this->filterEndDate) {
+                $summaryQuery->whereHas('shift', function($q) {
+                    $q->whereBetween('shift_date', [$this->filterStartDate, $this->filterEndDate]);
+                });
+            }
 
-        // Apply other filters
-        $query->when($this->filterRecipe, fn($q) => $q->where('recipe_id', $this->filterRecipe))
-              ->when($this->filterVarianceType, fn($q) => $q->where('variance_type', $this->filterVarianceType))
-              ->orderBy('created_at', 'desc');
+            $allUtilizations = $summaryQuery->get();
 
-        $utilizations = $query->paginate(15);
+            if ($allUtilizations->count() > 0) {
+                $summary['total_items'] = $allUtilizations->count();
+                $summary['within_tolerance'] = $allUtilizations->where('variance_type', 'within_tolerance')->count();
+                $summary['over_used'] = $allUtilizations->where('variance_type', 'over_used')->count();
+                $summary['under_used'] = $allUtilizations->where('variance_type', 'under_used')->count();
+                $summary['total_cost_impact'] = $allUtilizations->sum('cost_impact');
 
-        // Calculate summary statistics based on filter mode
-        $summary = [
-            'total_items' => 0,
-            'within_tolerance' => 0,
-            'over_used' => 0,
-            'under_used' => 0,
-            'total_cost_impact' => 0,
-            'efficiency_percentage' => 0,
-        ];
+                $totalRequired = $allUtilizations->sum('quantity_required');
+                $totalUsed = $allUtilizations->sum('quantity_used');
 
-        // Build summary query based on filter mode
-        $summaryQuery = RawMaterialUtilization::whereHas('shift', function($q) use ($branchId) {
-            $q->where('branch_id', $branchId)
-              ->where('department_id', $this->department->id);
-        });
+                if ($totalRequired > 0) {
+                    $summary['efficiency_percentage'] = (($totalRequired - abs($totalUsed - $totalRequired)) / $totalRequired) * 100;
+                }
+            }
+        } else {
+            // Summary for dispatched items
+            $summary = [
+                'total_items' => 0,
+                'total_dispatched' => 0,
+                'total_value' => 0,
+                'unique_products' => 0,
+            ];
 
-        if ($this->filterMode === 'shift' && $this->selectedShiftId) {
-            $summaryQuery->where('shift_id', $this->selectedShiftId);
-        } elseif ($this->filterMode === 'date_range' && $this->filterStartDate && $this->filterEndDate) {
-            $summaryQuery->whereHas('shift', function($q) {
-                $q->whereBetween('shift_date', [$this->filterStartDate, $this->filterEndDate]);
-            });
-        }
+            // Build summary query for dispatched items
+            $summaryQuery = ItemRequestDetail::whereHas('itemRequest', function($q) use ($branchId) {
+                $q->where('branch_id', $branchId)
+                  ->where('department_id', $this->department->id);
+            })
+            ->where('quantity_dispatched', '>', 0);
 
-        $allUtilizations = $summaryQuery->get();
+            if ($this->filterMode === 'shift' && $this->selectedShiftId) {
+                $summaryQuery->whereHas('itemRequest.productionRequests', function($q) {
+                    $q->where('shift_id', $this->selectedShiftId);
+                });
+            } elseif ($this->filterMode === 'date_range' && $this->filterStartDate && $this->filterEndDate) {
+                $summaryQuery->whereHas('itemRequest.productionRequests.shift', function($q) {
+                    $q->whereBetween('shift_date', [$this->filterStartDate, $this->filterEndDate]);
+                });
+            }
 
-        if ($allUtilizations->count() > 0) {
-            $summary['total_items'] = $allUtilizations->count();
-            $summary['within_tolerance'] = $allUtilizations->where('variance_type', 'within_tolerance')->count();
-            $summary['over_used'] = $allUtilizations->where('variance_type', 'over_used')->count();
-            $summary['under_used'] = $allUtilizations->where('variance_type', 'under_used')->count();
-            $summary['total_cost_impact'] = $allUtilizations->sum('cost_impact');
+            $allDispatches = $summaryQuery->with('item')->get();
 
-            $totalRequired = $allUtilizations->sum('quantity_required');
-            $totalUsed = $allUtilizations->sum('quantity_used');
+            if ($allDispatches->count() > 0) {
+                $summary['total_items'] = $allDispatches->count();
+                $summary['total_dispatched'] = $allDispatches->sum('quantity_dispatched');
+                $summary['total_value'] = $allDispatches->sum(function($detail) {
+                    return $detail->quantity_dispatched * ($detail->item->cost_per_unit ?? 0);
+                });
 
-            if ($totalRequired > 0) {
-                $summary['efficiency_percentage'] = (($totalRequired - abs($totalUsed - $totalRequired)) / $totalRequired) * 100;
+                // Count unique products (through production requests)
+                $productIds = [];
+                foreach ($allDispatches as $dispatch) {
+                    if ($dispatch->itemRequest && $dispatch->itemRequest->productionRequests) {
+                        foreach ($dispatch->itemRequest->productionRequests as $prodRequest) {
+                            if ($prodRequest->recipe) {
+                                $productIds[] = $prodRequest->recipe->product_id;
+                            }
+                        }
+                    }
+                }
+                $summary['unique_products'] = count(array_unique($productIds));
             }
         }
 
         return view('livewire.branch-dashboard.production.raw-material-tracking', [
-            'utilizations' => $utilizations,
+            'data' => $data,
+            'dataType' => $dataType,
             'availableShifts' => $availableShifts,
             'recipes' => $recipes,
             'summary' => $summary,

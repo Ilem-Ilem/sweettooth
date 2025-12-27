@@ -20,6 +20,22 @@ class ProductionQualityReportService extends ReportService
     }
 
     /**
+     * Get summary metrics for report data.
+     */
+    public function getSummaryMetrics(array $reportData): array
+    {
+        return $this->generateSummaryMetrics($reportData);
+    }
+
+    /**
+     * Get charts data for report data.
+     */
+    public function getChartsData(array $reportData): array
+    {
+        return $this->generateChartsData($reportData);
+    }
+
+    /**
      * Generate the quality metrics report data.
      */
     protected function generateReportData(): array
@@ -48,7 +64,7 @@ class ProductionQualityReportService extends ReportService
             ->whereBetween('created_at', [$this->periodFrom, $this->periodTo])
             ->get();
 
-        return [
+        $reportData = [
             'quality_overview' => $this->generateQualityOverview($productionRecords),
             'rejection_analysis' => $this->generateRejectionAnalysis($productionRecords),
             'product_quality' => $this->generateProductQuality($productionRecords),
@@ -62,6 +78,11 @@ class ProductionQualityReportService extends ReportService
                     ->diffInDays(\Carbon\Carbon::parse($this->periodTo)) + 1,
             ],
         ];
+
+        // Generate summary metrics
+        $reportData['summary_metrics'] = $this->generateSummaryMetrics($reportData);
+
+        return $reportData;
     }
 
     /**

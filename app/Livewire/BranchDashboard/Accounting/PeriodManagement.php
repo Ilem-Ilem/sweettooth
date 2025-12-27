@@ -3,16 +3,20 @@
 namespace App\Livewire\BranchDashboard\Accounting;
 
 use App\Models\AccountingPeriod;
-use Livewire\Component;
 use Livewire\Attributes\Layout;
+use Livewire\Component;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class PeriodManagement extends Component
 {
     public ?int $selectedPeriodId = null;
+
     public bool $showCreateForm = false;
+
     public int $newYear;
+
     public int $newMonth;
+
     public string $newStatus = 'open';
 
     public function mount()
@@ -42,11 +46,13 @@ class PeriodManagement extends Component
         // Validate inputs
         if ($this->newYear < 2020 || $this->newYear > now()->year + 1) {
             $this->addError('newYear', 'Invalid year');
+
             return;
         }
 
         if ($this->newMonth < 1 || $this->newMonth > 12) {
             $this->addError('newMonth', 'Invalid month');
+
             return;
         }
 
@@ -57,6 +63,7 @@ class PeriodManagement extends Component
 
         if ($exists) {
             $this->addError('newMonth', 'Period already exists');
+
             return;
         }
 
@@ -85,12 +92,13 @@ class PeriodManagement extends Component
     public function closePeriod(int $periodId)
     {
         $period = AccountingPeriod::find($periodId);
-        if (!$period) {
+        if (! $period) {
             return;
         }
 
         if ($period->status === 'closed') {
             session()->flash('error', 'Period is already closed');
+
             return;
         }
 
@@ -107,12 +115,13 @@ class PeriodManagement extends Component
     public function reopenPeriod(int $periodId)
     {
         $period = AccountingPeriod::find($periodId);
-        if (!$period) {
+        if (! $period) {
             return;
         }
 
         if ($period->status !== 'closed') {
             session()->flash('error', 'Only closed periods can be reopened');
+
             return;
         }
 
@@ -129,12 +138,13 @@ class PeriodManagement extends Component
     public function lockPeriod(int $periodId)
     {
         $period = AccountingPeriod::find($periodId);
-        if (!$period) {
+        if (! $period) {
             return;
         }
 
         if ($period->status === 'locked') {
             session()->flash('error', 'Period is already locked');
+
             return;
         }
 

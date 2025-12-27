@@ -2,9 +2,9 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use App\Models\User;
 use App\Models\Branch;
+use App\Models\User;
+use Illuminate\Database\Seeder;
 
 class UserSeeder extends Seeder
 {
@@ -245,6 +245,6 @@ class UserSeeder extends Seeder
         );
         $employee->syncRoles(['Employee']);
 
-        echo "✅ " . User::count() . " users created/updated with roles assigned.\n";
+        echo '✅ '.User::count()." users created/updated with roles assigned.\n";
     }
 }

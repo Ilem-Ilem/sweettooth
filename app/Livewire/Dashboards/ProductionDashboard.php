@@ -2,23 +2,23 @@
 
 namespace App\Livewire\Dashboards;
 
-use App\Models\Product;
-use App\Models\Recipe;
 use App\Models\DailyProduce;
-use Livewire\Attributes\Layout;
+use App\Models\Recipe;
 use Carbon\Carbon;
+use Livewire\Attributes\Layout;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class ProductionDashboard extends BaseDashboard
 {
     public ?string $deptSlug = null;
+
     protected ?int $departmentId = null;
 
     public function mount(?string $deptSlug = null)
     {
         parent::mount();
         $this->deptSlug = $deptSlug;
-        
+
         // Resolve department from slug
         if ($deptSlug) {
             $department = \App\Models\Department::where('slug', $deptSlug)->first();
@@ -33,7 +33,7 @@ class ProductionDashboard extends BaseDashboard
                 $this->deptSlug = $userDepartment->slug;
             }
         }
-        
+
         // Verify user has production access
         $this->verifyAccess();
     }
@@ -51,10 +51,11 @@ class ProductionDashboard extends BaseDashboard
      */
     private function verifyAccess(): void
     {
-        $role = $this->getUserRoleName();
-        // Normalize role name to snake_case for comparison
-        $normalizedRole = strtolower(str_replace(' ', '_', $role ?? ''));
-        
+        // Allow super admin
+        if (is_super_admin()) {
+            return;
+        }
+
         $allowedRoles = [
             'head_of_production',
             'chef',
@@ -66,20 +67,18 @@ class ProductionDashboard extends BaseDashboard
             'admin',
         ];
 
-        // Allow access if user has allowed role OR is super admin
-        $isAllowed = in_array($normalizedRole, $allowedRoles) || is_super_admin();
-        
-        if (!$isAllowed) {
-            // Log for debugging
-            \Log::warning('Unauthorized production dashboard access', [
-                'user_id' => $this->user?->id,
-                'role' => $role,
-                'normalized_role' => $normalizedRole,
-                'all_roles' => $this->user?->roles?->pluck('name')->toArray() ?? [],
-                'is_super_admin' => is_super_admin(),
-            ]);
-            abort(403, 'Unauthorized access to production dashboard. Your role (' . ($role ?? 'none') . ') does not have access to this dashboard.');
+        // Check if user has ANY of the allowed roles
+        if ($this->user && method_exists($this->user, 'roles')) {
+            $userRoles = $this->user->roles()->pluck('name')->toArray();
+            foreach ($userRoles as $roleName) {
+                $normalizedRole = strtolower(str_replace(' ', '_', $roleName ?? ''));
+                if (in_array($normalizedRole, $allowedRoles)) {
+                    return; // User has at least one allowed role
+                }
+            }
         }
+
+        abort(403, 'Unauthorized access to production dashboard');
     }
 
     /**
@@ -87,7 +86,7 @@ class ProductionDashboard extends BaseDashboard
      */
     private function getUserDepartment()
     {
-        if (!$this->user) {
+        if (! $this->user) {
             return null;
         }
 
@@ -105,7 +104,7 @@ class ProductionDashboard extends BaseDashboard
     {
         return $this->remember('today_queue', function () {
             $query = DailyProduce::whereDate('produce_date', Carbon::today())
-                ->with('recipe', 'shift');
+                ->with('recipe.product', 'shift');
 
             if ($this->getDepartmentId()) {
                 $query->whereHas('shift', function ($q) {
@@ -221,7 +220,7 @@ class ProductionDashboard extends BaseDashboard
     {
         return $this->remember('production_timeline', function () {
             $timeline = [];
-            
+
             $query = DailyProduce::whereDate('produce_date', Carbon::today())
                 ->with('recipe', 'shift');
 
@@ -235,8 +234,8 @@ class ProductionDashboard extends BaseDashboard
 
             foreach ($produces as $produce) {
                 $hour = Carbon::parse($produce->produce_date)->format('H:00');
-                
-                if (!isset($timeline[$hour])) {
+
+                if (! isset($timeline[$hour])) {
                     $timeline[$hour] = [
                         'hour' => $hour,
                         'pending' => 0,
@@ -313,6 +312,7 @@ class ProductionDashboard extends BaseDashboard
             ]);
         } catch (\Exception $e) {
             $this->handleError('loading production dashboard', $e);
+
             return view('livewire.dashboards.error');
         }
     }

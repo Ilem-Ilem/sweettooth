@@ -11,7 +11,9 @@ use App\Services\AuditService;
 use App\Traits\Exportable;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Livewire\Attributes\{Layout, Url, On};
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 // use TallStackUi\
@@ -20,7 +22,7 @@ use TallStackUi\Traits\Interactions;
 #[Layout('components.layouts.app.branch-dashboard')]
 class ItemDispatches extends Component
 {
-    use Interactions, WithPagination, Exportable;
+    use Exportable, Interactions, WithPagination;
 
     // Pagination
     public $quantity = 15;
@@ -68,7 +70,7 @@ class ItemDispatches extends Component
         $branchId = $this->getBranchId();
 
         // Fetch ItemRequests instead of ItemDispatches
-        $query = ItemRequest::with(['department', 'requestDetails.item', 'requester', 'requestedBy'])
+        $query = ItemRequest::with(['department', 'requestDetails.item', 'requester'])
             ->where('branch_id', $branchId)
             ->when($this->search, function ($q) {
                 $q->where(function ($query) {
@@ -164,6 +166,7 @@ class ItemDispatches extends Component
 
         if (empty($this->dispatchedItems) || ! is_array($this->dispatchedItems)) {
             session()->flash('error', 'No items to approve.');
+
             return;
         }
 
@@ -211,11 +214,11 @@ class ItemDispatches extends Component
 
                 if ($approvedCount > 0) {
                     $request->refresh();
-                    
+
                     // Log the approval
                     $approvedItems = [];
                     foreach ($this->dispatchedItems as $item) {
-                        if ((float)($item['approve_quantity'] ?? 0) > 0) {
+                        if ((float) ($item['approve_quantity'] ?? 0) > 0) {
                             $approvedItems[] = "{$item['item_name']}: {$item['approve_quantity']} {$item['uom']}";
                         }
                     }
@@ -225,8 +228,8 @@ class ItemDispatches extends Component
                         Auth::guard('web')->user(),
                         'update',
                         $request,
-                        "Approved {$approvedCount} item(s) from request #{$request->request_number}. " .
-                        "Items: " . implode(', ', $approvedItems),
+                        "Approved {$approvedCount} item(s) from request #{$request->request_number}. ".
+                        'Items: '.implode(', ', $approvedItems),
                         'completed'
                     );
                 }
@@ -258,7 +261,7 @@ class ItemDispatches extends Component
 
         if (empty($this->dispatchedItems) || ! is_array($this->dispatchedItems)) {
             // session()->flash('error', 'No items to dispatch.');
-            $this->toast()->error("here")->send();
+            $this->toast()->error('here')->send();
 
             return;
         }
@@ -273,8 +276,9 @@ class ItemDispatches extends Component
                 }
             }
 
-            if (!$hasItemsToDispatch) {
+            if (! $hasItemsToDispatch) {
                 $this->toast()->error('No approved items to dispatch.')->send();
+
                 return;
             }
 
@@ -327,14 +331,29 @@ class ItemDispatches extends Component
                         $lowStockWarnings[] = "{$item['item_name']}: Stock level is now {$quantityAfter} {$item['uom']}, which is at or below the reorder level of {$stock->item->reorder_level} {$item['uom']}. Please restock!";
                     }
 
+                    // Map uom to database enum values
+                    $uomMapping = [
+                        'L' => 'liters',
+                        'unit' => 'units',
+                        'kg' => 'kg',
+                        'grams' => 'grams',
+                        'ml' => 'ml',
+                        'pcs' => 'pcs',
+                        'bags' => 'bags',
+                        'cartons' => 'cartons',
+                    ];
+
+                    $mappedUom = $uomMapping[$item['uom']] ?? $item['uom'];
+
                     // Create dispatch record
                     ItemDispatch::create([
                         'branch_id' => $branchId,
                         'request_id' => $this->requestId,
                         'item_id' => $item['item_id'],
-                        'dispatched_by' => Auth::guard('web')->id(),
+                        'dispatched_by_id' => Auth::guard('web')->id(),
+                        'dispatched_by_type' => \App\Models\Employee::class,
                         'quantity' => $dispatchQty,
-                        'uom' => $item['uom'],
+                        'uom' => $mappedUom,
                         'dispatch_time' => now(),
                         'shift' => $request->shift,
                     ]);
@@ -392,13 +411,13 @@ class ItemDispatches extends Component
                 }
 
                 // Log the dispatch
-                if (!empty($dispatchedItems)) {
+                if (! empty($dispatchedItems)) {
                     AuditService::log(
                         Auth::guard('web')->user(),
                         'update',
                         $request,
-                        "Dispatched items from request #{$request->request_number}. " .
-                        "Items: " . implode(', ', $dispatchedItems) . 
+                        "Dispatched items from request #{$request->request_number}. ".
+                        'Items: '.implode(', ', $dispatchedItems).
                         ". Status: {$request->status}",
                         'completed'
                     );
@@ -406,11 +425,11 @@ class ItemDispatches extends Component
             });
 
             // Show success message with warnings if applicable
-            if (!empty($lowStockWarnings)) {
-                $warningMessage = 'Items dispatched successfully, but with warnings: ' . implode(' | ', $lowStockWarnings);
+            if (! empty($lowStockWarnings)) {
+                $warningMessage = 'Items dispatched successfully, but with warnings: '.implode(' | ', $lowStockWarnings);
                 $this->toast()->warning($warningMessage)->send();
             } else {
-                $this->toast()->success("All approved items dispatched successfully. Stock updated")->send();
+                $this->toast()->success('All approved items dispatched successfully. Stock updated')->send();
             }
 
             $this->closeModal();
@@ -473,15 +492,16 @@ class ItemDispatches extends Component
     {
         try {
             $dispatches = ItemDispatch::with(['itemRequest.branch', 'itemRequestDetail.item'])
-                ->whereHas('itemRequest', fn($q) => $q->where('branch_id', $this->getBranchId()))
-                ->when($this->search, fn($q) => $q->whereHas('itemRequestDetail.item', fn($sq) => $sq->where('name', 'like', '%' . $this->search . '%')))
-                ->when($this->filterDateFrom, fn($q) => $q->whereDate('created_at', '>=', $this->filterDateFrom))
-                ->when($this->filterDateTo, fn($q) => $q->whereDate('created_at', '<=', $this->filterDateTo))
+                ->whereHas('itemRequest', fn ($q) => $q->where('branch_id', $this->getBranchId()))
+                ->when($this->search, fn ($q) => $q->whereHas('itemRequestDetail.item', fn ($sq) => $sq->where('name', 'like', '%'.$this->search.'%')))
+                ->when($this->filterDateFrom, fn ($q) => $q->whereDate('created_at', '>=', $this->filterDateFrom))
+                ->when($this->filterDateTo, fn ($q) => $q->whereDate('created_at', '<=', $this->filterDateTo))
                 ->orderBy('created_at', 'desc')
                 ->get();
 
             if ($dispatches->isEmpty()) {
                 $this->toast()->warning('No dispatches to export.')->send();
+
                 return;
             }
 
@@ -500,7 +520,7 @@ class ItemDispatches extends Component
             });
 
             return $this->export(
-                'item-dispatches-' . now()->format('Y-m-d'),
+                'item-dispatches-'.now()->format('Y-m-d'),
                 $data,
                 'exports.inventory.dispatches',
                 'pdf',
@@ -508,7 +528,8 @@ class ItemDispatches extends Component
                 ['orientation' => 'landscape', 'paper' => 'A4']
             );
         } catch (\Exception $e) {
-            $this->toast()->error('Export failed: ' . $e->getMessage())->send();
+            $this->toast()->error('Export failed: '.$e->getMessage())->send();
+
             return;
         }
     }
@@ -517,15 +538,16 @@ class ItemDispatches extends Component
     {
         try {
             $dispatches = ItemDispatch::with(['itemRequest.branch', 'itemRequestDetail.item'])
-                ->whereHas('itemRequest', fn($q) => $q->where('branch_id', $this->getBranchId()))
-                ->when($this->search, fn($q) => $q->whereHas('itemRequestDetail.item', fn($sq) => $sq->where('name', 'like', '%' . $this->search . '%')))
-                ->when($this->filterDateFrom, fn($q) => $q->whereDate('created_at', '>=', $this->filterDateFrom))
-                ->when($this->filterDateTo, fn($q) => $q->whereDate('created_at', '<=', $this->filterDateTo))
+                ->whereHas('itemRequest', fn ($q) => $q->where('branch_id', $this->getBranchId()))
+                ->when($this->search, fn ($q) => $q->whereHas('itemRequestDetail.item', fn ($sq) => $sq->where('name', 'like', '%'.$this->search.'%')))
+                ->when($this->filterDateFrom, fn ($q) => $q->whereDate('created_at', '>=', $this->filterDateFrom))
+                ->when($this->filterDateTo, fn ($q) => $q->whereDate('created_at', '<=', $this->filterDateTo))
                 ->orderBy('created_at', 'desc')
                 ->get();
 
             if ($dispatches->isEmpty()) {
                 $this->toast()->warning('No dispatches to export.')->send();
+
                 return;
             }
 
@@ -544,13 +566,14 @@ class ItemDispatches extends Component
             });
 
             return $this->export(
-                'item-dispatches-' . now()->format('Y-m-d'),
+                'item-dispatches-'.now()->format('Y-m-d'),
                 $data,
                 'exports.inventory.dispatches',
                 'excel'
             );
         } catch (\Exception $e) {
-            $this->toast()->error('Export failed: ' . $e->getMessage())->send();
+            $this->toast()->error('Export failed: '.$e->getMessage())->send();
+
             return;
         }
     }
@@ -559,15 +582,16 @@ class ItemDispatches extends Component
     {
         try {
             $dispatches = ItemDispatch::with(['itemRequest.branch', 'itemRequestDetail.item'])
-                ->whereHas('itemRequest', fn($q) => $q->where('branch_id', $this->getBranchId()))
-                ->when($this->search, fn($q) => $q->whereHas('itemRequestDetail.item', fn($sq) => $sq->where('name', 'like', '%' . $this->search . '%')))
-                ->when($this->filterDateFrom, fn($q) => $q->whereDate('created_at', '>=', $this->filterDateFrom))
-                ->when($this->filterDateTo, fn($q) => $q->whereDate('created_at', '<=', $this->filterDateTo))
+                ->whereHas('itemRequest', fn ($q) => $q->where('branch_id', $this->getBranchId()))
+                ->when($this->search, fn ($q) => $q->whereHas('itemRequestDetail.item', fn ($sq) => $sq->where('name', 'like', '%'.$this->search.'%')))
+                ->when($this->filterDateFrom, fn ($q) => $q->whereDate('created_at', '>=', $this->filterDateFrom))
+                ->when($this->filterDateTo, fn ($q) => $q->whereDate('created_at', '<=', $this->filterDateTo))
                 ->orderBy('created_at', 'desc')
                 ->get();
 
             if ($dispatches->isEmpty()) {
                 $this->toast()->warning('No dispatches to export.')->send();
+
                 return;
             }
 
@@ -589,7 +613,7 @@ class ItemDispatches extends Component
                 ];
             }
 
-            $filename = 'item-dispatches-' . now()->format('Y-m-d-His') . '.csv';
+            $filename = 'item-dispatches-'.now()->format('Y-m-d-His').'.csv';
             $handle = fopen('php://temp', 'r+');
 
             foreach ($csvData as $row) {
@@ -604,10 +628,11 @@ class ItemDispatches extends Component
                 echo $csv;
             }, $filename, [
                 'Content-Type' => 'text/csv',
-                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+                'Content-Disposition' => 'attachment; filename="'.$filename.'"',
             ]);
         } catch (\Exception $e) {
-            $this->toast()->error('Export failed: ' . $e->getMessage())->send();
+            $this->toast()->error('Export failed: '.$e->getMessage())->send();
+
             return;
         }
     }

@@ -2,13 +2,18 @@
 
 namespace App\Livewire\Auth;
 
-use Livewire\Component;
-use Livewire\Attributes\{Layout, Url};
-use App\Models\{Shift as ShiftModel, Branch, Employee, SalesShift, ShiftConfiguration};
-use App\Services\{CheckExpiredProducts, ShiftTimingValidator};
+use App\Models\Branch;
+use App\Models\SalesShift;
+use App\Models\Shift as ShiftModel;
+use App\Models\ShiftConfiguration;
+use App\Services\CheckExpiredProducts;
+use App\Services\ShiftTimingValidator;
 use Carbon\Carbon;
-use TallStackUi\Traits\Interactions;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\Url;
+use Livewire\Component;
+use TallStackUi\Traits\Interactions;
 
 #[Layout('components.layouts.auth')]
 class Shift extends Component
@@ -19,16 +24,18 @@ class Shift extends Component
     public ?string $b_id = null;
 
     public $shift_type;
+
     public $notes;
 
     // Current shift status
     public $currentShift = null;
+
     public $hasActiveShift = false;
 
     public function mount()
     {
         $this->b_id = session('selected_branch_id');
-        if (!$this->b_id) {
+        if (! $this->b_id) {
             // Fallback to first active branch
             $defaultBranch = \App\Models\Branch::where('is_active', 1)->first();
             if ($defaultBranch) {
@@ -66,15 +73,17 @@ class Shift extends Component
         $user = Auth::user();
 
         try {
-            if (!$this->b_id) {
+            if (! $this->b_id) {
                 $this->toast()->error('No branch selected. Please contact administrator.')->send();
+
                 return;
             }
             // Get the Branch
             $branch = Branch::findOrFail($this->b_id);
 
-            // STEP 1: STRICT TIME WINDOW VALIDATION
+            // STEP 1: STRICT TIME WINDOW VALIDATION - DISABLED FOR NOW
             $timingValidator = app(ShiftTimingValidator::class);
+            /*
             $timeValidation = $timingValidator->validateStrictTimeWindows(
                 $this->shift_type,
                 $this->b_id
@@ -94,6 +103,7 @@ class Shift extends Component
 
                 return;
             }
+            */
 
             // STEP 2: Check for conflicting shifts
             $conflictValidation = $timingValidator->validateNoConflictingShifts(
@@ -102,8 +112,9 @@ class Shift extends Component
                 $this->b_id
             );
 
-            if (!$conflictValidation->isValid()) {
+            if (! $conflictValidation->isValid()) {
                 $this->toast()->error($conflictValidation->getMessage())->send();
+
                 return;
             }
 
@@ -134,17 +145,18 @@ class Shift extends Component
                 'branch_id' => $this->b_id,
                 'shift_type' => $this->shift_type,
                 'error_message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
-            $this->toast()->error('Error clocking in: ' . $e->getMessage())->send();
+            $this->toast()->error('Error clocking in: '.$e->getMessage())->send();
         }
     }
-    
+
     public function clockOut()
     {
         try {
-            if (!$this->currentShift) {
+            if (! $this->currentShift) {
                 $this->toast()->error('No active shift found to clock out!')->send();
+
                 return;
             }
 
@@ -164,14 +176,15 @@ class Shift extends Component
 
             // Redirect to dashboard
             $branch = Branch::findOrFail($this->b_id);
+
             return $this->redirectToDashboard($branch);
 
         } catch (\Exception $e) {
-            \Log::error('Clock-out error: ' . $e->getMessage(), [
+            \Log::error('Clock-out error: '.$e->getMessage(), [
                 'employee_id' => Auth::id(),
-                'shift_id' => $this->currentShift->id ?? null
+                'shift_id' => $this->currentShift->id ?? null,
             ]);
-            $this->toast()->error('Error clocking out: ' . $e->getMessage())->send();
+            $this->toast()->error('Error clocking out: '.$e->getMessage())->send();
         }
     }
 
@@ -187,7 +200,7 @@ class Shift extends Component
         // Get shift configuration for reference
         $config = ShiftConfiguration::forBranchAndType($branch->id, $this->shift_type)->first();
 
-        $shift = new ShiftModel();
+        $shift = new ShiftModel;
         $shift->branch_id = $branch->id;
         $shift->employee_id = $user->id;
         // In unified system, department is determined by role, not stored in user
@@ -205,7 +218,7 @@ class Shift extends Component
             $shift->metadata = [
                 'config_id' => $config->id,
                 'expected_end' => $config->end_time,
-                'auto_clock_out_minutes' => $config->auto_clock_out_minutes
+                'auto_clock_out_minutes' => $config->auto_clock_out_minutes,
             ];
         }
 
@@ -227,7 +240,7 @@ class Shift extends Component
 
     public function getTotalHoursWorked()
     {
-        if (!$this->currentShift || !$this->currentShift->clock_in) {
+        if (! $this->currentShift || ! $this->currentShift->clock_in) {
             return '0h 0m';
         }
 
@@ -242,6 +255,7 @@ class Shift extends Component
     public function continueToWork()
     {
         $branch = Branch::findOrFail($this->b_id);
+
         return $this->redirectToDashboard($branch);
     }
 
@@ -286,7 +300,7 @@ class Shift extends Component
      */
     private function checkExpiryAndRedirect(Branch $branch, SalesShift $salesShift, $user)
     {
-        $service = new CheckExpiredProducts();
+        $service = new CheckExpiredProducts;
 
         // Get expired products (department determined by role in unified system)
         $departmentId = $this->getDepartmentIdForUser($user);
@@ -301,7 +315,7 @@ class Shift extends Component
             return $this->redirect(
                 route('branch-dashboard.sales-dashboard.expiry-alerts', [
                     'b_id' => $branch->id,
-                    'salesShiftId' => $salesShift->id
+                    'salesShiftId' => $salesShift->id,
                 ]),
                 navigate: true
             );

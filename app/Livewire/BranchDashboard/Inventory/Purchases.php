@@ -3,60 +3,79 @@
 namespace App\Livewire\BranchDashboard\Inventory;
 
 use App\Helpers\Settings;
-use App\Models\Item;
-use App\Models\Stock;
 use App\Models\Branch;
-use Livewire\Component;
+use App\Models\Item;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
-use Livewire\WithPagination;
+use App\Models\Stock;
 use App\Models\StockMovement;
-use App\Models\PurchaseApprovalRequest;
 use App\Services\AuditService;
 use App\Services\CurrencyFormattingService;
 use App\Services\PurchaseAuditApprovalService;
 use App\Traits\Exportable;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
-use Livewire\Attributes\{Layout, Url, On};
+use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
+use Livewire\Attributes\Url;
+use Livewire\Component;
+use Livewire\WithPagination;
 use TallStackUi\Traits\Interactions;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Purchases extends Component
 {
-    use WithPagination, Interactions, Exportable;
+    use Exportable, Interactions, WithPagination;
+
     #[Url(keep: true)]
     public ?string $b_id = null;
+
     public $purchaseId;
+
     public $purchase_date;
+
     public $supplier_name;
+
     public $supplier_contact;
+
     public $other_costs = 0;
+
     public $payment_status = 'pending';
+
     public $notes;
 
     public $quantity = [];
 
     public $purchaseItems = [];
+
     public $itemIndex = 0;
 
     public $search = '';
+
     public $filterPaymentStatus = '';
+
     public $filterStatus = '';
+
     public $sortColumn = 'purchase_date';
+
     public $sortDirection = 'desc';
+
     public $viewMode = 'table'; // table, cards, list, timeline, stats
 
     public $showModal = false;
+
     public $isEditing = false;
 
     // Request Approval Modal
     public $showRequestModal = false;
+
     public $requestNotes = '';
+
     public $pendingPurchaseData = [];
 
     // View Detail Modal
     public $showDetailModal = false;
+
     public $detailPurchase = null;
 
     protected $rules = [
@@ -99,8 +118,8 @@ class Purchases extends Component
             ->where('branch_id', $branchId)
             ->when($this->search, function ($q) {
                 $q->where(function ($query) {
-                    $query->where('purchase_number', 'like', '%' . $this->search . '%')
-                        ->orWhere('supplier_name', 'like', '%' . $this->search . '%');
+                    $query->where('purchase_number', 'like', '%'.$this->search.'%')
+                        ->orWhere('supplier_name', 'like', '%'.$this->search.'%');
                 });
             })
             ->when($this->filterPaymentStatus, fn ($q) => $q->where('payment_status', $this->filterPaymentStatus))
@@ -166,6 +185,7 @@ class Purchases extends Component
         // Super admins create immediately with stock updates
         if (is_super_admin()) {
             $this->executeImmediatePurchaseCreation();
+
             return;
         }
 
@@ -179,8 +199,8 @@ class Purchases extends Component
         try {
             $actor = current_actor();
 
-            if (!$actor) {
-                abort(403, "No Authenticated User Found");
+            if (! $actor) {
+                abort(403, 'No Authenticated User Found');
             }
 
             $branchId = $this->getBranchId();
@@ -198,7 +218,7 @@ class Purchases extends Component
 
             $landingCost = $totalCost + ($this->other_costs ?? 0);
             $totalCost = $landingCost; // Set total_cost equal to landing_cost
-            
+
             // For NGN currency (branch dashboard only uses NGN)
             $totalFobNgn = $landingCost - ($this->other_costs ?? 0);
 
@@ -264,15 +284,15 @@ class Purchases extends Component
                 StockMovement::create([
                     'stock_id' => $stock->id,
                     'type' => 'in',
-                    'quantity_before'=>$quantity_before,
-                    'quantity_after'=>$stock->quantity_available,
+                    'quantity_before' => $quantity_before,
+                    'quantity_after' => $stock->quantity_available,
                     'quantity' => $quantity,
                     'reference_type' => 'App\Models\Purchase',
                     'reference_id' => $purchase->id,
-                    'moved_by_type'   => get_class($actor),
-                    'moved_by_id'     => $actor->id,
+                    'moved_by_type' => get_class($actor),
+                    'moved_by_id' => $actor->id,
                     'movement_date' => $this->purchase_date,
-                    'notes' => 'Purchase: ' . $purchaseNumber,
+                    'notes' => 'Purchase: '.$purchaseNumber,
                 ]);
             }
 
@@ -281,10 +301,10 @@ class Purchases extends Component
                 $actor,
                 'create',
                 $purchase,
-                "Created purchase #{$purchase->purchase_number} from {$purchase->supplier_name}. " .
-                "Total FOB FC: {$purchase->total_fob_fc}, Total FOB NGN: {$purchase->total_fob_ngn}, " .
-                "Landing Cost: {$purchase->landing_cost}, Payment Status: {$purchase->payment_status}. " .
-                "Items: " . count($this->purchaseItems),
+                "Created purchase #{$purchase->purchase_number} from {$purchase->supplier_name}. ".
+                "Total FOB FC: {$purchase->total_fob_fc}, Total FOB NGN: {$purchase->total_fob_ngn}, ".
+                "Landing Cost: {$purchase->landing_cost}, Payment Status: {$purchase->payment_status}. ".
+                'Items: '.count($this->purchaseItems),
                 'completed'
             );
 
@@ -294,7 +314,7 @@ class Purchases extends Component
             $this->resetFields();
         } catch (\Exception $e) {
             DB::rollBack();
-            $this->toast()->error('Error creating purchase: ' . $e->getMessage())->send();
+            $this->toast()->error('Error creating purchase: '.$e->getMessage())->send();
         }
     }
 
@@ -307,8 +327,8 @@ class Purchases extends Component
         try {
             $actor = current_actor();
 
-            if (!$actor) {
-                abort(403, "No Authenticated User Found");
+            if (! $actor) {
+                abort(403, 'No Authenticated User Found');
             }
 
             $branchId = $this->getBranchId();
@@ -365,20 +385,20 @@ class Purchases extends Component
                 $actor,
                 'create',
                 $purchase,
-                "Saved purchase draft #{$purchase->purchase_number} from {$purchase->supplier_name}. " .
-                "Total FOB NGN: {$purchase->total_fob_ngn}, Landing Cost: {$purchase->landing_cost}. " .
-                "Items: " . count($this->purchaseItems) . ". Status: Draft",
+                "Saved purchase draft #{$purchase->purchase_number} from {$purchase->supplier_name}. ".
+                "Total FOB NGN: {$purchase->total_fob_ngn}, Landing Cost: {$purchase->landing_cost}. ".
+                'Items: '.count($this->purchaseItems).'. Status: Draft',
                 'completed'
             );
 
             DB::commit();
-            
+
             $this->toast()->success('Purchase saved as draft successfully. Click "Request Approval" button to submit for approval.')->send();
             $this->closeModal();
             $this->resetFields();
         } catch (\Exception $e) {
             DB::rollBack();
-            $this->toast()->error('Error saving purchase: ' . $e->getMessage())->send();
+            $this->toast()->error('Error saving purchase: '.$e->getMessage())->send();
         }
     }
 
@@ -421,7 +441,7 @@ class Purchases extends Component
 
             // Find the purchase by ID from pending data
             $purchaseId = $this->pendingPurchaseData['id'] ?? null;
-            if (!$purchaseId) {
+            if (! $purchaseId) {
                 throw new \Exception('Purchase ID not found');
             }
 
@@ -436,7 +456,7 @@ class Purchases extends Component
             $this->closeRequestModal();
             $this->resetFields();
         } catch (\Exception $e) {
-            $this->toast()->error('Failed: ' . $e->getMessage())->send();
+            $this->toast()->error('Failed: '.$e->getMessage())->send();
         }
     }
 
@@ -451,43 +471,43 @@ class Purchases extends Component
         $this->resetValidation();
     }
 
-        public function delete($id)
-        {
-            // $this->authorize('delete-purchases'); // TODO: Enable permissions after testing
+    public function delete($id)
+    {
+        // $this->authorize('delete-purchases'); // TODO: Enable permissions after testing
 
-            try {
-                $purchase = Purchase::findOrFail($id);
+        try {
+            $purchase = Purchase::findOrFail($id);
 
-                if ($purchase->branch_id !== $this->getBranchId()) {
-                    throw new \Exception('Unauthorized action.');
-                }
-
-                // Only allow deletion of draft purchases
-                if ($purchase->status !== 'draft') {
-                    throw new \Exception('Only draft purchases can be deleted.');
-                }
-
-                $purchaseNumber = $purchase->purchase_number;
-                $supplierName = $purchase->supplier_name;
-                $itemCount = $purchase->purchaseItems()->count();
-                $landingCost = $purchase->landing_cost;
-
-                $purchase->delete();
-
-                // Log the purchase deletion
-                AuditService::log(
-                    current_actor(),
-                    'delete',
-                    $purchase,
-                    "Deleted purchase draft #{$purchaseNumber} from {$supplierName}. Items: {$itemCount}, Landing Cost: {$landingCost}",
-                    'completed'
-                );
-
-                $this->toast()->success('Purchase deleted successfully.')->send();
-            } catch (\Exception $e) {
-                $this->toast()->error($e->getMessage())->send();
+            if ($purchase->branch_id !== $this->getBranchId()) {
+                throw new \Exception('Unauthorized action.');
             }
+
+            // Only allow deletion of draft purchases
+            if ($purchase->status !== 'draft') {
+                throw new \Exception('Only draft purchases can be deleted.');
+            }
+
+            $purchaseNumber = $purchase->purchase_number;
+            $supplierName = $purchase->supplier_name;
+            $itemCount = $purchase->purchaseItems()->count();
+            $landingCost = $purchase->landing_cost;
+
+            $purchase->delete();
+
+            // Log the purchase deletion
+            AuditService::log(
+                current_actor(),
+                'delete',
+                $purchase,
+                "Deleted purchase draft #{$purchaseNumber} from {$supplierName}. Items: {$itemCount}, Landing Cost: {$landingCost}",
+                'completed'
+            );
+
+            $this->toast()->success('Purchase deleted successfully.')->send();
+        } catch (\Exception $e) {
+            $this->toast()->error($e->getMessage())->send();
         }
+    }
 
     public function closeModal()
     {
@@ -495,8 +515,6 @@ class Purchases extends Component
         $this->resetFields();
         $this->resetValidation();
     }
-
-
 
     public function resetFields()
     {
@@ -540,12 +558,12 @@ class Purchases extends Component
         $query = Purchase::where('branch_id', $branchId)
             ->when($this->search, function ($q) {
                 $q->where(function ($query) {
-                    $query->where('purchase_number', 'like', '%' . $this->search . '%')
-                        ->orWhere('supplier_name', 'like', '%' . $this->search . '%');
+                    $query->where('purchase_number', 'like', '%'.$this->search.'%')
+                        ->orWhere('supplier_name', 'like', '%'.$this->search.'%');
                 });
             })
-            ->when($this->filterPaymentStatus, fn($q) => $q->where('payment_status', $this->filterPaymentStatus))
-            ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus));
+            ->when($this->filterPaymentStatus, fn ($q) => $q->where('payment_status', $this->filterPaymentStatus))
+            ->when($this->filterStatus, fn ($q) => $q->where('status', $this->filterStatus));
 
         $purchases = $query->get();
 
@@ -564,12 +582,12 @@ class Purchases extends Component
         $query = Purchase::where('branch_id', $branchId)
             ->when($this->search, function ($q) {
                 $q->where(function ($query) {
-                    $query->where('purchase_number', 'like', '%' . $this->search . '%')
-                        ->orWhere('supplier_name', 'like', '%' . $this->search . '%');
+                    $query->where('purchase_number', 'like', '%'.$this->search.'%')
+                        ->orWhere('supplier_name', 'like', '%'.$this->search.'%');
                 });
             })
-            ->when($this->filterPaymentStatus, fn($q) => $q->where('payment_status', $this->filterPaymentStatus))
-            ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus));
+            ->when($this->filterPaymentStatus, fn ($q) => $q->where('payment_status', $this->filterPaymentStatus))
+            ->when($this->filterStatus, fn ($q) => $q->where('status', $this->filterStatus));
 
         return $query->get()->groupBy('payment_status')->map(function ($group) {
             return [
@@ -630,14 +648,15 @@ class Purchases extends Component
         try {
             $purchases = Purchase::with('purchaseItems.item')
                 ->where('branch_id', $this->getBranchId())
-                ->when($this->search, fn($q) => $q->where('supplier_name', 'like', '%' . $this->search . '%')->orWhere('purchase_number', 'like', '%' . $this->search . '%'))
-                ->when($this->filterPaymentStatus, fn($q) => $q->where('payment_status', $this->filterPaymentStatus))
-                ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus))
+                ->when($this->search, fn ($q) => $q->where('supplier_name', 'like', '%'.$this->search.'%')->orWhere('purchase_number', 'like', '%'.$this->search.'%'))
+                ->when($this->filterPaymentStatus, fn ($q) => $q->where('payment_status', $this->filterPaymentStatus))
+                ->when($this->filterStatus, fn ($q) => $q->where('status', $this->filterStatus))
                 ->orderBy($this->sortColumn, $this->sortDirection)
                 ->get();
 
             if ($purchases->isEmpty()) {
                 $this->toast()->warning('No purchases to export.')->send();
+
                 return;
             }
 
@@ -656,7 +675,7 @@ class Purchases extends Component
             });
 
             return $this->export(
-                'purchases-' . now()->format('Y-m-d'),
+                'purchases-'.now()->format('Y-m-d'),
                 $data,
                 'exports.inventory.purchases',
                 'pdf',
@@ -664,7 +683,8 @@ class Purchases extends Component
                 ['orientation' => 'landscape', 'paper' => 'A4']
             );
         } catch (\Exception $e) {
-            $this->toast()->error('Export failed: ' . $e->getMessage())->send();
+            $this->toast()->error('Export failed: '.$e->getMessage())->send();
+
             return;
         }
     }
@@ -674,14 +694,15 @@ class Purchases extends Component
         try {
             $purchases = Purchase::with('purchaseItems.item')
                 ->where('branch_id', $this->getBranchId())
-                ->when($this->search, fn($q) => $q->where('supplier_name', 'like', '%' . $this->search . '%')->orWhere('purchase_number', 'like', '%' . $this->search . '%'))
-                ->when($this->filterPaymentStatus, fn($q) => $q->where('payment_status', $this->filterPaymentStatus))
-                ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus))
+                ->when($this->search, fn ($q) => $q->where('supplier_name', 'like', '%'.$this->search.'%')->orWhere('purchase_number', 'like', '%'.$this->search.'%'))
+                ->when($this->filterPaymentStatus, fn ($q) => $q->where('payment_status', $this->filterPaymentStatus))
+                ->when($this->filterStatus, fn ($q) => $q->where('status', $this->filterStatus))
                 ->orderBy($this->sortColumn, $this->sortDirection)
                 ->get();
 
             if ($purchases->isEmpty()) {
                 $this->toast()->warning('No purchases to export.')->send();
+
                 return;
             }
 
@@ -700,13 +721,14 @@ class Purchases extends Component
             });
 
             return $this->export(
-                'purchases-' . now()->format('Y-m-d'),
+                'purchases-'.now()->format('Y-m-d'),
                 $data,
                 'exports.inventory.purchases',
                 'excel'
             );
         } catch (\Exception $e) {
-            $this->toast()->error('Export failed: ' . $e->getMessage())->send();
+            $this->toast()->error('Export failed: '.$e->getMessage())->send();
+
             return;
         }
     }
@@ -716,14 +738,15 @@ class Purchases extends Component
         try {
             $purchases = Purchase::with('purchaseItems.item')
                 ->where('branch_id', $this->getBranchId())
-                ->when($this->search, fn($q) => $q->where('supplier_name', 'like', '%' . $this->search . '%')->orWhere('purchase_number', 'like', '%' . $this->search . '%'))
-                ->when($this->filterPaymentStatus, fn($q) => $q->where('payment_status', $this->filterPaymentStatus))
-                ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus))
+                ->when($this->search, fn ($q) => $q->where('supplier_name', 'like', '%'.$this->search.'%')->orWhere('purchase_number', 'like', '%'.$this->search.'%'))
+                ->when($this->filterPaymentStatus, fn ($q) => $q->where('payment_status', $this->filterPaymentStatus))
+                ->when($this->filterStatus, fn ($q) => $q->where('status', $this->filterStatus))
                 ->orderBy($this->sortColumn, $this->sortDirection)
                 ->get();
 
             if ($purchases->isEmpty()) {
                 $this->toast()->warning('No purchases to export.')->send();
+
                 return;
             }
 
@@ -745,7 +768,7 @@ class Purchases extends Component
                 ];
             }
 
-            $filename = 'purchases-' . now()->format('Y-m-d-His') . '.csv';
+            $filename = 'purchases-'.now()->format('Y-m-d-His').'.csv';
             $handle = fopen('php://temp', 'r+');
 
             foreach ($csvData as $row) {
@@ -760,10 +783,11 @@ class Purchases extends Component
                 echo $csv;
             }, $filename, [
                 'Content-Type' => 'text/csv',
-                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+                'Content-Disposition' => 'attachment; filename="'.$filename.'"',
             ]);
         } catch (\Exception $e) {
-            $this->toast()->error('Export failed: ' . $e->getMessage())->send();
+            $this->toast()->error('Export failed: '.$e->getMessage())->send();
+
             return;
         }
     }
@@ -773,7 +797,8 @@ class Purchases extends Component
      */
     protected function formatCurrency(float $amount): string
     {
-        $service = new CurrencyFormattingService();
+        $service = new CurrencyFormattingService;
+
         return $service->format($amount);
     }
 
@@ -782,8 +807,9 @@ class Purchases extends Component
      */
     protected function getCurrencySymbol(?string $currency = null): string
     {
-        $service = new CurrencyFormattingService();
+        $service = new CurrencyFormattingService;
         $currency = $currency ?? Settings::currencyLocalization('primary_currency', 'NGN');
+
         return $service->getSymbol($currency);
     }
 

@@ -2,38 +2,44 @@
 
 namespace App\Livewire\BranchDashboard\EmployeeModule\RolePermission;
 
-
 use App\Livewire\BaseComponent;
-use App\Models\Employee;
 use App\Models\Branch;
 use App\Models\Department;
-use Spatie\Permission\Models\Role;
+use App\Models\Employee;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
+use Spatie\Permission\Models\Role;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class AssignRole extends BaseComponent
 {
     public ?int $quantity = 10;
+
     public ?string $search = null;
+
     public string $searchEmployee = '';
+
     public string $filterBranch = '';
+
     public string $filterDepartment = '';
+
     public bool $showRemoveRoleModal = false;
+
     public ?Employee $selectedEmployee = null;
-    
-    #[Url(keep:true)]
+
+    #[Url(keep: true)]
     public ?string $b_id = null;
 
     protected $queryString = ['searchEmployee', 'filterBranch', 'filterDepartment'];
-    
-    public function mount(){
-        if($this->b_id){
+
+    public function mount()
+    {
+        if ($this->b_id) {
             $this->filterBranch = Branch::where('id', $this->b_id)->firstOrFail()->id;
-            
+
         }
     }
-    
+
     protected function getModelClass(): string
     {
         return Employee::class;
@@ -63,10 +69,10 @@ class AssignRole extends BaseComponent
             ->with(['branch', 'department', 'roles'])
             ->has('roles') // Only get employees with at least one role
             ->when($this->searchEmployee, function ($query) {
-                $query->where(function($q) {
-                    $q->where('name', 'like', '%' . $this->searchEmployee . '%')
-                      ->orWhere('employee_number', 'like', '%' . $this->searchEmployee . '%')
-                      ->orWhere('email', 'like', '%' . $this->searchEmployee . '%');
+                $query->where(function ($q) {
+                    $q->where('name', 'like', '%'.$this->searchEmployee.'%')
+                        ->orWhere('employee_number', 'like', '%'.$this->searchEmployee.'%')
+                        ->orWhere('email', 'like', '%'.$this->searchEmployee.'%');
                 });
             })
             ->when($this->filterBranch, function ($query) {
@@ -76,10 +82,10 @@ class AssignRole extends BaseComponent
                 $query->where('department_id', $this->filterDepartment);
             })
             ->when($this->search, function ($query) {
-                $query->where(function($q) {
-                    $q->where('name', 'like', '%' . $this->search . '%')
-                      ->orWhere('employee_number', 'like', '%' . $this->search . '%')
-                      ->orWhere('email', 'like', '%' . $this->search . '%');
+                $query->where(function ($q) {
+                    $q->where('name', 'like', '%'.$this->search.'%')
+                        ->orWhere('employee_number', 'like', '%'.$this->search.'%')
+                        ->orWhere('email', 'like', '%'.$this->search.'%');
                 });
             });
     }
@@ -104,7 +110,7 @@ class AssignRole extends BaseComponent
         // Refresh the selected employee data
         $this->selectedEmployee = Employee::with(['roles', 'branch', 'department'])->find($employeeId);
 
-        $this->toast()->success('Role removed successfully from ' . $employee->name)->send();
+        $this->toast()->success('Role removed successfully from '.$employee->name)->send();
     }
 
     public function render()

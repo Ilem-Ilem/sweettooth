@@ -4,6 +4,7 @@ namespace App\Services\Reports;
 
 use App\Models\DailyProduce;
 use App\Models\ProductionRecord;
+use App\Models\ItemRequestDetail;
 
 class ProductionEfficiencyReportService extends ReportService
 {
@@ -17,6 +18,38 @@ class ProductionEfficiencyReportService extends ReportService
     protected function getReportName(): string
     {
         return 'Production Efficiency Report';
+    }
+
+    /**
+     * Get summary metrics for report data.
+     */
+    public function getSummaryMetrics(array $reportData): array
+    {
+        return $this->generateSummaryMetrics($reportData);
+    }
+
+    /**
+     * Get charts data for report data.
+     */
+    public function getChartsData(array $reportData): array
+    {
+        return $this->generateChartsData($reportData);
+    }
+
+    /**
+     * Generate cache key for report.
+     */
+    protected function getCacheKey(): string
+    {
+        return sprintf(
+            'report:%s:%s:%s:%s:%s:%s',
+            $this->reportCategory,
+            $this->reportType,
+            $this->branchId,
+            $this->departmentId,
+            $this->periodFrom,
+            $this->periodTo
+        );
     }
 
     /**
@@ -49,7 +82,7 @@ class ProductionEfficiencyReportService extends ReportService
             ->whereBetween('production_time', [$this->periodFrom, $this->periodTo])
             ->get();
 
-        return [
+        $reportData = [
             'daily_summary' => $this->generateDailySummary($dailyProduces),
             'product_efficiency' => $this->generateProductEfficiency($dailyProduces),
             'shift_performance' => $this->generateShiftPerformance($dailyProduces),
@@ -63,6 +96,11 @@ class ProductionEfficiencyReportService extends ReportService
                     ->diffInDays(\Carbon\Carbon::parse($this->periodTo)) + 1,
             ],
         ];
+
+        // Generate summary metrics
+        $reportData['summary_metrics'] = $this->generateSummaryMetrics($reportData);
+
+        return $reportData;
     }
 
     /**
@@ -98,7 +136,7 @@ class ProductionEfficiencyReportService extends ReportService
 
             return [
                 'product_id' => $recipe->id ?? null,
-                'product_name' => $recipe->name ?? 'Unknown Recipe',
+                'product_name' => $recipe->product_name ?? 'Unknown Recipe',
                 'planned' => $planned,
                 'actual' => $actual,
                 'variance' => $actual - $planned,

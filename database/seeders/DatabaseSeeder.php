@@ -57,7 +57,10 @@ class DatabaseSeeder extends Seeder
             // 9. Recipes & Ingredients
             ProductRecipeSeeder::class, // Creates recipes linked to products with ingredients
 
-            // 10. Production & UI Pages
+            // 10. Additional Roles
+            InventoryStoreRolesSeeder::class, // Additional inventory and store management roles
+
+            // 11. Production & UI Pages
             // ProductionSeeder::class, // Skipped due to unique constraint issues
             DepartmentPageSeeder::class,
             SalesPagesSeeder::class,

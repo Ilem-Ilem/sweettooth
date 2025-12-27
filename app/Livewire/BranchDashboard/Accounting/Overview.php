@@ -4,12 +4,12 @@ namespace App\Livewire\BranchDashboard\Accounting;
 
 use App\Models\AccountingPeriod;
 use App\Models\GlEntry;
-use App\Models\Sale;
-use App\Models\Purchase;
 use App\Models\Payment;
+use App\Models\Purchase;
+use App\Models\Sale;
 use App\Models\StockMovement;
-use Livewire\Component;
 use Livewire\Attributes\Layout;
+use Livewire\Component;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Overview extends Component
@@ -19,18 +19,18 @@ class Overview extends Component
     public function render()
     {
         // Get current period if not set
-        if (!$this->periodId) {
+        if (! $this->periodId) {
             $period = AccountingPeriod::current()->first();
             $this->periodId = $period?->id;
         }
 
         // GL Status
         $postedEntries = GlEntry::where('status', 'posted')
-            ->when($this->periodId, fn($q) => $q->where('accounting_period_id', $this->periodId))
+            ->when($this->periodId, fn ($q) => $q->where('accounting_period_id', $this->periodId))
             ->count();
 
         $draftEntries = GlEntry::where('status', 'draft')
-            ->when($this->periodId, fn($q) => $q->where('accounting_period_id', $this->periodId))
+            ->when($this->periodId, fn ($q) => $q->where('accounting_period_id', $this->periodId))
             ->count();
 
         $pendingPostings = Sale::where('gl_posting_status', 'pending')->count()
@@ -55,7 +55,7 @@ class Overview extends Component
 
         // GL Balancing
         $glBalance = GlEntry::where('status', 'posted')
-            ->when($this->periodId, fn($q) => $q->where('accounting_period_id', $this->periodId));
+            ->when($this->periodId, fn ($q) => $q->where('accounting_period_id', $this->periodId));
 
         $totalDebits = $glBalance->sum('debit');
         $totalCredits = $glBalance->sum('credit');
@@ -63,7 +63,7 @@ class Overview extends Component
 
         // Recently Posted
         $recentPostedEntries = GlEntry::where('status', 'posted')
-            ->when($this->periodId, fn($q) => $q->where('accounting_period_id', $this->periodId))
+            ->when($this->periodId, fn ($q) => $q->where('accounting_period_id', $this->periodId))
             ->with(['glAccount', 'period'])
             ->orderBy('entry_date', 'desc')
             ->limit(5)

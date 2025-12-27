@@ -13,7 +13,7 @@ return new class extends Migration
     {
         // Add branch_id to stock_movements
         Schema::table('stock_movements', function (Blueprint $table) {
-            if (!Schema::hasColumn('stock_movements', 'branch_id')) {
+            if (! Schema::hasColumn('stock_movements', 'branch_id')) {
                 $table->uuid('branch_id')->nullable();
                 $table->foreign('branch_id')->references('id')->on('branches')->onDelete('set null');
                 $table->index('branch_id');
@@ -22,7 +22,7 @@ return new class extends Migration
 
         // Add branch_id to payments (if not already present)
         Schema::table('payments', function (Blueprint $table) {
-            if (!Schema::hasColumn('payments', 'branch_id')) {
+            if (! Schema::hasColumn('payments', 'branch_id')) {
                 $table->uuid('branch_id')->nullable();
                 $table->foreign('branch_id')->references('id')->on('branches')->onDelete('set null');
                 $table->index('branch_id');

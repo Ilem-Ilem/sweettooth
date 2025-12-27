@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (!Schema::hasTable('workflow_audit_logs')) {
+        if (! Schema::hasTable('workflow_audit_logs')) {
             Schema::create('workflow_audit_logs', function (Blueprint $table) {
                 $table->id();
                 $table->timestamps();

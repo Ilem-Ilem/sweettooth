@@ -19,7 +19,7 @@ return new class extends Migration
                 'pos',
                 'clock_out',
                 'shift_closing',
-                'completed'
+                'completed',
             ])->default('clock_in')->after('status');
 
             // Add JSON metadata for workflow tracking
@@ -45,7 +45,7 @@ return new class extends Migration
                 'workflow_state',
                 'metadata',
                 'stock_verified_at',
-                'shift_closed_at'
+                'shift_closed_at',
             ]);
         });
     }

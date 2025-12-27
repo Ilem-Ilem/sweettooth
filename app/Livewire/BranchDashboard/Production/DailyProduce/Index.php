@@ -43,7 +43,8 @@ class Index extends Component
 
     // For batch-level dispatch management
     public $batchQuantities = []; // Stores sent_out and order quantities for each batch
-    public $batchSalesDepartments = []; // Stores sales_department_id for each batch
+    public $batchSalesDepartments = []; // Stores sales_department_id for each batch (legacy)
+    public $batchDispatches = []; // Stores multiple dispatch allocations per batch: [[sales_dept_id, quantity], ...]
 
     // For recording production batches
     public $batchesProduced = 1; // Number of batches made
@@ -222,6 +223,20 @@ class Index extends Component
 
             // Get production records (batches) with details
             $batchesData = $produce->productionRecords->map(function ($batch) {
+                // Load existing dispatches for this batch
+                $existingDispatches = \App\Models\ProductDispatch::where('production_record_id', $batch->id)
+                    ->with('salesDepartment')
+                    ->get()
+                    ->map(function ($dispatch) {
+                        return [
+                            'id' => $dispatch->id,
+                            'sales_department_id' => $dispatch->sales_department_id,
+                            'sales_department_name' => $dispatch->salesDepartment->name ?? 'Unknown',
+                            'quantity' => (float) $dispatch->quantity,
+                            'status' => $dispatch->status,
+                        ];
+                    })->toArray();
+
                 return [
                     'id' => $batch->id,
                     'batch_number' => $batch->batch_number,
@@ -235,6 +250,7 @@ class Index extends Component
                     'quality_status' => $batch->quality_status,
                     'production_time' => $batch->production_time->format('M d, h:i A'),
                     'produced_by' => $batch->producedBy->name ?? 'N/A',
+                    'dispatches' => $existingDispatches,
                 ];
             })->toArray();
 
@@ -288,15 +304,30 @@ class Index extends Component
                     'closing_quantity' => $produce['closing_quantity'],
                 ];
 
-                // Initialize batch quantities for batch-level management
+                // Initialize batch quantities for batch-level management (preserve existing values)
                 foreach ($produce['batches'] as $batch) {
-                    $this->batchQuantities[$batch['id']] = [
-                        'quantity_sent_out' => $batch['quantity_sent_out'],
-                        'quantity_for_order' => $batch['quantity_for_order'],
-                    ];
+                    if (!isset($this->batchQuantities[$batch['id']])) {
+                        $this->batchQuantities[$batch['id']] = [
+                            'quantity_sent_out' => $batch['quantity_sent_out'],
+                            'quantity_for_order' => $batch['quantity_for_order'],
+                        ];
+                    }
 
                     // Initialize sales department selection (default to first sales dept if available)
-                    $this->batchSalesDepartments[$batch['id']] = $this->salesDepartments[0]['id'] ?? null;
+                    if (!isset($this->batchSalesDepartments[$batch['id']])) {
+                        $this->batchSalesDepartments[$batch['id']] = $this->salesDepartments[0]['id'] ?? null;
+                    }
+
+                    // Initialize batch dispatches (multiple allocations per batch)
+                    if (!isset($this->batchDispatches[$batch['id']])) {
+                        // If there are existing dispatches, use them
+                        if (!empty($batch['dispatches'])) {
+                            $this->batchDispatches[$batch['id']] = $batch['dispatches'];
+                        } else {
+                            // Otherwise, create empty array (user can add dispatches)
+                            $this->batchDispatches[$batch['id']] = [];
+                        }
+                    }
                 }
             }
         }
@@ -694,6 +725,126 @@ class Index extends Component
     }
 
     /**
+     * Add a new dispatch allocation to a batch
+     */
+    public function addBatchDispatch($batchId)
+    {
+        if (!isset($this->batchDispatches[$batchId])) {
+            $this->batchDispatches[$batchId] = [];
+        }
+
+        // Add new empty dispatch entry
+        $this->batchDispatches[$batchId][] = [
+            'sales_department_id' => $this->salesDepartments[0]['id'] ?? null,
+            'quantity' => 0,
+            'status' => 'pending',
+        ];
+
+        $this->updateBatchTotals($batchId);
+    }
+
+    /**
+     * Remove a dispatch allocation from a batch
+     */
+    public function removeBatchDispatch($batchId, $dispatchIndex)
+    {
+        if (isset($this->batchDispatches[$batchId][$dispatchIndex])) {
+            unset($this->batchDispatches[$batchId][$dispatchIndex]);
+            // Reindex array
+            $this->batchDispatches[$batchId] = array_values($this->batchDispatches[$batchId]);
+        }
+
+        $this->updateBatchTotals($batchId);
+    }
+
+    /**
+     * Update batch dispatch details and recalculate totals
+     */
+    public function updateBatchDispatch($batchId, $dispatchIndex, $field, $value)
+    {
+        if (isset($this->batchDispatches[$batchId][$dispatchIndex])) {
+            $this->batchDispatches[$batchId][$dispatchIndex][$field] = $value;
+            $this->updateBatchTotals($batchId);
+        }
+    }
+
+    /**
+     * Listen for changes to batchDispatches and validate/update totals
+     */
+    public function updatedBatchDispatches($value, $key)
+    {
+        // Extract batchId from the key (format: "batchId.index.field")
+        $parts = explode('.', $key);
+        $batchId = $parts[0];
+
+        // Validate dispatch allocations don't exceed approved quantity
+        $this->validateBatchDispatches($batchId);
+
+        $this->updateBatchTotals($batchId);
+    }
+
+    /**
+     * Validate that dispatch allocations don't exceed approved quantity
+     */
+    private function validateBatchDispatches($batchId)
+    {
+        $batch = \App\Models\ProductionRecord::find($batchId);
+        if (!$batch) return;
+
+        $approvedQuantity = (float) $batch->quantity_approved;
+        $totalDispatched = 0;
+
+        if (isset($this->batchDispatches[$batchId])) {
+            foreach ($this->batchDispatches[$batchId] as $index => $dispatch) {
+                $quantity = (float) ($dispatch['quantity'] ?? 0);
+
+                // Validate individual dispatch doesn't exceed remaining
+                $remainingForBatch = $approvedQuantity - ($totalDispatched - $quantity);
+                if ($quantity > $remainingForBatch) {
+                    // Reset to maximum allowed
+                    $this->batchDispatches[$batchId][$index]['quantity'] = $remainingForBatch;
+                    $this->toast()->error("Dispatch quantity cannot exceed available batch quantity ({$remainingForBatch})!")->send();
+                }
+
+                $totalDispatched += (float) $this->batchDispatches[$batchId][$index]['quantity'];
+            }
+        }
+
+        // Check total doesn't exceed approved
+        if ($totalDispatched > $approvedQuantity) {
+            $this->toast()->error("Total dispatch allocations ({$totalDispatched}) cannot exceed approved batch quantity ({$approvedQuantity})!")->send();
+
+            // Reset all dispatches to zero to prevent invalid state
+            foreach ($this->batchDispatches[$batchId] as $index => $dispatch) {
+                $this->batchDispatches[$batchId][$index]['quantity'] = 0;
+            }
+        }
+    }
+
+    /**
+     * Update batch totals based on current dispatches
+     */
+    private function updateBatchTotals($batchId)
+    {
+        $batch = \App\Models\ProductionRecord::find($batchId);
+        if (!$batch) return;
+
+        // Calculate total sent out from all dispatches
+        $totalSentOut = 0;
+        if (isset($this->batchDispatches[$batchId])) {
+            foreach ($this->batchDispatches[$batchId] as $dispatch) {
+                $totalSentOut += (float) ($dispatch['quantity'] ?? 0);
+            }
+        }
+
+        // Update batch quantities (for backward compatibility)
+        $this->batchQuantities[$batchId]['quantity_sent_out'] = $totalSentOut;
+
+        // Update the batch record and daily produce aggregates
+        $this->updateBatchQuantity($batchId, 'quantity_sent_out');
+    }
+
+    /**
      * Update batch-level dispatch quantities
      */
     public function updateBatchQuantity($batchId, $field)
@@ -737,12 +888,40 @@ class Index extends Component
             $batch->$field = $newValue;
             $batch->updateQuantityRemaining();
 
+            // Update aggregate quantities in daily produce
+            $dailyProduce = \App\Models\DailyProduce::find($batch->daily_produce_id);
+            if ($dailyProduce) {
+                // Calculate totals from all batch quantities (including the one just updated)
+                $totalSentOut = 0;
+                $totalForOrder = 0;
+
+                foreach ($dailyProduce->productionRecords as $batchRecord) {
+                    if (isset($this->batchQuantities[$batchRecord->id])) {
+                        $totalSentOut += (float) ($this->batchQuantities[$batchRecord->id]['quantity_sent_out'] ?? 0);
+                        $totalForOrder += (float) ($this->batchQuantities[$batchRecord->id]['quantity_for_order'] ?? 0);
+                    } else {
+                        $totalSentOut += (float) $batchRecord->quantity_sent_out;
+                        $totalForOrder += (float) $batchRecord->quantity_for_order;
+                    }
+                }
+
+                $dailyProduce->sent_out_quantity = $totalSentOut;
+                $dailyProduce->order_quantity = $totalForOrder;
+
+                // Auto-calculate closing quantity
+                $dailyProduce->closing_quantity = $dailyProduce->opening_quantity +
+                                                  $dailyProduce->getNetAvailable() -
+                                                  $dailyProduce->sent_out_quantity -
+                                                  $dailyProduce->order_quantity;
+
+                $dailyProduce->updateCalculations();
+            }
+
             // Create dispatch record if sending out
             if ($field === 'quantity_sent_out' && $newValue > $batch->quantity_sent_out) {
                 $quantityToDispatch = $newValue - $batch->quantity_sent_out;
                 $salesDeptId = $this->batchSalesDepartments[$batchId] ?? null;
 
-                $dailyProduce = \App\Models\DailyProduce::find($batch->daily_produce_id);
                 if ($dailyProduce && $salesDeptId) {
                     $this->createProductDispatch($dailyProduce, $quantityToDispatch, $salesDeptId);
                 }
@@ -771,15 +950,48 @@ class Index extends Component
 
             DB::transaction(function () use ($produce) {
                 foreach ($produce->productionRecords as $batch) {
+                    // Update batch quantities (legacy support)
                     if (isset($this->batchQuantities[$batch->id])) {
                         $batch->quantity_sent_out = (float) ($this->batchQuantities[$batch->id]['quantity_sent_out'] ?? 0);
                         $batch->quantity_for_order = (float) ($this->batchQuantities[$batch->id]['quantity_for_order'] ?? 0);
                         $batch->updateQuantityRemaining();
                     }
+
+                    // Create/update product dispatches from batchDispatches
+                    if (isset($this->batchDispatches[$batch->id])) {
+                        // Delete existing dispatches for this batch
+                        \App\Models\ProductDispatch::where('production_record_id', $batch->id)->delete();
+
+                        // Create new dispatches
+                        foreach ($this->batchDispatches[$batch->id] as $dispatchData) {
+                            if ((float) ($dispatchData['quantity'] ?? 0) > 0) {
+                                \App\Models\ProductDispatch::create([
+                                    'branch_id' => $this->getBranchId(),
+                                    'daily_produce_id' => $produce->id,
+                                    'production_record_id' => $batch->id,
+                                    'production_shift_id' => $produce->shift_id,
+                                    'sales_department_id' => $dispatchData['sales_department_id'],
+                                    'product_id' => $produce->recipe->product_id ?? null,
+                                    'dispatched_by_id' => auth()->id(),
+                                    'dispatched_by_type' => 'user',
+                                    'quantity' => (float) $dispatchData['quantity'],
+                                    'uom' => $produce->recipe->unitOfMeasure?->symbol ?? 'units',
+                                    'dispatch_time' => now(),
+                                    'shift_type' => $produce->shift_type,
+                                    'dispatch_date' => $produce->produce_date,
+                                    'status' => 'dispatched',
+                                    'notes' => "Dispatched from batch {$batch->batch_number}",
+                                ]);
+                            }
+                        }
+                    }
                 }
 
-                // Update aggregate quantities in daily produce
-                $totalSentOut = $produce->productionRecords()->sum('quantity_sent_out');
+                // Update aggregate quantities in daily produce (now based on actual dispatches)
+                $totalSentOut = \App\Models\ProductDispatch::whereHas('productionRecord', function ($q) use ($produce) {
+                    $q->where('daily_produce_id', $produce->id);
+                })->sum('quantity');
+
                 $totalForOrder = $produce->productionRecords()->sum('quantity_for_order');
 
                 $produce->sent_out_quantity = $totalSentOut;
@@ -787,9 +999,9 @@ class Index extends Component
 
                 // Auto-calculate closing quantity
                 $produce->closing_quantity = $produce->opening_quantity +
-                                            $produce->getNetAvailable() -
-                                            $produce->sent_out_quantity -
-                                            $produce->order_quantity;
+                                              $produce->getNetAvailable() -
+                                              $produce->sent_out_quantity -
+                                              $produce->order_quantity;
 
                 $produce->updateCalculations();
             });
@@ -808,8 +1020,9 @@ class Index extends Component
      * @param DailyProduce $produce Daily produce record
      * @param float $quantity Quantity to dispatch
      * @param int $salesDepartmentId Sales department receiving the dispatch
+     * @param int|null $productionRecordId Batch ID (optional)
      */
-    private function createProductDispatch($produce, $quantity, $salesDepartmentId)
+    private function createProductDispatch($produce, $quantity, $salesDepartmentId, $productionRecordId = null)
     {
         if ($quantity <= 0) {
             return;
@@ -831,10 +1044,12 @@ class Index extends Component
         ProductDispatch::create([
             'branch_id' => $this->getBranchId(),
             'daily_produce_id' => $produce->id,
+            'production_record_id' => $productionRecordId,
             'production_shift_id' => $produce->shift_id,
             'sales_department_id' => $salesDepartmentId,
             'product_id' => $product->id,
-            'dispatched_by' => Auth::guard('web')->id(),
+            'dispatched_by_id' => Auth::guard('web')->id(),
+            'dispatched_by_type' => 'user',
             'quantity' => $quantity,
             'uom' => $product->uom ?? $produce->recipe->unitOfMeasure?->symbol ?? 'units',
             'dispatch_time' => now(),

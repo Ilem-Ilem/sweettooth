@@ -312,7 +312,7 @@ class Product extends Model
             $avgCost = $ingredient->item->purchaseItems()
                 ->orderBy('created_at', 'desc')
                 ->limit(5)
-                ->avg('unit_price');
+                ->avg('cost_per_unit');
 
             if ($avgCost) {
                 $totalCost += ($ingredient->quantity * $avgCost);

@@ -2,14 +2,15 @@
 
 namespace App\Livewire\BranchDashboard\Inventory;
 
-use App\Models\StockMovement;
 use App\Models\Department;
-use App\Models\Employee;
+use App\Models\StockMovement;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
-use Livewire\Attributes\{Layout, Url, On};
-use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class StockMovements extends Component
@@ -32,11 +33,17 @@ class StockMovements extends Component
     }
 
     public $quantity = 15;
+
     public $search = '';
+
     public $filterType = '';
+
     public $filterShift = '';
+
     public $filterDepartment = '';
+
     public $filterDateFrom = '';
+
     public $filterDateTo = '';
 
     // View mode: 'table', 'feed', 'analytics'
@@ -73,7 +80,7 @@ class StockMovements extends Component
         $lastWeekQuery = clone $baseQuery;
         $lastWeekQuery->whereBetween('movement_date', [
             now()->subWeek()->startOfWeek(),
-            now()->subWeek()->endOfWeek()
+            now()->subWeek()->endOfWeek(),
         ]);
 
         return [
@@ -112,13 +119,13 @@ class StockMovements extends Component
         $query->when($this->search, function ($q) {
             $q->where(function ($query) {
                 $query->whereHas('stock.item', function ($subQuery) {
-                    $subQuery->where('name', 'like', '%' . $this->search . '%')
-                        ->orWhere('sku', 'like', '%' . $this->search . '%');
+                    $subQuery->where('name', 'like', '%'.$this->search.'%')
+                        ->orWhere('sku', 'like', '%'.$this->search.'%');
                 })
                     ->orWhereHas('mover', function ($subQuery) {
-                        $subQuery->where('name', 'like', '%' . $this->search . '%');
+                        $subQuery->where('name', 'like', '%'.$this->search.'%');
                     })
-                    ->orWhere('notes', 'like', '%' . $this->search . '%');
+                    ->orWhere('notes', 'like', '%'.$this->search.'%');
             });
         })
             ->when($this->filterType, fn ($q) => $q->where('type', $this->filterType))
@@ -207,7 +214,7 @@ class StockMovements extends Component
             return [
                 'hour' => $item->hour,
                 'count' => $item->count,
-                'formatted' => str_pad($item->hour, 2, '0', STR_PAD_LEFT) . ':00',
+                'formatted' => str_pad($item->hour, 2, '0', STR_PAD_LEFT).':00',
             ];
         });
     }
@@ -236,7 +243,7 @@ class StockMovements extends Component
         return StockMovement::with([
             'stock.item',
             'mover',
-            'reference'
+            'reference',
         ])
             ->whereHas('stock', function ($q) use ($branchId) {
                 $q->where('branch_id', $branchId);
@@ -253,7 +260,7 @@ class StockMovements extends Component
         $query = StockMovement::with([
             'stock.item',
             'stock.branch',
-            'mover'
+            'mover',
         ])
             ->whereHas('stock', function ($q) use ($branchId) {
                 $q->where('branch_id', $branchId);
@@ -294,7 +301,7 @@ class StockMovements extends Component
         $query = StockMovement::with([
             'stock.item',
             'mover',
-            'reference'
+            'reference',
         ])
             ->whereHas('stock', function ($q) use ($branchId) {
                 $q->where('branch_id', $branchId);
@@ -319,7 +326,7 @@ class StockMovements extends Component
             'Department',
             'Shift',
             'Reference',
-            'Notes'
+            'Notes',
         ];
 
         foreach ($movements as $movement) {
@@ -333,19 +340,19 @@ class StockMovements extends Component
                 $movement->stock->item->name ?? 'N/A',
                 $movement->stock->item->sku ?? 'N/A',
                 ucfirst($movement->type),
-                ($movement->isInbound() ? '+' : '-') . number_format(abs($movement->quantity), 2),
+                ($movement->isInbound() ? '+' : '-').number_format(abs($movement->quantity), 2),
                 number_format($movement->quantity_before, 2),
                 number_format($movement->quantity_after, 2),
                 $movement->stock->item->uom ?? '',
                 $movement->mover->name ?? 'N/A',
                 $request?->department->name ?? 'N/A',
                 $request ? ucfirst($request->shift) : 'N/A',
-                $request ? $request->request_number : ($movement->reference_id ? '#' . $movement->reference_id : 'N/A'),
-                $movement->notes ?? ''
+                $request ? $request->request_number : ($movement->reference_id ? '#'.$movement->reference_id : 'N/A'),
+                $movement->notes ?? '',
             ];
         }
 
-        $filename = 'stock-movements-' . now()->format('Y-m-d-His') . '.csv';
+        $filename = 'stock-movements-'.now()->format('Y-m-d-His').'.csv';
         $handle = fopen('php://temp', 'r+');
 
         foreach ($csvData as $row) {
@@ -360,7 +367,7 @@ class StockMovements extends Component
             echo $csv;
         }, $filename, [
             'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ]);
     }
 

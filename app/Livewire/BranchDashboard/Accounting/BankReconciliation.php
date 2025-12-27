@@ -5,14 +5,12 @@ namespace App\Livewire\BranchDashboard\Accounting;
 use App\Helpers\Settings;
 use App\Models\BankAccount;
 use App\Models\BankReconciliation as BankReconciliationModel;
-use App\Models\GlEntry;
-use App\Models\DailyBankTransaction;
 use App\Services\BankReconciliationService;
 use App\Services\CurrencyFormattingService;
-use Livewire\Component;
+use Carbon\Carbon;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
-use Carbon\Carbon;
+use Livewire\Component;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class BankReconciliation extends Component
@@ -24,22 +22,30 @@ class BankReconciliation extends Component
 
     // Selected data
     public ?int $selectedBankAccountId = null;
+
     public ?int $selectedReconciliationId = null;
+
     public ?string $reconciliationDate = null;
+
     public ?string $bankBalance = null;
 
     // Matching data
     public array $glEntries = [];
+
     public array $bankTransactions = [];
+
     public array $matchedPairs = [];
+
     public array $selectedForMatching = [];
 
     // Statistics
     public array $stats = [];
+
     public bool $isBalanced = false;
 
     // UI state
     public bool $showAutoMatch = false;
+
     public int $autoMatchCount = 0;
 
     public function mount()
@@ -73,8 +79,9 @@ class BankReconciliation extends Component
      */
     public function startReconciliation()
     {
-        if (!$this->selectedBankAccountId || !$this->reconciliationDate || !$this->bankBalance) {
+        if (! $this->selectedBankAccountId || ! $this->reconciliationDate || ! $this->bankBalance) {
             $this->addError('form', 'Please fill all required fields');
+
             return;
         }
 
@@ -93,7 +100,7 @@ class BankReconciliation extends Component
             $this->activeTab = 'matching';
             $this->dispatch('notify', message: 'Reconciliation started successfully');
         } catch (\Exception $e) {
-            $this->addError('form', 'Error: ' . $e->getMessage());
+            $this->addError('form', 'Error: '.$e->getMessage());
         }
     }
 
@@ -102,7 +109,7 @@ class BankReconciliation extends Component
      */
     private function loadReconciliationData()
     {
-        if (!$this->selectedReconciliationId) {
+        if (! $this->selectedReconciliationId) {
             return;
         }
 
@@ -115,7 +122,7 @@ class BankReconciliation extends Component
                 $reconciliation->reconciliation_date
             );
 
-            $this->glEntries = $glEntries->map(fn($entry) => [
+            $this->glEntries = $glEntries->map(fn ($entry) => [
                 'id' => $entry->id,
                 'account_name' => $entry->glAccount?->account_name,
                 'amount' => $entry->debit + $entry->credit,
@@ -131,7 +138,7 @@ class BankReconciliation extends Component
                 $reconciliation->reconciliation_date
             );
 
-            $this->bankTransactions = $bankTransactions->map(fn($transaction) => [
+            $this->bankTransactions = $bankTransactions->map(fn ($transaction) => [
                 'id' => $transaction->id,
                 'amount' => $transaction->amount,
                 'date' => $transaction->transaction_date->format('Y-m-d'),
@@ -146,7 +153,7 @@ class BankReconciliation extends Component
             // Update statistics
             $this->updateStats();
         } catch (\Exception $e) {
-            $this->addError('form', 'Error loading data: ' . $e->getMessage());
+            $this->addError('form', 'Error loading data: '.$e->getMessage());
         }
     }
 
@@ -155,7 +162,7 @@ class BankReconciliation extends Component
      */
     private function loadMatchedPairs()
     {
-        if (!$this->selectedReconciliationId) {
+        if (! $this->selectedReconciliationId) {
             return;
         }
 
@@ -163,7 +170,7 @@ class BankReconciliation extends Component
         $this->matchedPairs = $reconciliation->details()
             ->with(['glEntry.glAccount', 'bankTransaction'])
             ->get()
-            ->map(fn($detail) => [
+            ->map(fn ($detail) => [
                 'id' => $detail->id,
                 'gl_entry_id' => $detail->gl_entry_id,
                 'bank_transaction_id' => $detail->daily_bank_transaction_id,
@@ -181,7 +188,7 @@ class BankReconciliation extends Component
      */
     private function updateStats()
     {
-        if (!$this->selectedReconciliationId) {
+        if (! $this->selectedReconciliationId) {
             return;
         }
 
@@ -195,8 +202,9 @@ class BankReconciliation extends Component
     #[On('match-transactions')]
     public function matchTransactions(int $glEntryId, int $bankTransactionId)
     {
-        if (!$this->selectedReconciliationId) {
+        if (! $this->selectedReconciliationId) {
             $this->addError('form', 'No active reconciliation');
+
             return;
         }
 
@@ -205,7 +213,7 @@ class BankReconciliation extends Component
             $this->loadReconciliationData();
             $this->dispatch('notify', message: 'Transaction matched successfully');
         } catch (\Exception $e) {
-            $this->addError('form', 'Error: ' . $e->getMessage());
+            $this->addError('form', 'Error: '.$e->getMessage());
         }
     }
 
@@ -219,7 +227,7 @@ class BankReconciliation extends Component
             $this->loadReconciliationData();
             $this->dispatch('notify', message: 'Match removed');
         } catch (\Exception $e) {
-            $this->addError('form', 'Error: ' . $e->getMessage());
+            $this->addError('form', 'Error: '.$e->getMessage());
         }
     }
 
@@ -228,8 +236,9 @@ class BankReconciliation extends Component
      */
     public function performAutoMatch()
     {
-        if (!$this->selectedReconciliationId) {
+        if (! $this->selectedReconciliationId) {
             $this->addError('form', 'No active reconciliation');
+
             return;
         }
 
@@ -240,7 +249,7 @@ class BankReconciliation extends Component
             $this->loadReconciliationData();
             $this->dispatch('notify', message: "Auto-matched {$count} transaction(s)");
         } catch (\Exception $e) {
-            $this->addError('form', 'Error: ' . $e->getMessage());
+            $this->addError('form', 'Error: '.$e->getMessage());
         }
     }
 
@@ -249,13 +258,15 @@ class BankReconciliation extends Component
      */
     public function completeReconciliation()
     {
-        if (!$this->selectedReconciliationId) {
+        if (! $this->selectedReconciliationId) {
             $this->addError('form', 'No active reconciliation');
+
             return;
         }
 
-        if (!$this->isBalanced) {
+        if (! $this->isBalanced) {
             $this->addError('form', 'Reconciliation is not balanced');
+
             return;
         }
 
@@ -264,7 +275,7 @@ class BankReconciliation extends Component
             $this->activeTab = 'results';
             $this->dispatch('notify', message: 'Reconciliation completed successfully');
         } catch (\Exception $e) {
-            $this->addError('form', 'Error: ' . $e->getMessage());
+            $this->addError('form', 'Error: '.$e->getMessage());
         }
     }
 
@@ -293,7 +304,8 @@ class BankReconciliation extends Component
      */
     protected function formatCurrency(float $amount): string
     {
-        $service = new CurrencyFormattingService();
+        $service = new CurrencyFormattingService;
+
         return $service->format($amount);
     }
 
@@ -302,8 +314,9 @@ class BankReconciliation extends Component
      */
     protected function getCurrencySymbol(?string $currency = null): string
     {
-        $service = new CurrencyFormattingService();
+        $service = new CurrencyFormattingService;
         $currency = $currency ?? Settings::currencyLocalization('primary_currency', 'NGN');
+
         return $service->getSymbol($currency);
     }
 }

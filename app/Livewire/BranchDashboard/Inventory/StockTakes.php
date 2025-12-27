@@ -2,32 +2,41 @@
 
 namespace App\Livewire\BranchDashboard\Inventory;
 
+use App\Models\Stock;
 use App\Models\StockTake;
 use App\Models\StockTakeDetail;
-use App\Models\Stock;
-use App\Models\StockMovement;
 use App\Services\AuditService;
 use App\Traits\Exportable;
-use Livewire\Component;
-use Livewire\WithPagination;
-use Livewire\Attributes\{Layout, Url, On};
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
+use Livewire\Attributes\Url;
+use Livewire\Component;
+use Livewire\WithPagination;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class StockTakes extends Component
 {
-    use WithPagination, Exportable;
-#[Url(keep:true)]
+    use Exportable, WithPagination;
+
+    #[Url(keep: true)]
     public ?string $b_id = null;
+
     public $search = '';
+
     public $filterType = '';
+
     public $filterStatus = '';
 
     public $showModal = false;
+
     public $stockTakeId;
+
     public $stock_take_date;
+
     public $type = 'full';
+
     public $notes;
 
     public $stockTakeItems = [];
@@ -37,8 +46,7 @@ class StockTakes extends Component
         'type' => 'required|in:full,partial,cycle',
         'notes' => 'nullable|string',
     ];
-    
-    
+
     public function getBranchId()
     {
         return $this->b_id ? $this->b_id : request()->query('b_id');
@@ -64,13 +72,13 @@ class StockTakes extends Component
         $query = StockTake::with(['branch', 'conductor', 'verifier', 'stockTakeDetails'])
             ->where('branch_id', $branchId)
             ->when($this->search, function ($q) {
-                $q->where('stock_take_number', 'like', '%' . $this->search . '%')
+                $q->where('stock_take_number', 'like', '%'.$this->search.'%')
                     ->orWhereHas('conductor', function ($query) {
-                        $query->where('name', 'like', '%' . $this->search . '%');
+                        $query->where('name', 'like', '%'.$this->search.'%');
                     });
             })
-            ->when($this->filterType, fn($q) => $q->where('type', $this->filterType))
-            ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus))
+            ->when($this->filterType, fn ($q) => $q->where('type', $this->filterType))
+            ->when($this->filterStatus, fn ($q) => $q->where('status', $this->filterStatus))
             ->orderBy('stock_take_date', 'desc');
 
         $stockTakes = $query->paginate(15);
@@ -157,9 +165,9 @@ class StockTakes extends Component
                 Auth::guard('web')->user(),
                 'create',
                 $stockTake,
-                "Created {$this->type} stock take #{$stockTakeNumber} on {$this->stock_take_date}. " .
-                "Items counted: " . count($this->stockTakeItems) . 
-                ". Variances: " . (empty($itemDetails) ? 'None' : implode(', ', $itemDetails)) . 
+                "Created {$this->type} stock take #{$stockTakeNumber} on {$this->stock_take_date}. ".
+                'Items counted: '.count($this->stockTakeItems).
+                '. Variances: '.(empty($itemDetails) ? 'None' : implode(', ', $itemDetails)).
                 ". Notes: {$this->notes}",
                 'completed'
             );
@@ -170,7 +178,7 @@ class StockTakes extends Component
             $this->resetFields();
         } catch (\Exception $e) {
             DB::rollBack();
-            session()->flash('error', 'Error creating stock take: ' . $e->getMessage());
+            session()->flash('error', 'Error creating stock take: '.$e->getMessage());
         }
     }
 
@@ -182,11 +190,13 @@ class StockTakes extends Component
 
         if ($stockTake->branch_id !== $this->getBranchId()) {
             session()->flash('error', 'Unauthorized action.');
+
             return;
         }
 
         if ($stockTake->status !== 'in_progress') {
             session()->flash('error', 'Only in-progress stock takes can be completed.');
+
             return;
         }
 
@@ -203,7 +213,7 @@ class StockTakes extends Component
             Auth::guard('web')->user(),
             'update',
             $stockTake,
-            "Completed stock take #{$stockTake->stock_take_number} (type: {$stockTake->type}). " .
+            "Completed stock take #{$stockTake->stock_take_number} (type: {$stockTake->type}). ".
             "Matched: {$matches}, Surplus: {$surpluses}, Shortage: {$shortages}",
             'completed'
         );
@@ -242,6 +252,7 @@ class StockTakes extends Component
     protected function getAllSelectableIds(): array
     {
         $branchId = $this->getBranchId();
+
         return StockTake::where('branch_id', $branchId)->pluck('id')->toArray();
     }
 
@@ -273,6 +284,7 @@ class StockTakes extends Component
 
             if ($stockTakes->isEmpty()) {
                 session()->flash('warning', 'No stock takes to export.');
+
                 return;
             }
 
@@ -298,7 +310,7 @@ class StockTakes extends Component
                 ];
             }
 
-            $filename = 'stock-takes-' . now()->format('Y-m-d-His') . '.csv';
+            $filename = 'stock-takes-'.now()->format('Y-m-d-His').'.csv';
             $handle = fopen('php://temp', 'r+');
 
             foreach ($csvData as $row) {
@@ -313,10 +325,11 @@ class StockTakes extends Component
                 echo $csv;
             }, $filename, [
                 'Content-Type' => 'text/csv',
-                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+                'Content-Disposition' => 'attachment; filename="'.$filename.'"',
             ]);
         } catch (\Exception $e) {
-            session()->flash('error', 'Export failed: ' . $e->getMessage());
+            session()->flash('error', 'Export failed: '.$e->getMessage());
+
             return;
         }
     }
@@ -331,13 +344,13 @@ class StockTakes extends Component
         return StockTake::with(['branch', 'conductor', 'verifier', 'stockTakeDetails'])
             ->where('branch_id', $branchId)
             ->when($this->search, function ($q) {
-                $q->where('stock_take_number', 'like', '%' . $this->search . '%')
+                $q->where('stock_take_number', 'like', '%'.$this->search.'%')
                     ->orWhereHas('conductor', function ($query) {
-                        $query->where('name', 'like', '%' . $this->search . '%');
+                        $query->where('name', 'like', '%'.$this->search.'%');
                     });
             })
-            ->when($this->filterType, fn($q) => $q->where('type', $this->filterType))
-            ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus))
+            ->when($this->filterType, fn ($q) => $q->where('type', $this->filterType))
+            ->when($this->filterStatus, fn ($q) => $q->where('status', $this->filterStatus))
             ->orderBy('stock_take_date', 'desc')
             ->get();
     }

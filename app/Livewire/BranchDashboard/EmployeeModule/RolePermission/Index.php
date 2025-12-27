@@ -5,49 +5,66 @@ namespace App\Livewire\BranchDashboard\EmployeeModule\RolePermission;
 use App\Livewire\BaseComponent;
 use App\Models\ApprovalAuditRequest;
 use App\Services\AuditService;
-use App\Services\EmployeeApprovalService;
-use Livewire\WithPagination;
-use Spatie\Permission\Models\Role;
-use Spatie\Permission\Models\Permission;
-use TallStackUi\Traits\Interactions;
 use Livewire\Attributes\Layout;
+use Livewire\WithPagination;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
+use TallStackUi\Traits\Interactions;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Index extends BaseComponent
 {
     use Interactions, WithPagination;
+
     public ?int $quantity = 10;
+
     public ?string $search = null;
+
     public ?string $advancedSearch = null;
+
     public ?string $dateFrom = null;
+
     public ?string $dateTo = null;
 
     // Modal states
     public bool $showPermissionsModal = false;
+
     public bool $showRoleModal = false;
+
     public bool $showCreatePermissionModal = false;
+
     public bool $showStandalonePermissionModal = false;
+
     public ?int $selectedRoleId = null;
+
     public array $rolePermissions = [];
 
     // Role form
     public string $roleName = '';
+
     public string $roleGuard = 'web';
+
     public array $selectedPermissions = [];
+
     public bool $isEditing = false;
 
     // Permission form
     public string $permissionName = '';
+
     public string $permissionGuard = 'web';
 
     // Standalone permission form
     public string $standalonePermissionName = '';
+
     public string $standalonePermissionGuard = 'employee';
 
     // Approval workflow for non-admins
     public bool $showReasonModal = false;
+
     public string $operationReason = '';
+
     public ?string $pendingOperation = null; // 'create_role', 'update_role', 'delete_role', 'create_permission', 'create_standalone_permission'
+
     public array $pendingOperationData = [];
 
     protected array $bulkActions = [
@@ -69,12 +86,12 @@ class Index extends BaseComponent
     {
         return Role::query()
             ->when($this->search, function ($query) {
-                $query->where('name', 'like', '%' . $this->search . '%');
+                $query->where('name', 'like', '%'.$this->search.'%');
             })
             ->when($this->advancedSearch, function ($query) {
                 $query->where(function ($q) {
-                    $q->where('name', 'like', '%' . $this->advancedSearch . '%')
-                      ->orWhere('guard_name', 'like', '%' . $this->advancedSearch . '%');
+                    $q->where('name', 'like', '%'.$this->advancedSearch.'%')
+                        ->orWhere('guard_name', 'like', '%'.$this->advancedSearch.'%');
                 });
             })
             ->when($this->dateFrom, function ($query) {
@@ -110,9 +127,9 @@ class Index extends BaseComponent
             $csv .= "{$role->id},{$role->name},{$role->guard_name},{$role->created_at}\n";
         }
 
-        return response()->streamDownload(function() use ($csv) {
+        return response()->streamDownload(function () use ($csv) {
             echo $csv;
-        }, 'roles-' . date('Y-m-d') . '.csv', [
+        }, 'roles-'.date('Y-m-d').'.csv', [
             'Content-Type' => 'text/csv',
         ]);
     }
@@ -182,7 +199,7 @@ class Index extends BaseComponent
         $isAdmin = is_super_admin();
 
         // If non-admin, show reason modal instead of saving directly
-        if (!$isAdmin) {
+        if (! $isAdmin) {
             $this->pendingOperation = $this->isEditing ? 'update_role' : 'create_role';
             $this->pendingOperationData = [
                 'isEditing' => $this->isEditing,
@@ -193,6 +210,7 @@ class Index extends BaseComponent
             ];
             $this->operationReason = '';
             $this->showReasonModal = true;
+
             return;
         }
 
@@ -201,7 +219,7 @@ class Index extends BaseComponent
             $role = Role::findOrFail($this->selectedRoleId);
             $oldName = $role->name;
             $oldGuard = $role->guard_name;
-            
+
             $role->update([
                 'name' => $this->roleName,
                 'guard_name' => $this->roleGuard,
@@ -220,7 +238,7 @@ class Index extends BaseComponent
                 $actor,
                 'update',
                 $role,
-                "Updated role. Changes: " . implode(', ', $changes),
+                'Updated role. Changes: '.implode(', ', $changes),
                 'completed'
             );
 
@@ -261,6 +279,7 @@ class Index extends BaseComponent
     {
         if (strlen($this->operationReason) < 5) {
             $this->toast()->error('Reason must be at least 5 characters long')->send();
+
             return;
         }
 
@@ -268,29 +287,29 @@ class Index extends BaseComponent
         $data = $this->pendingOperationData;
 
         // Create approval request using appropriate service
-        match($this->pendingOperation) {
-            'create_role', 'update_role', 'delete_role' => 
+        match ($this->pendingOperation) {
+            'create_role', 'update_role', 'delete_role' =>
                 // Role operations are not employee-specific, use generic ApprovalAuditRequest
                 ApprovalAuditRequest::create([
                     'requester_id' => $actor->id,
                     'requester_type' => get_class($actor),
-                    'action' => match($this->pendingOperation) {
+                    'action' => match ($this->pendingOperation) {
                         'create_role' => 'role:create',
-                        'update_role' => 'role:update:' . $data['selectedRoleId'],
-                        'delete_role' => 'role:delete:' . $data['selectedRoleId'],
+                        'update_role' => 'role:update:'.$data['selectedRoleId'],
+                        'delete_role' => 'role:delete:'.$data['selectedRoleId'],
                     },
                     'description' => $this->operationReason,
                     'payload' => $data,
                     'status' => 'pending',
                 ]),
-            'create_permission', 'create_standalone_permission' => 
+            'create_permission', 'create_standalone_permission' =>
                 // Permission operations are not employee-specific, use generic ApprovalAuditRequest
                 ApprovalAuditRequest::create([
                     'requester_id' => $actor->id,
                     'requester_type' => get_class($actor),
-                    'action' => match($this->pendingOperation) {
-                        'create_permission' => 'permission:create:' . $data['permissionName'],
-                        'create_standalone_permission' => 'permission:create_standalone:' . $data['standalonePermissionName'],
+                    'action' => match ($this->pendingOperation) {
+                        'create_permission' => 'permission:create:'.$data['permissionName'],
+                        'create_standalone_permission' => 'permission:create_standalone:'.$data['standalonePermissionName'],
                     },
                     'description' => $this->operationReason,
                     'payload' => $data,
@@ -327,10 +346,11 @@ class Index extends BaseComponent
     {
         if ($this->selectedRoleId) {
             $role = Role::findOrFail($this->selectedRoleId);
-            
+
             // Validation: Check if role is assigned to employees
             if ($role->users()->count() > 0) {
-                $this->dialog()->error('Error', 'Cannot delete role assigned to ' . $role->users()->count() . ' employee(s)')->send();
+                $this->dialog()->error('Error', 'Cannot delete role assigned to '.$role->users()->count().' employee(s)')->send();
+
                 return;
             }
 
@@ -338,7 +358,7 @@ class Index extends BaseComponent
             $isAdmin = is_super_admin();
 
             // If non-admin, show reason modal instead of deleting directly
-            if (!$isAdmin) {
+            if (! $isAdmin) {
                 $this->pendingOperation = 'delete_role';
                 $this->pendingOperationData = [
                     'selectedRoleId' => $this->selectedRoleId,
@@ -347,6 +367,7 @@ class Index extends BaseComponent
                 ];
                 $this->operationReason = '';
                 $this->showReasonModal = true;
+
                 return;
             }
 
@@ -376,7 +397,7 @@ class Index extends BaseComponent
     public function bulkDeleteRoles(): void
     {
         $this->dialog()
-            ->question('Warning!', 'Are you sure you want to delete ' . count($this->selectedIds) . ' role(s)?')
+            ->question('Warning!', 'Are you sure you want to delete '.count($this->selectedIds).' role(s)?')
             ->confirm('Confirm', 'confirmedBulkDelete', 'Confirmed Successfully')
             ->cancel('Cancel', 'cancelledBulkDelete', 'Cancelled Successfully')
             ->send();
@@ -385,7 +406,7 @@ class Index extends BaseComponent
     public function confirmedBulkDelete(string $message): void
     {
         Role::whereIn('id', $this->selectedIds)->delete();
-        $this->dialog()->success('Success', count($this->selectedIds) . ' role(s) deleted successfully!')->send();
+        $this->dialog()->success('Success', count($this->selectedIds).' role(s) deleted successfully!')->send();
         $this->selectedIds = [];
     }
 
@@ -439,7 +460,7 @@ class Index extends BaseComponent
         $isAdmin = is_super_admin();
 
         // If non-admin, show reason modal instead
-        if (!$isAdmin) {
+        if (! $isAdmin) {
             $this->pendingOperation = 'create_permission';
             $this->pendingOperationData = [
                 'permissionName' => $this->permissionName,
@@ -447,6 +468,7 @@ class Index extends BaseComponent
             ];
             $this->operationReason = '';
             $this->showReasonModal = true;
+
             return;
         }
 
@@ -498,7 +520,7 @@ class Index extends BaseComponent
         $isAdmin = is_super_admin();
 
         // If non-admin, show reason modal instead
-        if (!$isAdmin) {
+        if (! $isAdmin) {
             $this->pendingOperation = 'create_standalone_permission';
             $this->pendingOperationData = [
                 'standalonePermissionName' => $this->standalonePermissionName,
@@ -506,6 +528,7 @@ class Index extends BaseComponent
             ];
             $this->operationReason = '';
             $this->showReasonModal = true;
+
             return;
         }
 
@@ -548,4 +571,3 @@ class Index extends BaseComponent
         ]);
     }
 }
-

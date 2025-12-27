@@ -31,19 +31,40 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
     })->name('index');
 
     // ====== ORGANIZATION SECTION (HR Manager, HR Officer, Admin) ======
-    Route::middleware('role_or_permission:manage_organization')->group(function () {
-        // Employee Management
-        Route::get('/employees', App\Livewire\BranchDashboard\EmployeeModule\Index::class)->name('employee.index');
-        Route::get('employee/create', App\Livewire\BranchDashboard\EmployeeModule\Create::class)->name('employee.create');
-        Route::get('employee/{id}/edit', \App\Livewire\BranchDashboard\EmployeeModule\Edit::class)->name('employee.edit');
-        Route::get('/employee/{employee_number?}/{id}/', \App\Livewire\BranchDashboard\EmployeeModule\Details::class)->name('employee.details');
-        
-        // Clock-In Board Routes
-        Route::prefix('clock-in-board')->name('clock-in-board.')->group(function () {
-            Route::get('/', \App\Livewire\BranchDashboard\EmployeeModule\ClockInModule\TodayIndex::class)->name('today');
-            Route::get('all', \App\Livewire\BranchDashboard\EmployeeModule\ClockInModule\GeneralClockInBoard::class)->name('all');
-            Route::get('employee/{employee}/history', \App\Livewire\BranchDashboard\EmployeeModule\ClockInModule\EmployeeHistory::class)->name('employee-history');
-        });
+           Route::middleware('role_or_permission:manage_organization')->group(function () {
+               // Employee Management
+               Route::get('/employees', App\Livewire\BranchDashboard\EmployeeModule\Index::class)->name('employee.index');
+               Route::get('employee/create', App\Livewire\BranchDashboard\EmployeeModule\Create::class)->name('employee.create');
+               Route::get('employee/{id}/edit', \App\Livewire\BranchDashboard\EmployeeModule\Edit::class)->name('employee.edit');
+               Route::get('/employee/{employee_number?}/{id}/', \App\Livewire\BranchDashboard\EmployeeModule\Details::class)->name('employee.details');
+
+               // Employee Appraisals
+               Route::get('/employee-appraisals', App\Livewire\BranchDashboard\EmployeeAppraisals::class)->name('employee-appraisals');
+               Route::get('/employee-appraisal-history/{employee}', App\Livewire\BranchDashboard\EmployeeAppraisalHistory::class)->name('employee-appraisal-history');
+               Route::get('/appraise-employee/{employee}', App\Livewire\BranchDashboard\AppraiseEmployee::class)->name('appraise-employee');
+
+               // Clock-In Board Routes
+               Route::prefix('clock-in-board')->name('clock-in-board.')->group(function () {
+                   Route::get('/', \App\Livewire\BranchDashboard\EmployeeModule\ClockInModule\TodayIndex::class)->name('today');
+                   Route::get('all', \App\Livewire\BranchDashboard\EmployeeModule\ClockInModule\GeneralClockInBoard::class)->name('all');
+                   Route::get('employee/{employee}/history', \App\Livewire\BranchDashboard\EmployeeModule\ClockInModule\EmployeeHistory::class)->name('employee-history');
+               });
+
+
+
+        // Employee Appraisals
+         Route::get('/employee-appraisals', App\Livewire\BranchDashboard\EmployeeAppraisals::class)->name('employee-appraisals');
+         Route::get('/appraise-employee/{employee}', App\Livewire\BranchDashboard\AppraiseEmployee::class)->name('appraise-employee');
+
+           // HR Appraisal Management
+           Route::prefix('hr')->name('hr.')->group(function () {
+               Route::prefix('appraisals')->name('appraisals.')->group(function () {
+                   Route::get('/cycles', App\Livewire\BranchDashboard\HR\AppraisalCycles::class)->name('cycles');
+                   // Route::get('/analytics', App\Livewire\BranchDashboard\HR\AppraisalAnalytics::class)->name('analytics');
+               });
+               // Route::get('/performance-goals', App\Livewire\BranchDashboard\PerformanceGoals::class)->name('performance-goals');
+               // Route::get('/feedback-requests', App\Livewire\BranchDashboard\FeedbackRequests::class)->name('feedback-requests');
+           });
 
         // Leave Management routes
         Route::prefix('leave')->name('leave.')->group(function () {

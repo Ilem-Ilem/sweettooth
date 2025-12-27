@@ -1,11 +1,11 @@
 <?php
 
-use App\Models\User;
 use App\Models\Branch;
 use App\Models\Shift;
+use App\Models\User;
 use Carbon\Carbon;
-use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
 
 class ShiftSystemIntegrationTest extends TestCase
 {
@@ -24,7 +24,7 @@ class ShiftSystemIntegrationTest extends TestCase
             'name' => 'Test Branch',
             'code' => 'TEST',
             'location' => 'Test Location',
-            'is_active' => true
+            'is_active' => true,
         ]);
 
         $response = $this->actingAs($employee)
@@ -46,7 +46,7 @@ class ShiftSystemIntegrationTest extends TestCase
             'name' => 'Test Branch 2',
             'code' => 'TEST2',
             'location' => 'Test Location 2',
-            'is_active' => true
+            'is_active' => true,
         ]);
 
         $response = $this->actingAs($employee)
@@ -68,7 +68,7 @@ class ShiftSystemIntegrationTest extends TestCase
             'name' => 'Test Branch 3',
             'code' => 'TEST3',
             'location' => 'Test Location 3',
-            'is_active' => true
+            'is_active' => true,
         ]);
 
         $response = $this->actingAs($admin)
@@ -90,7 +90,7 @@ class ShiftSystemIntegrationTest extends TestCase
             'name' => 'Test Branch 4',
             'code' => 'TEST4',
             'location' => 'Test Location 4',
-            'is_active' => true
+            'is_active' => true,
         ]);
 
         // Create active shift
@@ -100,7 +100,7 @@ class ShiftSystemIntegrationTest extends TestCase
             'shift_date' => Carbon::today(),
             'shift_type' => 'morning',
             'clock_in' => Carbon::now(),
-            'status' => 'active'
+            'status' => 'active',
         ]);
 
         $response = $this->actingAs($employee)

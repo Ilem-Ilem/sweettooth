@@ -2,24 +2,28 @@
 
 namespace App\Livewire\BranchDashboard\Accounting;
 
-use App\Services\GeneralLedgerService;
-use App\Services\TrialBalanceService;
-use App\Services\IncomeStatementService;
-use App\Services\BalanceSheetService;
 use App\Models\AccountingPeriod;
 use App\Models\GlEntry;
-use Livewire\Component;
+use App\Services\BalanceSheetService;
+use App\Services\GeneralLedgerService;
+use App\Services\IncomeStatementService;
+use App\Services\TrialBalanceService;
 use Livewire\Attributes\Layout;
+use Livewire\Component;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Index extends Component
 {
     protected GeneralLedgerService $glService;
+
     protected TrialBalanceService $tbService;
+
     protected IncomeStatementService $isService;
+
     protected BalanceSheetService $bsService;
 
     public ?int $currentPeriodId = null;
+
     public string $activeTab = 'overview';
 
     public function mount()
@@ -43,15 +47,15 @@ class Index extends Component
 
         // GL Summary
         $totalEntries = GlEntry::where('status', 'posted')
-            ->when($this->currentPeriodId, fn($q) => $q->where('accounting_period_id', $this->currentPeriodId))
+            ->when($this->currentPeriodId, fn ($q) => $q->where('accounting_period_id', $this->currentPeriodId))
             ->count();
 
         $totalDebits = GlEntry::where('status', 'posted')
-            ->when($this->currentPeriodId, fn($q) => $q->where('accounting_period_id', $this->currentPeriodId))
+            ->when($this->currentPeriodId, fn ($q) => $q->where('accounting_period_id', $this->currentPeriodId))
             ->sum('debit');
 
         $totalCredits = GlEntry::where('status', 'posted')
-            ->when($this->currentPeriodId, fn($q) => $q->where('accounting_period_id', $this->currentPeriodId))
+            ->when($this->currentPeriodId, fn ($q) => $q->where('accounting_period_id', $this->currentPeriodId))
             ->sum('credit');
 
         // Trial Balance
@@ -65,7 +69,7 @@ class Index extends Component
 
         // Recent GL Entries
         $recentEntries = GlEntry::where('status', 'posted')
-            ->when($this->currentPeriodId, fn($q) => $q->where('accounting_period_id', $this->currentPeriodId))
+            ->when($this->currentPeriodId, fn ($q) => $q->where('accounting_period_id', $this->currentPeriodId))
             ->with(['glAccount', 'period'])
             ->orderBy('entry_date', 'desc')
             ->orderBy('created_at', 'desc')

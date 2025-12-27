@@ -25,7 +25,7 @@ class RoleSeeder extends Seeder
             'description' => 'Full system access with all permissions',
             'display_order' => 1,
         ]);
-        
+
         $md = Role::create([
             'name' => 'MD',
             'guard_name' => $guard,
@@ -61,7 +61,7 @@ class RoleSeeder extends Seeder
             'display_order' => 10,
         ]);
         $headOfProduction->givePermissionTo([
-            'view-production-queue', 'create-production-order', 'start-production', 
+            'view-production-queue', 'create-production-order', 'start-production',
             'complete-production', 'approve-production', 'manage-recipes', 'view-recipes',
             'view-production-reports', 'manage-quality-control', 'view-batch-history',
             'edit-production-order', 'cancel-production', 'view-production-cost',
@@ -305,6 +305,6 @@ class RoleSeeder extends Seeder
             'export-reports', 'view-kpi-metrics',
         ]);
 
-        echo "✅ " . Role::where('guard_name', $guard)->count() . " roles created successfully with permissions assigned.\n";
+        echo '✅ '.Role::where('guard_name', $guard)->count()." roles created successfully with permissions assigned.\n";
     }
 }

@@ -25,7 +25,7 @@ return new class extends Migration
                 'payment',
                 'adjustment',
                 'manual',
-                'reversal'
+                'reversal',
             ]);
             $table->string('reference_type')->nullable();
             $table->unsignedBigInteger('reference_id')->nullable();

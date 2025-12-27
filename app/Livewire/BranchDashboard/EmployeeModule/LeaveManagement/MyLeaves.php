@@ -5,27 +5,31 @@ namespace App\Livewire\BranchDashboard\EmployeeModule\LeaveManagement;
 use App\Livewire\BaseComponent;
 use App\Models\LeaveApplication;
 use App\Services\AuditService;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Livewire\WithPagination;
 use TallStackUi\Traits\Interactions;
-use Illuminate\Support\Facades\Storage;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class MyLeaves extends BaseComponent
 {
-    use WithPagination, Interactions;
+    use Interactions, WithPagination;
 
     #[Url(keep: true)]
     public ?string $b_id = null;
 
     public ?int $quantity = 20;
+
     public ?string $search = null;
+
     public ?string $status_filter = null;
 
     // Modal for cancellation
     public $showCancelModal = false;
+
     public $selectedLeaveId = null;
+
     public $cancellation_reason = '';
 
     // Table headers
@@ -72,11 +76,11 @@ class MyLeaves extends BaseComponent
 
         if ($this->search) {
             $query->where(function ($q) {
-                $q->where('application_number', 'like', '%' . $this->search . '%')
-                  ->orWhere('reason', 'like', '%' . $this->search . '%')
-                  ->orWhereHas('leaveType', function ($q) {
-                      $q->where('name', 'like', '%' . $this->search . '%');
-                  });
+                $q->where('application_number', 'like', '%'.$this->search.'%')
+                    ->orWhere('reason', 'like', '%'.$this->search.'%')
+                    ->orWhereHas('leaveType', function ($q) {
+                        $q->where('name', 'like', '%'.$this->search.'%');
+                    });
             });
         }
 
@@ -96,13 +100,15 @@ class MyLeaves extends BaseComponent
     {
         $leave = LeaveApplication::find($id);
 
-        if (!$leave || $leave->employee_id !== auth()->id()) {
+        if (! $leave || $leave->employee_id !== auth()->id()) {
             $this->toast()->error('Leave application not found.')->send();
+
             return;
         }
 
-        if (!in_array($leave->status, ['pending', 'approved'])) {
+        if (! in_array($leave->status, ['pending', 'approved'])) {
             $this->toast()->error('Only pending or approved leaves can be cancelled.')->send();
+
             return;
         }
 
@@ -127,8 +133,9 @@ class MyLeaves extends BaseComponent
         try {
             $leave = LeaveApplication::find($this->selectedLeaveId);
 
-            if (!$leave || $leave->employee_id !== auth()->id()) {
+            if (! $leave || $leave->employee_id !== auth()->id()) {
                 $this->toast()->error('Leave application not found.')->send();
+
                 return;
             }
 
@@ -149,7 +156,7 @@ class MyLeaves extends BaseComponent
             $this->resetPage();
 
         } catch (\Exception $e) {
-            $this->toast()->error('Error cancelling leave: ' . $e->getMessage())->send();
+            $this->toast()->error('Error cancelling leave: '.$e->getMessage())->send();
         }
     }
 

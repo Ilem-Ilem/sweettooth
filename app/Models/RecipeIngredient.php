@@ -52,6 +52,27 @@ class RecipeIngredient extends Model
     }
 
     /**
+     * Accessor for UOM (alias for uomSymbol for compatibility, mapped to enum values)
+     */
+    protected function uom(): Attribute
+    {
+        return Attribute::make(
+            get: function() {
+                $symbol = $this->unitOfMeasure?->symbol ?? 'g';
+                $mapping = [
+                    'g' => 'grams',
+                    'L' => 'liters',
+                    'ml' => 'ml',
+                    'kg' => 'kg',
+                    'pcs' => 'pcs',
+                    'unit' => 'units',
+                ];
+                return $mapping[$symbol] ?? 'grams'; // Default to grams
+            },
+        );
+    }
+
+    /**
      * Calculate the actual quantity needed including waste
      */
     public function getActualQuantityNeeded(): float

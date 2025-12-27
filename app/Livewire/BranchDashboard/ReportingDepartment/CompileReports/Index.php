@@ -3,11 +3,13 @@
 namespace App\Livewire\BranchDashboard\ReportingDepartment\CompileReports;
 
 use App\Models\DepartmentReport;
-use App\Models\CompiledReport;
 use App\Services\Reports\ReportCompilationService;
 use Carbon\Carbon;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
+use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 use Livewire\Component;
-use Livewire\Attributes\{Layout, On, Title, Url};
 use Livewire\WithPagination;
 use TallStackUi\Traits\Interactions;
 
@@ -21,14 +23,21 @@ class Index extends Component
     public ?string $b_id = null;
 
     public $selectedReports = [];
+
     public $compilationTitle = '';
+
     public $compilationDescription = '';
+
     public $periodFrom;
+
     public $periodTo;
+
     public $filterCategory = 'all';
+
     public $filterStatus = 'reviewed';
 
     public $showCompileModal = false;
+
     public $isCompiling = false;
 
     public function mount()
@@ -71,13 +80,14 @@ class Index extends Component
     {
         if (empty($this->selectedReports)) {
             $this->toast()->warning('Please select at least one report to compile')->send();
+
             return;
         }
 
         // Auto-generate title based on selected reports
         $reportCount = count($this->selectedReports);
-        $this->compilationTitle = "Compiled Report - " . Carbon::now()->format('F Y') . " ({$reportCount} reports)";
-        $this->compilationDescription = "Comprehensive report compilation for " . Carbon::now()->format('F Y');
+        $this->compilationTitle = 'Compiled Report - '.Carbon::now()->format('F Y')." ({$reportCount} reports)";
+        $this->compilationDescription = 'Comprehensive report compilation for '.Carbon::now()->format('F Y');
 
         $this->showCompileModal = true;
     }
@@ -92,13 +102,14 @@ class Index extends Component
 
         if (empty($this->selectedReports)) {
             $this->toast()->error('Please select reports to compile')->send();
+
             return;
         }
 
         $this->isCompiling = true;
 
         try {
-            $compilationService = new ReportCompilationService();
+            $compilationService = new ReportCompilationService;
 
             $compiledReport = $compilationService->compile(
                 $this->selectedReports,
@@ -117,11 +128,11 @@ class Index extends Component
             // Redirect to view compiled report with b_id parameter
             return redirect()->route('branch-dashboard.reporting.compiled.view', [
                 'id' => $compiledReport->id,
-                'b_id' => $this->b_id
+                'b_id' => $this->b_id,
             ]);
 
         } catch (\Exception $e) {
-            $this->toast()->error('Error compiling reports: ' . $e->getMessage())->send();
+            $this->toast()->error('Error compiling reports: '.$e->getMessage())->send();
         } finally {
             $this->isCompiling = false;
         }

@@ -2,30 +2,35 @@
 
 namespace App\Livewire\BranchDashboard\Accounting;
 
-use App\Services\GeneralLedgerService;
-use App\Services\TrialBalanceService;
-use App\Services\IncomeStatementService;
-use App\Services\BalanceSheetService;
 use App\Models\AccountingPeriod;
 use App\Models\GlEntry;
-use App\Models\Sale;
-use App\Models\Purchase;
 use App\Models\Payment;
+use App\Models\Purchase;
+use App\Models\Sale;
 use App\Models\StockMovement;
-use Livewire\Component;
-use Livewire\Attributes\Layout;
+use App\Services\BalanceSheetService;
+use App\Services\GeneralLedgerService;
+use App\Services\IncomeStatementService;
+use App\Services\TrialBalanceService;
 use Illuminate\Support\Facades\Request;
+use Livewire\Attributes\Layout;
+use Livewire\Component;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Dashboard extends Component
 {
     protected GeneralLedgerService $glService;
+
     protected TrialBalanceService $tbService;
+
     protected IncomeStatementService $isService;
+
     protected BalanceSheetService $bsService;
 
     public ?int $currentPeriodId = null;
+
     public string $activeTab = 'financial'; // financial, status, recent
+
     public ?string $branchId = null;
 
     public function mount()
@@ -52,15 +57,15 @@ class Dashboard extends Component
 
         // ====== FINANCIAL SUMMARY (from Index) ======
         $totalEntries = GlEntry::where('status', 'posted')
-            ->when($this->currentPeriodId, fn($q) => $q->where('accounting_period_id', $this->currentPeriodId))
+            ->when($this->currentPeriodId, fn ($q) => $q->where('accounting_period_id', $this->currentPeriodId))
             ->count();
 
         $totalDebits = GlEntry::where('status', 'posted')
-            ->when($this->currentPeriodId, fn($q) => $q->where('accounting_period_id', $this->currentPeriodId))
+            ->when($this->currentPeriodId, fn ($q) => $q->where('accounting_period_id', $this->currentPeriodId))
             ->sum('debit');
 
         $totalCredits = GlEntry::where('status', 'posted')
-            ->when($this->currentPeriodId, fn($q) => $q->where('accounting_period_id', $this->currentPeriodId))
+            ->when($this->currentPeriodId, fn ($q) => $q->where('accounting_period_id', $this->currentPeriodId))
             ->sum('credit');
 
         // Trial Balance
@@ -74,7 +79,7 @@ class Dashboard extends Component
 
         // Recent GL Entries
         $recentEntries = GlEntry::where('status', 'posted')
-            ->when($this->currentPeriodId, fn($q) => $q->where('accounting_period_id', $this->currentPeriodId))
+            ->when($this->currentPeriodId, fn ($q) => $q->where('accounting_period_id', $this->currentPeriodId))
             ->with(['glAccount', 'period'])
             ->orderBy('entry_date', 'desc')
             ->orderBy('created_at', 'desc')
@@ -83,22 +88,22 @@ class Dashboard extends Component
 
         // ====== ACCOUNTING STATUS SUMMARY (from Overview) ======
         $postedEntries = GlEntry::where('status', 'posted')
-            ->when($this->currentPeriodId, fn($q) => $q->where('accounting_period_id', $this->currentPeriodId))
+            ->when($this->currentPeriodId, fn ($q) => $q->where('accounting_period_id', $this->currentPeriodId))
             ->count();
 
         $draftEntries = GlEntry::where('status', 'draft')
-            ->when($this->currentPeriodId, fn($q) => $q->where('accounting_period_id', $this->currentPeriodId))
+            ->when($this->currentPeriodId, fn ($q) => $q->where('accounting_period_id', $this->currentPeriodId))
             ->count();
 
-        $pendingPostings = Sale::when($this->branchId, fn($q) => $q->where('branch_id', $this->branchId))->where('gl_posting_status', 'pending')->count()
-                           + Purchase::when($this->branchId, fn($q) => $q->where('branch_id', $this->branchId))->where('gl_posting_status', 'pending')->count()
+        $pendingPostings = Sale::when($this->branchId, fn ($q) => $q->where('branch_id', $this->branchId))->where('gl_posting_status', 'pending')->count()
+                           + Purchase::when($this->branchId, fn ($q) => $q->where('branch_id', $this->branchId))->where('gl_posting_status', 'pending')->count()
                            + Payment::where('gl_posting_status', 'pending')->count()
-                           + StockMovement::when($this->branchId, fn($q) => $q->where('branch_id', $this->branchId))->where('gl_posting_status', 'pending')->count();
+                           + StockMovement::when($this->branchId, fn ($q) => $q->where('branch_id', $this->branchId))->where('gl_posting_status', 'pending')->count();
 
-        $failedPostings = Sale::when($this->branchId, fn($q) => $q->where('branch_id', $this->branchId))->where('gl_posting_status', 'failed')->count()
-                        + Purchase::when($this->branchId, fn($q) => $q->where('branch_id', $this->branchId))->where('gl_posting_status', 'failed')->count()
+        $failedPostings = Sale::when($this->branchId, fn ($q) => $q->where('branch_id', $this->branchId))->where('gl_posting_status', 'failed')->count()
+                        + Purchase::when($this->branchId, fn ($q) => $q->where('branch_id', $this->branchId))->where('gl_posting_status', 'failed')->count()
                         + Payment::where('gl_posting_status', 'failed')->count()
-                        + StockMovement::when($this->branchId, fn($q) => $q->where('branch_id', $this->branchId))->where('gl_posting_status', 'failed')->count();
+                        + StockMovement::when($this->branchId, fn ($q) => $q->where('branch_id', $this->branchId))->where('gl_posting_status', 'failed')->count();
 
         // Transaction Stats
         $totalSales = Sale::count();
@@ -114,8 +119,8 @@ class Dashboard extends Component
         $isBalanced = abs($totalDebits - $totalCredits) < 0.01;
 
         // Failed Postings
-        $failedSales = Sale::when($this->branchId, fn($q) => $q->where('branch_id', $this->branchId))->where('gl_posting_status', 'failed')->limit(5)->get();
-        $failedPurchases = Purchase::when($this->branchId, fn($q) => $q->where('branch_id', $this->branchId))->where('gl_posting_status', 'failed')->limit(5)->get();
+        $failedSales = Sale::when($this->branchId, fn ($q) => $q->where('branch_id', $this->branchId))->where('gl_posting_status', 'failed')->limit(5)->get();
+        $failedPurchases = Purchase::when($this->branchId, fn ($q) => $q->where('branch_id', $this->branchId))->where('gl_posting_status', 'failed')->limit(5)->get();
         $failedPayments = Payment::where('gl_posting_status', 'failed')->limit(5)->get();
 
         return view('livewire.branch-dashboard.accounting.dashboard', [

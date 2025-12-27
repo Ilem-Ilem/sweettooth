@@ -3,7 +3,6 @@
 namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
@@ -47,8 +46,8 @@ class BackupCompletedNotification extends Notification
             return (new MailMessage)
                 ->subject('Database Backup Completed Successfully')
                 ->line('Your database backup has been completed successfully.')
-                ->line('Filename: ' . ($this->result['filename'] ?? 'N/A'))
-                ->line('Size: ' . ($this->result['size'] ?? 'N/A'))
+                ->line('Filename: '.($this->result['filename'] ?? 'N/A'))
+                ->line('Size: '.($this->result['size'] ?? 'N/A'))
                 ->line('Thank you for using our application!');
         }
 
@@ -56,7 +55,7 @@ class BackupCompletedNotification extends Notification
             ->subject('Database Backup Failed')
             ->error()
             ->line('Your database backup has failed.')
-            ->line('Error: ' . ($this->result['message'] ?? 'Unknown error'))
+            ->line('Error: '.($this->result['message'] ?? 'Unknown error'))
             ->line('Please check the logs for more details.');
     }
 
@@ -70,7 +69,7 @@ class BackupCompletedNotification extends Notification
             'success' => $this->success,
             'message' => $this->success
                 ? 'Database backup completed successfully'
-                : 'Database backup failed: ' . ($this->result['message'] ?? 'Unknown error'),
+                : 'Database backup failed: '.($this->result['message'] ?? 'Unknown error'),
             'filename' => $this->result['filename'] ?? null,
             'size' => $this->result['size'] ?? null,
             'path' => $this->result['path'] ?? null,

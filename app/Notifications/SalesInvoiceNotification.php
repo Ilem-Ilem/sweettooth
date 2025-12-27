@@ -15,6 +15,7 @@ class SalesInvoiceNotification extends Notification implements ShouldQueue
     use Queueable;
 
     protected Sale $sale;
+
     protected ?string $message = null;
 
     /**
@@ -39,7 +40,7 @@ class SalesInvoiceNotification extends Notification implements ShouldQueue
      */
     public function toMail(object $notifiable): MailMessage
     {
-        $currencyService = new CurrencyFormattingService();
+        $currencyService = new CurrencyFormattingService;
         $currency = Settings::currencyLocalization('primary_currency', 'NGN');
         $symbol = $currencyService->getSymbol($currency);
         $businessName = Settings::businessConfiguration('business_name', config('app.name'));
@@ -59,24 +60,24 @@ class SalesInvoiceNotification extends Notification implements ShouldQueue
 
         return (new MailMessage)
             ->subject("Invoice #{$this->sale->receipt_number}")
-            ->greeting("Invoice for Your Purchase")
-            ->line("Dear Customer,")
-            ->line($this->message ?? "Please find your invoice details below:")
-            ->line("")
-            ->line("**Invoice Information**")
+            ->greeting('Invoice for Your Purchase')
+            ->line('Dear Customer,')
+            ->line($this->message ?? 'Please find your invoice details below:')
+            ->line('')
+            ->line('**Invoice Information**')
             ->line("Invoice Number: {$this->sale->receipt_number}")
             ->line("Date: {$this->sale->created_at->format('Y-m-d H:i:s')}")
-            ->line("Order Type: " . ucfirst(str_replace('-', ' ', $this->sale->order_type ?? 'dine-in')))
-            ->line("")
-            ->line("**Items**")
+            ->line('Order Type: '.ucfirst(str_replace('-', ' ', $this->sale->order_type ?? 'dine-in')))
+            ->line('')
+            ->line('**Items**')
             ->with([
                 'saleItems' => $saleItems,
                 'symbol' => $symbol,
                 'sale' => $this->sale,
                 'currencyService' => $currencyService,
             ])
-            ->line("")
-            ->line("**Amount Details**")
+            ->line('')
+            ->line('**Amount Details**')
             ->line("Subtotal: {$symbol} {$currencyService->formatAmount($this->sale->subtotal)}")
             ->when($this->sale->discount > 0, function (MailMessage $message) use ($symbol, $currencyService) {
                 return $message->line("Discount: -{$symbol} {$currencyService->formatAmount($this->sale->discount)}");
@@ -85,18 +86,18 @@ class SalesInvoiceNotification extends Notification implements ShouldQueue
                 return $message->line("Tax: {$symbol} {$currencyService->formatAmount($this->sale->tax)}");
             })
             ->line("**Total Amount: {$symbol} {$currencyService->formatAmount($this->sale->total)}**")
-            ->line("")
-            ->line("**Status**")
-            ->line("Payment Status: " . ucfirst(str_replace('_', ' ', $this->sale->payment_status ?? 'pending')))
-            ->line("Fulfillment Status: " . ucfirst(str_replace('_', ' ', $this->sale->fulfillment_status ?? 'pending')))
-            ->line("")
-            ->line("**Business Information**")
+            ->line('')
+            ->line('**Status**')
+            ->line('Payment Status: '.ucfirst(str_replace('_', ' ', $this->sale->payment_status ?? 'pending')))
+            ->line('Fulfillment Status: '.ucfirst(str_replace('_', ' ', $this->sale->fulfillment_status ?? 'pending')))
+            ->line('')
+            ->line('**Business Information**')
             ->line($businessName)
-            ->when(!empty($businessEmail), fn (MailMessage $msg) => $msg->line("Email: {$businessEmail}"))
-            ->when(!empty($businessPhone), fn (MailMessage $msg) => $msg->line("Phone: {$businessPhone}"))
-            ->line("")
-            ->line("Thank you for your business!")
-            ->salutation("Regards,")
+            ->when(! empty($businessEmail), fn (MailMessage $msg) => $msg->line("Email: {$businessEmail}"))
+            ->when(! empty($businessPhone), fn (MailMessage $msg) => $msg->line("Phone: {$businessPhone}"))
+            ->line('')
+            ->line('Thank you for your business!')
+            ->salutation('Regards,')
             ->line($businessName);
     }
 }

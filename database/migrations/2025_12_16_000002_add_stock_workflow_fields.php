@@ -13,28 +13,28 @@ return new class extends Migration
     {
         Schema::table('product_stocks', function (Blueprint $table) {
             // Add workflow verification tracking (check if not exists)
-            if (!Schema::hasColumn('product_stocks', 'is_workflow_verified')) {
+            if (! Schema::hasColumn('product_stocks', 'is_workflow_verified')) {
                 $table->boolean('is_workflow_verified')->default(false)->after('notes');
             }
-            if (!Schema::hasColumn('product_stocks', 'verified_at')) {
+            if (! Schema::hasColumn('product_stocks', 'verified_at')) {
                 $table->timestamp('verified_at')->nullable()->after('is_workflow_verified');
             }
-            if (!Schema::hasColumn('product_stocks', 'verified_by')) {
+            if (! Schema::hasColumn('product_stocks', 'verified_by')) {
                 $table->uuid('verified_by')->nullable()->after('verified_at');
             }
 
             // Add workflow step tracking (check if not exists)
-            if (!Schema::hasColumn('product_stocks', 'workflow_step')) {
+            if (! Schema::hasColumn('product_stocks', 'workflow_step')) {
                 $table->enum('workflow_step', [
                     'opening_pending',
                     'opening_verified',
                     'closing_pending',
-                    'closing_completed'
+                    'closing_completed',
                 ])->default('opening_pending')->after('verified_by');
             }
 
             // Foreign key constraint - using users table after unification
-            if (!Schema::hasColumn('product_stocks', 'verified_by')) {
+            if (! Schema::hasColumn('product_stocks', 'verified_by')) {
                 $table->foreign('verified_by')->references('id')->on('users')->onDelete('set null');
             }
 
@@ -43,8 +43,6 @@ return new class extends Migration
             $table->index(['product_id', 'stock_date', 'workflow_step'], 'product_stocks_product_workflow_idx');
         });
     }
-
-
 
     /**
      * Reverse the migrations.
@@ -81,7 +79,7 @@ return new class extends Migration
                     $columnsToDrop[] = $column;
                 }
             }
-            if (!empty($columnsToDrop)) {
+            if (! empty($columnsToDrop)) {
                 $table->dropColumn($columnsToDrop);
             }
         });

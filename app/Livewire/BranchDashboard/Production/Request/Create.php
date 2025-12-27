@@ -166,14 +166,15 @@ class Create extends Component
             );
 
             $itemRequest = ItemRequest::create([
-                'branch_id'      => $branchId,
-                'department_id'  => $this->department->id,
-                'requested_by'   => $employee->id,
-                'request_number' => $requestNumber,
-                'request_date'   => today(),
-                'shift'          => is_super_admin() ? null : $this->currentShift,
-                'status'         => 'pending',
-                'notes'          => $this->notes,
+                'branch_id'         => $branchId,
+                'department_id'     => $this->department->id,
+                'requested_by_id'   => $employee->id,
+                'requested_by_type' => get_class($employee),
+                'request_number'    => $requestNumber,
+                'request_date'      => today(),
+                'shift'             => is_super_admin() ? null : $this->currentShift,
+                'status'            => 'pending',
+                'notes'             => $this->notes,
             ]);
 
             // Process each selected product

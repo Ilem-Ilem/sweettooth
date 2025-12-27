@@ -13,6 +13,7 @@ class ShiftReminder extends Notification implements ShouldQueue
     use Queueable;
 
     public string $shiftType;
+
     public Carbon $scheduledTime;
 
     /**
@@ -70,7 +71,7 @@ class ShiftReminder extends Notification implements ShouldQueue
 
     private function getTimeWindowText(): string
     {
-        return match($this->shiftType) {
+        return match ($this->shiftType) {
             'morning' => '6:00 AM - 12:00 PM',
             'afternoon' => '12:00 PM - 8:00 PM',
             'full_time' => 'No specific time restrictions',

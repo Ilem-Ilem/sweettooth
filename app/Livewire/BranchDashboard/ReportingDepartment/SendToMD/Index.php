@@ -5,8 +5,11 @@ namespace App\Livewire\BranchDashboard\ReportingDepartment\SendToMD;
 use App\Models\CompiledReport;
 use App\Models\User;
 use App\Services\Reports\ReportCompilationService;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
+use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 use Livewire\Component;
-use Livewire\Attributes\{Layout, On, Title, Url};
 use Livewire\WithPagination;
 use TallStackUi\Traits\Interactions;
 
@@ -20,7 +23,9 @@ class Index extends Component
     public ?string $b_id = null;
 
     public ?User $selectedMdUser = null;
+
     public $showSendModal = false;
+
     public ?CompiledReport $reportToSend = null;
 
     public function mount()
@@ -39,8 +44,9 @@ class Index extends Component
     {
         $this->reportToSend = CompiledReport::findOrFail($reportId);
 
-        if (!$this->reportToSend->canBeSentToMD()) {
+        if (! $this->reportToSend->canBeSentToMD()) {
             $this->toast()->error('Report must be approved before sending to MD')->send();
+
             return;
         }
 
@@ -49,6 +55,7 @@ class Index extends Component
 
         if ($mdUsers->isEmpty()) {
             $this->toast()->error('No MD users found in the system')->send();
+
             return;
         }
 
@@ -56,6 +63,7 @@ class Index extends Component
         if ($mdUsers->count() === 1) {
             $this->selectedMdUser = $mdUsers->first()->id;
             $this->processSend();
+
             return;
         }
 
@@ -64,13 +72,14 @@ class Index extends Component
 
     public function processSend()
     {
-        if (!$this->selectedMdUser) {
+        if (! $this->selectedMdUser) {
             $this->toast()->error('Please select an MD user')->send();
+
             return;
         }
 
         try {
-            $compilationService = new ReportCompilationService();
+            $compilationService = new ReportCompilationService;
 
             $compilationService->sendToMD($this->reportToSend, $this->selectedMdUser);
 
@@ -80,7 +89,7 @@ class Index extends Component
             $this->selectedMdUser = null;
 
         } catch (\Exception $e) {
-            $this->toast()->error('Error sending report: ' . $e->getMessage())->send();
+            $this->toast()->error('Error sending report: '.$e->getMessage())->send();
         }
     }
 
@@ -89,18 +98,19 @@ class Index extends Component
         try {
             $report = CompiledReport::findOrFail($reportId);
 
-            if (!$report->canBeApproved()) {
+            if (! $report->canBeApproved()) {
                 $this->toast()->error('Report cannot be approved in its current state')->send();
+
                 return;
             }
 
-            $compilationService = new ReportCompilationService();
+            $compilationService = new ReportCompilationService;
             $compilationService->approve($report, auth()->id());
 
             $this->toast()->success('Report approved successfully!')->send();
 
         } catch (\Exception $e) {
-            $this->toast()->error('Error approving report: ' . $e->getMessage())->send();
+            $this->toast()->error('Error approving report: '.$e->getMessage())->send();
         }
     }
 

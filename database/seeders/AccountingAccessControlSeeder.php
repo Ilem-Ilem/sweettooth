@@ -3,8 +3,8 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class AccountingAccessControlSeeder extends Seeder
 {
@@ -20,7 +20,7 @@ class AccountingAccessControlSeeder extends Seeder
             // Base Access
             'access_accounting' => 'Access accounting module',
             'view_financial_reports' => 'View financial reports',
-            
+
             // GL Account Management
             'manage_accounts' => 'Manage GL accounts',
             'view_gl_accounts' => 'View GL accounts',

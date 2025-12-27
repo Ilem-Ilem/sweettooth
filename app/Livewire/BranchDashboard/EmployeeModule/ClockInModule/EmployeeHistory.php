@@ -3,8 +3,8 @@
 namespace App\Livewire\BranchDashboard\EmployeeModule\ClockInModule;
 
 use App\Livewire\BaseComponent;
-use App\Models\Shift;
 use App\Models\Employee;
+use App\Models\Shift;
 use Carbon\Carbon;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
@@ -14,7 +14,7 @@ use TallStackUi\Traits\Interactions;
 #[Layout('components.layouts.app.branch-dashboard')]
 class EmployeeHistory extends BaseComponent
 {
-    use WithPagination, Interactions;
+    use Interactions, WithPagination;
 
     #[Url(keep: true)]
     public ?string $b_id = null;
@@ -23,8 +23,11 @@ class EmployeeHistory extends BaseComponent
     public ?int $employee = null;
 
     public ?string $dateFrom = null;
+
     public ?string $dateTo = null;
+
     public ?string $selectedDepartment = null;
+
     public int $quantity = 20;
 
     public ?Employee $currentEmployee = null;
@@ -32,10 +35,10 @@ class EmployeeHistory extends BaseComponent
     public function mount()
     {
         $this->b_id = current_branch_id();
-        
+
         if ($this->employee) {
             $this->currentEmployee = Employee::find($this->employee);
-            if (!$this->currentEmployee) {
+            if (! $this->currentEmployee) {
                 abort(404, 'Employee not found');
             }
         }
@@ -61,7 +64,7 @@ class EmployeeHistory extends BaseComponent
     protected function getHistoryQuery()
     {
         $branchId = $this->b_id ?: current_branch_id();
-        
+
         $query = Shift::query()
             ->where('branch_id', $branchId)
             ->where('employee_id', $this->employee)
@@ -106,7 +109,7 @@ class EmployeeHistory extends BaseComponent
             return [
                 'status' => 'early',
                 'minutes' => abs($minutesDifference),
-                'label' => abs($minutesDifference) . ' min early',
+                'label' => abs($minutesDifference).' min early',
             ];
         } elseif ($minutesDifference === 0) {
             return [
@@ -118,7 +121,7 @@ class EmployeeHistory extends BaseComponent
             return [
                 'status' => 'late',
                 'minutes' => $minutesDifference,
-                'label' => $minutesDifference . ' min late',
+                'label' => $minutesDifference.' min late',
             ];
         }
     }
@@ -139,7 +142,7 @@ class EmployeeHistory extends BaseComponent
         foreach ($shifts as $shift) {
             // Count early/late
             $status = $this->getTimeStatus($shift);
-            match($status['status']) {
+            match ($status['status']) {
                 'late' => $lateCount++,
                 'early' => $earlyCount++,
                 'on_time' => $onTimeCount++,
@@ -187,9 +190,9 @@ class EmployeeHistory extends BaseComponent
             $duration = $shift->clock_out
                 ? $shift->clock_in->diffInMinutes($shift->clock_out) / 60
                 : 0;
-            
+
             $clockOut = $shift->clock_out ? $shift->clock_out->format('H:i') : '-';
-            
+
             $csv .= "\"{$shift->shift_date->format('Y-m-d')}\",";
             $csv .= "\"{$shift->clock_in->format('H:i')}\",";
             $csv .= "\"{$clockOut}\",";
@@ -201,7 +204,7 @@ class EmployeeHistory extends BaseComponent
 
         return response()->streamDownload(function () use ($csv) {
             echo $csv;
-        }, 'clock-in-history-' . $this->currentEmployee->name . '-' . now()->format('Y-m-d') . '.csv', [
+        }, 'clock-in-history-'.$this->currentEmployee->name.'-'.now()->format('Y-m-d').'.csv', [
             'Content-Type' => 'text/csv',
         ]);
     }
@@ -209,18 +212,18 @@ class EmployeeHistory extends BaseComponent
     public function render()
     {
         $branchId = $this->b_id ?: current_branch_id();
-        
+
         $shifts = $this->getHistoryQuery()->paginate($this->quantity);
         $stats = $this->getStats();
-        
+
         // Get departments for this branch
-        $departments = Department::where(function($q) use ($branchId) {
+        $departments = Department::where(function ($q) use ($branchId) {
             $q->where('branch_id', $branchId)
-              ->orWhereNull('branch_id');
+                ->orWhereNull('branch_id');
         })
             ->orderBy('name')
             ->get();
-        
+
         // If still empty, try without branch filter
         if ($departments->isEmpty()) {
             $departments = Department::orderBy('name')->get();

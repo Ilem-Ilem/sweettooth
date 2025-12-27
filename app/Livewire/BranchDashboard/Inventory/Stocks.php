@@ -10,9 +10,11 @@ use App\Services\AuditService;
 use App\Services\CurrencyFormattingService;
 use App\Services\InventoryApprovalService;
 use App\Traits\Exportable;
-use Livewire\Attributes\{Layout, Url, On};
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
+use Livewire\Attributes\Url;
 use TallStackUi\Traits\Interactions;
 
 #[Layout('components.layouts.app.branch-dashboard')]
@@ -22,6 +24,7 @@ class Stocks extends BaseComponent
 
     // Pagination
     public $quantity = 15;
+
     #[Url(keep: true)]
     public ?string $b_id = null;
 
@@ -36,33 +39,52 @@ class Stocks extends BaseComponent
         $this->b_id = $branchId;
         $this->resetPage();
     }
+
     // Filters
     public $search = '';
 
     public $filterCategory = '';
+
     public $filterStatus = '';
+
     public $filterHealthStatus = '';
+
     public $filterDateFrom = '';
+
     public $filterDateTo = '';
 
     // Edit Modal
     public $showEditModal = false;
+
     public $editingStockId = null;
+
     public $editingItemId = null;
+
     public $quantity_available = 0;
+
     public $quantity_reserved = 0;
+
     public $quantity_damaged = 0;
+
     public $average_cost = 0;
+
     public $health_status = 'good';
+
     public $expiry_date = '';
+
     public $notes = '';
+
     public $reorder_level = 0;
+
     public $max_stock_level = 0;
 
     // Audit Modal
     public $showAuditModal = false;
+
     public $auditReason = '';
+
     public $auditAction = null;
+
     public $pendingStockId = null;
 
     protected $rules = [
@@ -83,7 +105,6 @@ class Stocks extends BaseComponent
         return $this->b_id ? $this->b_id : request()->query('b_id');
     }
 
-
     public function render()
     {
         $branchId = $this->getBranchId();
@@ -92,8 +113,8 @@ class Stocks extends BaseComponent
             ->where('branch_id', $branchId)
             ->when($this->search, function ($q) {
                 $q->whereHas('item', function ($query) {
-                    $query->where('name', 'like', '%' . $this->search . '%')
-                        ->orWhere('sku', 'like', '%' . $this->search . '%');
+                    $query->where('name', 'like', '%'.$this->search.'%')
+                        ->orWhere('sku', 'like', '%'.$this->search.'%');
                 });
             })
             ->when($this->filterCategory, function ($q) {
@@ -114,9 +135,9 @@ class Stocks extends BaseComponent
                     });
                 }
             })
-            ->when($this->filterHealthStatus, fn($q) => $q->where('health_status', $this->filterHealthStatus))
-            ->when($this->filterDateFrom, fn($q) => $q->whereDate('last_stock_take_date', '>=', $this->filterDateFrom))
-            ->when($this->filterDateTo, fn($q) => $q->whereDate('last_stock_take_date', '<=', $this->filterDateTo))
+            ->when($this->filterHealthStatus, fn ($q) => $q->where('health_status', $this->filterHealthStatus))
+            ->when($this->filterDateFrom, fn ($q) => $q->whereDate('last_stock_take_date', '>=', $this->filterDateFrom))
+            ->when($this->filterDateTo, fn ($q) => $q->whereDate('last_stock_take_date', '<=', $this->filterDateTo))
             ->orderBy('updated_at', 'desc');
 
         $stocks = $query->paginate($this->quantity ?? 15);
@@ -162,12 +183,13 @@ class Stocks extends BaseComponent
         ]);
 
         // For non-super admins, show audit modal instead of updating directly
-        if (!is_super_admin()) {
+        if (! is_super_admin()) {
             $this->pendingStockId = $this->editingStockId;
             $this->auditAction = 'stock_adjustment';
             $this->auditReason = '';
             $this->showEditModal = false; // Hide edit modal but keep form values
             $this->showAuditModal = true;
+
             return;
         }
 
@@ -186,7 +208,7 @@ class Stocks extends BaseComponent
                 ->firstOrFail();
 
             $item = $stock->item;
-            
+
             $oldQuantityAvailable = (float) $stock->quantity_available;
             $oldQuantityReserved = (float) $stock->quantity_reserved;
             $oldQuantityDamaged = (float) $stock->quantity_damaged;
@@ -206,8 +228,8 @@ class Stocks extends BaseComponent
             ]);
 
             // Update item reorder and max stock levels if changed
-            if ((float)$oldReorderLevel !== (float)$this->reorder_level || 
-                (float)$oldMaxStockLevel !== (float)$this->max_stock_level) {
+            if ((float) $oldReorderLevel !== (float) $this->reorder_level ||
+                (float) $oldMaxStockLevel !== (float) $this->max_stock_level) {
                 $item->update([
                     'reorder_level' => (float) $this->reorder_level ?? 0,
                     'max_stock_level' => (float) $this->max_stock_level ?? 0,
@@ -235,34 +257,34 @@ class Stocks extends BaseComponent
 
             // Log the stock update
             $changes = [];
-            if ($oldQuantityAvailable !== (float)$this->quantity_available) {
+            if ($oldQuantityAvailable !== (float) $this->quantity_available) {
                 $changes[] = "Available: {$oldQuantityAvailable} → {$this->quantity_available}";
             }
-            if ($oldQuantityReserved !== (float)$this->quantity_reserved) {
+            if ($oldQuantityReserved !== (float) $this->quantity_reserved) {
                 $changes[] = "Reserved: {$oldQuantityReserved} → {$this->quantity_reserved}";
             }
-            if ($oldQuantityDamaged !== (float)$this->quantity_damaged) {
+            if ($oldQuantityDamaged !== (float) $this->quantity_damaged) {
                 $changes[] = "Damaged: {$oldQuantityDamaged} → {$this->quantity_damaged}";
             }
-            if ($oldAverageCost !== (float)$this->average_cost) {
+            if ($oldAverageCost !== (float) $this->average_cost) {
                 $changes[] = "Cost: {$oldAverageCost} → {$this->average_cost}";
             }
             if ($oldHealthStatus !== $this->health_status) {
                 $changes[] = "Health: {$oldHealthStatus} → {$this->health_status}";
             }
-            if ($oldReorderLevel !== (float)$this->reorder_level) {
+            if ($oldReorderLevel !== (float) $this->reorder_level) {
                 $changes[] = "Reorder Level: {$oldReorderLevel} → {$this->reorder_level}";
             }
-            if ($oldMaxStockLevel !== (float)$this->max_stock_level) {
+            if ($oldMaxStockLevel !== (float) $this->max_stock_level) {
                 $changes[] = "Max Stock Level: {$oldMaxStockLevel} → {$this->max_stock_level}";
             }
 
-            if (!empty($changes)) {
+            if (! empty($changes)) {
                 AuditService::log(
                     current_actor(),
                     'update',
                     $stock,
-                    "Updated stock for item '{$stock->item->name}'. Changes: " . implode(', ', $changes) . 
+                    "Updated stock for item '{$stock->item->name}'. Changes: ".implode(', ', $changes).
                     ". Notes: {$this->notes}",
                     'completed'
                 );
@@ -273,7 +295,7 @@ class Stocks extends BaseComponent
             $this->closeEditModal();
         } catch (\Exception $e) {
             DB::rollBack();
-            session()->flash('error', 'Error updating stock: ' . $e->getMessage());
+            session()->flash('error', 'Error updating stock: '.$e->getMessage());
         }
     }
 
@@ -316,17 +338,17 @@ class Stocks extends BaseComponent
             );
 
             // Verify the request was created successfully
-            if (!$request || !$request->id) {
+            if (! $request || ! $request->id) {
                 throw new \Exception('Failed to create approval request');
             }
 
-            session()->flash('success', 'Stock adjustment request submitted for approval! Request ID: ' . $request->id);
+            session()->flash('success', 'Stock adjustment request submitted for approval! Request ID: '.$request->id);
             $this->toast()->success('Request submitted for approval. Navigate to Audit > Inventory Approvals to view.')->send();
             $this->closeAuditModal();
             $this->closeEditModal();
         } catch (\Exception $e) {
-            session()->flash('error', 'Failed to submit stock adjustment: ' . $e->getMessage());
-            $this->toast()->error('Error: ' . $e->getMessage())->send();
+            session()->flash('error', 'Failed to submit stock adjustment: '.$e->getMessage());
+            $this->toast()->error('Error: '.$e->getMessage())->send();
         }
     }
 
@@ -400,6 +422,7 @@ class Stocks extends BaseComponent
     protected function getAllSelectableIds(): array
     {
         $branchId = $this->getBranchId();
+
         return Stock::where('branch_id', $branchId)->pluck('id')->toArray();
     }
 
@@ -413,6 +436,7 @@ class Stocks extends BaseComponent
 
             if ($stocks->isEmpty()) {
                 $this->toast()->warning('No stocks to export.')->send();
+
                 return;
             }
 
@@ -437,7 +461,7 @@ class Stocks extends BaseComponent
             });
 
             return $this->export(
-                'inventory-stocks-' . now()->format('Y-m-d'),
+                'inventory-stocks-'.now()->format('Y-m-d'),
                 $data,
                 'exports.inventory.stocks',
                 'pdf',
@@ -445,7 +469,8 @@ class Stocks extends BaseComponent
                 ['orientation' => 'landscape', 'paper' => 'A4']
             );
         } catch (\Exception $e) {
-            $this->toast()->error('Export failed: ' . $e->getMessage())->send();
+            $this->toast()->error('Export failed: '.$e->getMessage())->send();
+
             return;
         }
     }
@@ -460,6 +485,7 @@ class Stocks extends BaseComponent
 
             if ($stocks->isEmpty()) {
                 $this->toast()->warning('No stocks to export.')->send();
+
                 return;
             }
 
@@ -484,13 +510,14 @@ class Stocks extends BaseComponent
             });
 
             return $this->export(
-                'inventory-stocks-' . now()->format('Y-m-d'),
+                'inventory-stocks-'.now()->format('Y-m-d'),
                 $data,
                 'exports.inventory.stocks',
                 'excel'
             );
         } catch (\Exception $e) {
-            $this->toast()->error('Export failed: ' . $e->getMessage())->send();
+            $this->toast()->error('Export failed: '.$e->getMessage())->send();
+
             return;
         }
     }
@@ -505,6 +532,7 @@ class Stocks extends BaseComponent
 
             if ($stocks->isEmpty()) {
                 $this->toast()->warning('No stocks to export.')->send();
+
                 return;
             }
 
@@ -532,7 +560,7 @@ class Stocks extends BaseComponent
                 ];
             }
 
-            $filename = 'inventory-stocks-' . now()->format('Y-m-d-His') . '.csv';
+            $filename = 'inventory-stocks-'.now()->format('Y-m-d-His').'.csv';
             $handle = fopen('php://temp', 'r+');
 
             foreach ($csvData as $row) {
@@ -547,10 +575,11 @@ class Stocks extends BaseComponent
                 echo $csv;
             }, $filename, [
                 'Content-Type' => 'text/csv',
-                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+                'Content-Disposition' => 'attachment; filename="'.$filename.'"',
             ]);
         } catch (\Exception $e) {
-            $this->toast()->error('Export failed: ' . $e->getMessage())->send();
+            $this->toast()->error('Export failed: '.$e->getMessage())->send();
+
             return;
         }
     }
@@ -561,13 +590,13 @@ class Stocks extends BaseComponent
     private function getFilteredStocks()
     {
         $branchId = $this->getBranchId();
-        
+
         return Stock::with('item')
             ->where('branch_id', $branchId)
             ->when($this->search, function ($q) {
                 return $q->whereHas('item', function ($query) {
-                    $query->where('name', 'like', '%' . $this->search . '%')
-                        ->orWhere('sku', 'like', '%' . $this->search . '%');
+                    $query->where('name', 'like', '%'.$this->search.'%')
+                        ->orWhere('sku', 'like', '%'.$this->search.'%');
                 });
             })
             ->when($this->filterCategory, function ($q) {
@@ -592,7 +621,8 @@ class Stocks extends BaseComponent
      */
     protected function formatCurrency(float $amount): string
     {
-        $service = new CurrencyFormattingService();
+        $service = new CurrencyFormattingService;
+
         return $service->format($amount);
     }
 
@@ -601,8 +631,9 @@ class Stocks extends BaseComponent
      */
     protected function getCurrencySymbol(?string $currency = null): string
     {
-        $service = new CurrencyFormattingService();
+        $service = new CurrencyFormattingService;
         $currency = $currency ?? Settings::currencyLocalization('primary_currency', 'NGN');
+
         return $service->getSymbol($currency);
     }
 }

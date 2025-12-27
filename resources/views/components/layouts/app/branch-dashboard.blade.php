@@ -113,11 +113,23 @@
                     </flux:navlist.item>
                     @endif
                     @if ($sidebarService::canSeeRoleAssignments($currentUser))
-                    <flux:navlist.item icon="user-plus" :href="branch_route('branch-dashboard.role-assignments.index')"
-                        :current="request()->routeIs('branch-dashboard.role-assignments.index')" wire:navigate>
-                        {{ __('Assign Roles') }}
-                    </flux:navlist.item>
-                    @endif
+                     <flux:navlist.item icon="user-plus" :href="branch_route('branch-dashboard.role-assignments.index')"
+                         :current="request()->routeIs('branch-dashboard.role-assignments.index')" wire:navigate>
+                         {{ __('Assign Roles') }}
+                     </flux:navlist.item>
+                     @endif
+
+                     <flux:navlist.item icon="clipboard-document-list" :href="branch_route('branch-dashboard.employee-appraisals')"
+                         :current="request()->routeIs('branch-dashboard.employee-appraisals')" wire:navigate>
+                         {{ __('Employee Appraisals') }}
+                     </flux:navlist.item>
+
+                     <flux:navlist.item icon="calendar" :href="branch_route('branch-dashboard.hr.appraisals.cycles')"
+                         :current="request()->routeIs('branch-dashboard.hr.appraisals.cycles')" wire:navigate>
+                         {{ __('Appraisal Cycles') }}
+                     </flux:navlist.item>
+
+
                     {{-- //role-assignments.index --}}
                 </flux:navlist.group>
                 @endif
@@ -156,19 +168,14 @@
 
                 </flux:navlist.group>
 
-                <flux:navlist.item icon="question-mark-circle" :href="branch_route('branch-dashboard.organization.helper')"
-                    :current="request()->routeIs('branch-dashboard.organization.helper')" wire:navigate>
-                    {{ __('Helper') }}
-                </flux:navlist.item>
 
-                @if ($sidebarService::canSeeAuditManagement($currentUser))
-                <flux:navlist.item icon="document-text" :href="branch_route('branch-dashboard.audit.index')"
-                    :current="request()->routeIs('branch-dashboard.audit.*')" wire:navigate>
-                    {{ __('Audit Management') }}
-                </flux:navlist.item>
-                @endif
 
-            </flux:navlist.group>
+                 <flux:navlist.item icon="question-mark-circle" :href="branch_route('branch-dashboard.organization.helper')"
+                     :current="request()->routeIs('branch-dashboard.organization.helper')" wire:navigate>
+                     {{ __('Helper') }}
+                 </flux:navlist.item>
+
+             </flux:navlist.group>
             @endif
 
 
@@ -573,7 +580,19 @@
                         fn($d) => $d->pages->pluck('route_name')->contains($currentRoute),
                     )?->id;
                     
-                    $OPEN_SALES = $salesDepartments->isNotEmpty() || $OPEN_SALES_DEPT !== null;
+                    // Exclude production roles from seeing sales departments
+                    $productionRoles = [
+                        'Head of Production',
+                        'Chef',
+                        'Head of Gelato',
+                        'Confectionaries Manager',
+                        'Kitchen Staff',
+                        'Gelato Production Staff',
+                        'Confectionaries Production Staff',
+                    ];
+
+                    $isProductionUser = $currentUser->hasAnyRole($productionRoles);
+                    $OPEN_SALES = ($salesDepartments->isNotEmpty() || $OPEN_SALES_DEPT !== null) && !$isProductionUser;
                 }
             @endphp
 
@@ -903,6 +922,7 @@
     </flux:main>
 
     @fluxScripts
+    @livewireScripts
     @stack('scripts')
 </body>
 

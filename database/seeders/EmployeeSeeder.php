@@ -48,7 +48,7 @@ class EmployeeSeeder extends Seeder
 
         // Create admin/manager employees first (before other departments)
         $this->command->info('Creating admin and management employees...');
-        
+
         // Get first branch for admin/manager assignment
         $adminBranch = $branches->first();
 

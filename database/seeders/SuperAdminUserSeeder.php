@@ -30,7 +30,7 @@ class SuperAdminUserSeeder extends Seeder
 
         if ($superAdminRole) {
             $superAdmin->syncRoles([$superAdminRole]);
-            $this->command->info('✅ Super Admin user created/verified: ' . $superAdmin->email);
+            $this->command->info('✅ Super Admin user created/verified: '.$superAdmin->email);
             $this->command->warn('⚠️  Default password is "password" - CHANGE THIS IN PRODUCTION!');
         } else {
             $this->command->error('❌ Super Admin role not found. Run RoleSeeder first!');

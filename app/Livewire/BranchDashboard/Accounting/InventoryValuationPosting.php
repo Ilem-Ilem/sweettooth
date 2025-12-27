@@ -3,29 +3,36 @@
 namespace App\Livewire\BranchDashboard\Accounting;
 
 use App\Helpers\Settings;
-use App\Models\Stock;
-use App\Models\Item;
-use App\Models\GlAccount;
-use App\Models\GlEntry;
 use App\Models\AccountingPeriod;
 use App\Models\Branch;
+use App\Models\GlAccount;
+use App\Models\GlEntry;
+use App\Models\Item;
+use App\Models\Stock;
 use App\Services\CurrencyFormattingService;
-use Livewire\Component;
-use Livewire\Attributes\Layout;
+use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Request;
-use Exception;
+use Livewire\Attributes\Layout;
+use Livewire\Component;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class InventoryValuationPosting extends Component
 {
     public ?string $branchId = null;
+
     public ?int $selectedBranchId = null;
+
     public string $postingType = 'opening_balance'; // opening_balance, revaluation, adjustment
+
     public string $description = '';
+
     public bool $showConfirmModal = false;
+
     public array $selectedCategories = [];
+
     public array $categoryTotals = [];
+
     public array $postingHistory = [];
 
     // GL Account Mappings
@@ -40,8 +47,8 @@ class InventoryValuationPosting extends Component
     public function mount()
     {
         $this->branchId = Request::query('b_id');
-        $this->selectedBranchId = $this->branchId ? (int)$this->branchId : null;
-        $this->description = 'Inventory Opening Balance - ' . now()->format('M Y');
+        $this->selectedBranchId = $this->branchId ? (int) $this->branchId : null;
+        $this->description = 'Inventory Opening Balance - '.now()->format('M Y');
     }
 
     public function render()
@@ -67,9 +74,9 @@ class InventoryValuationPosting extends Component
                 ->orderBy('account_number')
                 ->get(),
             'equityAccounts' => GlAccount::where('is_active', true)
-                ->where(function($q) {
+                ->where(function ($q) {
                     $q->where('account_type', 'equity')
-                      ->orWhere('account_number', 'like', '3%');
+                        ->orWhere('account_number', 'like', '3%');
                 })
                 ->orderBy('account_number')
                 ->get(),
@@ -78,7 +85,9 @@ class InventoryValuationPosting extends Component
 
     public function getPostingHistory(?AccountingPeriod $period): array
     {
-        if (!$period) return [];
+        if (! $period) {
+            return [];
+        }
 
         $query = GlEntry::where('entry_type', 'inventory_valuation')
             ->where('accounting_period_id', $period->id)
@@ -107,7 +116,9 @@ class InventoryValuationPosting extends Component
 
     public function checkAlreadyPosted(?AccountingPeriod $period): bool
     {
-        if (!$period) return false;
+        if (! $period) {
+            return false;
+        }
 
         $query = GlEntry::where('accounting_period_id', $period->id)
             ->where('entry_type', 'inventory_valuation');
@@ -143,7 +154,7 @@ class InventoryValuationPosting extends Component
 
         foreach ($stocks as $stock) {
             $category = $this->categorizeItem($stock->item);
-            $value = (float)$stock->quantity_available * (float)$stock->average_cost;
+            $value = (float) $stock->quantity_available * (float) $stock->average_cost;
             $grandTotal += $value;
 
             $categories[$category]['items'][] = [
@@ -151,12 +162,12 @@ class InventoryValuationPosting extends Component
                 'item_name' => $stock->item->name ?? 'Unknown',
                 'item_sku' => $stock->item->sku ?? 'N/A',
                 'branch_name' => $stock->branch->name ?? 'N/A',
-                'quantity' => (float)$stock->quantity_available,
-                'average_cost' => (float)$stock->average_cost,
+                'quantity' => (float) $stock->quantity_available,
+                'average_cost' => (float) $stock->average_cost,
                 'value' => $value,
             ];
 
-            $categories[$category]['total_qty'] += (float)$stock->quantity_available;
+            $categories[$category]['total_qty'] += (float) $stock->quantity_available;
             $categories[$category]['total_value'] += $value;
         }
 
@@ -177,7 +188,7 @@ class InventoryValuationPosting extends Component
 
     private function categorizeItem(?Item $item): string
     {
-        if (!$item) {
+        if (! $item) {
             return 'other';
         }
 
@@ -224,12 +235,14 @@ class InventoryValuationPosting extends Component
     {
         if (empty($this->selectedCategories)) {
             session()->flash('error', 'Please select at least one inventory category to post.');
+
             return;
         }
 
         $currentPeriod = AccountingPeriod::current()->first();
-        if (!$currentPeriod || $currentPeriod->status !== 'open') {
+        if (! $currentPeriod || $currentPeriod->status !== 'open') {
             session()->flash('error', 'No open accounting period found. Please create one first.');
+
             return;
         }
 
@@ -242,7 +255,7 @@ class InventoryValuationPosting extends Component
             DB::beginTransaction();
 
             $currentPeriod = AccountingPeriod::current()->first();
-            if (!$currentPeriod || $currentPeriod->status !== 'open') {
+            if (! $currentPeriod || $currentPeriod->status !== 'open') {
                 throw new Exception('No open accounting period found');
             }
 
@@ -252,7 +265,7 @@ class InventoryValuationPosting extends Component
                 ?? GlAccount::where('account_number', '3101')->first()  // Capital Stock
                 ?? GlAccount::where('account_type', 'equity')->first();
 
-            if (!$equityAccount) {
+            if (! $equityAccount) {
                 // Create opening balance equity account if none exists
                 $equityAccount = GlAccount::create([
                     'account_number' => '3010',
@@ -269,10 +282,10 @@ class InventoryValuationPosting extends Component
 
             $totalPosted = 0;
             $entriesCreated = 0;
-            $referenceNumber = 'INV-VAL-' . now()->format('Ymd-His');
+            $referenceNumber = 'INV-VAL-'.now()->format('Ymd-His');
 
             foreach ($this->selectedCategories as $category) {
-                if (!isset($this->categoryTotals[$category]) || $this->categoryTotals[$category] <= 0) {
+                if (! isset($this->categoryTotals[$category]) || $this->categoryTotals[$category] <= 0) {
                     continue;
                 }
 
@@ -280,7 +293,7 @@ class InventoryValuationPosting extends Component
                 $glAccountNumber = $this->glAccountMappings[$category] ?? '1300';
                 $glAccount = GlAccount::where('account_number', $glAccountNumber)->first();
 
-                if (!$glAccount) {
+                if (! $glAccount) {
                     // Create the inventory account if it doesn't exist
                     $categoryName = match ($category) {
                         'raw_materials' => 'Raw Materials Inventory',
@@ -359,15 +372,15 @@ class InventoryValuationPosting extends Component
             $this->showConfirmModal = false;
             $this->selectedCategories = [];
 
-            $service = new CurrencyFormattingService();
-            session()->flash('message', "Successfully posted inventory valuation of " . $service->format($totalPosted) . " to GL ({$entriesCreated} entries created).");
+            $service = new CurrencyFormattingService;
+            session()->flash('message', 'Successfully posted inventory valuation of '.$service->format($totalPosted)." to GL ({$entriesCreated} entries created).");
 
             $this->dispatch('posting-complete');
 
         } catch (Exception $e) {
             DB::rollBack();
             $this->showConfirmModal = false;
-            session()->flash('error', 'Failed to post inventory valuation: ' . $e->getMessage());
+            session()->flash('error', 'Failed to post inventory valuation: '.$e->getMessage());
         }
     }
 
@@ -378,13 +391,14 @@ class InventoryValuationPosting extends Component
 
             if ($entry->status !== 'posted') {
                 session()->flash('error', 'Only posted entries can be reversed.');
+
                 return;
             }
 
             $entry->reverse(auth()->id() ?? 1);
             session()->flash('message', 'Entry reversed successfully.');
         } catch (Exception $e) {
-            session()->flash('error', 'Failed to reverse entry: ' . $e->getMessage());
+            session()->flash('error', 'Failed to reverse entry: '.$e->getMessage());
         }
     }
 
@@ -395,7 +409,7 @@ class InventoryValuationPosting extends Component
 
     public function changeBranch($branchId)
     {
-        $this->selectedBranchId = $branchId ? (int)$branchId : null;
+        $this->selectedBranchId = $branchId ? (int) $branchId : null;
         $this->selectedCategories = [];
         $this->categoryTotals = [];
     }
@@ -405,7 +419,8 @@ class InventoryValuationPosting extends Component
      */
     protected function formatCurrency(float $amount): string
     {
-        $service = new CurrencyFormattingService();
+        $service = new CurrencyFormattingService;
+
         return $service->format($amount);
     }
 
@@ -414,8 +429,9 @@ class InventoryValuationPosting extends Component
      */
     protected function getCurrencySymbol(?string $currency = null): string
     {
-        $service = new CurrencyFormattingService();
+        $service = new CurrencyFormattingService;
         $currency = $currency ?? Settings::currencyLocalization('primary_currency', 'NGN');
+
         return $service->getSymbol($currency);
     }
 }

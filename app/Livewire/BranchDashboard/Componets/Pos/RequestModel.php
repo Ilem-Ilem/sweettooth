@@ -23,6 +23,7 @@ class RequestModel extends Component
     public ?string $b_id = null;
 
     public array $requestedItems = []; // ['product_id' => quantity]
+
     public $currentShift = null;
 
     public function mount()
@@ -65,7 +66,7 @@ class RequestModel extends Component
 
     public function addToRequestedItems($id, $quantity = 10)
     {
-        if (!isset($this->requestedItems[$id])) {
+        if (! isset($this->requestedItems[$id])) {
             $this->requestedItems[$id] = $quantity;
         }
     }
@@ -78,7 +79,7 @@ class RequestModel extends Component
     public function updateQuantity($id, $quantity)
     {
         if (isset($this->requestedItems[$id])) {
-            $this->requestedItems[$id] = max(1, (int)$quantity); // Minimum 1 batch
+            $this->requestedItems[$id] = max(1, (int) $quantity); // Minimum 1 batch
         }
     }
 
@@ -86,6 +87,7 @@ class RequestModel extends Component
     {
         if (empty($this->requestedItems)) {
             session()->flash('error', 'Please select at least one product to request.');
+
             return;
         }
 
@@ -97,14 +99,14 @@ class RequestModel extends Component
             DB::transaction(function () use ($employee, $branchId, $departmentId) {
                 // Get or create shift for today
                 $shift = Shift::firstOrCreate([
-                    'branch_id'     => $branchId,
+                    'branch_id' => $branchId,
                     'department_id' => $departmentId,
-                    'shift_date'    => today(),
-                    'shift_type'    => $this->currentShift,
+                    'shift_date' => today(),
+                    'shift_type' => $this->currentShift,
                 ], [
-                    'employee_id'  => $employee->id,
+                    'employee_id' => $employee->id,
                     'shift_number' => Shift::where('shift_date', today())->count() + 1,
-                    'status'       => 'active',
+                    'status' => 'active',
                 ]);
 
                 // Create Item Request
@@ -116,21 +118,21 @@ class RequestModel extends Component
                 );
 
                 $itemRequest = ItemRequest::create([
-                    'branch_id'      => $branchId,
-                    'department_id'  => $departmentId,
-                    'requested_by'   => $employee->id,
+                    'branch_id' => $branchId,
+                    'department_id' => $departmentId,
+                    'requested_by' => $employee->id,
                     'request_number' => $requestNumber,
-                    'request_date'   => today(),
-                    'shift'          => $this->currentShift,
-                    'status'         => 'pending',
-                    'notes'          => 'Request from POS - Kitchen production needed',
+                    'request_date' => today(),
+                    'shift' => $this->currentShift,
+                    'status' => 'pending',
+                    'notes' => 'Request from POS - Kitchen production needed',
                 ]);
 
                 // Process each requested product with its quantity
                 foreach ($this->requestedItems as $productId => $quantity) {
                     $product = Product::find($productId);
 
-                    if (!$product) {
+                    if (! $product) {
                         continue;
                     }
 
@@ -139,20 +141,20 @@ class RequestModel extends Component
                         ->where('status', 'active')
                         ->first();
 
-                    if (!$recipe) {
+                    if (! $recipe) {
                         continue; // Skip if no recipe found
                     }
 
                     // Use the quantity specified by the user (batches)
-                    $batchesRequested = (int)$quantity;
+                    $batchesRequested = (int) $quantity;
                     $recipeYield = (float) $recipe->yield_quantity; // Units per batch
                     $actualUnitsRequested = $batchesRequested * $recipeYield; // Total units to produce
 
                     // Create Production Request (store actual units, not batches)
                     ProductionRequest::create([
-                        'shift_id'                    => $shift->id,
-                        'item_request_id'             => $itemRequest->id,
-                        'recipe_id'                   => $recipe->id,
+                        'shift_id' => $shift->id,
+                        'item_request_id' => $itemRequest->id,
+                        'recipe_id' => $recipe->id,
                         'planned_production_quantity' => $actualUnitsRequested, // Actual units (batches × yield)
                     ]);
 
@@ -162,13 +164,13 @@ class RequestModel extends Component
                         $totalQuantity = $actualQuantity * $batchesRequested; // Ingredients based on batches
 
                         ItemRequestDetail::create([
-                            'request_id'          => $itemRequest->id,
-                            'item_id'             => $ingredient->item_id,
-                            'quantity_requested'  => $totalQuantity,
-                            'quantity_approved'   => 0,
+                            'request_id' => $itemRequest->id,
+                            'item_id' => $ingredient->item_id,
+                            'quantity_requested' => $totalQuantity,
+                            'quantity_approved' => 0,
                             'quantity_dispatched' => 0,
-                            'uom'                 => $ingredient->uom,
-                            'notes'               => "For {$recipe->product_name} production ({$batchesRequested} batches × {$recipeYield} {$recipe->unitOfMeasure?->symbol} = {$actualUnitsRequested} {$recipe->unitOfMeasure?->symbol}) - POS Request",
+                            'uom' => $ingredient->uom,
+                            'notes' => "For {$recipe->product_name} production ({$batchesRequested} batches × {$recipeYield} {$recipe->unitOfMeasure?->symbol} = {$actualUnitsRequested} {$recipe->unitOfMeasure?->symbol}) - POS Request",
                         ]);
                     }
                 }
@@ -178,7 +180,7 @@ class RequestModel extends Component
             $this->requestedItems = [];
             $this->dispatch('kitchen-request-sent');
         } catch (\Exception $e) {
-            session()->flash('error', 'Error sending request: ' . $e->getMessage());
+            session()->flash('error', 'Error sending request: '.$e->getMessage());
         }
     }
 
@@ -190,7 +192,6 @@ class RequestModel extends Component
         if ($forUpdate) {
             $q->lockForUpdate();
         }
-    
 
         return $q->first();
     }

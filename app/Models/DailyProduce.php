@@ -357,6 +357,11 @@ class DailyProduce extends Model
 
         $recipe = $productionRequest->recipe;
         $requestedQty = (float) $this->requested_quantity;
+        $recipeYield = (float) $recipe->yield_quantity;
+
+        // Calculate how many batches are needed
+        $requestedBatches = $requestedQty / $recipeYield;
+
         $itemRequest = $productionRequest->itemRequest;
 
         if (! $itemRequest) {
@@ -372,13 +377,14 @@ class DailyProduce extends Model
         }
 
         $ingredientAnalysis = [];
-        $minProducable = PHP_FLOAT_MAX;
+        $minProducableBatches = PHP_FLOAT_MAX;
         $limitingIngredient = null;
+        $hasLimitingIngredient = false;
 
         // Analyze each recipe ingredient
         foreach ($recipe->ingredients as $recipeIngredient) {
             $itemId = $recipeIngredient->item_id;
-            $qtyNeededPerProduct = (float) $recipeIngredient->quantity;
+            $qtyNeededPerBatch = (float) $recipeIngredient->quantity;
 
             // Find matching item request detail
             $requestDetail = $itemRequest->requestDetails->firstWhere('item_id', $itemId);
@@ -387,56 +393,80 @@ class DailyProduce extends Model
             $approved = $requestDetail ? (float) $requestDetail->quantity_approved : 0;
             $dispatched = $requestDetail ? (float) $requestDetail->quantity_dispatched : 0;
 
-            // Calculate how many products can be made with this ingredient
-            $producableFromThisIngredient = 0;
-            if ($qtyNeededPerProduct > 0 && $dispatched > 0) {
-                $producableFromThisIngredient = floor($dispatched / $qtyNeededPerProduct);
+            // Calculate how many batches can be made with dispatched quantity
+            $producableBatchesFromThisIngredient = 0;
+            $neededForRequestedBatches = $qtyNeededPerBatch * $requestedBatches;
+            $remainingAfterProduction = $dispatched - $neededForRequestedBatches;
+
+            if ($qtyNeededPerBatch > 0) {
+                if ($dispatched >= $neededForRequestedBatches) {
+                    // Can produce all requested batches
+                    $producableBatchesFromThisIngredient = $requestedBatches;
+                } else {
+                    // Can only produce partial batches
+                    $producableBatchesFromThisIngredient = floor($dispatched / $qtyNeededPerBatch);
+                }
             }
+
+            // Check if this ingredient is limiting
+            $isLimiting = $producableBatchesFromThisIngredient < $requestedBatches;
 
             $analysis = [
                 'item_name' => $recipeIngredient->item->name ?? 'Unknown',
-                'quantity_per_product' => $qtyNeededPerProduct,
+                'quantity_per_batch' => $qtyNeededPerBatch,
+                'total_needed_for_request' => $neededForRequestedBatches,
                 'quantity_requested' => $requested,
                 'quantity_approved' => $approved,
                 'quantity_dispatched' => $dispatched,
-                'producable_quantity' => $producableFromThisIngredient,
-                'is_limiting' => false,
-                'shortage' => max(0, ($qtyNeededPerProduct * $requestedQty) - $dispatched),
+                'quantity_used' => min($dispatched, $neededForRequestedBatches),
+                'quantity_remaining' => max(0, $dispatched - $neededForRequestedBatches),
+                'producable_batches' => $producableBatchesFromThisIngredient,
+                'is_limiting' => $isLimiting,
+                'shortage' => max(0, $neededForRequestedBatches - $dispatched),
                 'uom' => $recipeIngredient->item->unitOfMeasure?->symbol ?? '',
             ];
 
             $ingredientAnalysis[] = $analysis;
 
-            // Track minimum (limiting ingredient)
-            if ($producableFromThisIngredient < $minProducable) {
-                $minProducable = $producableFromThisIngredient;
+            // Track minimum producable batches (limiting ingredient)
+            if ($producableBatchesFromThisIngredient < $minProducableBatches) {
+                $minProducableBatches = $producableBatchesFromThisIngredient;
                 $limitingIngredient = $recipeIngredient->item->name ?? 'Unknown';
+                $hasLimitingIngredient = true;
             }
         }
 
         // If no ingredients, can't produce
-        if ($minProducable === PHP_FLOAT_MAX) {
-            $minProducable = 0;
+        if ($minProducableBatches === PHP_FLOAT_MAX) {
+            $minProducableBatches = 0;
         }
 
-        // Mark the limiting ingredient
-        foreach ($ingredientAnalysis as &$analysis) {
-            if ($analysis['producable_quantity'] == $minProducable) {
-                $analysis['is_limiting'] = true;
+        // Convert to final producable units
+        $producableUnits = $minProducableBatches * $recipeYield;
+
+        // Only mark ingredients as limiting if they actually limit production
+        if ($hasLimitingIngredient && $minProducableBatches < $requestedBatches) {
+            foreach ($ingredientAnalysis as &$analysis) {
+                // Keep the limiting flag as calculated above
+            }
+        } else {
+            // If we can produce all requested batches, no limiting ingredients
+            foreach ($ingredientAnalysis as &$analysis) {
+                $analysis['is_limiting'] = false;
             }
         }
 
-        $shortage = max(0, $requestedQty - $minProducable);
+        $shortage = max(0, $requestedQty - $producableUnits);
         $shortagePercentage = $requestedQty > 0 ? ($shortage / $requestedQty) * 100 : 0;
 
         return [
-            'producable_quantity' => $minProducable,
+            'producable_quantity' => $producableUnits,
             'requested_quantity' => $requestedQty,
             'shortage' => $shortage,
             'shortage_percentage' => round($shortagePercentage, 2),
             'limiting_ingredient' => $limitingIngredient,
             'ingredient_analysis' => $ingredientAnalysis,
-            'can_produce_full_batch' => $minProducable >= $requestedQty,
+            'can_produce_full_batch' => $producableUnits >= $requestedQty,
         ];
     }
 }

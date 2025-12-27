@@ -19,9 +19,21 @@
                 <label class="block text-sm font-medium text-gray-700 mb-1">Production Department</label>
                 <select wire:model="deptSlug" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
                     <option value="">My Department</option>
-                    <option value="kitchen">Kitchen</option>
-                    <option value="gelato-production">Gelato Production</option>
-                    <option value="confectionaries-production">Confectionaries Production</option>
+                    @if(is_super_admin() || auth()->user()->hasRole(['head_of_production', 'admin'], 'web'))
+                        <option value="kitchen">Kitchen</option>
+                        <option value="gelato-production">Gelato Production</option>
+                        <option value="confectionaries-production">Confectionaries Production</option>
+                    @else
+                        @if(auth()->user()->hasRole('Chef') || auth()->user()->hasRole('Kitchen Staff'))
+                            <option value="kitchen">Kitchen</option>
+                        @endif
+                        @if(auth()->user()->hasRole('Head of Gelato') || auth()->user()->hasRole('Gelato Production Staff'))
+                            <option value="gelato-production">Gelato Production</option>
+                        @endif
+                        @if(auth()->user()->hasRole('Confectionaries Manager') || auth()->user()->hasRole('Confectionaries Production Staff'))
+                            <option value="confectionaries-production">Confectionaries Production</option>
+                        @endif
+                    @endif
                 </select>
             </div>
         </div>

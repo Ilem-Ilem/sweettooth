@@ -86,8 +86,8 @@ class Index extends Component
                 ->forPeriod($this->customDateFrom, $this->customDateTo);
 
             $this->reportData = $service->getReportData();
-            $this->summaryMetrics = $service->generateSummaryMetrics($this->reportData);
-            $this->chartsData = $service->generateChartsData($this->reportData);
+            $this->summaryMetrics = $this->reportData['summary_metrics'] ?? $service->getSummaryMetrics($this->reportData);
+            $this->chartsData = $service->getChartsData($this->reportData);
 
             $this->toast()->success('Waste analysis report generated successfully')->send();
         } catch (\Exception $e) {

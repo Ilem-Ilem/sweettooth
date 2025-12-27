@@ -2,16 +2,13 @@
 
 namespace App\Livewire\BranchDashboard\Accounting;
 
-use App\Models\Sale;
-use App\Models\Purchase;
 use App\Models\Payment;
+use App\Models\Purchase;
+use App\Models\Sale;
 use App\Models\StockMovement;
-use App\Models\AccountingPeriod;
-use App\Services\GlPostingService;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithPagination;
-use Livewire\Attributes\Layout;
-use Exception;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class PostingStatusMonitor extends Component
@@ -19,10 +16,15 @@ class PostingStatusMonitor extends Component
     use WithPagination;
 
     public string $transactionType = 'sales'; // sales, purchases, payments, adjustments
+
     public string $status = 'all'; // all, pending, posted, failed
+
     public int $perPage = 25;
+
     public bool $isBulkPosting = false;
+
     public int $bulkPostingProgress = 0;
+
     public int $bulkPostingTotal = 0;
 
     public function render()
@@ -146,8 +148,9 @@ class PostingStatusMonitor extends Component
             default => null,
         };
 
-        if (!$model || $model->gl_posting_status !== 'failed') {
+        if (! $model || $model->gl_posting_status !== 'failed') {
             session()->flash('error', 'Transaction not found or not in failed state');
+
             return;
         }
 

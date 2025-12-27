@@ -3,10 +3,10 @@
 namespace App\Livewire\BranchDashboard\Accounting;
 
 use App\Models\GlAccount;
-use Livewire\Component;
-use Livewire\WithPagination;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Component;
+use Livewire\WithPagination;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class GlAccountList extends Component
@@ -14,9 +14,13 @@ class GlAccountList extends Component
     use WithPagination;
 
     public string $search = '';
+
     public string $filterType = '';
+
     public string $filterStatus = '';
+
     public string $sortBy = 'account_number';
+
     public string $sortDirection = 'asc';
 
     protected $queryString = ['search', 'filterType', 'filterStatus', 'sortBy', 'sortDirection'];
@@ -66,7 +70,7 @@ class GlAccountList extends Component
 
     public function toggleActive(GlAccount $account)
     {
-        $account->update(['is_active' => !$account->is_active]);
+        $account->update(['is_active' => ! $account->is_active]);
         session()->flash('success', "Account {$account->account_number} status updated");
     }
 

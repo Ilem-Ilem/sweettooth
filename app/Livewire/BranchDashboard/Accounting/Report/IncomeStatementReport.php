@@ -2,10 +2,10 @@
 
 namespace App\Livewire\BranchDashboard\Accounting\Report;
 
-use App\Services\IncomeStatementService;
 use App\Models\AccountingPeriod;
-use Livewire\Component;
+use App\Services\IncomeStatementService;
 use Livewire\Attributes\Layout;
+use Livewire\Component;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class IncomeStatementReport extends Component
@@ -13,7 +13,9 @@ class IncomeStatementReport extends Component
     protected IncomeStatementService $isService;
 
     public ?int $periodId = null;
+
     public ?int $comparePeriodId = null;
+
     public bool $isComparative = false;
 
     public function boot()
@@ -38,14 +40,14 @@ class IncomeStatementReport extends Component
 
     public function toggleComparative()
     {
-        $this->isComparative = !$this->isComparative;
+        $this->isComparative = ! $this->isComparative;
     }
 
     public function exportToCsv()
     {
         $data = $this->isService->exportIncomeStatement($this->periodId);
-        $filename = 'income_statement_' . now()->format('Y-m-d_His') . '.csv';
-        
+        $filename = 'income_statement_'.now()->format('Y-m-d_His').'.csv';
+
         return response()->streamDownload(function () use ($data) {
             $f = fopen('php://output', 'w');
             foreach ($data as $row) {

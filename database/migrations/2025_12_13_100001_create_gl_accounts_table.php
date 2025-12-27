@@ -24,7 +24,7 @@ return new class extends Migration
                 'expense',
                 'other_income',
                 'other_expense',
-                'tax'
+                'tax',
             ]);
             $table->string('account_category')->nullable();
             $table->text('description')->nullable();

@@ -34,7 +34,7 @@ class GlAccountSeeder extends Seeder
     {
         return [
             // ==================== ASSET ACCOUNTS (1000-1999) ====================
-            
+
             // 1100 - Current Assets (Header)
             [
                 'account_number' => '1100',

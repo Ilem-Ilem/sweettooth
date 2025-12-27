@@ -18,6 +18,7 @@ class LeaveBalance extends BaseComponent
     public ?string $b_id = null;
 
     public $selectedYear;
+
     public $yearOptions = [];
 
     protected function getModelClass(): string

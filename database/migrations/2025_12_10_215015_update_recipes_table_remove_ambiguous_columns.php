@@ -2,8 +2,8 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -14,7 +14,7 @@ return new class extends Migration
     {
         Schema::table('recipes', function (Blueprint $table) {
             // Add product_type_id foreign key column
-            if (!Schema::hasColumn('recipes', 'product_type_id')) {
+            if (! Schema::hasColumn('recipes', 'product_type_id')) {
                 $table->unsignedBigInteger('product_type_id')->nullable()->after('product_type');
                 $table->foreign('product_type_id')
                     ->references('id')
@@ -38,7 +38,7 @@ return new class extends Migration
             if (Schema::hasColumn('recipes', 'yield_percentage')) {
                 $table->dropColumn('yield_percentage');
             }
-            
+
             // Drop the old product_type enum column
             if (Schema::hasColumn('recipes', 'product_type')) {
                 $table->dropColumn('product_type');
@@ -53,21 +53,21 @@ return new class extends Migration
     {
         Schema::table('recipes', function (Blueprint $table) {
             // Re-add the ambiguous columns
-            if (!Schema::hasColumn('recipes', 'recipe_yield_weight')) {
+            if (! Schema::hasColumn('recipes', 'recipe_yield_weight')) {
                 $table->decimal('recipe_yield_weight', 10, 2)->nullable()->after('product_type_id');
             }
-            if (!Schema::hasColumn('recipes', 'unit_weight')) {
+            if (! Schema::hasColumn('recipes', 'unit_weight')) {
                 $table->decimal('unit_weight', 10, 2)->nullable()->after('recipe_yield_weight');
             }
-            if (!Schema::hasColumn('recipes', 'yield_percentage')) {
+            if (! Schema::hasColumn('recipes', 'yield_percentage')) {
                 $table->decimal('yield_percentage', 10, 2)->default(100)->after('unit_weight');
             }
-            
+
             // Re-add the product_type enum column
-            if (!Schema::hasColumn('recipes', 'product_type')) {
+            if (! Schema::hasColumn('recipes', 'product_type')) {
                 $table->enum('product_type', ['gelato_base', 'gelato_flavor', 'pastry', 'hot_kitchen', 'beverage'])->after('sku');
             }
-            
+
             // Drop the product_type_id column
             if (Schema::hasColumn('recipes', 'product_type_id')) {
                 $table->dropForeign(['product_type_id']);

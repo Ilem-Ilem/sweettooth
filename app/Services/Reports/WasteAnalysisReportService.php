@@ -20,6 +20,22 @@ class WasteAnalysisReportService extends ReportService
     }
 
     /**
+     * Get summary metrics for report data.
+     */
+    public function getSummaryMetrics(array $reportData): array
+    {
+        return $this->generateSummaryMetrics($reportData);
+    }
+
+    /**
+     * Get charts data for report data.
+     */
+    public function getChartsData(array $reportData): array
+    {
+        return $this->generateChartsData($reportData);
+    }
+
+    /**
      * Generate the waste analysis report data.
      */
     protected function generateReportData(): array
@@ -51,7 +67,7 @@ class WasteAnalysisReportService extends ReportService
             ->whereBetween('callback_time', [$this->periodFrom, $this->periodTo])
             ->get();
 
-        return [
+        $reportData = [
             'waste_overview' => $this->generateWasteOverview($productionRecords, $callbacks),
             'production_waste' => $this->generateProductionWaste($productionRecords),
             'callback_waste' => $this->generateCallbackWaste($callbacks),
@@ -66,6 +82,11 @@ class WasteAnalysisReportService extends ReportService
                     ->diffInDays(\Carbon\Carbon::parse($this->periodTo)) + 1,
             ],
         ];
+
+        // Generate summary metrics
+        $reportData['summary_metrics'] = $this->generateSummaryMetrics($reportData);
+
+        return $reportData;
     }
 
     /**

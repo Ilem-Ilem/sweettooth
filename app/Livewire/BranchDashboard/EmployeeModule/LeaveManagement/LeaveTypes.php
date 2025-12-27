@@ -13,28 +13,42 @@ use TallStackUi\Traits\Interactions;
 #[Layout('components.layouts.app.branch-dashboard')]
 class LeaveTypes extends BaseComponent
 {
-    use WithPagination, Interactions;
+    use Interactions, WithPagination;
 
     #[Url(keep: true)]
     public ?string $b_id = null;
 
     public ?int $quantity = 20;
+
     public ?string $search = null;
 
     // Form fields
     public $showModal = false;
+
     public $editMode = false;
+
     public $leaveTypeId = null;
+
     public $name = '';
+
     public $code = '';
+
     public $description = '';
+
     public $default_days_per_year = 0;
+
     public $requires_approval = true;
+
     public $requires_document = false;
+
     public $max_consecutive_days = null;
+
     public $min_notice_days = 0;
+
     public $is_paid = true;
+
     public $is_active = true;
+
     public $color = '#3b82f6';
 
     // Table headers
@@ -74,9 +88,9 @@ class LeaveTypes extends BaseComponent
 
         if ($this->search) {
             $query->where(function ($q) {
-                $q->where('name', 'like', '%' . $this->search . '%')
-                  ->orWhere('code', 'like', '%' . $this->search . '%')
-                  ->orWhere('description', 'like', '%' . $this->search . '%');
+                $q->where('name', 'like', '%'.$this->search.'%')
+                    ->orWhere('code', 'like', '%'.$this->search.'%')
+                    ->orWhere('description', 'like', '%'.$this->search.'%');
             });
         }
 
@@ -94,8 +108,9 @@ class LeaveTypes extends BaseComponent
     {
         $leaveType = LeaveType::find($id);
 
-        if (!$leaveType) {
+        if (! $leaveType) {
             $this->toast()->error('Leave type not found.')->send();
+
             return;
         }
 
@@ -142,7 +157,7 @@ class LeaveTypes extends BaseComponent
     {
         $this->validate([
             'name' => 'required|string|max:255',
-            'code' => 'required|string|max:255|unique:leave_types,code,' . $this->leaveTypeId,
+            'code' => 'required|string|max:255|unique:leave_types,code,'.$this->leaveTypeId,
             'default_days_per_year' => 'required|integer|min:0',
             'max_consecutive_days' => 'nullable|integer|min:1',
             'min_notice_days' => 'required|integer|min:0',
@@ -180,7 +195,7 @@ class LeaveTypes extends BaseComponent
             $this->resetPage();
 
         } catch (\Exception $e) {
-            $this->toast()->error('Error: ' . $e->getMessage())->send();
+            $this->toast()->error('Error: '.$e->getMessage())->send();
         }
     }
 
@@ -188,12 +203,13 @@ class LeaveTypes extends BaseComponent
     {
         $leaveType = LeaveType::find($id);
 
-        if (!$leaveType) {
+        if (! $leaveType) {
             $this->toast()->error('Leave type not found.')->send();
+
             return;
         }
 
-        $leaveType->is_active = !$leaveType->is_active;
+        $leaveType->is_active = ! $leaveType->is_active;
         $leaveType->save();
 
         $status = $leaveType->is_active ? 'activated' : 'deactivated';
@@ -205,14 +221,16 @@ class LeaveTypes extends BaseComponent
         try {
             $leaveType = LeaveType::find($id);
 
-            if (!$leaveType) {
+            if (! $leaveType) {
                 $this->toast()->error('Leave type not found.')->send();
+
                 return;
             }
 
             // Check if there are any leave applications
             if ($leaveType->leaveApplications()->count() > 0) {
                 $this->toast()->error('Cannot delete leave type with existing applications. Deactivate instead.')->send();
+
                 return;
             }
 
@@ -221,7 +239,7 @@ class LeaveTypes extends BaseComponent
             $this->resetPage();
 
         } catch (\Exception $e) {
-            $this->toast()->error('Error deleting leave type: ' . $e->getMessage())->send();
+            $this->toast()->error('Error deleting leave type: '.$e->getMessage())->send();
         }
     }
 

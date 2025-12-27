@@ -5,8 +5,10 @@ namespace App\Livewire\BranchDashboard\Inventory\Reports\StockTurnover;
 use App\Models\DepartmentReport;
 use App\Services\Reports\StockTurnoverReportService;
 use Carbon\Carbon;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
+use Livewire\Attributes\Title;
 use Livewire\Component;
-use Livewire\Attributes\{Layout, Title, On};
 use TallStackUi\Traits\Interactions;
 
 #[Layout('components.layouts.app.branch-dashboard')]
@@ -16,15 +18,25 @@ class Index extends Component
     use Interactions;
 
     public $branchId;
+
     public $periodFilter = 'month';
+
     public $customDateFrom;
+
     public $customDateTo;
+
     public $departmentId;
+
     public $reportData = null;
+
     public $summaryMetrics = [];
+
     public $chartsData = [];
+
     public $isLoading = false;
+
     public $generatedReport = null;
+
     public $showReportModal = false;
 
     public function mount()
@@ -73,7 +85,7 @@ class Index extends Component
         $this->isLoading = true;
 
         try {
-            $service = new StockTurnoverReportService();
+            $service = new StockTurnoverReportService;
 
             $service->forBranch($this->branchId)
                 ->forDepartment($this->departmentId)
@@ -85,7 +97,7 @@ class Index extends Component
 
             $this->toast()->success('Stock turnover report generated successfully')->send();
         } catch (\Exception $e) {
-            $this->toast()->error('Error: ' . $e->getMessage())->send();
+            $this->toast()->error('Error: '.$e->getMessage())->send();
         } finally {
             $this->isLoading = false;
         }
@@ -99,7 +111,7 @@ class Index extends Component
         ]);
 
         try {
-            $service = new StockTurnoverReportService();
+            $service = new StockTurnoverReportService;
 
             $this->generatedReport = $service
                 ->forBranch($this->branchId)
@@ -110,7 +122,7 @@ class Index extends Component
             $this->showReportModal = true;
             $this->toast()->success('Stock turnover report saved successfully')->send();
         } catch (\Exception $e) {
-            $this->toast()->error('Error: ' . $e->getMessage())->send();
+            $this->toast()->error('Error: '.$e->getMessage())->send();
         }
     }
 
@@ -122,7 +134,7 @@ class Index extends Component
             $this->toast()->success('Report submitted for review')->send();
             $this->showReportModal = false;
         } catch (\Exception $e) {
-            $this->toast()->error('Error: ' . $e->getMessage())->send();
+            $this->toast()->error('Error: '.$e->getMessage())->send();
         }
     }
 

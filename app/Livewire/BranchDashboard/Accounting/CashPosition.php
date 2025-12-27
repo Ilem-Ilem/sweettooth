@@ -5,11 +5,11 @@ namespace App\Livewire\BranchDashboard\Accounting;
 use App\Models\BankAccount;
 use App\Models\CashPosition as CashPositionModel;
 use App\Models\DailyBankPosition;
-use Livewire\Component;
+use Carbon\Carbon;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
-use Carbon\Carbon;
+use Livewire\Component;
 use TallStackUi\Traits\Interactions;
 
 #[Layout('components.layouts.app.branch-dashboard')]
@@ -21,12 +21,16 @@ class CashPosition extends Component
     public ?string $b_id = null;
 
     public ?string $selectedDate = null;
+
     public ?string $selectedCashType = null;
+
     public string $viewMode = 'summary'; // summary, detailed
 
     // Cash position data
     public array $cashPositions = [];
+
     public array $bankPositions = [];
+
     public array $summary = [];
 
     // Cash types from model constants
@@ -75,7 +79,7 @@ class CashPosition extends Component
 
         $positions = $query->get();
 
-        $this->cashPositions = $positions->map(fn($pos) => [
+        $this->cashPositions = $positions->map(fn ($pos) => [
             'id' => $pos->id,
             'cash_type' => $pos->cash_type,
             'cash_type_label' => $this->cashTypes[$pos->cash_type] ?? ucfirst($pos->cash_type),

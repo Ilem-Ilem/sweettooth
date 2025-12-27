@@ -2,14 +2,12 @@
 
 namespace App\Livewire\BranchDashboard\EmployeeModule\Shifts;
 
-
 use App\Livewire\BaseComponent;
-use App\Models\Employee;
-use App\Models\Department;
 use App\Models\Branch;
-use Spatie\Permission\Models\Role;
-use Livewire\Attributes\{Layout, Url, On};
 use App\Models\EmployeeShift;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
+use Livewire\Attributes\Url;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Index extends BaseComponent

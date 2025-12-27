@@ -3,8 +3,8 @@
 namespace App\Livewire\BranchDashboard\EmployeeModule\ClockInModule;
 
 use App\Livewire\BaseComponent;
-use App\Models\Shift;
 use App\Models\Department;
+use App\Models\Shift;
 use Carbon\Carbon;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
@@ -14,23 +14,29 @@ use TallStackUi\Traits\Interactions;
 #[Layout('components.layouts.app.branch-dashboard')]
 class GeneralClockInBoard extends BaseComponent
 {
-    use WithPagination, Interactions;
+    use Interactions, WithPagination;
 
     #[Url(keep: true)]
     public ?string $b_id = null;
 
     public ?string $dateFrom = null;
+
     public ?string $dateTo = null;
+
     public ?string $selectedDepartment = null;
+
     public string $sortBy = 'clock_in';
+
     public string $sortDirection = 'desc';
+
     public string $searchEmployee = '';
+
     public int $quantity = 50;
 
     public function mount()
     {
         $this->b_id = current_branch_id();
-        
+
         // Default: last 7 days
         $this->dateTo = $this->dateTo ?: today()->format('Y-m-d');
         $this->dateFrom = $this->dateFrom ?: today()->subDays(7)->format('Y-m-d');
@@ -52,7 +58,7 @@ class GeneralClockInBoard extends BaseComponent
     protected function getGeneralClockIns()
     {
         $branchId = $this->b_id ?: current_branch_id();
-        
+
         $query = Shift::query()
             ->where('branch_id', $branchId)
             ->with(['employee', 'department'])
@@ -74,24 +80,24 @@ class GeneralClockInBoard extends BaseComponent
         // Search by employee name or email
         if ($this->searchEmployee) {
             $query->whereHas('employee', function ($q) {
-                $q->where('name', 'like', '%' . $this->searchEmployee . '%')
-                  ->orWhere('email', 'like', '%' . $this->searchEmployee . '%')
-                  ->orWhere('employee_number', 'like', '%' . $this->searchEmployee . '%');
+                $q->where('name', 'like', '%'.$this->searchEmployee.'%')
+                    ->orWhere('email', 'like', '%'.$this->searchEmployee.'%')
+                    ->orWhere('employee_number', 'like', '%'.$this->searchEmployee.'%');
             });
         }
 
         // Sort
         if ($this->sortBy === 'name') {
             $query->join('employees', 'shifts.employee_id', '=', 'employees.id')
-                  ->orderBy('employees.name', $this->sortDirection)
-                  ->select('shifts.*');
+                ->orderBy('employees.name', $this->sortDirection)
+                ->select('shifts.*');
         } elseif ($this->sortBy === 'department') {
             $query->join('departments', 'shifts.department_id', '=', 'departments.id')
-                  ->orderBy('departments.name', $this->sortDirection)
-                  ->select('shifts.*');
+                ->orderBy('departments.name', $this->sortDirection)
+                ->select('shifts.*');
         } else {
             $query->orderBy('shift_date', $this->sortDirection)
-                  ->orderBy('clock_in', $this->sortDirection);
+                ->orderBy('clock_in', $this->sortDirection);
         }
 
         return $query;
@@ -117,7 +123,7 @@ class GeneralClockInBoard extends BaseComponent
             return [
                 'status' => 'early',
                 'minutes' => abs($minutesDifference),
-                'label' => abs($minutesDifference) . ' min early',
+                'label' => abs($minutesDifference).' min early',
                 'color' => 'green',
             ];
         } elseif ($minutesDifference === 0) {
@@ -131,7 +137,7 @@ class GeneralClockInBoard extends BaseComponent
             return [
                 'status' => 'late',
                 'minutes' => $minutesDifference,
-                'label' => $minutesDifference . ' min late',
+                'label' => $minutesDifference.' min late',
                 'color' => 'red',
             ];
         }
@@ -152,7 +158,7 @@ class GeneralClockInBoard extends BaseComponent
 
         foreach ($shifts as $shift) {
             $status = $this->getTimeStatus($shift);
-            match($status['status']) {
+            match ($status['status']) {
                 'late' => $lateCount++,
                 'early' => $earlyCount++,
                 'on_time' => $onTimeCount++,
@@ -200,9 +206,9 @@ class GeneralClockInBoard extends BaseComponent
             $duration = $shift->clock_out
                 ? $shift->clock_in->diffInMinutes($shift->clock_out) / 60
                 : 0;
-            
+
             $clockOut = $shift->clock_out ? $shift->clock_out->format('H:i') : '-';
-            
+
             $csv .= "\"{$shift->shift_date->format('Y-m-d')}\",";
             $csv .= "\"{$shift->employee->name}\",";
             $csv .= "\"{$shift->employee->employee_number}\",";
@@ -216,7 +222,7 @@ class GeneralClockInBoard extends BaseComponent
 
         return response()->streamDownload(function () use ($csv) {
             echo $csv;
-        }, 'clock-in-board-' . now()->format('Y-m-d') . '.csv', [
+        }, 'clock-in-board-'.now()->format('Y-m-d').'.csv', [
             'Content-Type' => 'text/csv',
         ]);
     }
@@ -225,18 +231,18 @@ class GeneralClockInBoard extends BaseComponent
     {
         $branchId = $this->b_id ?: current_branch_id();
         $branch = current_branch();
-        
+
         $shifts = $this->getGeneralClockIns()->paginate($this->quantity);
         $stats = $this->getGeneralStats();
-        
+
         // Get departments for this branch
-        $departments = Department::where(function($q) use ($branchId) {
+        $departments = Department::where(function ($q) use ($branchId) {
             $q->where('branch_id', $branchId)
-              ->orWhereNull('branch_id');
+                ->orWhereNull('branch_id');
         })
             ->orderBy('name')
             ->get();
-        
+
         // If still empty, try without branch filter
         if ($departments->isEmpty()) {
             $departments = Department::orderBy('name')->get();

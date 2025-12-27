@@ -33,6 +33,11 @@ class Index extends Component
     // Generated report
     public $generatedReport = null;
     public $showReportModal = false;
+    public $savedReports = [];
+
+    // Metric explanation modal
+    public $showMetricModal = false;
+    public $currentMetric = null;
 
     public function mount()
     {
@@ -100,8 +105,8 @@ class Index extends Component
                 ->forPeriod($this->customDateFrom, $this->customDateTo);
 
             $this->reportData = $service->getReportData();
-            $this->summaryMetrics = $service->generateSummaryMetrics($this->reportData);
-            $this->chartsData = $service->generateChartsData($this->reportData);
+            $this->summaryMetrics = $this->reportData['summary_metrics'] ?? $service->getSummaryMetrics($this->reportData);
+            $this->chartsData = $service->getChartsData($this->reportData);
 
             $this->toast()->success('Report generated successfully')->send();
         } catch (\Exception $e) {
@@ -160,33 +165,9 @@ class Index extends Component
         }
     }
 
-    /**
-     * Export report to CSV.
-     */
-    public function exportCsv()
-    {
-        if (!$this->reportData) {
-            $this->toast()->warning('Please generate a report first')->send();
-            return;
-        }
 
-        // This will be implemented with export functionality
-        $this->toast()->info('CSV export will be implemented')->send();
-    }
 
-    /**
-     * Export report to PDF.
-     */
-    public function exportPdf()
-    {
-        if (!$this->reportData) {
-            $this->toast()->warning('Please generate a report first')->send();
-            return;
-        }
 
-        // This will be implemented with export functionality
-        $this->toast()->info('PDF export will be implemented')->send();
-    }
 
     /**
      * Refresh report data.
@@ -207,8 +188,232 @@ class Index extends Component
         }
     }
 
+    /**
+     * Show metric explanation modal
+     */
+    public function showMetricExplanation($metric)
+    {
+        $this->currentMetric = $metric;
+        $this->showMetricModal = true;
+    }
+
+    /**
+     * View a saved report
+     */
+    public function viewReport($reportId)
+    {
+        try {
+            $report = DepartmentReport::findOrFail($reportId);
+
+            // Load the report data into the preview
+            $this->reportData = $report->report_data;
+            $this->summaryMetrics = $report->summary_metrics;
+            $this->chartsData = $report->charts_data;
+            $this->customDateFrom = Carbon::parse($report->period_from)->toDateString();
+            $this->customDateTo = Carbon::parse($report->period_to)->toDateString();
+            $this->periodFilter = 'custom';
+
+            $this->toast()->success('Report loaded for preview')->send();
+        } catch (\Exception $e) {
+            $this->toast()->error('Error loading report: ' . $e->getMessage())->send();
+        }
+    }
+
+    /**
+     * Download/export a report
+     */
+    public function downloadReport($reportId)
+    {
+        try {
+            $report = DepartmentReport::findOrFail($reportId);
+
+            // For now, return JSON data - you can implement CSV/PDF export
+            return response()->json($report->report_data, 200, [
+                'Content-Disposition' => 'attachment; filename="production-efficiency-report-' . $report->id . '.json"'
+            ]);
+        } catch (\Exception $e) {
+            $this->toast()->error('Error downloading report: ' . $e->getMessage())->send();
+        }
+    }
+
+    /**
+     * Export current preview as CSV
+     */
+    public function exportCsv()
+    {
+        if (!$this->reportData) {
+            $this->toast()->error('No report data to export')->send();
+            return;
+        }
+
+        // Basic CSV export of daily summary
+        $csvData = "Date,Planned,Actual,Variance,Efficiency,Products Count\n";
+
+        foreach ($this->reportData['daily_summary'] ?? [] as $day) {
+            $csvData .= sprintf(
+                "%s,%s,%s,%s,%s,%s\n",
+                $day['date'],
+                $day['planned'],
+                $day['actual'],
+                $day['variance'],
+                $day['efficiency_percentage'],
+                $day['products_count']
+            );
+        }
+
+        return response($csvData, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="production-efficiency-' . now()->format('Y-m-d') . '.csv"'
+        ]);
+    }
+
+    /**
+     * Export current preview as PDF
+     */
+    public function exportPdf()
+    {
+        if (!$this->reportData) {
+            $this->toast()->error('No report data to export')->send();
+            return;
+        }
+
+        // For now, create a simple HTML-based PDF
+        $html = $this->generatePdfHtml();
+
+        // You would typically use a package like DomPDF or TCPDF here
+        // For demonstration, we'll create a downloadable HTML file
+        $filename = 'production-efficiency-' . now()->format('Y-m-d-H-i-s') . '.html';
+
+        return response($html, 200, [
+            'Content-Type' => 'text/html',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"'
+        ]);
+    }
+
+    /**
+     * Generate HTML content for PDF export
+     */
+    private function generatePdfHtml(): string
+    {
+        $html = '
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Production Efficiency Report</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
+                .metrics { display: flex; justify-content: space-around; margin-bottom: 30px; }
+                .metric { text-align: center; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+                th { background-color: #f2f2f2; }
+                .chart-placeholder { text-align: center; padding: 40px; border: 1px dashed #ccc; margin: 20px 0; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>Production Efficiency Report</h1>
+                <p>Period: ' . ($this->customDateFrom ?? 'N/A') . ' to ' . ($this->customDateTo ?? 'N/A') . '</p>
+            </div>
+
+            <div class="metrics">
+                <div class="metric">
+                    <h3>Total Planned</h3>
+                    <p style="font-size: 24px; font-weight: bold;">' . number_format($this->summaryMetrics['total_planned'] ?? 0) . '</p>
+                </div>
+                <div class="metric">
+                    <h3>Total Actual</h3>
+                    <p style="font-size: 24px; font-weight: bold;">' . number_format($this->summaryMetrics['total_actual'] ?? 0) . '</p>
+                </div>
+                <div class="metric">
+                    <h3>Overall Efficiency</h3>
+                    <p style="font-size: 24px; font-weight: bold;">' . number_format($this->summaryMetrics['overall_efficiency'] ?? 0, 1) . '%</p>
+                </div>
+            </div>
+
+            <h2>Daily Production Summary</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Planned</th>
+                        <th>Actual</th>
+                        <th>Variance</th>
+                        <th>Efficiency %</th>
+                    </tr>
+                </thead>
+                <tbody>';
+
+        foreach ($this->reportData['daily_summary'] ?? [] as $day) {
+            $html .= '
+                    <tr>
+                        <td>' . $day['date'] . '</td>
+                        <td>' . number_format($day['planned']) . '</td>
+                        <td>' . number_format($day['actual']) . '</td>
+                        <td>' . number_format($day['variance']) . '</td>
+                        <td>' . number_format($day['efficiency_percentage'], 1) . '%</td>
+                    </tr>';
+        }
+
+        $html .= '
+                </tbody>
+            </table>
+
+            <h2>Product Efficiency</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Planned</th>
+                        <th>Actual</th>
+                        <th>Variance</th>
+                        <th>Efficiency %</th>
+                    </tr>
+                </thead>
+                <tbody>';
+
+        foreach ($this->reportData['product_efficiency'] ?? [] as $product) {
+            $html .= '
+                    <tr>
+                        <td>' . ($product['product_name'] ?? 'Unknown') . '</td>
+                        <td>' . number_format($product['planned']) . '</td>
+                        <td>' . number_format($product['actual']) . '</td>
+                        <td>' . number_format($product['variance']) . '</td>
+                        <td>' . number_format($product['efficiency_percentage'], 1) . '%</td>
+                    </tr>';
+        }
+
+        $html .= '
+                </tbody>
+            </table>
+
+            <div class="chart-placeholder">
+                <p><strong>Charts:</strong> Interactive charts would be displayed here in the web version</p>
+                <p>Daily Production Trend, Variance Distribution, and Product Efficiency Comparison</p>
+            </div>
+
+            <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #ccc; text-align: center; font-size: 12px; color: #666;">
+                <p>Report generated on ' . now()->format('Y-m-d H:i:s') . '</p>
+            </div>
+        </body>
+        </html>';
+
+        return $html;
+    }
+
     public function render()
     {
-        return view('livewire.branch-dashboard.production.reports.production-efficiency.index');
+        // Load saved reports for this department and report type
+        $this->savedReports = DepartmentReport::where('branch_id', $this->b_id ?? current_branch_id())
+            ->where('department_id', $this->departmentId)
+            ->where('report_type', 'production_efficiency')
+            ->orderBy('created_at', 'desc')
+            ->take(10)
+            ->get();
+
+        return view('livewire.branch-dashboard.production.reports.production-efficiency.index', [
+            'savedReports' => $this->savedReports,
+        ]);
     }
 }

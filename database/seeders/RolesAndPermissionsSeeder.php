@@ -4,8 +4,8 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class RolesAndPermissionsSeeder extends Seeder
 {
@@ -36,7 +36,7 @@ class RolesAndPermissionsSeeder extends Seeder
         foreach ($roles as $roleData) {
             $role = Role::firstOrCreate([
                 'name' => $roleData['name'],
-                'guard_name' => 'web'
+                'guard_name' => 'web',
             ]);
 
             if (isset($roleData['permissions'])) {
@@ -59,8 +59,6 @@ class RolesAndPermissionsSeeder extends Seeder
 
         $this->command->info('✅ Roles and permissions seeded successfully!');
     }
-
-
 
     protected function getRolesWithPermissions(): array
     {
@@ -206,9 +204,6 @@ class RolesAndPermissionsSeeder extends Seeder
                     'view-branches',
                     'view-departments',
 
-                    // Sales (own entries)
-                    'process-sale',
-
                     // Inventory viewing
                     'view-stock-levels',
 
@@ -225,7 +220,7 @@ class RolesAndPermissionsSeeder extends Seeder
                     'manage-leave',
 
                     // Dashboard access
-                    'view_inventory_dashboard', 'view_production_dashboard', 'view-sales-dashboard', 'view_sales_dashboard',
+                    'view_inventory_dashboard', 'view_production_dashboard',
                 ],
             ],
             [

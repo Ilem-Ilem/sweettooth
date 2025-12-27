@@ -2,18 +2,18 @@
 
 namespace App\Services;
 
-use Spatie\Permission\Models\Role;
-use Spatie\Permission\Models\Permission;
-use App\Models\Employee;
 use App\Models\User;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class RolePermissionService
 {
     const CACHE_TTL = 600;
+
     const PROTECTED_ROLES = ['Super Admin', 'Managing Director', 'MD', 'Admin'];
 
     /**
@@ -24,6 +24,7 @@ class RolePermissionService
         if ($guard) {
             return Auth::guard($guard)->user();
         }
+
         return Auth::guard('web')->user() ?? Auth::guard('web')->user();
     }
 
@@ -38,6 +39,7 @@ class RolePermissionService
         if (Auth::guard('web')->check()) {
             return 'web';
         }
+
         return null;
     }
 
@@ -47,6 +49,7 @@ class RolePermissionService
     public static function isProtectedRole(string $roleName): bool
     {
         $role = Role::where('name', $roleName)->first();
+
         return $role && $role->is_protected;
     }
 
@@ -56,6 +59,7 @@ class RolePermissionService
     public static function isProtectedPermission(string $permissionName): bool
     {
         $permission = Permission::where('name', $permissionName)->first();
+
         return $permission && $permission->is_protected;
     }
 
@@ -100,11 +104,12 @@ class RolePermissionService
         ]);
 
         // Add permissions
-        if (!empty($permissions)) {
+        if (! empty($permissions)) {
             $role->givePermissionTo($permissions);
         }
 
         self::clearCache();
+
         return $role;
     }
 
@@ -118,7 +123,7 @@ class RolePermissionService
         $role = Role::findOrFail($roleId);
 
         // Prevent modifying protected roles
-        if ($role->is_protected && !self::isSuperAdmin()) {
+        if ($role->is_protected && ! self::isSuperAdmin()) {
             throw new \Exception("Cannot modify protected role: {$role->name}");
         }
 
@@ -155,8 +160,8 @@ class RolePermissionService
         $userCount = $role->users()->count();
         if ($userCount > 0) {
             throw new \Exception(
-                "Cannot delete role assigned to {$userCount} user(s). " .
-                "Remove the role from all users first."
+                "Cannot delete role assigned to {$userCount} user(s). ".
+                'Remove the role from all users first.'
             );
         }
 
@@ -184,7 +189,7 @@ class RolePermissionService
         $role = Role::where('name', $roleName)->firstOrFail();
 
         // Check authorization
-        if (!self::canAssignRole($role)) {
+        if (! self::canAssignRole($role)) {
             throw new \Exception(
                 "You don't have permission to assign '{$roleName}' role"
             );
@@ -226,8 +231,8 @@ class RolePermissionService
 
             if ($adminCount <= 1) {
                 throw new \Exception(
-                    "Cannot remove last '{$roleName}' from the system. " .
-                    "At least one user must have this role."
+                    "Cannot remove last '{$roleName}' from the system. ".
+                    'At least one user must have this role.'
                 );
             }
         }
@@ -254,12 +259,12 @@ class RolePermissionService
     {
         $user = self::user();
 
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
         // Only Super Admin can assign protected roles
-        if ($role->is_protected && !$user->hasAnyRole(['Super Admin', 'MD'])) {
+        if ($role->is_protected && ! $user->hasAnyRole(['Super Admin', 'MD'])) {
             return false;
         }
 
@@ -276,7 +281,7 @@ class RolePermissionService
         $role = Role::findOrFail($roleId);
 
         // Prevent modifying protected roles
-        if ($role->is_protected && !self::isSuperAdmin()) {
+        if ($role->is_protected && ! self::isSuperAdmin()) {
             throw new \Exception("Cannot modify permissions for protected role: {$role->name}");
         }
 
@@ -319,7 +324,7 @@ class RolePermissionService
         }
 
         // Validate permission naming convention
-        if (!preg_match('/^[a-z0-9\-]+$/', $name)) {
+        if (! preg_match('/^[a-z0-9\-]+$/', $name)) {
             throw new \Exception(
                 'Permission name must contain only lowercase letters, numbers, and hyphens'
             );
@@ -347,6 +352,7 @@ class RolePermissionService
         ]);
 
         self::clearCache();
+
         return $permission;
     }
 
@@ -368,8 +374,8 @@ class RolePermissionService
         $roleCount = $permission->roles()->count();
         if ($roleCount > 0) {
             throw new \Exception(
-                "Cannot delete permission assigned to {$roleCount} role(s). " .
-                "Remove the permission from all roles first."
+                "Cannot delete permission assigned to {$roleCount} role(s). ".
+                'Remove the permission from all roles first.'
             );
         }
 
@@ -445,13 +451,13 @@ class RolePermissionService
         if ($webUser && $webUser->hasAnyRole(['Super Admin', 'MD', 'Managing Director', 'Admin'], 'web')) {
             return true;
         }
-        
+
         // Check employees guard
         $employeeUser = Auth::guard('web')->user();
         if ($employeeUser && $employeeUser->hasAnyRole(['Super Admin', 'MD'], 'employees')) {
             return true;
         }
-        
+
         return false;
     }
 
@@ -483,7 +489,7 @@ class RolePermissionService
 
         $role = $query->first();
 
-        if (!$role) {
+        if (! $role) {
             return [];
         }
 
@@ -496,6 +502,7 @@ class RolePermissionService
     public static function getRolePermissions(int $roleId): array
     {
         $role = Role::findOrFail($roleId);
+
         return $role->permissions()->get()->toArray();
     }
 
@@ -508,7 +515,7 @@ class RolePermissionService
         $rolePermissions = $role->permissions()->pluck('name')->toArray();
 
         foreach ($permissionNames as $permission) {
-            if (!in_array($permission, $rolePermissions)) {
+            if (! in_array($permission, $rolePermissions)) {
                 return false;
             }
         }
@@ -581,23 +588,26 @@ class RolePermissionService
 
     /**
      * Validate that a role is compatible with user's department
-     * 
+     *
      * @throws \Exception
      */
     public static function validateRoleForDepartment(Model $user, string $roleName): void
     {
         // Get user's department
-        if (!isset($user->department_id) || !$user->department_id) {
+        if (! isset($user->department_id) || ! $user->department_id) {
             throw new \Exception('User must be assigned to a department before assigning roles');
         }
 
         $department = \App\Models\Department::find($user->department_id);
-        if (!$department) {
+        if (! $department) {
             throw new \Exception('User department not found');
         }
 
         // Define role-to-department mappings
         $roleToDepartments = [
+            // Base roles (can be assigned to any department)
+            'employee' => ['*'],
+
             // Production roles
             'Kitchen Staff' => ['Kitchen'],
             'Chef' => ['Kitchen'],
@@ -605,7 +615,7 @@ class RolePermissionService
             'Head of Gelato' => ['Gelato Production'],
             'Confectionaries Production Staff' => ['Confectionaries Production'],
             'Confectionaries Manager' => ['Confectionaries Production'],
-            
+
             // Sales roles
             'Cashier' => ['Till'],
             'Till Supervisor' => ['Till'],
@@ -613,13 +623,17 @@ class RolePermissionService
             'Corner Store Manager' => ['Corner Store'],
             'Confectionaries Sales Staff' => ['Confectionaries Sales'],
             'Sales Manager' => ['Till', 'Corner Store', 'Confectionaries Sales'],
-            
+
             // Support roles
             'Stock Controller' => ['Inventory/Store'],
             'Store Keeper' => ['Inventory/Store'],
+            'Warehouse Manager' => ['Inventory/Store'],
+            'Inventory Clerk' => ['Inventory/Store'],
+            'Store Manager' => ['Corner Store', 'Confectionaries Sales', 'Inventory/Store'],
+            'Store Supervisor' => ['Corner Store', 'Confectionaries Sales'],
             'HR Officer' => ['HR'],
             'HR Manager' => ['HR'],
-            
+
             // Admin roles (can be assigned to any department)
             'Admin' => ['*'],
             'Super Admin' => ['*'],
@@ -630,7 +644,7 @@ class RolePermissionService
         ];
 
         // Check if role exists in mapping
-        if (!isset($roleToDepartments[$roleName])) {
+        if (! isset($roleToDepartments[$roleName])) {
             throw new \Exception("Role '{$roleName}' is not defined for department assignment");
         }
 
@@ -642,10 +656,10 @@ class RolePermissionService
         }
 
         // Check if user's department is in the allowed list
-        if (!in_array($department->name, $allowedDepts)) {
+        if (! in_array($department->name, $allowedDepts)) {
             throw new \Exception(
-                "Users in the {$department->name} department cannot be assigned the '{$roleName}' role. " .
-                "This role is only for: " . implode(', ', $allowedDepts)
+                "Users in the {$department->name} department cannot be assigned the '{$roleName}' role. ".
+                'This role is only for: '.implode(', ', $allowedDepts)
             );
         }
     }

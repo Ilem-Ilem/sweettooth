@@ -2,11 +2,14 @@
 
 namespace App\Livewire\BranchDashboard\ReportingDepartment\Dashboard;
 
-use App\Models\DepartmentReport;
 use App\Models\CompiledReport;
+use App\Models\DepartmentReport;
 use Carbon\Carbon;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
+use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 use Livewire\Component;
-use Livewire\Attributes\{Layout, On, Title, Url};
 
 #[Layout('components.layouts.app.branch-dashboard')]
 #[Title('Reporting Department Dashboard')]

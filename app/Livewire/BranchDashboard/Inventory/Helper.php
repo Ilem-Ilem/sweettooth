@@ -2,8 +2,8 @@
 
 namespace App\Livewire\BranchDashboard\Inventory;
 
-use Livewire\Component;
 use Livewire\Attributes\Layout;
+use Livewire\Component;
 use TallStackUi\Traits\Interactions;
 
 #[Layout('components.layouts.app.branch-dashboard')]

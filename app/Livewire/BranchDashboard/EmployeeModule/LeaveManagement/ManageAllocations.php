@@ -4,9 +4,8 @@ namespace App\Livewire\BranchDashboard\EmployeeModule\LeaveManagement;
 
 use App\Livewire\BaseComponent;
 use App\Models\Employee;
-use App\Models\LeaveType;
 use App\Models\EmployeeLeaveAllocation;
-use App\Models\EmployeeLeaveBalance;
+use App\Models\LeaveType;
 use App\Services\AuditService;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
@@ -16,19 +15,24 @@ use TallStackUi\Traits\Interactions;
 #[Layout('components.layouts.app.branch-dashboard')]
 class ManageAllocations extends BaseComponent
 {
-    use WithPagination, Interactions;
+    use Interactions, WithPagination;
 
     #[Url(keep: true)]
     public ?string $b_id = null;
 
     public ?int $quantity = 20;
+
     public ?string $search = null;
+
     public ?string $selectedYear;
 
     // Modal fields
     public $showAllocationModal = false;
+
     public $selectedEmployeeId = null;
+
     public ?Employee $selectedEmployee = null;
+
     public $allocations = [];
 
     // Table headers
@@ -69,9 +73,9 @@ class ManageAllocations extends BaseComponent
 
         if ($this->search) {
             $query->where(function ($q) {
-                $q->where('name', 'like', '%' . $this->search . '%')
-                  ->orWhere('employee_number', 'like', '%' . $this->search . '%')
-                  ->orWhere('email', 'like', '%' . $this->search . '%');
+                $q->where('name', 'like', '%'.$this->search.'%')
+                    ->orWhere('employee_number', 'like', '%'.$this->search.'%')
+                    ->orWhere('email', 'like', '%'.$this->search.'%');
             });
         }
 
@@ -83,8 +87,9 @@ class ManageAllocations extends BaseComponent
         $this->selectedEmployeeId = $employeeId;
         $this->selectedEmployee = Employee::find($employeeId);
 
-        if (!$this->selectedEmployee) {
+        if (! $this->selectedEmployee) {
             $this->toast()->error('Employee not found.')->send();
+
             return;
         }
 
@@ -140,7 +145,7 @@ class ManageAllocations extends BaseComponent
                         $allocator,
                         'create',
                         $allocationRecord,
-                        "Allocated {$allocation['allocated_days']} days of {$allocation['leave_type_name']} " .
+                        "Allocated {$allocation['allocated_days']} days of {$allocation['leave_type_name']} ".
                         "to {$this->selectedEmployee->name} for {$this->selectedYear}. Notes: {$allocation['notes']}",
                         'completed'
                     );
@@ -152,7 +157,7 @@ class ManageAllocations extends BaseComponent
             $this->resetPage();
 
         } catch (\Exception $e) {
-            $this->toast()->error('Error saving allocations: ' . $e->getMessage())->send();
+            $this->toast()->error('Error saving allocations: '.$e->getMessage())->send();
         }
     }
 
@@ -172,7 +177,7 @@ class ManageAllocations extends BaseComponent
                         ->where('year', $this->selectedYear)
                         ->exists();
 
-                    if (!$exists) {
+                    if (! $exists) {
                         EmployeeLeaveAllocation::allocateToEmployee(
                             $employee->id,
                             $leaveType->id,
@@ -190,7 +195,7 @@ class ManageAllocations extends BaseComponent
             $this->resetPage();
 
         } catch (\Exception $e) {
-            $this->toast()->error('Error during bulk allocation: ' . $e->getMessage())->send();
+            $this->toast()->error('Error during bulk allocation: '.$e->getMessage())->send();
         }
     }
 

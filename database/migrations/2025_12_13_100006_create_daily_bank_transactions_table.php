@@ -28,7 +28,7 @@ return new class extends Migration
                 'cash_withdrawal',
                 'chargeback',
                 'bank_charge',
-                'other'
+                'other',
             ]);
             $table->decimal('amount', 15, 2);
             $table->text('description')->nullable();

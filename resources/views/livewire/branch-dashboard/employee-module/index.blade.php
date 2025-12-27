@@ -456,21 +456,52 @@
                 </button>
             </div>
 
+            <!-- Search Box -->
+            <div class="px-6 py-3 border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50">
+                <div class="relative">
+                    <input type="text" 
+                        wire:model.live="roleSearch" 
+                        placeholder="Search roles..."
+                        class="w-full pl-10 pr-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-purple-500">
+                    <svg class="absolute left-3 top-2.5 w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
+            </div>
+
             <!-- Scrollable Content -->
             <div class="flex-1 overflow-y-auto px-6 py-4 scrollbar-thin">
-                <div class="space-y-4">
-                    <p class="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
-                        Select multiple roles to assign to this employee
-                    </p>
-                    @foreach($roles as $role)
-                        <label class="flex items-center p-3 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer transition-colors">
-                              <input type="checkbox"
-                                  wire:model="selectedRoles"
-                                  value="{{ $role->id }}"
-                                  class="w-5 h-5 accent-purple-600 bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-600 rounded focus:ring-purple-500 dark:focus:ring-purple-600 focus:ring-2">
-                            <span class="ml-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">{{ ucfirst($role->name) }}</span>
-                        </label>
-                    @endforeach
+                <div class="space-y-6">
+                    @if(count($rolesGroupedByDepartment) > 0)
+                        @foreach($rolesGroupedByDepartment as $category => $categoryRoles)
+                            <div class="space-y-2">
+                                <h3 class="text-sm font-semibold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">{{ $category }}</h3>
+                                <div class="space-y-2 pl-2 border-l-2 border-purple-300 dark:border-purple-700">
+                                    @foreach($categoryRoles as $role)
+                                        <label class="flex items-start p-3 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer transition-colors">
+                                            <input type="checkbox"
+                                                wire:model="selectedRoles"
+                                                value="{{ $role->id }}"
+                                                class="w-5 h-5 accent-purple-600 bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-600 rounded focus:ring-purple-500 dark:focus:ring-purple-600 focus:ring-2 mt-0.5">
+                                            <div class="ml-3">
+                                                <p class="text-sm font-medium text-zinc-700 dark:text-zinc-300">{{ ucfirst($role->name) }}</p>
+                                                @if($role->description)
+                                                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">{{ $role->description }}</p>
+                                                @endif
+                                            </div>
+                                        </label>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endforeach
+                    @else
+                        <div class="text-center py-8">
+                            <svg class="w-12 h-12 mx-auto text-zinc-300 dark:text-zinc-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                            <p class="text-sm text-zinc-500 dark:text-zinc-400">No roles found matching "{{ $roleSearch }}"</p>
+                        </div>
+                    @endif
                 </div>
             </div>
 

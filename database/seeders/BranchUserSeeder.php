@@ -65,7 +65,7 @@ class BranchUserSeeder extends Seeder
             $this->seedBranchUsers($branch, $employeeRole);
         }
 
-        $this->command->info('✅ ' . User::count() . ' total users created/updated across all branches.');
+        $this->command->info('✅ '.User::count().' total users created/updated across all branches.');
     }
 
     /**

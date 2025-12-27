@@ -9,7 +9,7 @@ class PermissionSeeder extends Seeder
 {
     /**
      * Run the database seeds.
-     * 
+     *
      * Creates comprehensive permissions for all system modules and features.
      * All permissions follow the pattern: verb-noun (e.g., view-employees, create-roles)
      */
@@ -169,7 +169,7 @@ class PermissionSeeder extends Seeder
             ]);
         }
 
-        echo "✅ " . count($permissions) . " permissions created successfully.\n";
+        echo '✅ '.count($permissions)." permissions created successfully.\n";
         echo "   Permissions added include: view-sales-dashboard (sales)\n";
     }
 }

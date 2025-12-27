@@ -37,7 +37,7 @@ class SalesReceiptNotification extends Notification implements ShouldQueue
      */
     public function toMail(object $notifiable): MailMessage
     {
-        $currencyService = new CurrencyFormattingService();
+        $currencyService = new CurrencyFormattingService;
         $currency = Settings::currencyLocalization('primary_currency', 'NGN');
         $symbol = $currencyService->getSymbol($currency);
         $businessName = Settings::businessConfiguration('business_name', config('app.name'));
@@ -55,23 +55,23 @@ class SalesReceiptNotification extends Notification implements ShouldQueue
 
         return (new MailMessage)
             ->subject("Sales Receipt #{$this->receipt->receipt_number}")
-            ->greeting("Thank you for your purchase!")
-            ->line("Dear Customer,")
-            ->line("Please find your receipt details below:")
-            ->line("")
-            ->line("**Receipt Information**")
+            ->greeting('Thank you for your purchase!')
+            ->line('Dear Customer,')
+            ->line('Please find your receipt details below:')
+            ->line('')
+            ->line('**Receipt Information**')
             ->line("Receipt Number: {$this->receipt->receipt_number}")
             ->line("Date: {$this->receipt->created_at->format('Y-m-d H:i:s')}")
-            ->line("")
-            ->line("**Items Purchased**")
+            ->line('')
+            ->line('**Items Purchased**')
             ->with([
                 'receiptItems' => $receiptItems,
                 'symbol' => $symbol,
                 'receipt' => $this->receipt,
                 'currencyService' => $currencyService,
             ])
-            ->line("")
-            ->line("**Order Summary**")
+            ->line('')
+            ->line('**Order Summary**')
             ->line("Subtotal: {$symbol} {$currencyService->formatAmount($this->receipt->subtotal)}")
             ->when($this->receipt->discount > 0, function (MailMessage $message) use ($symbol, $currencyService) {
                 return $message->line("Discount: {$symbol} {$currencyService->formatAmount($this->receipt->discount)}");
@@ -80,15 +80,15 @@ class SalesReceiptNotification extends Notification implements ShouldQueue
                 return $message->line("Tax: {$symbol} {$currencyService->formatAmount($this->receipt->tax)}");
             })
             ->line("**Total: {$symbol} {$currencyService->formatAmount($this->receipt->total)}**")
-            ->line("")
-            ->line("**Payment Method**")
+            ->line('')
+            ->line('**Payment Method**')
             ->with(['payments' => $this->receipt->payments])
             ->when($this->receipt->change_due > 0, function (MailMessage $message) use ($symbol, $currencyService) {
                 return $message->line("Change Due: {$symbol} {$currencyService->formatAmount($this->receipt->change_due)}");
             })
-            ->line("")
+            ->line('')
             ->line("Thank you for shopping with {$businessName}!")
-            ->salutation("Regards,")
+            ->salutation('Regards,')
             ->line("{$businessName}");
     }
 }

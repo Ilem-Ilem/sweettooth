@@ -7,8 +7,11 @@ use Illuminate\View\Component;
 class Breadcrumb extends Component
 {
     public array $items;
+
     public ?string $title;
+
     public bool $compact;
+
     public bool $withIcons;
 
     /**

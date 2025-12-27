@@ -3,9 +3,9 @@
 namespace App\Livewire\BranchDashboard\EmployeeModule\ClockInModule;
 
 use App\Livewire\BaseComponent;
-use App\Models\Shift;
 use App\Models\Branch;
 use App\Models\Department;
+use App\Models\Shift;
 use Carbon\Carbon;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
@@ -20,8 +20,11 @@ class TodayIndex extends BaseComponent
     public ?string $b_id = null;
 
     public ?string $selectedDepartment = null;
+
     public string $sortBy = 'clock_in'; // clock_in, name, department
+
     public string $sortDirection = 'desc'; // latest first
+
     public string $searchEmployee = '';
 
     public function mount()
@@ -45,7 +48,7 @@ class TodayIndex extends BaseComponent
     protected function getTodayClockIns()
     {
         $branchId = $this->b_id ?: current_branch_id();
-        
+
         $query = Shift::query()
             ->where('branch_id', $branchId)
             ->whereDate('shift_date', today())
@@ -60,21 +63,21 @@ class TodayIndex extends BaseComponent
         // Search by employee name or email
         if ($this->searchEmployee) {
             $query->whereHas('employee', function ($q) {
-                $q->where('name', 'like', '%' . $this->searchEmployee . '%')
-                  ->orWhere('email', 'like', '%' . $this->searchEmployee . '%')
-                  ->orWhere('employee_number', 'like', '%' . $this->searchEmployee . '%');
+                $q->where('name', 'like', '%'.$this->searchEmployee.'%')
+                    ->orWhere('email', 'like', '%'.$this->searchEmployee.'%')
+                    ->orWhere('employee_number', 'like', '%'.$this->searchEmployee.'%');
             });
         }
 
         // Sort
         if ($this->sortBy === 'name') {
             $query->join('employees', 'shifts.employee_id', '=', 'employees.id')
-                  ->orderBy('employees.name', $this->sortDirection)
-                  ->select('shifts.*');
+                ->orderBy('employees.name', $this->sortDirection)
+                ->select('shifts.*');
         } elseif ($this->sortBy === 'department') {
             $query->join('departments', 'shifts.department_id', '=', 'departments.id')
-                  ->orderBy('departments.name', $this->sortDirection)
-                  ->select('shifts.*');
+                ->orderBy('departments.name', $this->sortDirection)
+                ->select('shifts.*');
         } else {
             $query->orderBy('clock_in', $this->sortDirection);
         }
@@ -103,7 +106,7 @@ class TodayIndex extends BaseComponent
             return [
                 'status' => 'early',
                 'minutes' => abs($minutesDifference),
-                'label' => abs($minutesDifference) . ' min early',
+                'label' => abs($minutesDifference).' min early',
                 'color' => 'green',
             ];
         } elseif ($minutesDifference === 0) {
@@ -117,7 +120,7 @@ class TodayIndex extends BaseComponent
             return [
                 'status' => 'late',
                 'minutes' => $minutesDifference,
-                'label' => $minutesDifference . ' min late',
+                'label' => $minutesDifference.' min late',
                 'color' => 'red',
             ];
         }
@@ -129,7 +132,7 @@ class TodayIndex extends BaseComponent
     public function getTodayStats()
     {
         $branchId = $this->b_id ?: current_branch_id();
-        
+
         $todayShifts = Shift::where('branch_id', $branchId)
             ->whereDate('shift_date', today())
             ->whereNotNull('clock_in')
@@ -142,7 +145,7 @@ class TodayIndex extends BaseComponent
 
         foreach ($todayShifts as $shift) {
             $status = $this->getTimeStatus($shift);
-            match($status['status']) {
+            match ($status['status']) {
                 'late' => $lateCount++,
                 'early' => $earlyCount++,
                 'on_time' => $onTimeCount++,
@@ -174,18 +177,18 @@ class TodayIndex extends BaseComponent
     {
         $branchId = $this->b_id ?: current_branch_id();
         $branch = current_branch();
-        
+
         $shifts = $this->getTodayClockIns();
         $stats = $this->getTodayStats();
-        
+
         // Get departments - try both specific branch and null branch_id
-        $departments = Department::where(function($q) use ($branchId) {
+        $departments = Department::where(function ($q) use ($branchId) {
             $q->where('branch_id', $branchId)
-              ->orWhereNull('branch_id');
+                ->orWhereNull('branch_id');
         })
             ->orderBy('name')
             ->get();
-        
+
         // If still empty, try without branch filter
         if ($departments->isEmpty()) {
             $departments = Department::orderBy('name')->get();

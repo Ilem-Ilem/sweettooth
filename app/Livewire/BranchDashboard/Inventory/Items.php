@@ -12,12 +12,15 @@ use App\Services\AuditService;
 use App\Services\InventoryApprovalService;
 use App\Traits\Exportable;
 use Illuminate\Support\Facades\Auth;
-use Livewire\Attributes\{Layout, Url, On};
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
+use Livewire\Attributes\Url;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Items extends BaseComponent
 {
     use Exportable;
+
     #[Url(keep: true)]
     public ?string $b_id = null;
 
@@ -35,45 +38,68 @@ class Items extends BaseComponent
     }
 
     public ?int $quantity = 10;
+
     public ?string $search = null;
+
     public ?string $advancedSearch = null;
+
     public ?string $dateFrom = null;
+
     public ?string $dateTo = null;
 
     // Filters
     public ?string $filterCategory = null;
+
     public ?string $filterStatus = null;
+
     public ?string $filterStockLevel = null;
 
     // Form Fields
     public ?int $itemId = null;
+
     public string $name = '';
+
     public string $sku = '';
+
     public string $category = '';
+
     public ?int $uom_id = null;
+
     public float|int|null $reorder_level = null;
+
     public float|int|null $max_stock_level = null;
+
     public string $status = 'active';
+
     public bool $isEditing = false;
 
     // Modals
     public bool $showModal = false;
+
     public bool $showAuditModal = false;
+
     public ?string $auditAction = null;
+
     public string $auditReason = '';
+
     public ?int $pendingItemId = null;
 
     // Stock Modal
     public bool $showStockModal = false;
+
     public ?int $stockItemId = null;
+
     public float $stockQuantity = 0.0;
+
     public float $stockReserved = 0.0;
+
     public float $stockDamaged = 0.0;
+
     public string $stockNotes = '';
 
     // Temporary storage for pending item data (after Save, before audit)
     public array $pendingItemData = [];
-    
+
     // Temporary storage for pending stock adjustment data
     public array $pendingStockData = [];
 
@@ -120,6 +146,7 @@ class Items extends BaseComponent
 
         if (is_super_admin()) {
             $this->executeImmediateSave($data);
+
             return;
         }
 
@@ -143,7 +170,7 @@ class Items extends BaseComponent
         ];
 
         if ($this->isEditing) {
-            $rules['sku'] = 'required|string|max:255|unique:items,sku,' . $this->itemId;
+            $rules['sku'] = 'required|string|max:255|unique:items,sku,'.$this->itemId;
         } else {
             $rules['sku'] = 'required|string|max:255|unique:items,sku';
         }
@@ -180,10 +207,10 @@ class Items extends BaseComponent
             if ($oldUom !== $newUom) {
                 $changes[] = "UOM: {$oldUom} → {$newUom}";
             }
-            if ((float)$oldReorderLevel !== (float)$this->reorder_level) {
+            if ((float) $oldReorderLevel !== (float) $this->reorder_level) {
                 $changes[] = "Reorder Level: {$oldReorderLevel} → {$this->reorder_level}";
             }
-            if ((float)$oldMaxStockLevel !== (float)$this->max_stock_level) {
+            if ((float) $oldMaxStockLevel !== (float) $this->max_stock_level) {
                 $changes[] = "Max Stock: {$oldMaxStockLevel} → {$this->max_stock_level}";
             }
             if ($oldStatus !== $this->status) {
@@ -194,7 +221,7 @@ class Items extends BaseComponent
                 current_actor(),
                 'update',
                 $item,
-                "Updated item '{$item->name}' (SKU: {$item->sku}). Changes: " . implode(', ', $changes),
+                "Updated item '{$item->name}' (SKU: {$item->sku}). Changes: ".implode(', ', $changes),
                 'completed'
             );
 
@@ -218,7 +245,7 @@ class Items extends BaseComponent
                 current_actor(),
                 'create',
                 $item,
-                "Created item '{$item->name}' (SKU: {$item->sku}) in category '{$item->category}'. " .
+                "Created item '{$item->name}' (SKU: {$item->sku}) in category '{$item->category}'. ".
                 "UOM: {$item->unitOfMeasure?->symbol}, Reorder Level: {$item->reorder_level}, Max Stock: {$item->max_stock_level}",
                 'completed'
             );
@@ -281,19 +308,19 @@ class Items extends BaseComponent
                 );
                 $msg = 'Stock adjustment request submitted for approval!';
             } else {
-                throw new \Exception('Unknown audit action: ' . $this->auditAction);
+                throw new \Exception('Unknown audit action: '.$this->auditAction);
             }
 
             // Verify request was created
-            if (!$request || !$request->id) {
+            if (! $request || ! $request->id) {
                 throw new \Exception('Failed to create approval request');
             }
 
-            $this->toast()->success($msg . ' (Request ID: ' . $request->id . ')')->send();
+            $this->toast()->success($msg.' (Request ID: '.$request->id.')')->send();
             $this->closeAuditModal();
             $this->resetPage();
         } catch (\Exception $e) {
-            $this->toast()->error('Failed: ' . $e->getMessage())->send();
+            $this->toast()->error('Failed: '.$e->getMessage())->send();
         }
     }
 
@@ -353,7 +380,7 @@ class Items extends BaseComponent
         } else {
             $this->pendingItemId = $this->stockItemId;
             $this->auditAction = 'stock_adjustment';
-            
+
             // Store pending stock data before closing modal
             $this->pendingStockData = [
                 'quantity_available' => (float) $this->stockQuantity,
@@ -361,7 +388,7 @@ class Items extends BaseComponent
                 'quantity_damaged' => (float) $this->stockDamaged,
                 'notes' => $this->stockNotes,
             ];
-            
+
             $this->closeStockModal();
             $this->showAuditModal = true;
         }
@@ -400,15 +427,13 @@ class Items extends BaseComponent
         $this->closeStockModal();
     }
 
-
-
     // ===================================================================
     // DELETE (with audit)
     // ===================================================================
     public function delete($id)
     {
         $this->pendingItemId = $id;
-        
+
         $branchId = $this->getBranchId();
         $item = Item::where('id', $id)
             ->where('branch_id', $branchId)
@@ -447,7 +472,7 @@ class Items extends BaseComponent
             ->get();
 
         if ($recipeIngredients->count() > 0) {
-            $recipes = $recipeIngredients->map(fn($ri) => [
+            $recipes = $recipeIngredients->map(fn ($ri) => [
                 'id' => $ri->recipe->id,
                 'name' => $ri->recipe->product_name ?? $ri->recipe->product?->name ?? 'Unknown Recipe',
                 'product_id' => $ri->recipe->product_id,
@@ -455,8 +480,8 @@ class Items extends BaseComponent
                 'quantity' => $ri->quantity,
                 'uom' => $ri->uom,
             ])
-            ->unique('id')
-            ->values();
+                ->unique('id')
+                ->values();
 
             $relatedData['recipes'] = [
                 'count' => $recipes->count(),
@@ -465,10 +490,10 @@ class Items extends BaseComponent
             ];
 
             // Get affected products
-            $affectedProducts = $recipeIngredients->map(fn($ri) => $ri->recipe->product)
+            $affectedProducts = $recipeIngredients->map(fn ($ri) => $ri->recipe->product)
                 ->filter()
                 ->unique('id')
-                ->map(fn($product) => [
+                ->map(fn ($product) => [
                     'id' => $product->id,
                     'name' => $product->name,
                     'sku' => $product->sku,
@@ -487,7 +512,7 @@ class Items extends BaseComponent
         // Get stocks for this item
         $stocks = $item->stocks()
             ->get()
-            ->map(fn($stock) => [
+            ->map(fn ($stock) => [
                 'id' => $stock->id,
                 'branch_name' => $stock->branch->name ?? 'Unknown',
                 'quantity_available' => $stock->quantity_available,
@@ -507,7 +532,7 @@ class Items extends BaseComponent
         $purchases = $item->purchaseItems()
             ->with('purchase')
             ->get()
-            ->map(fn($pi) => [
+            ->map(fn ($pi) => [
                 'purchase_id' => $pi->purchase->id,
                 'purchase_number' => $pi->purchase->purchase_number ?? 'N/A',
                 'quantity' => $pi->quantity,
@@ -526,7 +551,7 @@ class Items extends BaseComponent
         $stockMovements = $item->stocks()
             ->with(['stockMovements'])
             ->get()
-            ->flatMap(fn($stock) => $stock->stockMovements)
+            ->flatMap(fn ($stock) => $stock->stockMovements)
             ->count();
 
         if ($stockMovements > 0) {
@@ -542,11 +567,11 @@ class Items extends BaseComponent
     private function showDeletionConfirmationDialog($item): void
     {
         $relatedSummary = $this->buildDeletionSummary();
-        
+
         $this->dialog()
             ->confirm(
-                'Delete Item: ' . $item->name,
-                'This will also delete the following related data:' . PHP_EOL . $relatedSummary,
+                'Delete Item: '.$item->name,
+                'This will also delete the following related data:'.PHP_EOL.$relatedSummary,
                 'confirmedDelete'
             )
             ->send();
@@ -556,22 +581,22 @@ class Items extends BaseComponent
     {
         $summary = '';
 
-        if (!empty($this->relatedDataToDelete['recipes'])) {
+        if (! empty($this->relatedDataToDelete['recipes'])) {
             $count = $this->relatedDataToDelete['recipes']['count'];
             $summary .= "\n• Recipes: {$count} recipe(s) using this item";
         }
 
-        if (!empty($this->relatedDataToDelete['stocks'])) {
+        if (! empty($this->relatedDataToDelete['stocks'])) {
             $count = $this->relatedDataToDelete['stocks']['count'];
             $summary .= "\n• Stock Records: {$count} branch(es)";
         }
 
-        if (!empty($this->relatedDataToDelete['purchases'])) {
+        if (! empty($this->relatedDataToDelete['purchases'])) {
             $count = $this->relatedDataToDelete['purchases']['count'];
             $summary .= "\n• Purchases: {$count} purchase order(s)";
         }
 
-        if (!empty($this->relatedDataToDelete['stock_movements'])) {
+        if (! empty($this->relatedDataToDelete['stock_movements'])) {
             $count = $this->relatedDataToDelete['stock_movements']['count'];
             $summary .= "\n• Stock Movements: {$count} record(s)";
         }
@@ -606,30 +631,30 @@ class Items extends BaseComponent
     public function submitItemDeletionRequest()
     {
         $this->validate(['auditReason' => 'required|string|min:10|max:500']);
-        
+
         try {
             // Include related data in the deletion request
             $deletionData = [
                 'item_id' => $this->pendingItemId,
                 'related_data' => $this->relatedDataToDelete,
             ];
-            
+
             $request = InventoryApprovalService::requestItemDeletion(
                 Auth::guard('web')->user(),
                 $this->pendingItemId,
                 $this->auditReason,
                 $deletionData
             );
-            
+
             // Verify request was created
-            if (!$request || !$request->id) {
+            if (! $request || ! $request->id) {
                 throw new \Exception('Failed to create approval request');
             }
-            
-            $this->toast()->success('Deletion request submitted! (Request ID: ' . $request->id . ')')->send();
+
+            $this->toast()->success('Deletion request submitted! (Request ID: '.$request->id.')')->send();
             $this->closeAuditModal();
         } catch (\Exception $e) {
-            $this->toast()->error('Failed: ' . $e->getMessage())->send();
+            $this->toast()->error('Failed: '.$e->getMessage())->send();
         }
     }
 
@@ -641,11 +666,13 @@ class Items extends BaseComponent
         $this->showModal = false;
         $this->resetForm();
     }
+
     public function closeStockModal()
     {
         $this->showStockModal = false;
         $this->reset(['stockItemId', 'stockQuantity', 'stockReserved', 'stockDamaged', 'stockNotes']);
     }
+
     public function closeAuditModal()
     {
         $this->showAuditModal = false;
@@ -664,16 +691,23 @@ class Items extends BaseComponent
 
     public function updatedName()
     {
-        if (!$this->isEditing) $this->generateSku();
+        if (! $this->isEditing) {
+            $this->generateSku();
+        }
     }
+
     public function updatedCategory()
     {
-        if (!$this->isEditing) $this->generateSku();
+        if (! $this->isEditing) {
+            $this->generateSku();
+        }
     }
 
     private function generateSku()
     {
-        if ($this->isEditing || empty($this->name) || empty($this->category)) return;
+        if ($this->isEditing || empty($this->name) || empty($this->category)) {
+            return;
+        }
         $prefix = ['raw_material' => 'RM', 'packaging' => 'PK', 'consumable' => 'CN', 'equipment' => 'EQ'][$this->category] ?? 'IT';
         $code = strtoupper(substr(preg_replace('/[^A-Za-z]/', '', $this->name), 0, 3));
         $rand = str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
@@ -706,17 +740,17 @@ class Items extends BaseComponent
     protected function getFilteredQuery()
     {
         return Item::query()
-            ->with(['branch', 'stocks' => fn($q) => $q->where('branch_id', $this->getBranchId())])
+            ->with(['branch', 'stocks' => fn ($q) => $q->where('branch_id', $this->getBranchId())])
             ->where('branch_id', $this->getBranchId())
-            ->when($this->search, fn($q) => $q->where('name', 'like', "%{$this->search}%")->orWhere('sku', 'like', "%{$this->search}%"))
-            ->when($this->filterCategory, fn($q) => $q->where('category', $this->filterCategory))
-            ->when($this->filterStatus, fn($q) => $q->where('status', $this->filterStatus))
+            ->when($this->search, fn ($q) => $q->where('name', 'like', "%{$this->search}%")->orWhere('sku', 'like', "%{$this->search}%"))
+            ->when($this->filterCategory, fn ($q) => $q->where('category', $this->filterCategory))
+            ->when($this->filterStatus, fn ($q) => $q->where('status', $this->filterStatus))
             ->when($this->filterStockLevel, function ($q) {
                 $branchId = $this->getBranchId();
                 if ($this->filterStockLevel === 'low') {
-                    $q->whereHas('stocks', fn($sq) => $sq->where('branch_id', $branchId)->whereColumn('quantity_available', '<', 'items.reorder_level'));
+                    $q->whereHas('stocks', fn ($sq) => $sq->where('branch_id', $branchId)->whereColumn('quantity_available', '<', 'items.reorder_level'));
                 } elseif ($this->filterStockLevel === 'out_of_stock') {
-                    $q->whereHas('stocks', fn($sq) => $sq->where('branch_id', $branchId)->where('quantity_available', '<=', 0));
+                    $q->whereHas('stocks', fn ($sq) => $sq->where('branch_id', $branchId)->where('quantity_available', '<=', 0));
                 }
             })
             ->latest();
@@ -731,7 +765,7 @@ class Items extends BaseComponent
                 ->orderBy('sku')
                 ->get();
 
-            $data = $items->map(fn($item) => [
+            $data = $items->map(fn ($item) => [
                 'sku' => $item->sku,
                 'name' => $item->name,
                 'category' => $item->category,
@@ -742,18 +776,20 @@ class Items extends BaseComponent
 
             if (empty($data)) {
                 $this->toast()->warning('No items to export.')->send();
+
                 return;
             }
 
             return $this->export(
-                'inventory-items-' . now()->format('Y-m-d'),
+                'inventory-items-'.now()->format('Y-m-d'),
                 collect($data),
                 'exports.inventory.items',
                 'excel',
                 true
             );
         } catch (\Exception $e) {
-            $this->toast()->error('Export failed: ' . $e->getMessage())->send();
+            $this->toast()->error('Export failed: '.$e->getMessage())->send();
+
             return;
         }
     }
@@ -767,7 +803,7 @@ class Items extends BaseComponent
                 ->orderBy('sku')
                 ->get();
 
-            $data = $items->map(fn($item) => [
+            $data = $items->map(fn ($item) => [
                 'sku' => $item->sku,
                 'name' => $item->name,
                 'category' => $item->category,
@@ -778,11 +814,12 @@ class Items extends BaseComponent
 
             if (empty($data)) {
                 $this->toast()->warning('No items to export.')->send();
+
                 return;
             }
 
             return $this->export(
-                'inventory-items-' . now()->format('Y-m-d'),
+                'inventory-items-'.now()->format('Y-m-d'),
                 collect($data),
                 'exports.inventory.items',
                 'pdf',
@@ -790,7 +827,8 @@ class Items extends BaseComponent
                 ['orientation' => 'landscape']
             );
         } catch (\Exception $e) {
-            $this->toast()->error('Export failed: ' . $e->getMessage())->send();
+            $this->toast()->error('Export failed: '.$e->getMessage())->send();
+
             return;
         }
     }
@@ -819,7 +857,7 @@ class Items extends BaseComponent
                 ];
             }
 
-            $filename = 'inventory-items-' . now()->format('Y-m-d-His') . '.csv';
+            $filename = 'inventory-items-'.now()->format('Y-m-d-His').'.csv';
             $handle = fopen('php://temp', 'r+');
 
             foreach ($csvData as $row) {
@@ -834,10 +872,11 @@ class Items extends BaseComponent
                 echo $csv;
             }, $filename, [
                 'Content-Type' => 'text/csv',
-                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+                'Content-Disposition' => 'attachment; filename="'.$filename.'"',
             ]);
         } catch (\Exception $e) {
-            $this->toast()->error('Export failed: ' . $e->getMessage())->send();
+            $this->toast()->error('Export failed: '.$e->getMessage())->send();
+
             return;
         }
     }

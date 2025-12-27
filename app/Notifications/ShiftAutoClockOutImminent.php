@@ -13,6 +13,7 @@ class ShiftAutoClockOutImminent extends Notification implements ShouldQueue
     use Queueable;
 
     public Shift $shift;
+
     public int $minutesUntilAutoClockOut;
 
     /**
@@ -44,7 +45,7 @@ class ShiftAutoClockOutImminent extends Notification implements ShouldQueue
             ->greeting("Hi {$notifiable->name},")
             ->line("⚠️ **URGENT**: Your {$shiftType} shift will be automatically closed in **{$this->minutesUntilAutoClockOut} minutes**!")
             ->line("**Clocked In:** {$this->shift->clock_in->format('g:i A')}")
-            ->line("**Auto Clock Out:** " . now()->addMinutes($this->minutesUntilAutoClockOut)->format('g:i A'))
+            ->line('**Auto Clock Out:** '.now()->addMinutes($this->minutesUntilAutoClockOut)->format('g:i A'))
             ->action('Clock Out Now', route('branch-dashboard.select_shift', ['b_id' => $this->shift->branch_id]))
             ->line('**Important:** Auto clock out will preserve your worked time but may require additional approval.')
             ->line('Please clock out manually to avoid any issues.')

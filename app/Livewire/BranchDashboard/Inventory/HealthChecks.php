@@ -6,16 +6,18 @@ use App\Models\HealthCheck;
 use App\Models\Stock;
 use App\Services\AuditService;
 use App\Traits\Exportable;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
-use Livewire\Attributes\{Layout, On, Url};
-use Illuminate\Support\Facades\Auth;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class HealthChecks extends Component
 {
-    use WithPagination, Exportable;
-    #[Url(keep:true)]
+    use Exportable, WithPagination;
+
+    #[Url(keep: true)]
     public ?string $b_id = null;
 
     // Listen for branch changes from BranchSelector (for super admins)
@@ -27,18 +29,29 @@ class HealthChecks extends Component
     }
 
     public $search = '';
+
     public $filterCondition = '';
+
     public $filterDateFrom = '';
+
     public $filterDateTo = '';
+
     public $filterActionTaken = '';
 
     public $showModal = false;
+
     public $healthCheckId;
+
     public $stock_id = '';
+
     public $check_date;
+
     public $condition = '';
+
     public $quantity_affected;
+
     public $observations;
+
     public $action_taken;
 
     protected $rules = [
@@ -55,11 +68,10 @@ class HealthChecks extends Component
         'quantity_affected.min' => 'Quantity affected must be greater than 0.01.',
     ];
 
-       public function getBranchId()
+    public function getBranchId()
     {
         return $this->b_id ? $this->b_id : request()->query('b_id');
     }
-
 
     public function mount()
     {
@@ -76,13 +88,13 @@ class HealthChecks extends Component
             })
             ->when($this->search, function ($q) {
                 $q->whereHas('stock.item', function ($query) {
-                    $query->where('name', 'like', '%' . $this->search . '%')
-                        ->orWhere('sku', 'like', '%' . $this->search . '%');
+                    $query->where('name', 'like', '%'.$this->search.'%')
+                        ->orWhere('sku', 'like', '%'.$this->search.'%');
                 });
             })
-            ->when($this->filterCondition, fn($q) => $q->where('condition', $this->filterCondition))
-            ->when($this->filterDateFrom, fn($q) => $q->whereDate('check_date', '>=', $this->filterDateFrom))
-            ->when($this->filterDateTo, fn($q) => $q->whereDate('check_date', '<=', $this->filterDateTo))
+            ->when($this->filterCondition, fn ($q) => $q->where('condition', $this->filterCondition))
+            ->when($this->filterDateFrom, fn ($q) => $q->whereDate('check_date', '>=', $this->filterDateFrom))
+            ->when($this->filterDateTo, fn ($q) => $q->whereDate('check_date', '<=', $this->filterDateTo))
             ->when($this->filterActionTaken !== '', function ($q) {
                 if ($this->filterActionTaken === '1') {
                     $q->whereNotNull('action_taken')->where('action_taken', '!=', '');
@@ -121,12 +133,14 @@ class HealthChecks extends Component
         $stock = Stock::findOrFail($this->stock_id);
         if ($stock->branch_id !== $this->getBranchId()) {
             session()->flash('error', 'Invalid stock selection.');
+
             return;
         }
 
         // Validate quantity affected does not exceed available quantity
         if ($this->quantity_affected && $this->quantity_affected > $stock->quantity_available) {
             $this->addError('quantity_affected', "Quantity affected ({$this->quantity_affected}) cannot exceed available quantity ({$stock->quantity_available}).");
+
             return;
         }
 
@@ -135,7 +149,7 @@ class HealthChecks extends Component
         $healthCheck = HealthCheck::create([
             'stock_id' => $this->stock_id,
             'checked_by_id' => $actor->id,
-            'checked_by_type'=>get_class($actor),
+            'checked_by_type' => get_class($actor),
             'check_date' => $this->check_date,
             'condition' => $this->condition,
             'quantity_affected' => $this->quantity_affected,
@@ -149,8 +163,8 @@ class HealthChecks extends Component
             $actor,
             'create',
             $healthCheck,
-            "Created health check for item '{$stock->item->name}'. " .
-            "Condition: {$this->condition}, Qty Affected: {$this->quantity_affected} {$stock->item->unitOfMeasure?->symbol}. " .
+            "Created health check for item '{$stock->item->name}'. ".
+            "Condition: {$this->condition}, Qty Affected: {$this->quantity_affected} {$stock->item->unitOfMeasure?->symbol}. ".
             "Observations: {$this->observations}. Action: {$this->action_taken}",
             'completed'
         );
@@ -195,6 +209,7 @@ class HealthChecks extends Component
     protected function getAllSelectableIds(): array
     {
         $branchId = $this->getBranchId();
+
         return HealthCheck::whereHas('stock', function ($q) use ($branchId) {
             $q->where('branch_id', $branchId);
         })->pluck('id')->toArray();
@@ -207,12 +222,13 @@ class HealthChecks extends Component
     {
         try {
             $healthChecks = $this->getFilteredHealthChecks();
-            
+
             if ($healthChecks->isEmpty()) {
                 session()->flash('warning', 'No health checks to export.');
+
                 return;
             }
-            
+
             $response = $this->export(
                 'health-checks',
                 $healthChecks,
@@ -221,7 +237,7 @@ class HealthChecks extends Component
             );
             $response->send();
         } catch (\Exception $e) {
-            session()->flash('error', 'Export failed: ' . $e->getMessage());
+            session()->flash('error', 'Export failed: '.$e->getMessage());
         }
     }
 
@@ -232,12 +248,13 @@ class HealthChecks extends Component
     {
         try {
             $healthChecks = $this->getFilteredHealthChecks();
-            
+
             if ($healthChecks->isEmpty()) {
                 session()->flash('warning', 'No health checks to export.');
+
                 return;
             }
-            
+
             $response = $this->export(
                 'health-checks',
                 $healthChecks,
@@ -246,7 +263,7 @@ class HealthChecks extends Component
             );
             $response->send();
         } catch (\Exception $e) {
-            session()->flash('error', 'Export failed: ' . $e->getMessage());
+            session()->flash('error', 'Export failed: '.$e->getMessage());
         }
     }
 
@@ -260,6 +277,7 @@ class HealthChecks extends Component
 
             if ($healthChecks->isEmpty()) {
                 session()->flash('warning', 'No health checks to export.');
+
                 return;
             }
 
@@ -282,7 +300,7 @@ class HealthChecks extends Component
                 ];
             }
 
-            $filename = 'health-checks-' . now()->format('Y-m-d-His') . '.csv';
+            $filename = 'health-checks-'.now()->format('Y-m-d-His').'.csv';
             $handle = fopen('php://temp', 'r+');
 
             foreach ($csvData as $row) {
@@ -297,10 +315,11 @@ class HealthChecks extends Component
                 echo $csv;
             }, $filename, [
                 'Content-Type' => 'text/csv',
-                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+                'Content-Disposition' => 'attachment; filename="'.$filename.'"',
             ]);
         } catch (\Exception $e) {
-            session()->flash('error', 'Export failed: ' . $e->getMessage());
+            session()->flash('error', 'Export failed: '.$e->getMessage());
+
             return;
         }
     }
@@ -318,13 +337,13 @@ class HealthChecks extends Component
             })
             ->when($this->search, function ($q) {
                 $q->whereHas('stock.item', function ($query) {
-                    $query->where('name', 'like', '%' . $this->search . '%')
-                        ->orWhere('sku', 'like', '%' . $this->search . '%');
+                    $query->where('name', 'like', '%'.$this->search.'%')
+                        ->orWhere('sku', 'like', '%'.$this->search.'%');
                 });
             })
-            ->when($this->filterCondition, fn($q) => $q->where('condition', $this->filterCondition))
-            ->when($this->filterDateFrom, fn($q) => $q->whereDate('check_date', '>=', $this->filterDateFrom))
-            ->when($this->filterDateTo, fn($q) => $q->whereDate('check_date', '<=', $this->filterDateTo))
+            ->when($this->filterCondition, fn ($q) => $q->where('condition', $this->filterCondition))
+            ->when($this->filterDateFrom, fn ($q) => $q->whereDate('check_date', '>=', $this->filterDateFrom))
+            ->when($this->filterDateTo, fn ($q) => $q->whereDate('check_date', '<=', $this->filterDateTo))
             ->when($this->filterActionTaken !== '', function ($q) {
                 if ($this->filterActionTaken === '1') {
                     $q->whereNotNull('action_taken')->where('action_taken', '!=', '');

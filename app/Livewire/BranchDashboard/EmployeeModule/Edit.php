@@ -3,75 +3,113 @@
 namespace App\Livewire\BranchDashboard\EmployeeModule;
 
 use App\Livewire\BaseComponent;
-use App\Models\Employee;
 use App\Models\Branch;
 use App\Models\Department;
-use App\Models\ApprovalAuditRequest;
-use App\Services\AuditService;
+use App\Models\Employee;
 use App\Services\EmployeeApprovalService;
 use App\Services\EmployeeAuditService;
 use App\Traits\AuditableSyncTrait;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
+use Livewire\Attributes\Url;
 use Livewire\WithFileUploads;
 use Spatie\Permission\Models\Role;
-use Livewire\Attributes\{Layout, Url, On};
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Edit extends BaseComponent
 {
-    use WithFileUploads, AuditableSyncTrait;
+    use AuditableSyncTrait, WithFileUploads;
 
     public $employeeId;
+
     #[Url(keep: true)]
-    public  $b_id;
+    public $b_id;
+
     // Employee form fields
     public ?string $branch_id = null;
+
     public ?string $department_id = null;
+
     public string $employee_number = '';
+
     public string $name = '';
+
     public string $email = '';
+
     public ?string $phone = null;
+
     public ?string $address = null;
+
     public ?string $date_of_birth = null;
+
     public ?string $gender = null;
+
     public string $nationality = 'Nigerian';
+
     public ?string $emergency_contact_name = null;
+
     public ?string $emergency_contact_phone = null;
+
     public ?string $hire_date = null;
+
     public ?string $termination_date = null;
+
     public string $status = 'active';
+
     public ?string $probation_end_date = null;
+
     public ?string $shift_preference = null;
+
     public ?float $salary = null;
+
     public ?float $hourly_rate = null;
+
     public ?string $tax_id = null;
+
     public ?string $bank_account = null;
+
     public ?string $allergies = null;
+
     public $profile_photo = null;
+
     public ?string $existing_photo = null;
+
     public ?string $last_performance_review_date = null;
+
     public ?float $performance_rating = null;
+
     public array $selectedRoles = [];
 
     // Reason modal state for employees
     public bool $showUpdateReasonModal = false;
+
     public string $updateReason = '';
+
     public bool $updatingEmployee = false;
 
     // Modal states for creating branch/department
     public bool $showCreateBranchModal = false;
+
     public bool $showCreateDepartmentModal = false;
 
     // Branch form fields
     public string $branch_name = '';
+
     public string $branch_code = '';
+
     public string $branch_location = '';
+
     public ?string $branch_phone = null;
+
     public ?string $branch_email = null;
 
     // Department form fields
     public string $dept_name = '';
+
     public ?string $dept_branch_id = null;
+
     public string $dept_type = 'production';
+
     public ?string $dept_description = null;
 
     protected function getModelClass(): string
@@ -86,8 +124,9 @@ class Edit extends BaseComponent
 
         $employee = Employee::find($id);
 
-        if (!$employee) {
+        if (! $employee) {
             $this->toast()->error('Employee not found')->send();
+
             return redirect()->route('branch-dashboard.employee.index', ['b_id' => $this->b_id]);
         }
 
@@ -117,7 +156,7 @@ class Edit extends BaseComponent
         $this->existing_photo = $employee->profile_photo;
         $this->last_performance_review_date = $employee->last_performance_review_date;
         $this->performance_rating = $employee->performance_rating;
-        $this->selectedRoles = $employee->roles->pluck('id')->map(fn($id) => (string)$id)->toArray();
+        $this->selectedRoles = $employee->roles->pluck('id')->map(fn ($id) => (string) $id)->toArray();
     }
 
     // Listen for branch changes from BranchSelector (for super admins)
@@ -139,8 +178,6 @@ class Edit extends BaseComponent
     {
         return $this->getFilteredQuery()->pluck('id')->toArray();
     }
-
-
 
     // Department creation methods
     public function openCreateDepartmentModal()
@@ -189,9 +226,9 @@ class Edit extends BaseComponent
         try {
             $this->validate([
                 'department_id' => 'required|exists:departments,id',
-                'employee_number' => 'required|string|unique:employees,employee_number,' . $this->employeeId,
+                'employee_number' => 'required|string|unique:employees,employee_number,'.$this->employeeId,
                 'name' => 'required|string|max:255',
-                'email' => 'required|email|unique:employees,email,' . $this->employeeId,
+                'email' => 'required|email|unique:employees,email,'.$this->employeeId,
                 'phone' => 'nullable|string|max:50',
                 'address' => 'nullable|string',
                 'date_of_birth' => 'nullable|date',
@@ -234,25 +271,28 @@ class Edit extends BaseComponent
     {
         if (strlen($this->updateReason) < 5) {
             $this->toast()->error('Reason must be at least 5 characters long')->send();
+
             return;
         }
-        
+
         $this->showUpdateReasonModal = false;
         $this->saveEmployee();
     }
 
     public function saveEmployee()
     {
-        if ($this->updatingEmployee) return;
-        
+        if ($this->updatingEmployee) {
+            return;
+        }
+
         $this->updatingEmployee = true;
 
         try {
             $this->validate([
                 'department_id' => 'required|exists:departments,id',
-                'employee_number' => 'required|string|unique:employees,employee_number,' . $this->employeeId,
+                'employee_number' => 'required|string|unique:employees,employee_number,'.$this->employeeId,
                 'name' => 'required|string|max:255',
-                'email' => 'required|email|unique:employees,email,' . $this->employeeId,
+                'email' => 'required|email|unique:employees,email,'.$this->employeeId,
                 'phone' => 'nullable|string|max:50',
                 'address' => 'nullable|string',
                 'date_of_birth' => 'nullable|date',
@@ -311,7 +351,7 @@ class Edit extends BaseComponent
 
             $user = current_actor();
 
-            if (!is_super_admin()) {
+            if (! is_super_admin()) {
                 // EMPLOYEE: Create approval request using EmployeeApprovalService
                 EmployeeApprovalService::requestUpdate(
                     $employee,
@@ -322,6 +362,7 @@ class Edit extends BaseComponent
 
                 $this->toast()->success('Employee update request submitted for approval!')->send();
                 $this->redirectRoute('branch-dashboard.employee.index', ['b_id' => $this->b_id]);
+
                 return;
             }
 
@@ -346,7 +387,7 @@ class Edit extends BaseComponent
                     $employee,
                     $oldRoles,
                     $this->selectedRoles,
-                    "Roles updated during employee edit",
+                    'Roles updated during employee edit',
                     $user
                 );
             }

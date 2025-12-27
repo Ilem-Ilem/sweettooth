@@ -7,19 +7,24 @@ use App\Models\AccountingPeriod;
 use App\Models\GlAccount;
 use App\Models\GlEntry;
 use App\Services\CurrencyFormattingService;
-use Livewire\Component;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
-use Illuminate\Validation\ValidationException;
+use Livewire\Component;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class ManualJournalEntry extends Component
 {
     public string $reference = '';
+
     public ?int $periodId = null;
+
     public string $description = '';
+
     public string $entryDate = '';
+
     public string $status = 'draft';
+
     public array $lines = [
         ['account_id' => null, 'debit' => 0, 'credit' => 0, 'description' => ''],
         ['account_id' => null, 'debit' => 0, 'credit' => 0, 'description' => ''],
@@ -95,7 +100,7 @@ class ManualJournalEntry extends Component
             'status' => 'in:draft,posted',
         ]);
 
-        if (!$this->isBalanced) {
+        if (! $this->isBalanced) {
             throw ValidationException::withMessages(['lines' => 'Journal entry must be balanced (Debits = Credits)']);
         }
 
@@ -131,7 +136,8 @@ class ManualJournalEntry extends Component
      */
     protected function formatCurrency(float $amount): string
     {
-        $service = new CurrencyFormattingService();
+        $service = new CurrencyFormattingService;
+
         return $service->format($amount);
     }
 
@@ -140,8 +146,9 @@ class ManualJournalEntry extends Component
      */
     protected function getCurrencySymbol(?string $currency = null): string
     {
-        $service = new CurrencyFormattingService();
+        $service = new CurrencyFormattingService;
         $currency = $currency ?? Settings::currencyLocalization('primary_currency', 'NGN');
+
         return $service->getSymbol($currency);
     }
 

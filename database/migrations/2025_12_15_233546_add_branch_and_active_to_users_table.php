@@ -13,13 +13,13 @@ return new class extends Migration
     {
         Schema::table('users', function (Blueprint $table) {
             // Add branch_id for role-based branch assignment
-            if (!Schema::hasColumn('users', 'branch_id')) {
+            if (! Schema::hasColumn('users', 'branch_id')) {
                 $table->string('branch_id')->nullable()->after('email');
                 $table->index('branch_id');
             }
 
             // Add is_active for account status management
-            if (!Schema::hasColumn('users', 'is_active')) {
+            if (! Schema::hasColumn('users', 'is_active')) {
                 $table->boolean('is_active')->default(true)->after('branch_id');
                 $table->index('is_active');
             }

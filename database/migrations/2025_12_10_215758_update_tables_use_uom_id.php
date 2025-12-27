@@ -2,8 +2,8 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -25,7 +25,7 @@ return new class extends Migration
         // Update items table
         if (Schema::hasTable('items')) {
             Schema::table('items', function (Blueprint $table) {
-                if (!Schema::hasColumn('items', 'uom_id')) {
+                if (! Schema::hasColumn('items', 'uom_id')) {
                     $table->unsignedBigInteger('uom_id')->nullable()->after('uom');
                     $table->foreign('uom_id')->references('id')->on('units_of_measure')->onDelete('restrict');
                 }
@@ -45,7 +45,7 @@ return new class extends Migration
         // Update products table
         if (Schema::hasTable('products')) {
             Schema::table('products', function (Blueprint $table) {
-                if (!Schema::hasColumn('products', 'uom_id')) {
+                if (! Schema::hasColumn('products', 'uom_id')) {
                     $table->unsignedBigInteger('uom_id')->nullable()->after('uom');
                     $table->foreign('uom_id')->references('id')->on('units_of_measure')->onDelete('restrict');
                 }
@@ -65,7 +65,7 @@ return new class extends Migration
         // Update recipes table
         if (Schema::hasTable('recipes')) {
             Schema::table('recipes', function (Blueprint $table) {
-                if (!Schema::hasColumn('recipes', 'uom_id')) {
+                if (! Schema::hasColumn('recipes', 'uom_id')) {
                     $table->unsignedBigInteger('uom_id')->nullable()->after('uom');
                     $table->foreign('uom_id')->references('id')->on('units_of_measure')->onDelete('restrict');
                 }
@@ -85,7 +85,7 @@ return new class extends Migration
         // Update recipe_ingredients table
         if (Schema::hasTable('recipe_ingredients')) {
             Schema::table('recipe_ingredients', function (Blueprint $table) {
-                if (!Schema::hasColumn('recipe_ingredients', 'uom_id')) {
+                if (! Schema::hasColumn('recipe_ingredients', 'uom_id')) {
                     $table->unsignedBigInteger('uom_id')->nullable()->after('uom');
                     $table->foreign('uom_id')->references('id')->on('units_of_measure')->onDelete('restrict');
                 }
@@ -120,7 +120,7 @@ return new class extends Migration
         // Re-add enum columns and migrate back
         if (Schema::hasTable('items')) {
             Schema::table('items', function (Blueprint $table) {
-                if (!Schema::hasColumn('items', 'uom')) {
+                if (! Schema::hasColumn('items', 'uom')) {
                     $table->enum('uom', ['grams', 'kg', 'liters', 'ml', 'pcs', 'units'])->default('grams')->after('uom_id');
                 }
             });

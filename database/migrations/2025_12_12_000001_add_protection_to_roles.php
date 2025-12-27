@@ -4,7 +4,8 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
+return new class extends Migration
+{
     /**
      * Run the migrations.
      */
@@ -13,21 +14,21 @@ return new class extends Migration {
         // Add protection columns to roles table
         Schema::table('roles', function (Blueprint $table) {
             // Mark core system roles that cannot be deleted
-            if (!Schema::hasColumn('roles', 'is_protected')) {
+            if (! Schema::hasColumn('roles', 'is_protected')) {
                 $table->boolean('is_protected')->default(false)->after('guard_name');
                 $table->index('is_protected');
             }
-            if (!Schema::hasColumn('roles', 'description')) {
+            if (! Schema::hasColumn('roles', 'description')) {
                 $table->text('description')->nullable()->after('is_protected');
             }
-            if (!Schema::hasColumn('roles', 'display_order')) {
+            if (! Schema::hasColumn('roles', 'display_order')) {
                 $table->integer('display_order')->default(0)->after('description');
             }
         });
 
         // Add columns to permissions for better organization
         Schema::table('permissions', function (Blueprint $table) {
-            if (!Schema::hasColumn('permissions', 'is_protected')) {
+            if (! Schema::hasColumn('permissions', 'is_protected')) {
                 $table->boolean('is_protected')->default(false)->after('guard_name');
                 $table->index('is_protected');
             }
@@ -65,7 +66,7 @@ return new class extends Migration {
             if (Schema::hasColumn('roles', 'display_order')) {
                 $columnsToDrop[] = 'display_order';
             }
-            if (!empty($columnsToDrop)) {
+            if (! empty($columnsToDrop)) {
                 $table->dropColumn($columnsToDrop);
             }
         });

@@ -20,7 +20,7 @@ return new class extends Migration
                 'production_started',
                 'quality_check_passed',
                 'packaging_completed',
-                'dispatch_ready'
+                'dispatch_ready',
             ]);
             $table->timestamp('achieved_at')->default(DB::raw('CURRENT_TIMESTAMP'));
             $table->uuid('achieved_by');
@@ -43,7 +43,7 @@ return new class extends Migration
                 'quality_issue',
                 'resource_shortage',
                 'completion_milestone',
-                'bottleneck_detected'
+                'bottleneck_detected',
             ]);
             $table->enum('severity', ['low', 'medium', 'high', 'critical'])->default('medium');
             $table->text('message');

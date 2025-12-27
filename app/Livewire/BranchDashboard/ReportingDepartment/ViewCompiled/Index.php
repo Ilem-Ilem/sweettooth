@@ -3,8 +3,11 @@
 namespace App\Livewire\BranchDashboard\ReportingDepartment\ViewCompiled;
 
 use App\Models\CompiledReport;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
+use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 use Livewire\Component;
-use Livewire\Attributes\{Layout, On, Title, Url};
 
 #[Layout('components.layouts.app.branch-dashboard')]
 #[Title('View Compiled Report')]
@@ -14,6 +17,7 @@ class Index extends Component
     public ?string $b_id = null;
 
     public ?CompiledReport $compiledReport = null;
+
     public $reportId;
 
     public function mount($id)
@@ -38,7 +42,7 @@ class Index extends Component
             'approvedBy',
             'mdUser',
             'departmentReports.department',
-            'departmentReports.generatedBy'
+            'departmentReports.generatedBy',
         ])
             ->where('branch_id', $this->b_id ?? current_branch_id())
             ->findOrFail($this->reportId);

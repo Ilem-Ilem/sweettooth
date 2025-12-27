@@ -108,6 +108,11 @@ class SetBranchContext
      * --------------------------------------------------------------------- */
     protected function ensureBranchSlugInUrl(Request $request): ?Response
     {
+        // Skip slug redirect for appraisal routes since they use b_id parameter
+        if ($request->is('branch-dashboard/hr/appraisals/*')) {
+            return null;
+        }
+
         $branchId = session('selected_branch_id');
 
         // No branch selected yet – nothing to redirect to

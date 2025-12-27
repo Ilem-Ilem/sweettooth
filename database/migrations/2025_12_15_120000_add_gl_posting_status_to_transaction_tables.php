@@ -13,7 +13,7 @@ return new class extends Migration
     {
         // Add to sales table
         Schema::table('sales', function (Blueprint $table) {
-            if (!Schema::hasColumn('sales', 'gl_posting_status')) {
+            if (! Schema::hasColumn('sales', 'gl_posting_status')) {
                 $table->enum('gl_posting_status', ['pending', 'posted', 'failed'])->default('pending');
                 $table->text('gl_posting_error')->nullable();
                 $table->timestamp('gl_posted_at')->nullable();
@@ -24,7 +24,7 @@ return new class extends Migration
 
         // Add to purchases table
         Schema::table('purchases', function (Blueprint $table) {
-            if (!Schema::hasColumn('purchases', 'gl_posting_status')) {
+            if (! Schema::hasColumn('purchases', 'gl_posting_status')) {
                 $table->enum('gl_posting_status', ['pending', 'posted', 'failed'])->default('pending');
                 $table->text('gl_posting_error')->nullable();
                 $table->timestamp('gl_posted_at')->nullable();
@@ -35,7 +35,7 @@ return new class extends Migration
 
         // Add to payments table
         Schema::table('payments', function (Blueprint $table) {
-            if (!Schema::hasColumn('payments', 'gl_posting_status')) {
+            if (! Schema::hasColumn('payments', 'gl_posting_status')) {
                 $table->enum('gl_posting_status', ['pending', 'posted', 'failed'])->default('pending');
                 $table->text('gl_posting_error')->nullable();
                 $table->timestamp('gl_posted_at')->nullable();
@@ -46,7 +46,7 @@ return new class extends Migration
 
         // Add to stock_movements table
         Schema::table('stock_movements', function (Blueprint $table) {
-            if (!Schema::hasColumn('stock_movements', 'gl_posting_status')) {
+            if (! Schema::hasColumn('stock_movements', 'gl_posting_status')) {
                 $table->enum('gl_posting_status', ['pending', 'posted', 'failed'])->default('pending');
                 $table->text('gl_posting_error')->nullable();
                 $table->timestamp('gl_posted_at')->nullable();

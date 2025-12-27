@@ -3,13 +3,13 @@
 namespace App\Livewire\BranchDashboard\Inventory\ShiftClosing;
 
 use App\Livewire\BaseComponent;
+use App\Models\Branch;
 use App\Models\Shift;
 use App\Models\Stock;
-use App\Models\Branch;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
-use Carbon\Carbon;
 use TallStackUi\Traits\Interactions;
 
 #[Layout('components.layouts.app.branch-dashboard')]
@@ -21,14 +21,20 @@ class Index extends BaseComponent
     public ?string $b_id = null;
 
     public ?string $branchId = null;
+
     public string $branchName = '';
+
     public ?string $currentShiftId = null;
+
     public $shiftDate;
+
     public $shiftType = 'morning';
 
     // Closing data
     public array $closingStocks = [];
+
     public bool $isVerified = false;
+
     public $notes = '';
 
     protected function getModelClass(): string
@@ -63,7 +69,7 @@ class Index extends BaseComponent
         $activeShift = Shift::where('employee_id', $employee->id)
             ->where('shift_date', Carbon::today())
             ->where('status', 'active')
-            ->whereHas('department', function($q) {
+            ->whereHas('department', function ($q) {
                 $q->where('name', 'Inventory'); // Inventory is not department-based
             })
             ->first();
@@ -86,8 +92,9 @@ class Index extends BaseComponent
      */
     public function loadClosingStockData()
     {
-        if (!$this->currentShiftId) {
+        if (! $this->currentShiftId) {
             $this->closingStocks = [];
+
             return;
         }
 
@@ -125,8 +132,9 @@ class Index extends BaseComponent
      */
     public function saveShiftClosing()
     {
-        if (!$this->currentShiftId) {
+        if (! $this->currentShiftId) {
             $this->toast()->error('No active shift found.')->send();
+
             return;
         }
 
@@ -152,7 +160,7 @@ class Index extends BaseComponent
             $this->isVerified = true;
         } catch (\Exception $e) {
             DB::rollBack();
-            $this->toast()->error('Error closing shift: ' . $e->getMessage())->send();
+            $this->toast()->error('Error closing shift: '.$e->getMessage())->send();
         }
     }
 

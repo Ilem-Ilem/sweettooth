@@ -2,25 +2,32 @@
 
 namespace App\Livewire\BranchDashboard\EmployeeModule;
 
-use Livewire\Component;
 use App\Models\Employee;
-use App\Models\LeaveApplication;
 use App\Models\EmployeeLeaveBalance;
-use Livewire\Attributes\{Layout, Url, On};
+use App\Models\LeaveApplication;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
+use Livewire\Attributes\Url;
+use Livewire\Component;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Details extends Component
 {
     public ?Employee $employee = null;
+
     public $leaveBalances;
+
     public $recentLeaveApplications;
+
     public $leaveStats;
+
     public ?string $profilePhotoUrl = null;
 
     #[Url(keep: true)]
     public ?string $b_id = null;
 
-    public function mount($employee_number = null, $id = null){
+    public function mount($employee_number = null, $id = null)
+    {
         // Set b_id from URL parameter or current branch context
         $this->b_id = request()->query('b_id') ?? current_branch_id();
 
@@ -36,7 +43,7 @@ class Details extends Component
 
         // Set profile photo URL if available
         if ($employee->profile_photo) {
-            $this->profilePhotoUrl = asset('storage/' . $employee->profile_photo);
+            $this->profilePhotoUrl = asset('storage/'.$employee->profile_photo);
         }
 
         // Load leave information
@@ -66,7 +73,6 @@ class Details extends Component
             ->orderBy('created_at', 'desc')
             ->limit(10)
             ->get();
-            
 
         // Calculate leave statistics
         $this->leaveStats = [

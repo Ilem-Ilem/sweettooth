@@ -3,8 +3,8 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class AccountantRoleSeeder extends Seeder
 {
@@ -98,6 +98,6 @@ class AccountantRoleSeeder extends Seeder
         // Assign all accounting permissions to accountant role
         $accountantRole->syncPermissions($allPermissions);
 
-        $this->command->info('Accountant role created for unified system with ' . count($allPermissions) . ' permissions');
+        $this->command->info('Accountant role created for unified system with '.count($allPermissions).' permissions');
     }
 }

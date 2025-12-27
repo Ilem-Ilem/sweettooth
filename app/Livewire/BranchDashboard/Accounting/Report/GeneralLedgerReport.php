@@ -2,13 +2,13 @@
 
 namespace App\Livewire\BranchDashboard\Accounting\Report;
 
-use App\Services\GeneralLedgerService;
-use App\Models\GlAccount;
 use App\Models\AccountingPeriod;
+use App\Models\GlAccount;
+use App\Services\GeneralLedgerService;
+use Carbon\Carbon;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithPagination;
-use Livewire\Attributes\Layout;
-use Carbon\Carbon;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class GeneralLedgerReport extends Component
@@ -18,21 +18,26 @@ class GeneralLedgerReport extends Component
     protected GeneralLedgerService $glService;
 
     public ?string $startDate = null;
+
     public ?string $endDate = null;
+
     public ?int $glAccountId = null;
+
     public ?int $periodId = null;
+
     public string $sortBy = 'entry_date';
+
     public string $sortDirection = 'desc';
 
     public function boot()
     {
         $this->glService = app(GeneralLedgerService::class);
-        
+
         // Default to current month
-        if (!$this->startDate) {
+        if (! $this->startDate) {
             $this->startDate = now()->startOfMonth()->format('Y-m-d');
         }
-        if (!$this->endDate) {
+        if (! $this->endDate) {
             $this->endDate = now()->endOfMonth()->format('Y-m-d');
         }
     }
@@ -83,8 +88,8 @@ class GeneralLedgerReport extends Component
             glAccountId: $this->glAccountId,
         );
 
-        $filename = 'general_ledger_' . now()->format('Y-m-d_His') . '.csv';
-        
+        $filename = 'general_ledger_'.now()->format('Y-m-d_His').'.csv';
+
         return response()->streamDownload(function () use ($data) {
             $f = fopen('php://output', 'w');
             fputcsv($f, array_keys($data[0]));

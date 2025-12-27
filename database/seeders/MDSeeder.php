@@ -2,9 +2,9 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-use App\Models\Employee;
 use App\Models\Branch;
+use App\Models\Employee;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Permission;
@@ -82,8 +82,9 @@ class MDSeeder extends Seeder
 
         // Get or create the first branch (for assigning to MD)
         $branch = Branch::first();
-        if (!$branch) {
+        if (! $branch) {
             $this->command->warn('⚠️ No branches found. Skipping MD employee creation.');
+
             return;
         }
 

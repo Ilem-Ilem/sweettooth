@@ -3,14 +3,14 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class ProtectedRoleSeeder extends Seeder
 {
     /**
      * Run the database seeds.
-     * 
+     *
      * This seeder marks critical system roles as protected to prevent accidental deletion.
      * Should be run after initial RoleSeeder to update protection flags.
      */

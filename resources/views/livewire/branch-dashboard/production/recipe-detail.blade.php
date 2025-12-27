@@ -5,7 +5,7 @@
         :items="[
             ['label' => 'Dashboard', 'url' => branch_route('branch-dashboard.index')],
             ['label' => 'Production'],
-            ['label' => 'Recipes', 'url' => branch_route('branch-dashboard.production.recipes.index')],
+            ['label' => 'Recipes', 'url' => branch_route('branch-dashboard.production.recipes.index', ['deptSlug' => $dept_slug])],
             ['label' => 'Details']
         ]"
         :compact="false"

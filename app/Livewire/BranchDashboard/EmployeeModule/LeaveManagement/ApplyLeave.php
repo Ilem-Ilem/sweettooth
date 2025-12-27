@@ -3,16 +3,15 @@
 namespace App\Livewire\BranchDashboard\EmployeeModule\LeaveManagement;
 
 use App\Livewire\BaseComponent;
-use App\Models\LeaveType;
-use App\Models\LeaveApplication;
 use App\Models\EmployeeLeaveBalance;
-use App\Services\AuditService;
+use App\Models\LeaveApplication;
+use App\Models\LeaveType;
 use App\Services\LeaveAuditService;
+use Carbon\Carbon;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Livewire\WithFileUploads;
 use TallStackUi\Traits\Interactions;
-use Carbon\Carbon;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class ApplyLeave extends BaseComponent
@@ -24,15 +23,22 @@ class ApplyLeave extends BaseComponent
 
     // Form fields
     public $leave_type_id = null;
+
     public $start_date = '';
+
     public $end_date = '';
+
     public $reason = '';
+
     public $emergency_contact = '';
+
     public $supporting_document = null;
 
     // Calculated fields
     public $total_days = 0;
+
     public $available_balance = 0;
+
     public $selected_leave_type = null;
 
     protected function getModelClass(): string
@@ -93,6 +99,7 @@ class ApplyLeave extends BaseComponent
 
             if ($end->lt($start)) {
                 $this->total_days = 0;
+
                 return;
             }
 
@@ -113,8 +120,9 @@ class ApplyLeave extends BaseComponent
 
     protected function updateAvailableBalance()
     {
-        if (!$this->leave_type_id) {
+        if (! $this->leave_type_id) {
             $this->available_balance = 0;
+
             return;
         }
 
@@ -149,6 +157,7 @@ class ApplyLeave extends BaseComponent
             // Validate leave balance
             if ($this->total_days > $this->available_balance) {
                 $this->toast()->error("Insufficient leave balance. You have {$this->available_balance} days remaining.")->send();
+
                 return;
             }
 
@@ -160,6 +169,7 @@ class ApplyLeave extends BaseComponent
 
                 if ($this->calculateTotalDays() > $consecutiveDays) {
                     $this->toast()->error("Maximum consecutive calendar days for this leave type is {$this->selected_leave_type->max_consecutive_days} days. Your request spans {$consecutiveDays} calendar days.")->send();
+
                     return;
                 }
             }
@@ -168,18 +178,20 @@ class ApplyLeave extends BaseComponent
             if ($this->selected_leave_type && $this->selected_leave_type->min_notice_days > 0) {
 
                 $startDate = Carbon::parse($this->start_date)->startOfDay();
-                $today     = now()->startOfDay();
+                $today = now()->startOfDay();
                 $noticeGiven = $today->diffInDays($startDate, false); // false = allow negative
 
                 if ($noticeGiven < $this->selected_leave_type->min_notice_days) {
                     $this->toast()->error("Minimum notice period of {$this->selected_leave_type->min_notice_days} days required. You applied only $noticeGiven days in advance.")->send();
+
                     return;
                 }
             }
 
             // Check if document is required
-            if ($this->selected_leave_type && $this->selected_leave_type->requires_document && !$this->supporting_document) {
+            if ($this->selected_leave_type && $this->selected_leave_type->requires_document && ! $this->supporting_document) {
                 $this->toast()->error('Supporting document is required for this leave type.')->send();
+
                 return;
             }
 
@@ -225,7 +237,7 @@ class ApplyLeave extends BaseComponent
             $this->resetForm();
             $this->redirect(branch_route('branch-dashboard.leave.my-leaves', ['b_id' => $this->getBranchId()]));
         } catch (\Exception $e) {
-            $this->toast()->error('Error submitting leave application: ' . $e->getMessage())->send();
+            $this->toast()->error('Error submitting leave application: '.$e->getMessage())->send();
         }
     }
 

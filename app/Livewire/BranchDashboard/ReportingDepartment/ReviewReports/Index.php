@@ -3,8 +3,11 @@
 namespace App\Livewire\BranchDashboard\ReportingDepartment\ReviewReports;
 
 use App\Models\DepartmentReport;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
+use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 use Livewire\Component;
-use Livewire\Attributes\{Layout, On, Title, Url};
 use Livewire\WithPagination;
 use TallStackUi\Traits\Interactions;
 
@@ -18,9 +21,13 @@ class Index extends Component
     public ?string $b_id = null;
 
     public ?DepartmentReport $selectedReport = null;
+
     public $showReviewModal = false;
+
     public $reviewNotes = '';
+
     public $filterCategory = 'all';
+
     public $filterDepartment = 'all';
 
     public function mount()
@@ -40,8 +47,9 @@ class Index extends Component
         $this->selectedReport = DepartmentReport::with(['department', 'generatedBy'])
             ->findOrFail($reportId);
 
-        if (!$this->selectedReport->canBeReviewed()) {
+        if (! $this->selectedReport->canBeReviewed()) {
             $this->toast()->error('This report cannot be reviewed')->send();
+
             return;
         }
 
@@ -58,8 +66,9 @@ class Index extends Component
 
     public function approveReport()
     {
-        if (!$this->selectedReport) {
+        if (! $this->selectedReport) {
             $this->toast()->error('No report selected')->send();
+
             return;
         }
 
@@ -73,19 +82,21 @@ class Index extends Component
             $this->closeReviewModal();
 
         } catch (\Exception $e) {
-            $this->toast()->error('Error approving report: ' . $e->getMessage())->send();
+            $this->toast()->error('Error approving report: '.$e->getMessage())->send();
         }
     }
 
     public function rejectReport()
     {
-        if (!$this->selectedReport) {
+        if (! $this->selectedReport) {
             $this->toast()->error('No report selected')->send();
+
             return;
         }
 
         if (empty($this->reviewNotes)) {
             $this->toast()->error('Please provide rejection notes')->send();
+
             return;
         }
 
@@ -101,7 +112,7 @@ class Index extends Component
             $this->closeReviewModal();
 
         } catch (\Exception $e) {
-            $this->toast()->error('Error rejecting report: ' . $e->getMessage())->send();
+            $this->toast()->error('Error rejecting report: '.$e->getMessage())->send();
         }
     }
 

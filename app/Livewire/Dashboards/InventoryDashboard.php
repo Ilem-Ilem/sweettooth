@@ -5,8 +5,9 @@ namespace App\Livewire\Dashboards;
 use App\Models\Item;
 use App\Models\Stock;
 use App\Models\StockMovement;
-use Livewire\Attributes\Layout;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Layout;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class InventoryDashboard extends BaseDashboard
@@ -28,13 +29,22 @@ class InventoryDashboard extends BaseDashboard
             'Inventory Manager',
             'Stock Controller',
             'Store Keeper',
+            'Store Manager',
             'Admin',
         ];
 
         // Allow access if user has allowed role OR is super admin
         $isAllowed = in_array($role, $allowedRoles) || is_super_admin();
-        
-        if (!$isAllowed) {
+
+        // If not allowed by primary role, check if user has any of the allowed roles
+        if (! $isAllowed && Auth::check()) {
+            $user = Auth::user();
+            if ($user && method_exists($user, 'hasAnyRole')) {
+                $isAllowed = $user->hasAnyRole($allowedRoles);
+            }
+        }
+
+        if (! $isAllowed) {
             abort(403, 'Unauthorized access to inventory dashboard');
         }
     }
@@ -44,19 +54,21 @@ class InventoryDashboard extends BaseDashboard
      */
     public function getTotalStockValue(): float
     {
-        return $this->remember('total_stock_value', function () {
-            $stocks = Stock::where('branch_id', $this->getBranchId())->get();
+        return $this->remember('total_stock_value_v4', function () {
+            $branchId = $this->getBranchId();
+            $stocks = Stock::where('branch_id', $branchId)->get();
             $total = 0;
-            
+
             foreach ($stocks as $stock) {
-                $lastPrice = $this->getLastUnitPrice($stock->item_id);
-                $total += $stock->quantity_available * $lastPrice;
+                // Use average_cost from stock record, fallback to purchase price if needed
+                $unitPrice = $stock->average_cost ?? $this->getLastUnitPrice($stock->item_id);
+                $total += $stock->quantity_available * $unitPrice;
             }
-            
-            return $total;
+
+            return (float) $total;
         });
     }
-    
+
     /**
      * Get last unit price for an item from most recent purchase
      */
@@ -97,7 +109,7 @@ class InventoryDashboard extends BaseDashboard
      */
     public function getRecentMovements($limit = 10)
     {
-        return $this->remember('recent_movements_' . $limit, function () use ($limit) {
+        return $this->remember('recent_movements_'.$limit, function () use ($limit) {
             return StockMovement::join('stocks', 'stock_movements.stock_id', '=', 'stocks.id')
                 ->where('stocks.branch_id', $this->getBranchId())
                 ->with('item', 'createdBy')
@@ -112,7 +124,7 @@ class InventoryDashboard extends BaseDashboard
      */
     public function getLowStockItems($limit = 15)
     {
-        return $this->remember('low_stock_items_' . $limit, function () use ($limit) {
+        return $this->remember('low_stock_items_'.$limit, function () use ($limit) {
             $items = Stock::where('stocks.branch_id', $this->getBranchId())
                 ->join('items', 'stocks.item_id', '=', 'items.id')
                 ->selectRaw('items.id, items.name, items.sku, items.reorder_level as reorder_point, stocks.quantity_available')
@@ -120,12 +132,15 @@ class InventoryDashboard extends BaseDashboard
                 ->orderBy('stocks.quantity_available', 'asc')
                 ->limit($limit)
                 ->get();
-            
-            // Add last_unit_price to each item
+
+            // Add last_unit_price to each item (use average cost from stock)
             foreach ($items as $item) {
-                $item->last_unit_price = $this->getLastUnitPrice($item->id);
+                $stock = Stock::where('item_id', $item->id)
+                    ->where('branch_id', $this->getBranchId())
+                    ->first();
+                $item->last_unit_price = $stock->average_cost ?? $this->getLastUnitPrice($item->id);
             }
-            
+
             return $items;
         });
     }
@@ -228,6 +243,7 @@ class InventoryDashboard extends BaseDashboard
             ]);
         } catch (\Exception $e) {
             $this->handleError('loading inventory dashboard', $e);
+
             return view('livewire.dashboards.error');
         }
     }

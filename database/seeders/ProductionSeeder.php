@@ -45,7 +45,7 @@ class ProductionSeeder extends Seeder
 
         // Build ProductType lookup
         $productTypeIds = ProductType::all()->pluck('id')->toArray();
-        
+
         // Build UOM lookup
         $uomMap = [
             'grams' => UnitOfMeasure::where('code', 'g')->first()?->id,

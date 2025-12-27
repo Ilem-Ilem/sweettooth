@@ -2,18 +2,17 @@
 
 namespace Tests\Feature;
 
-use App\Models\Sale;
-use App\Models\Purchase;
-use App\Models\Payment;
-use App\Models\StockMovement;
-use App\Models\Stock;
-use App\Models\GlEntry;
-use App\Models\GlAccount;
 use App\Models\AccountingPeriod;
 use App\Models\Branch;
 use App\Models\Department;
-use App\Models\SalesShift;
 use App\Models\Employee;
+use App\Models\GlEntry;
+use App\Models\Payment;
+use App\Models\Purchase;
+use App\Models\Sale;
+use App\Models\SalesShift;
+use App\Models\Stock;
+use App\Models\StockMovement;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -22,9 +21,13 @@ class AccountingPhase2ObserversTest extends TestCase
     use RefreshDatabase;
 
     protected $branch;
+
     protected $period;
+
     protected $department;
+
     protected $salesShift;
+
     protected $employee;
 
     protected function setUp(): void
@@ -273,7 +276,7 @@ class AccountingPhase2ObserversTest extends TestCase
         $debits = GlEntry::where('status', 'posted')->sum('debit');
         $credits = GlEntry::where('status', 'posted')->sum('credit');
 
-        $this->assertAlmostEquals($debits, $credits, 0.01, "Trial balance is not balanced");
+        $this->assertAlmostEquals($debits, $credits, 0.01, 'Trial balance is not balanced');
     }
 
     /**
@@ -317,7 +320,7 @@ class AccountingPhase2ObserversTest extends TestCase
             ->count();
 
         // Count should not increase
-        $this->assertEquals($firstPostCount, $secondPostCount, "Duplicate GL entries were created");
+        $this->assertEquals($firstPostCount, $secondPostCount, 'Duplicate GL entries were created');
     }
 
     /**

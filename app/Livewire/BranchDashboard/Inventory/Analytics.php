@@ -4,22 +4,24 @@ namespace App\Livewire\BranchDashboard\Inventory;
 
 use App\Helpers\Settings;
 use App\Livewire\BaseComponent;
+use App\Models\Item;
+use App\Models\ItemRequest;
+use App\Models\Purchase;
 use App\Models\Stock;
 use App\Models\StockMovement;
-use App\Models\Purchase;
-use App\Models\ItemRequest;
-use App\Models\Item;
 use App\Services\CurrencyFormattingService;
 use App\Traits\Exportable;
-use Illuminate\Support\Facades\DB;
-use Livewire\Attributes\{Layout, On, Url};
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
+use Livewire\Attributes\Url;
 use TallStackUi\Traits\Interactions;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Analytics extends BaseComponent
 {
-    use Interactions, Exportable;
+    use Exportable, Interactions;
 
     #[Url(keep: true)]
     public ?string $b_id = null;
@@ -34,36 +36,58 @@ class Analytics extends BaseComponent
 
     // Filters
     public $dateFrom;
+
     public $dateTo;
+
     public $departmentId = null;
+
     public $categoryId = null;
+
     public $autoRefresh = false;
 
     // Summary Metrics
     public $totalStockValue = 0;
+
     public $totalItems = 0;
+
     public $purchaseValue = 0;
+
     public $totalPurchases = 0;
+
     public $movementsIn = 0;
+
     public $movementsOut = 0;
+
     public $totalMovements = 0;
+
     public $pendingRequests = 0;
+
     public $completedRequests = 0;
+
     public $lowStockItems = 0;
+
     public $criticalItems = 0;
+
     public $expiredItems = 0;
 
     // Insights Data
     public $insights = [];
+
     public $stockHealthData = [];
+
     public $topAlerts = [];
+
     public $recentActivity = [];
+
     public $departmentBreakdown = [];
+
     public $performanceMetrics = [];
 
     // Previous period comparison
     public $previousStockValue = 0;
+
     public $stockValueChange = 0;
+
     public $stockValueChangePercentage = 0;
 
     protected function getModelClass(): string
@@ -178,8 +202,8 @@ class Analytics extends BaseComponent
 
         // Stock movements
         $movements = StockMovement::whereHas('stock', function ($query) use ($branchId) {
-                $query->where('branch_id', $branchId);
-            })
+            $query->where('branch_id', $branchId);
+        })
             ->whereBetween('movement_date', [$dateFrom, $dateTo])
             ->get();
 
@@ -219,14 +243,14 @@ class Analytics extends BaseComponent
             $this->insights[] = [
                 'type' => $this->stockValueChangePercentage > 0 ? 'positive' : 'negative',
                 'icon' => $this->stockValueChangePercentage > 0 ? '📈' : '📉',
-                'message' => "Inventory value {$direction} by " . abs($this->stockValueChangePercentage) . "% since last period.",
+                'message' => "Inventory value {$direction} by ".abs($this->stockValueChangePercentage).'% since last period.',
             ];
         }
 
         // Insight 2: Top depleting items
         $topDepletingItems = StockMovement::whereHas('stock', function ($query) use ($branchId) {
-                $query->where('branch_id', $branchId);
-            })
+            $query->where('branch_id', $branchId);
+        })
             ->where('type', 'out')
             ->whereBetween('movement_date', [$dateFrom, $dateTo])
             ->select('stock_id', DB::raw('SUM(ABS(quantity)) as total_out'))
@@ -252,7 +276,7 @@ class Analytics extends BaseComponent
             $this->insights[] = [
                 'type' => 'warning',
                 'icon' => '⚠️',
-                'message' => "No purchases recorded in the selected period.",
+                'message' => 'No purchases recorded in the selected period.',
             ];
         }
 
@@ -338,7 +362,9 @@ class Analytics extends BaseComponent
 
         foreach ($stocks as $stock) {
             $item = $stock->item;
-            if (!$item) continue;
+            if (! $item) {
+                continue;
+            }
 
             // Critical condition
             if ($stock->health_status === 'critical') {
@@ -400,15 +426,15 @@ class Analytics extends BaseComponent
     protected function loadRecentActivity($branchId, $dateFrom, $dateTo)
     {
         $this->recentActivity = StockMovement::whereHas('stock', function ($query) use ($branchId) {
-                $query->where('branch_id', $branchId);
-            })
+            $query->where('branch_id', $branchId);
+        })
             ->whereBetween('movement_date', [$dateFrom, $dateTo])
             ->with(['stock.item', 'mover'])
             ->latest('movement_date')
             ->limit(20)
             ->get()
             ->map(function ($movement) {
-                $icon = match($movement->type) {
+                $icon = match ($movement->type) {
                     'in' => '📥',
                     'out' => '📤',
                     'transfer' => '🔄',
@@ -416,7 +442,7 @@ class Analytics extends BaseComponent
                     default => '📦',
                 };
 
-                $typeLabel = match($movement->type) {
+                $typeLabel = match ($movement->type) {
                     'in' => 'Stock In',
                     'out' => 'Stock Out',
                     'transfer' => 'Transfer',
@@ -489,8 +515,8 @@ class Analytics extends BaseComponent
 
         // Average stock turnover rate
         $totalMovementsOut = abs(StockMovement::whereHas('stock', function ($query) use ($branchId) {
-                $query->where('branch_id', $branchId);
-            })
+            $query->where('branch_id', $branchId);
+        })
             ->where('type', 'out')
             ->whereBetween('movement_date', [$dateFrom, $dateTo])
             ->sum('quantity'));
@@ -500,8 +526,8 @@ class Analytics extends BaseComponent
 
         // Fastest moving item
         $fastestMoving = StockMovement::whereHas('stock', function ($query) use ($branchId) {
-                $query->where('branch_id', $branchId);
-            })
+            $query->where('branch_id', $branchId);
+        })
             ->where('type', 'out')
             ->whereBetween('movement_date', [$dateFrom, $dateTo])
             ->select('stock_id', DB::raw('SUM(ABS(quantity)) as total'))
@@ -512,8 +538,8 @@ class Analytics extends BaseComponent
 
         // Slowest moving item
         $slowestMoving = StockMovement::whereHas('stock', function ($query) use ($branchId) {
-                $query->where('branch_id', $branchId);
-            })
+            $query->where('branch_id', $branchId);
+        })
             ->where('type', 'out')
             ->whereBetween('movement_date', [$dateFrom, $dateTo])
             ->select('stock_id', DB::raw('SUM(ABS(quantity)) as total'))
@@ -566,11 +592,12 @@ class Analytics extends BaseComponent
 
         if (empty($data['stock_health_data']) && empty($data['department_breakdown'])) {
             $this->toast()->warning('No data available to export.')->send();
+
             return;
         }
 
         return $this->export(
-            'inventory-analytics-' . now()->format('Y-m-d'),
+            'inventory-analytics-'.now()->format('Y-m-d'),
             collect($data),
             'exports.inventory.analytics',
             'pdf',
@@ -585,11 +612,12 @@ class Analytics extends BaseComponent
 
         if (empty($data['stock_health_data']) && empty($data['department_breakdown'])) {
             $this->toast()->warning('No data available to export.')->send();
+
             return;
         }
 
         return $this->export(
-            'inventory-analytics-' . now()->format('Y-m-d'),
+            'inventory-analytics-'.now()->format('Y-m-d'),
             collect($data),
             'exports.inventory.analytics',
             'excel'
@@ -602,7 +630,7 @@ class Analytics extends BaseComponent
 
         $csvData = [];
         $csvData[] = ['Inventory Analytics Report'];
-        $csvData[] = ['Period', $this->dateFrom . ' to ' . $this->dateTo];
+        $csvData[] = ['Period', $this->dateFrom.' to '.$this->dateTo];
         $csvData[] = ['Generated', now()->format('Y-m-d H:i:s')];
         $csvData[] = [];
 
@@ -628,7 +656,7 @@ class Analytics extends BaseComponent
                 $stock['item_name'] ?? 'N/A',
                 $stock['stock_level'] ?? 0,
                 $stock['reorder_level'] ?? 0,
-                ($stock['health_percentage'] ?? 0) . '%',
+                ($stock['health_percentage'] ?? 0).'%',
                 ucfirst($stock['status'] ?? 'good'),
                 $stock['last_movement'] ?? 'N/A',
                 $stock['uom'] ?? 'units',
@@ -651,7 +679,7 @@ class Analytics extends BaseComponent
             ];
         }
 
-        $filename = 'inventory-analytics-' . now()->format('Y-m-d-His') . '.csv';
+        $filename = 'inventory-analytics-'.now()->format('Y-m-d-His').'.csv';
         $handle = fopen('php://temp', 'r+');
 
         foreach ($csvData as $row) {
@@ -666,7 +694,7 @@ class Analytics extends BaseComponent
             echo $csv;
         }, $filename, [
             'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ]);
     }
 
@@ -700,17 +728,19 @@ class Analytics extends BaseComponent
      */
     protected function formatCurrency(float $amount): string
     {
-        $service = new CurrencyFormattingService();
+        $service = new CurrencyFormattingService;
+
         return $service->format($amount);
     }
 
     /**
      * Get currency symbol for display
      */
-    protected function getCurrencySymbol(string $currency = null): string
+    protected function getCurrencySymbol(?string $currency = null): string
     {
-        $service = new CurrencyFormattingService();
+        $service = new CurrencyFormattingService;
         $currency = $currency ?? Settings::currencyLocalization('primary_currency', 'NGN');
+
         return $service->getSymbol($currency);
     }
 
@@ -719,7 +749,8 @@ class Analytics extends BaseComponent
      */
     protected function formatPercentage(float $value, int $decimals = 2): string
     {
-        $service = new CurrencyFormattingService();
+        $service = new CurrencyFormattingService;
+
         return $service->formatPercentage($value, $decimals);
     }
 

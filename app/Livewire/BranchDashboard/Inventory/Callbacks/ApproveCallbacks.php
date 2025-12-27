@@ -14,25 +14,33 @@ use TallStackUi\Traits\Interactions;
 #[Layout('components.layouts.app.branch-dashboard')]
 class ApproveCallbacks extends BaseComponent
 {
-    use WithPagination, Interactions;
+    use Interactions, WithPagination;
 
     #[Url(keep: true)]
     public ?string $b_id = null;
 
     public ?int $quantity = 20;
+
     public ?string $search = null;
+
     public ?string $filterStatus = null;
+
     public ?string $filterSourceType = null;
+
     public ?string $startDate = null;
+
     public ?string $endDate = null;
 
     // Modal for viewing details
     public $selectedCallback = null;
+
     public $showDetailsModal = false;
 
     // Rejection modal
     public $showRejectModal = false;
+
     public $rejectReason = '';
+
     public $callbackToReject = null;
 
     // Table headers
@@ -101,26 +109,26 @@ class ApproveCallbacks extends BaseComponent
             'item',
             'product',
             'recordedBy',
-            'approvedBy'
+            'approvedBy',
         ])
-        ->whereHas('shift', function ($q) {
-            $q->where('branch_id', $this->getBranchId());
-        });
+            ->whereHas('shift', function ($q) {
+                $q->where('branch_id', $this->getBranchId());
+            });
 
         // Search filter
         if ($this->search) {
             $query->where(function ($q) {
                 $q->whereHas('item', function ($itemQuery) {
-                    $itemQuery->where('name', 'like', '%' . $this->search . '%')
-                              ->orWhere('sku', 'like', '%' . $this->search . '%');
+                    $itemQuery->where('name', 'like', '%'.$this->search.'%')
+                        ->orWhere('sku', 'like', '%'.$this->search.'%');
                 })
-                ->orWhereHas('product', function ($productQuery) {
-                    $productQuery->where('name', 'like', '%' . $this->search . '%')
-                                 ->orWhere('sku', 'like', '%' . $this->search . '%');
-                })
-                ->orWhereHas('recordedBy', function ($employeeQuery) {
-                    $employeeQuery->where('name', 'like', '%' . $this->search . '%');
-                });
+                    ->orWhereHas('product', function ($productQuery) {
+                        $productQuery->where('name', 'like', '%'.$this->search.'%')
+                            ->orWhere('sku', 'like', '%'.$this->search.'%');
+                    })
+                    ->orWhereHas('recordedBy', function ($employeeQuery) {
+                        $employeeQuery->where('name', 'like', '%'.$this->search.'%');
+                    });
             });
         }
 
@@ -152,11 +160,12 @@ class ApproveCallbacks extends BaseComponent
             'item',
             'product',
             'recordedBy',
-            'approvedBy'
+            'approvedBy',
         ])->find($callbackId);
 
-        if (!$this->selectedCallback) {
+        if (! $this->selectedCallback) {
             $this->toast()->error('Callback not found.')->send();
+
             return;
         }
 
@@ -176,20 +185,23 @@ class ApproveCallbacks extends BaseComponent
 
             $callback = ProductionCallback::find($callbackId);
 
-            if (!$callback) {
+            if (! $callback) {
                 $this->toast()->error('Callback not found.')->send();
+
                 return;
             }
 
-            if (!$callback->canBeApproved()) {
-                $this->toast()->error('Callback cannot be approved. Current status: ' . $callback->formatted_status)->send();
+            if (! $callback->canBeApproved()) {
+                $this->toast()->error('Callback cannot be approved. Current status: '.$callback->formatted_status)->send();
+
                 return;
             }
 
             // Get current employee ID
             $employeeId = $this->getEmployeeId();
-            if (!$employeeId) {
+            if (! $employeeId) {
                 $this->toast()->error('Employee not found. Please ensure you are logged in.')->send();
+
                 return;
             }
 
@@ -216,7 +228,7 @@ class ApproveCallbacks extends BaseComponent
 
         } catch (\Exception $e) {
             DB::rollBack();
-            $this->toast()->error('Failed to approve callback: ' . $e->getMessage())->send();
+            $this->toast()->error('Failed to approve callback: '.$e->getMessage())->send();
         }
     }
 
@@ -238,6 +250,7 @@ class ApproveCallbacks extends BaseComponent
     {
         if (empty($this->rejectReason)) {
             $this->toast()->error('Please provide a reason for rejection.')->send();
+
             return;
         }
 
@@ -246,20 +259,23 @@ class ApproveCallbacks extends BaseComponent
 
             $callback = ProductionCallback::find($this->callbackToReject);
 
-            if (!$callback) {
+            if (! $callback) {
                 $this->toast()->error('Callback not found.')->send();
+
                 return;
             }
 
-            if (!$callback->canBeApproved()) {
-                $this->toast()->error('Callback cannot be rejected. Current status: ' . $callback->formatted_status)->send();
+            if (! $callback->canBeApproved()) {
+                $this->toast()->error('Callback cannot be rejected. Current status: '.$callback->formatted_status)->send();
+
                 return;
             }
 
             // Get current employee ID
             $employeeId = $this->getEmployeeId();
-            if (!$employeeId) {
+            if (! $employeeId) {
                 $this->toast()->error('Employee not found. Please ensure you are logged in.')->send();
+
                 return;
             }
 
@@ -278,7 +294,7 @@ class ApproveCallbacks extends BaseComponent
 
         } catch (\Exception $e) {
             DB::rollBack();
-            $this->toast()->error('Failed to reject callback: ' . $e->getMessage())->send();
+            $this->toast()->error('Failed to reject callback: '.$e->getMessage())->send();
         }
     }
 
@@ -289,13 +305,15 @@ class ApproveCallbacks extends BaseComponent
 
             $callback = ProductionCallback::find($callbackId);
 
-            if (!$callback) {
+            if (! $callback) {
                 $this->toast()->error('Callback not found.')->send();
+
                 return;
             }
 
             if ($callback->status !== 'approved_by_inventory') {
-                $this->toast()->error('Callback must be approved before completion. Current status: ' . $callback->formatted_status)->send();
+                $this->toast()->error('Callback must be approved before completion. Current status: '.$callback->formatted_status)->send();
+
                 return;
             }
 
@@ -313,7 +331,7 @@ class ApproveCallbacks extends BaseComponent
 
         } catch (\Exception $e) {
             DB::rollBack();
-            $this->toast()->error('Failed to complete callback: ' . $e->getMessage())->send();
+            $this->toast()->error('Failed to complete callback: '.$e->getMessage())->send();
         }
     }
 
@@ -339,7 +357,7 @@ class ApproveCallbacks extends BaseComponent
      */
     protected function handleRawMaterialCallback(ProductionCallback $callback): void
     {
-        if (!$callback->item_id) {
+        if (! $callback->item_id) {
             throw new \Exception('Raw material callback missing item_id');
         }
 
@@ -351,8 +369,8 @@ class ApproveCallbacks extends BaseComponent
             ->where('branch_id', $branchId)
             ->first();
 
-        if (!$stock) {
-            throw new \Exception('Stock record not found for item ID: ' . $callback->item_id);
+        if (! $stock) {
+            throw new \Exception('Stock record not found for item ID: '.$callback->item_id);
         }
 
         // Decrease available quantity and increase damaged quantity
@@ -367,7 +385,7 @@ class ApproveCallbacks extends BaseComponent
             'quantity' => -$callback->quantity,
             'reference_type' => 'production_callback',
             'reference_id' => $callback->id,
-            'notes' => 'Production callback: ' . $callback->reason . ' (Callback #' . $callback->id . ')',
+            'notes' => 'Production callback: '.$callback->reason.' (Callback #'.$callback->id.')',
             'movement_date' => now(),
         ]);
     }
@@ -377,7 +395,7 @@ class ApproveCallbacks extends BaseComponent
      */
     protected function handleFinishedProductCallback(ProductionCallback $callback): void
     {
-        if (!$callback->product_id) {
+        if (! $callback->product_id) {
             throw new \Exception('Finished product callback missing product_id');
         }
 
@@ -385,16 +403,16 @@ class ApproveCallbacks extends BaseComponent
         // First, get the recipe for this product
         $recipe = \App\Models\Recipe::where('product_id', $callback->product_id)->first();
 
-        if (!$recipe) {
-            throw new \Exception('Recipe not found for product ID: ' . $callback->product_id);
+        if (! $recipe) {
+            throw new \Exception('Recipe not found for product ID: '.$callback->product_id);
         }
 
         $dailyProduce = \App\Models\DailyProduce::where('shift_id', $callback->shift_id)
             ->where('recipe_id', $recipe->id)
             ->first();
 
-        if (!$dailyProduce) {
-            throw new \Exception('DailyProduce record not found for shift ID: ' . $callback->shift_id . ' and recipe ID: ' . $recipe->id);
+        if (! $dailyProduce) {
+            throw new \Exception('DailyProduce record not found for shift ID: '.$callback->shift_id.' and recipe ID: '.$recipe->id);
         }
 
         // Increase callback quantity
@@ -408,23 +426,23 @@ class ApproveCallbacks extends BaseComponent
     {
         // Get stats for the branch
         $stats = [
-            'total' => ProductionCallback::whereHas('shift', function($q) {
+            'total' => ProductionCallback::whereHas('shift', function ($q) {
                 $q->where('branch_id', $this->getBranchId());
             })->count(),
 
-            'pending' => ProductionCallback::whereHas('shift', function($q) {
+            'pending' => ProductionCallback::whereHas('shift', function ($q) {
                 $q->where('branch_id', $this->getBranchId());
             })->where('status', 'pending')->count(),
 
-            'approved' => ProductionCallback::whereHas('shift', function($q) {
+            'approved' => ProductionCallback::whereHas('shift', function ($q) {
                 $q->where('branch_id', $this->getBranchId());
             })->where('status', 'approved_by_inventory')->count(),
 
-            'completed' => ProductionCallback::whereHas('shift', function($q) {
+            'completed' => ProductionCallback::whereHas('shift', function ($q) {
                 $q->where('branch_id', $this->getBranchId());
             })->where('status', 'completed')->count(),
 
-            'rejected' => ProductionCallback::whereHas('shift', function($q) {
+            'rejected' => ProductionCallback::whereHas('shift', function ($q) {
                 $q->where('branch_id', $this->getBranchId());
             })->where('status', 'rejected')->count(),
         ];

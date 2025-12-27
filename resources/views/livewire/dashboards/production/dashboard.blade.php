@@ -98,7 +98,7 @@
                     <div class="space-y-2">
                         @foreach($activeRecipes->take(5) as $recipe)
                             <div class="flex items-center justify-between p-2 bg-zinc-50 dark:bg-zinc-700 rounded">
-                                <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $recipe->product->name }}</span>
+                                <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $recipe->product->name ?? 'Unknown Product' }}</span>
                                 <span class="text-xs px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 rounded-full font-semibold">Running</span>
                             </div>
                         @endforeach
@@ -168,7 +168,7 @@
                     <tbody>
                         @forelse($todayQueue as $item)
                             <tr class="border-b border-zinc-100 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700/50">
-                                <td class="py-3 px-4 font-medium text-zinc-900 dark:text-zinc-100">{{ $item->product->name }}</td>
+                                <td class="py-3 px-4 font-medium text-zinc-900 dark:text-zinc-100">{{ $item->recipe->product->name ?? 'N/A' }}</td>
                                 <td class="py-3 px-4 text-zinc-600 dark:text-zinc-400">{{ $item->recipe->name ?? 'N/A' }}</td>
                                 <td class="py-3 px-4 text-right font-semibold text-zinc-900 dark:text-zinc-100">{{ $item->quantity }}</td>
                                 <td class="py-3 px-4 text-zinc-600 dark:text-zinc-400">{{ $item->scheduled_time ? $item->scheduled_time->format('g:i A') : 'Unscheduled' }}</td>

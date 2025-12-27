@@ -14,7 +14,7 @@ class UnitOfMeasureSeeder extends Seeder
     {
         // Disable foreign key checks for truncate
         \DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-        
+
         $units = [
             // Weight
             [
