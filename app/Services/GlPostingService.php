@@ -15,6 +15,7 @@ use Exception;
 class GlPostingService
 {
     protected ?AccountingPeriod $currentPeriod = null;
+    protected array $accountCache = [];
 
     /**
      * Get current accounting period
@@ -26,6 +27,18 @@ class GlPostingService
         }
 
         return AccountingPeriod::current()->first();
+    }
+
+    /**
+     * Get GL account by account number (cached)
+     */
+    protected function getGlAccount(string $accountNumber): GlAccount
+    {
+        if (!isset($this->accountCache[$accountNumber])) {
+            $this->accountCache[$accountNumber] = GlAccount::where('account_number', $accountNumber)
+                ->firstOrFail();
+        }
+        return $this->accountCache[$accountNumber];
     }
 
     /**
@@ -45,12 +58,12 @@ class GlPostingService
 
             // Determine which cash/bank account was used
             $paymentMethod = $sale->payments->first()?->payment_method ?? 'cash';
-            $cashAccountId = $this->getCashAccountForPaymentMethod($paymentMethod);
+            $cashAccountNumber = $this->getCashAccountNumberForPaymentMethod($paymentMethod);
 
             // Entry A: Record Sale Revenue
             // Debit: Cash/Bank, Credit: Sales Revenue
-            $revenueAccount = GlAccount::where('account_number', '4010')->firstOrFail();
-            $cashAccount = GlAccount::find($cashAccountId);
+            $revenueAccount = $this->getGlAccount('4010');
+            $cashAccount = $this->getGlAccount((string)$cashAccountNumber);
 
             GlEntry::create([
                 'gl_account_id' => $cashAccount->id,
@@ -85,8 +98,8 @@ class GlPostingService
 
             // Entry B: Record COGS
             // Debit: COGS, Credit: Inventory
-            $cogsAccount = GlAccount::where('account_number', '5010')->firstOrFail();
-            $inventoryAccount = GlAccount::where('account_number', '1220')->firstOrFail();
+            $cogsAccount = $this->getGlAccount('5010');
+            $inventoryAccount = $this->getGlAccount('1220');
 
             $totalCogs = $sale->saleItems->sum(function ($item) {
                 return ($item->quantity ?? 0) * ($item->average_cost ?? 0);
@@ -126,7 +139,7 @@ class GlPostingService
 
             // Entry C: Record Sales Tax (if applicable)
             if ($sale->tax > 0) {
-                $taxAccount = GlAccount::where('account_number', '2020')->firstOrFail();
+                $taxAccount = $this->getGlAccount('2020');
 
                 GlEntry::create([
                     'gl_account_id' => $cashAccount->id,
@@ -185,8 +198,8 @@ class GlPostingService
                 throw new Exception('No open accounting period found');
             }
 
-            $inventoryAccount = GlAccount::where('account_number', '1200')->firstOrFail();
-            $apAccount = GlAccount::where('account_number', '2010')->firstOrFail();
+            $inventoryAccount = $this->getGlAccount('1200');
+            $apAccount = $this->getGlAccount('2010');
 
             $landingCost = $purchase->total_fob_ngn + ($purchase->other_costs ?? 0);
 
@@ -248,9 +261,9 @@ class GlPostingService
                 throw new Exception('No open accounting period found');
             }
 
-            $apAccount = GlAccount::where('account_number', '2010')->firstOrFail();
-            $cashAccountId = $this->getCashAccountForPaymentMethod($payment->payment_method);
-            $cashAccount = GlAccount::find($cashAccountId);
+            $apAccount = $this->getGlAccount('2010');
+            $cashAccountNumber = $this->getCashAccountNumberForPaymentMethod($payment->payment_method);
+            $cashAccount = $this->getGlAccount((string)$cashAccountNumber);
 
             // Debit: Accounts Payable
             GlEntry::create([
@@ -313,10 +326,10 @@ class GlPostingService
                 return true; // Not an adjustment that needs GL entry
             }
 
-            $inventoryAccount = GlAccount::where('account_number', '1220')->firstOrFail();
+            $inventoryAccount = $this->getGlAccount('1220');
             $lossAccount = $movement->movement_type === 'damage'
-                ? GlAccount::where('account_number', '5020')->firstOrFail()
-                : GlAccount::where('account_number', '5030')->firstOrFail();
+                ? $this->getGlAccount('5020')
+                : $this->getGlAccount('5030');
 
             $amount = $movement->quantity * ($movement->unit_cost ?? 0);
 
@@ -389,19 +402,18 @@ class GlPostingService
     }
 
     /**
-     * Get appropriate cash account based on payment method
+     * Get appropriate cash account number based on payment method
      */
-    protected function getCashAccountForPaymentMethod(string $paymentMethod): int
+    protected function getCashAccountNumberForPaymentMethod(string $paymentMethod): string
     {
         $mapping = [
-            'cash' => 1010,              // Cash - Head Office
-            'bank_transfer' => 1050,     // Bank Account - Main
-            'card' => 1050,              // Bank Account - Main
-            'pos' => 1050,               // Bank Account - Main
-            'cheque' => 1050,            // Bank Account - Main
+            'cash' => '1010',              // Cash - Head Office
+            'bank_transfer' => '1050',     // Bank Account - Main
+            'card' => '1050',              // Bank Account - Main
+            'pos' => '1050',               // Bank Account - Main
+            'cheque' => '1050',            // Bank Account - Main
         ];
 
-        $accountNumber = $mapping[$paymentMethod] ?? 1010;
-        return GlAccount::where('account_number', (string)$accountNumber)->firstOrFail()->id;
+        return $mapping[$paymentMethod] ?? '1010';
     }
 }
