@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('appraisal_templates', function (Blueprint $table) {
-            $table->string('created_by')->nullable()->change();
-        });
+        if (Schema::hasTable('appraisal_templates') && Schema::hasColumn('appraisal_templates', 'created_by')) {
+            Schema::table('appraisal_templates', function (Blueprint $table) {
+                $table->string('created_by')->nullable()->change();
+            });
+        }
     }
 
     /**
@@ -21,8 +23,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('appraisal_templates', function (Blueprint $table) {
-            $table->string('created_by', 36)->nullable()->change();
-        });
+        if (Schema::hasTable('appraisal_templates') && Schema::hasColumn('appraisal_templates', 'created_by')) {
+            Schema::table('appraisal_templates', function (Blueprint $table) {
+                $table->string('created_by', 36)->nullable()->change();
+            });
+        }
     }
 };

@@ -10,6 +10,12 @@ use App\Models\Sale;
 use App\Models\Purchase;
 use App\Models\Payment;
 use App\Models\StockMovement;
+use App\Models\AccountTransfer;
+use App\Models\ExpenseClaim;
+use App\Models\CreditNote;
+use App\Models\DebitNote;
+use App\Models\ProductionOrder;
+use App\Models\InventoryAdjustment;
 use App\Observers\DepartmentObserver;
 use App\Observers\SalesPageObserver;
 use App\Observers\RoleObserver;
@@ -18,6 +24,12 @@ use App\Observers\SaleObserver;
 use App\Observers\PurchaseObserver;
 use App\Observers\PaymentObserver;
 use App\Observers\StockMovementObserver;
+use App\Observers\AccountTransferObserver;
+use App\Observers\ExpenseClaimObserver;
+use App\Observers\CreditNoteObserver;
+use App\Observers\DebitNoteObserver;
+use App\Observers\ProductionOrderObserver;
+use App\Observers\InventoryAdjustmentObserver;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -51,6 +63,14 @@ class AppServiceProvider extends ServiceProvider
         Purchase::observe(PurchaseObserver::class);
         Payment::observe(PaymentObserver::class);
         StockMovement::observe(StockMovementObserver::class);
+
+        // Register new Manager.io-inspired accounting observers
+        AccountTransfer::observe(AccountTransferObserver::class);
+        ExpenseClaim::observe(ExpenseClaimObserver::class);
+        CreditNote::observe(CreditNoteObserver::class);
+        DebitNote::observe(DebitNoteObserver::class);
+        ProductionOrder::observe(ProductionOrderObserver::class);
+        InventoryAdjustment::observe(InventoryAdjustmentObserver::class);
 
         // Register morph aliases for polymorphic relationships
         Relation::morphMap([

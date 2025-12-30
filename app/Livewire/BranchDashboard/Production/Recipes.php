@@ -9,6 +9,7 @@ use App\Models\Item;
 use App\Models\Product;
 use App\Models\Recipe;
 use App\Services\ProductionAuditService;
+use function is_super_admin;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
@@ -56,13 +57,20 @@ class Recipes extends BaseComponent
 
     public ?int $pendingRecipeId = null;
 
-    public function mount($deptSlug)
+    public function mount($deptSlug = null)
     {
-        $this->dept_slug = $deptSlug;
-        $this->department = Department::where('slug', $deptSlug)->first();
+        // Super Admin can access all departments, so deptSlug is optional
+        if (!is_super_admin() && !$deptSlug) {
+            abort(403, 'Department access required');
+        }
 
-        if (! $this->department) {
-            abort(404, 'Department not found');
+        if ($deptSlug) {
+            $this->dept_slug = $deptSlug;
+            $this->department = Department::where('slug', $deptSlug)->first();
+
+            if (!$this->department) {
+                abort(404, 'Department not found');
+            }
         }
     }
 

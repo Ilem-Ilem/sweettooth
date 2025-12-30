@@ -32,7 +32,7 @@ class SalesWorkflowService
     /**
      * Get the current workflow state for an employee's shift
      */
-    public function getCurrentState(int $employeeId, int $shiftId): string
+    public function getCurrentState(string $employeeId, string|int $shiftId): string
     {
         $shift = Shift::find($shiftId);
         if (!$shift) {
@@ -71,7 +71,7 @@ class SalesWorkflowService
     /**
      * Get the next required action message for the employee
      */
-    public function getNextRequiredAction(int $employeeId, int $shiftId): ?string
+    public function getNextRequiredAction(string $employeeId, string|int $shiftId): ?string
     {
         $currentState = $this->getCurrentState($employeeId, $shiftId);
 
@@ -89,7 +89,7 @@ class SalesWorkflowService
     /**
      * Get all workflow steps with their status
      */
-    public function getWorkflowSteps(int $employeeId, int $shiftId): array
+    public function getWorkflowSteps(string $employeeId, string|int $shiftId): array
     {
         $currentState = $this->getCurrentState($employeeId, $shiftId);
 
@@ -135,7 +135,7 @@ class SalesWorkflowService
     /**
      * Get the progress percentage for the workflow
      */
-    public function getProgressPercentage(int $employeeId, int $shiftId): int
+    public function getProgressPercentage(string $employeeId, string|int $shiftId): int
     {
         $currentState = $this->getCurrentState($employeeId, $shiftId);
 
@@ -153,7 +153,7 @@ class SalesWorkflowService
     /**
      * Mark a workflow step as completed
      */
-    public function completeStep(int $employeeId, int $shiftId, string $step): bool
+    public function completeStep(string $employeeId, string|int $shiftId, string $step): bool
     {
         $shift = Shift::find($shiftId);
         if (!$shift) {
@@ -279,7 +279,7 @@ class SalesWorkflowService
     /**
      * Get active shift for employee on current date
      */
-    public function getActiveShift(int $employeeId): ?Shift
+    public function getActiveShift(string $employeeId): ?Shift
     {
         return Shift::where('employee_id', $employeeId)
             ->where('shift_date', Carbon::today())
@@ -290,7 +290,7 @@ class SalesWorkflowService
     /**
      * Get employee's department slug
      */
-    public function getEmployeeDepartmentSlug(int $employeeId): ?string
+    public function getEmployeeDepartmentSlug(string $employeeId): ?string
     {
         $employee = Employee::find($employeeId);
         if (!$employee || !$employee->department_id) {
@@ -305,8 +305,8 @@ class SalesWorkflowService
      * Log workflow event for audit purposes
      */
     public function logWorkflowEvent(
-        int $employeeId,
-        int $shiftId,
+        string $employeeId,
+        string|int $shiftId,
         string $eventType,
         string $workflowStep,
         ?string $fromState = null,

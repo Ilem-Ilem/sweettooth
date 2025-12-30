@@ -9,6 +9,7 @@ use App\Models\Employee;
 use App\Models\Product;
 use App\Models\ProductType;
 use App\Models\User;
+use function is_super_admin;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
@@ -89,9 +90,16 @@ class Products extends BaseComponent
     #[Url(keep: true)]
     public ?string $dept_slug = null;
 
-    public function mount($deptSlug)
+    public function mount($deptSlug = null)
     {
-        $this->dept_slug = $deptSlug;
+        // Super Admin can access all departments, so deptSlug is optional
+        if (!is_super_admin() && !$deptSlug) {
+            abort(403, 'Department access required');
+        }
+
+        if ($deptSlug) {
+            $this->dept_slug = $deptSlug;
+        }
         $this->employee = Employee::where('id', auth()->id())->first();
     }
 
@@ -116,11 +124,14 @@ class Products extends BaseComponent
 
     protected function getFilteredQuery()
     {
-        $departmentId = Department::where('slug', $this->dept_slug)->firstOrFail()->id;
+        $departmentId = null;
+        if ($this->dept_slug) {
+            $departmentId = Department::where('slug', $this->dept_slug)->firstOrFail()->id;
+        }
 
         return Product::query()
             ->with(['productType.department', 'unitOfMeasure', 'recipes' => function ($query) use ($departmentId) {
-                if (!is_super_admin()) {
+                if (!is_super_admin() && $departmentId) {
                     $query->where('department_id', $departmentId);
                 }
             }])
@@ -208,7 +219,14 @@ class Products extends BaseComponent
     public function render()
     {
         $rows = $this->getFilteredQuery()->paginate($this->quantity ?? 10);
-        $productTypes = ProductType::with('department')->where('department_id', Department::where('slug', $this->dept_slug)->first()->id)->active()->ordered()->get();
+
+        // For Super Admin, show all product types, otherwise filter by department
+        if (is_super_admin()) {
+            $productTypes = ProductType::with('department')->active()->ordered()->get();
+        } else {
+            $department = Department::where('slug', $this->dept_slug)->first();
+            $productTypes = ProductType::with('department')->where('department_id', $department->id)->active()->ordered()->get();
+        }
         $departments = Department::whereHas('category', function ($q) {
             $q->where('name', 'Production');
         })->orderBy('name')->get();
@@ -216,12 +234,12 @@ class Products extends BaseComponent
 
         // Determine employee's department
         if (is_super_admin()) {
-            $employees_department = Department::where('slug', $this->dept_slug)->first();
+            $employees_department = $this->dept_slug ? Department::where('slug', $this->dept_slug)->first() : null;
         } elseif ($this->employee) {
             $employees_department = Department::where('id', $this->employee->department_id)->first();
         } else {
             // Fallback: use the requested department
-            $employees_department = Department::where('slug', $this->dept_slug)->first();
+            $employees_department = $this->dept_slug ? Department::where('slug', $this->dept_slug)->first() : null;
         }
 
         return view('livewire.branch-dashboard.production.products', [

@@ -11,10 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('appraisals', function (Blueprint $table) {
-            $table->foreignId('appraisal_cycle_id')->nullable()->change();
-            $table->foreignId('template_id')->nullable()->change();
-        });
+        if (Schema::hasTable('appraisals')) {
+            Schema::table('appraisals', function (Blueprint $table) {
+                if (Schema::hasColumn('appraisals', 'appraisal_cycle_id')) {
+                    $table->foreignId('appraisal_cycle_id')->nullable()->change();
+                }
+            });
+        }
     }
 
     /**
@@ -22,9 +25,12 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('appraisals', function (Blueprint $table) {
-            $table->foreignId('appraisal_cycle_id')->nullable(false)->change();
-            $table->foreignId('template_id')->nullable(false)->change();
-        });
+        if (Schema::hasTable('appraisals')) {
+            Schema::table('appraisals', function (Blueprint $table) {
+                if (Schema::hasColumn('appraisals', 'appraisal_cycle_id')) {
+                    $table->foreignId('appraisal_cycle_id')->nullable(false)->change();
+                }
+            });
+        }
     }
 };

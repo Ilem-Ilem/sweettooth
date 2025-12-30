@@ -77,7 +77,7 @@ class AccountingPeriod extends Model
     }
 
     // Methods
-    public function close(int $userId, string $notes = null): bool
+    public function close(int $userId, ?string $notes = null): bool
     {
         if ($this->status !== 'open') {
             return false;

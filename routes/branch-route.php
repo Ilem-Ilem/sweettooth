@@ -150,18 +150,26 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
         });
     });
 
+    // Supplier Management routes
+    Route::middleware('role_or_permission:view-suppliers|manage-suppliers')->prefix('suppliers')->name('suppliers.')->group(function () {
+        Route::get('/', \App\Livewire\BranchDashboard\Supplier\SupplierIndex::class)->name('index');
+        Route::middleware('role_or_permission:create-suppliers|manage-suppliers')->get('/create', \App\Livewire\BranchDashboard\Supplier\CreateSupplier::class)->name('create');
+        Route::get('/{supplier}', \App\Livewire\BranchDashboard\Supplier\SupplierDetails::class)->name('show');
+        Route::get('/{supplier}/performance', \App\Livewire\BranchDashboard\Supplier\SupplierPerformance::class)->name('performance');
+    });
+
     // Production routes - Modular System
     Route::prefix('production')->name('production.')->group(function () {
 
         // Helper function to register department routes
         $registerProductionDepartmentRoutes = function () {
             // Products Management
-            Route::get('product-types/{deptSlug}', \App\Livewire\BranchDashboard\Production\ProductTypes::class)->name('product-types');
-            Route::get('products/{deptSlug}', \App\Livewire\BranchDashboard\Production\Products::class)->name('products');
+            Route::get('product-types/{deptSlug?}', \App\Livewire\BranchDashboard\Production\ProductTypes::class)->name('product-types');
+            Route::get('products/{deptSlug?}', \App\Livewire\BranchDashboard\Production\Products::class)->name('products');
 
             // Request Management
             Route::prefix('request')->name('request.')->group(function () {
-                Route::get('/{deptSlug}', \App\Livewire\BranchDashboard\Production\Request\Index::class)->name('index');
+                Route::get('/{deptSlug?}', \App\Livewire\BranchDashboard\Production\Request\Index::class)->name('index');
                 Route::get('/{deptSlug}/create', \App\Livewire\BranchDashboard\Production\Request\Create::class)->name('create');
             });
 
@@ -176,7 +184,7 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
             });
 
             // Recipes
-            Route::get('recipes/{deptSlug}', App\Livewire\BranchDashboard\Production\Recipes::class)->name('recipes.index');
+            Route::get('recipes/{deptSlug?}', App\Livewire\BranchDashboard\Production\Recipes::class)->name('recipes.index');
             Route::get('recipes/{deptSlug}/add', App\Livewire\BranchDashboard\Production\Recipes\Add::class)->name('recipes.add');
             Route::get('recipes/{deptSlug}/{id}/edit', App\Livewire\BranchDashboard\Production\Recipes\Edit::class)->name('recipes.edit');
             Route::get('recipes/{deptSlug}/{id}', App\Livewire\BranchDashboard\Production\RecipeDetail::class)->name('recipes.detail');

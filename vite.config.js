@@ -17,6 +17,9 @@ export default defineConfig({
     https: false,   // disable HTTPS for dev
     host: 'localhost',
     port: 5173,
+    watch: {
+      ignored: ['**/vendor/**']
+    }
   },
 })
 

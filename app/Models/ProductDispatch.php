@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 class ProductDispatch extends Model
 {
     protected $fillable = [
+        'production_request_id',
         'branch_id',
         'daily_produce_id',
         'production_record_id',
@@ -41,6 +42,11 @@ class ProductDispatch extends Model
     ];
 
     // Relationships
+    public function productionRequest(): BelongsTo
+    {
+        return $this->belongsTo(ProductionRequest::class);
+    }
+
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);

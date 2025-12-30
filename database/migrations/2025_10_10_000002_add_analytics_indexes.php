@@ -79,26 +79,54 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('stock_movements', function (Blueprint $table) {
-            $table->dropIndexIfExists('idx_movement_stock_id');
-            $table->dropIndexIfExists('idx_movement_type');
-            $table->dropIndexIfExists('idx_movement_date');
-            $table->dropIndexIfExists('idx_movement_moved_by');
-            $table->dropIndexIfExists('idx_movement_reference_type');
-            $table->dropIndexIfExists('idx_movement_date_type');
-            $table->dropIndexIfExists('idx_movement_stock_date');
+            if ($this->indexExists('stock_movements', 'idx_movement_stock_id')) {
+                $table->dropIndex('idx_movement_stock_id');
+            }
+            if ($this->indexExists('stock_movements', 'idx_movement_type')) {
+                $table->dropIndex('idx_movement_type');
+            }
+            if ($this->indexExists('stock_movements', 'idx_movement_date')) {
+                $table->dropIndex('idx_movement_date');
+            }
+            if ($this->indexExists('stock_movements', 'idx_movement_moved_by')) {
+                $table->dropIndex('idx_movement_moved_by');
+            }
+            if ($this->indexExists('stock_movements', 'idx_movement_reference_type')) {
+                $table->dropIndex('idx_movement_reference_type');
+            }
+            if ($this->indexExists('stock_movements', 'idx_movement_date_type')) {
+                $table->dropIndex('idx_movement_date_type');
+            }
+            if ($this->indexExists('stock_movements', 'idx_movement_stock_date')) {
+                $table->dropIndex('idx_movement_stock_date');
+            }
         });
 
         Schema::table('purchases', function (Blueprint $table) {
-            $table->dropIndexIfExists('idx_purchase_supplier');
-            $table->dropIndexIfExists('idx_purchase_payment_status');
-            $table->dropIndexIfExists('idx_purchase_date');
-            $table->dropIndexIfExists('idx_purchase_branch_date');
-            $table->dropIndexIfExists('idx_purchase_status_date');
+            if ($this->indexExists('purchases', 'idx_purchase_supplier')) {
+                $table->dropIndex('idx_purchase_supplier');
+            }
+            if ($this->indexExists('purchases', 'idx_purchase_payment_status')) {
+                $table->dropIndex('idx_purchase_payment_status');
+            }
+            if ($this->indexExists('purchases', 'idx_purchase_date')) {
+                $table->dropIndex('idx_purchase_date');
+            }
+            if ($this->indexExists('purchases', 'idx_purchase_branch_date')) {
+                $table->dropIndex('idx_purchase_branch_date');
+            }
+            if ($this->indexExists('purchases', 'idx_purchase_status_date')) {
+                $table->dropIndex('idx_purchase_status_date');
+            }
         });
 
         Schema::table('purchase_items', function (Blueprint $table) {
-            $table->dropIndexIfExists('idx_purchase_item_item');
-            $table->dropIndexIfExists('idx_purchase_item_purchase');
+            if ($this->indexExists('purchase_items', 'idx_purchase_item_item')) {
+                $table->dropIndex('idx_purchase_item_item');
+            }
+            if ($this->indexExists('purchase_items', 'idx_purchase_item_purchase')) {
+                $table->dropIndex('idx_purchase_item_purchase');
+            }
         });
     }
 

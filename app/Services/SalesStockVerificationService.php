@@ -15,7 +15,7 @@ class SalesStockVerificationService
     /**
      * Check if stock is verified for a department/shift combination
      */
-    public function isStockVerified(int $departmentId, int $shiftId, ?int $employeeId = null): bool
+    public function isStockVerified(string|int $departmentId, string|int $shiftId, string|int|null $employeeId = null): bool
     {
         $shift = Shift::find($shiftId);
         if (!$shift) {
@@ -41,7 +41,7 @@ class SalesStockVerificationService
     /**
      * Get verification status details
      */
-    public function getVerificationStatus(int $departmentId, int $shiftId): array
+    public function getVerificationStatus(string|int $departmentId, string|int $shiftId): array
     {
         $shift = Shift::find($shiftId);
         if (!$shift) {
@@ -73,7 +73,7 @@ class SalesStockVerificationService
     /**
      * Mark stock verification as completed for an employee
      */
-    public function completeStockVerification(int $employeeId, int $shiftId, int $departmentId): bool
+    public function completeStockVerification(string|int $employeeId, string|int $shiftId, string|int $departmentId): bool
     {
         // Update shift record to track who completed verification
         $shift = Shift::find($shiftId);
@@ -102,7 +102,7 @@ class SalesStockVerificationService
     /**
      * Check if employee can access POS (stock verification completed)
      */
-    public function canAccessPos(int $employeeId, int $shiftId): bool
+    public function canAccessPos(string|int $employeeId, string|int $shiftId): bool
     {
         $shift = Shift::find($shiftId);
         if (!$shift) {
@@ -121,7 +121,7 @@ class SalesStockVerificationService
      * Check stock verification using department and shift info directly
      * (without requiring employee context)
      */
-    public function checkStockVerificationForShift(int $departmentId, string $shiftDate, string $shiftType, ?int $branchId = null): bool
+    public function checkStockVerificationForShift(string|int $departmentId, string $shiftDate, string $shiftType, string|int|null $branchId = null): bool
     {
         $productIds = $this->getDepartmentProductIds($departmentId, $branchId);
 
@@ -141,7 +141,7 @@ class SalesStockVerificationService
     /**
      * Get department product IDs
      */
-    protected function getDepartmentProductIds(int $departmentId, ?int $branchId = null): Collection
+    protected function getDepartmentProductIds(string|int $departmentId, string|int|null $branchId = null): Collection
     {
         $branchId = $branchId ?? current_branch_id();
 
@@ -158,7 +158,7 @@ class SalesStockVerificationService
     /**
      * Get products that still need verification
      */
-    public function getUnverifiedProducts(int $departmentId, int $shiftId): Collection
+    public function getUnverifiedProducts(string|int $departmentId, string|int $shiftId): Collection
     {
         $shift = Shift::find($shiftId);
         if (!$shift) {

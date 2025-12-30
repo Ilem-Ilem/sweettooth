@@ -77,7 +77,7 @@ class RoleSeeder extends Seeder
             'display_order' => 11,
         ]);
         $salesManager->givePermissionTo([
-            'process-sale', 'issue-refund', 'view-daily-sales', 'close-register',
+            'view-sales-dashboard', 'process-sale', 'issue-refund', 'view-daily-sales', 'close-register',
             'view-sales-reports', 'manage-sales-discounts', 'view-sales-transactions',
             'edit-sales-transactions', 'void-sales-transactions', 'manage-payment-methods',
             'view-till-records', 'view-stock-levels', 'view-employees', 'view-departments',
@@ -109,7 +109,8 @@ class RoleSeeder extends Seeder
         $inventoryManager->givePermissionTo([
             'view-stock-levels', 'receive-stock', 'transfer-stock', 'adjust-inventory',
             'create-purchase-order', 'approve-purchase-order', 'view-inventory-reports',
-            'manage-suppliers', 'view-stock-valuation', 'manage-stock-categories',
+            'manage-suppliers', 'view-suppliers', 'create-suppliers', 'edit-suppliers', 'delete-suppliers',
+            'view-stock-valuation', 'manage-stock-categories',
             'view-reorder-levels', 'manage-reorder-levels', 'write-off-stock',
             'view-stock-history', 'view-production-queue', 'view-sales-transactions',
             'view-analytics', 'view-dashboard', 'view-department-reports',
@@ -136,7 +137,7 @@ class RoleSeeder extends Seeder
             'display_order' => 21,
         ]);
         $tillSupervisor->givePermissionTo([
-            'process-sale', 'issue-refund', 'view-daily-sales', 'close-register',
+            'view-sales-dashboard', 'process-sale', 'issue-refund', 'view-daily-sales', 'close-register',
             'view-sales-transactions', 'manage-payment-methods', 'view-till-records',
             'view-analytics', 'view-dashboard',
         ]);
@@ -221,7 +222,7 @@ class RoleSeeder extends Seeder
             'display_order' => 43,
         ]);
         $cashier->givePermissionTo([
-            'process-sale', 'view-daily-sales', 'view-sales-transactions',
+            'view-sales-dashboard', 'process-sale', 'view-daily-sales', 'view-sales-transactions',
             'view-till-records', 'view-stock-levels',
         ]);
 
@@ -232,7 +233,7 @@ class RoleSeeder extends Seeder
             'display_order' => 44,
         ]);
         $cornerStoreManager->givePermissionTo([
-            'process-sale', 'issue-refund', 'view-daily-sales', 'close-register',
+            'view-sales-dashboard', 'process-sale', 'issue-refund', 'view-daily-sales', 'close-register',
             'view-sales-reports', 'view-sales-transactions', 'manage-payment-methods',
             'view-till-records', 'view-stock-levels', 'receive-stock',
         ]);
@@ -247,23 +248,57 @@ class RoleSeeder extends Seeder
             'view-sales-dashboard', 'process-sale', 'view-daily-sales', 'view-stock-levels',
         ]);
 
+        $salesSupervisor = Role::create([
+            'name' => 'Sales Supervisor',
+            'guard_name' => $guard,
+            'description' => 'Sales Department Supervisor',
+            'display_order' => 46,
+        ]);
+        $salesSupervisor->givePermissionTo([
+            'view-sales-dashboard', 'process-sale', 'issue-refund', 'view-daily-sales', 'close-register',
+            'view-sales-reports', 'view-sales-transactions', 'manage-payment-methods',
+            'view-till-records', 'view-stock-levels', 'manage-staff-schedule',
+            'view-analytics', 'view-dashboard',
+        ]);
+
+        $salesAssociate = Role::create([
+            'name' => 'Sales Associate',
+            'guard_name' => $guard,
+            'description' => 'Sales Associate',
+            'display_order' => 47,
+        ]);
+        $salesAssociate->givePermissionTo([
+            'view-sales-dashboard', 'process-sale', 'view-daily-sales', 'view-sales-transactions',
+            'view-stock-levels', 'view-till-records',
+        ]);
+
+        $juniorCashier = Role::create([
+            'name' => 'Junior Cashier',
+            'guard_name' => $guard,
+            'description' => 'Junior Cashier',
+            'display_order' => 48,
+        ]);
+        $juniorCashier->givePermissionTo([
+            'view-sales-dashboard', 'process-sale', 'view-daily-sales', 'view-stock-levels',
+        ]);
+
         $stockController = Role::create([
             'name' => 'Stock Controller',
             'guard_name' => $guard,
             'description' => 'Stock/Inventory Controller',
-            'display_order' => 46,
+            'display_order' => 49,
         ]);
         $stockController->givePermissionTo([
             'view-stock-levels', 'receive-stock', 'transfer-stock', 'adjust-inventory',
             'view-inventory-reports', 'view-reorder-levels', 'view-stock-history',
-            'view-stock-valuation',
+            'view-stock-valuation', 'view-suppliers',
         ]);
 
         $storeKeeper = Role::create([
             'name' => 'Store Keeper',
             'guard_name' => $guard,
             'description' => 'Store Keeper/Warehouse Staff',
-            'display_order' => 47,
+            'display_order' => 50,
         ]);
         $storeKeeper->givePermissionTo([
             'view-stock-levels', 'receive-stock', 'transfer-stock',
@@ -274,7 +309,7 @@ class RoleSeeder extends Seeder
             'name' => 'HR Officer',
             'guard_name' => $guard,
             'description' => 'HR Officer',
-            'display_order' => 48,
+            'display_order' => 51,
         ]);
         $hrOfficer->givePermissionTo([
             'view-employees', 'view-departments', 'view-payroll',
@@ -286,7 +321,7 @@ class RoleSeeder extends Seeder
             'name' => 'Employee',
             'guard_name' => $guard,
             'description' => 'Standard Employee',
-            'display_order' => 50,
+            'display_order' => 52,
         ]);
         $employee->givePermissionTo([
             'view-dashboard', 'view-activity-timeline',

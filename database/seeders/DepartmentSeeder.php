@@ -67,12 +67,14 @@ class DepartmentSeeder extends Seeder
         ];
 
         foreach ($departments as $dept) {
-            Department::create([
-                'name' => $dept['name'],
-                'category_id' => $dept['category_id'],
-                'description' => $dept['description'],
-                'branch_id' => null,
-            ]);
+            Department::updateOrCreate(
+                ['name' => $dept['name']],
+                [
+                    'category_id' => $dept['category_id'],
+                    'description' => $dept['description'],
+                    'branch_id' => null,
+                ]
+            );
         }
 
         $this->command->info('✅ '.count($departments).' departments created successfully.');

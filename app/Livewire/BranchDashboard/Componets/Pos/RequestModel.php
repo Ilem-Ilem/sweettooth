@@ -2,33 +2,54 @@
 
 namespace App\Livewire\BranchDashboard\Componets\Pos;
 
+use App\Events\ProductionRequest\RequestCreated;
+use App\Helpers\Settings;
 use App\Models\Department;
-use App\Models\ItemRequest;
-use App\Models\ItemRequestDetail;
 use App\Models\Product;
-use App\Models\ProductionRequest;
 use App\Models\ProductStock;
-use App\Models\Recipe;
-use App\Models\Shift;
+use App\Models\ProductionRequest;
+use App\Services\CurrencyFormattingService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use TallStackUi\Traits\Interactions;
 
 class RequestModel extends Component
 {
+    use Interactions;
     #[Url(keep: true)]
     public ?string $b_id = null;
 
+    public bool $showModal = false;
+
     public array $requestedItems = []; // ['product_id' => quantity]
+    public $selectedDepartment = null;
+    public $priority = 'normal';
+    public $notes = '';
 
     public $currentShift = null;
 
     public function mount()
     {
+        \Log::info('RequestModel mounted');
+
         $this->determineCurrentShift();
+
+        // Set default to first available production department
+        $departments = Department::whereHas('category', function($query) {
+                $query->where('name', 'Production');
+            })
+            ->get();
+
+        \Log::info('Available departments', ['count' => $departments->count()]);
+
+        if ($departments->count() > 0) {
+            $this->selectedDepartment = $departments->first()->id;
+            \Log::info('Selected department set', ['department_id' => $this->selectedDepartment]);
+        }
     }
 
     public function getBranchId()
@@ -54,14 +75,38 @@ class RequestModel extends Component
         }
     }
 
+    public function openModal()
+    {
+        $this->showModal = true;
+    }
+
+    public function closeModal()
+    {
+        $this->showModal = false;
+    }
+
+    protected $listeners = ['openKitchenRequestModal' => 'openModal'];
+
     public function getProductsProperty(): Collection
     {
         $q = Product::query();
 
-        // if (strlen($this->search)) {
-        //     $q->where('name', 'like', '%' . $this->search . '%');
-        // }
-        return $q->limit(50)->get();
+        if ($this->selectedDepartment) {
+            $q->whereHas('departments', function($query) {
+                $query->where('departments.id', $this->selectedDepartment)
+                      ->where('department_product.is_available', 1);
+            });
+        }
+
+        return $q->active()->limit(50)->get();
+    }
+
+    public function getAvailableDepartmentsProperty(): Collection
+    {
+        return Department::whereHas('category', function($query) {
+                $query->where('name', 'Production');
+            })
+            ->get();
     }
 
     public function addToRequestedItems($id, $quantity = 10)
@@ -83,104 +128,87 @@ class RequestModel extends Component
         }
     }
 
+
+
     public function requestItems()
     {
+        // Basic validation before processing
         if (empty($this->requestedItems)) {
-            session()->flash('error', 'Please select at least one product to request.');
-
+            $this->dispatch('notify', [
+                'type' => 'warning',
+                'message' => 'Please select at least one product to request.'
+            ]);
             return;
         }
 
-        $employee = Auth::guard('web')->user();
-        $branchId = $this->getBranchId();
-        $departmentId = $employee->department_id;
+        if (!$this->selectedDepartment) {
+            $this->dispatch('notify', [
+                'type' => 'warning',
+                'message' => 'Please select a production department.'
+            ]);
+            return;
+        }
+
+        $this->validate([
+            'selectedDepartment' => 'required|exists:departments,id',
+            'requestedItems' => 'required|array|min:1',
+            'priority' => 'required|in:normal,urgent',
+        ]);
+
+        $employee = Auth::user();
 
         try {
-            DB::transaction(function () use ($employee, $branchId, $departmentId) {
-                // Get or create shift for today
-                $shift = Shift::firstOrCreate([
-                    'branch_id' => $branchId,
-                    'department_id' => $departmentId,
-                    'shift_date' => today(),
-                    'shift_type' => $this->currentShift,
-                ], [
-                    'employee_id' => $employee->id,
-                    'shift_number' => Shift::where('shift_date', today())->count() + 1,
-                    'status' => 'active',
-                ]);
+            // Get current active shift for the employee (nullable for POS requests)
+            $currentShift = \App\Models\Shift::where('employee_id', $employee->id)
+                ->where('status', 'active')
+                ->whereDate('shift_date', today())
+                ->first();
 
-                // Create Item Request
-                $department = Department::find($departmentId);
-                $deptCode = strtoupper(substr($department->name ?? 'DEPT', 0, 4));
-                $requestNumber = ItemRequest::generateRequestNumber(
-                    substr($branchId, 0, 8),
-                    $deptCode
-                );
+            // Determine sales department - use employee's department or default to first sales department
+            $salesDepartmentId = $employee->department_id;
+            if (!$salesDepartmentId) {
+                $salesDepartment = Department::whereHas('category', function($query) {
+                    $query->where('name', 'Sales');
+                })->first();
+                $salesDepartmentId = $salesDepartment?->id;
+            }
 
-                $itemRequest = ItemRequest::create([
-                    'branch_id' => $branchId,
-                    'department_id' => $departmentId,
-                    'requested_by' => $employee->id,
-                    'request_number' => $requestNumber,
-                    'request_date' => today(),
-                    'shift' => $this->currentShift,
+            DB::transaction(function () use ($employee, $currentShift, $salesDepartmentId) {
+                // Create Production Request
+                $productionRequest = ProductionRequest::create([
+                    'shift_id' => $currentShift?->id,
+                    'sales_department_id' => $salesDepartmentId,
+                    'production_department_id' => $this->selectedDepartment,
                     'status' => 'pending',
-                    'notes' => 'Request from POS - Kitchen production needed',
+                    'priority' => $this->priority,
+                    'created_by_id' => $employee->id,
+                    'notes' => $this->notes ?: 'Request from POS system - Products: ' . implode(', ', array_keys($this->requestedItems)),
+                    'planned_production_quantity' => array_sum($this->requestedItems), // Total batch quantity
                 ]);
 
-                // Process each requested product with its quantity
-                foreach ($this->requestedItems as $productId => $quantity) {
-                    $product = Product::find($productId);
-
-                    if (! $product) {
-                        continue;
-                    }
-
-                    // Find recipe for this product
-                    $recipe = Recipe::with('ingredients')->where('product_name', $product->name)
-                        ->where('status', 'active')
-                        ->first();
-
-                    if (! $recipe) {
-                        continue; // Skip if no recipe found
-                    }
-
-                    // Use the quantity specified by the user (batches)
-                    $batchesRequested = (int) $quantity;
-                    $recipeYield = (float) $recipe->yield_quantity; // Units per batch
-                    $actualUnitsRequested = $batchesRequested * $recipeYield; // Total units to produce
-
-                    // Create Production Request (store actual units, not batches)
-                    ProductionRequest::create([
-                        'shift_id' => $shift->id,
-                        'item_request_id' => $itemRequest->id,
-                        'recipe_id' => $recipe->id,
-                        'planned_production_quantity' => $actualUnitsRequested, // Actual units (batches × yield)
-                    ]);
-
-                    // Create Item Request Details for each ingredient
-                    foreach ($recipe->ingredients as $ingredient) {
-                        $actualQuantity = $ingredient->getActualQuantityNeeded();
-                        $totalQuantity = $actualQuantity * $batchesRequested; // Ingredients based on batches
-
-                        ItemRequestDetail::create([
-                            'request_id' => $itemRequest->id,
-                            'item_id' => $ingredient->item_id,
-                            'quantity_requested' => $totalQuantity,
-                            'quantity_approved' => 0,
-                            'quantity_dispatched' => 0,
-                            'uom' => $ingredient->uom,
-                            'notes' => "For {$recipe->product_name} production ({$batchesRequested} batches × {$recipeYield} {$recipe->unitOfMeasure?->symbol} = {$actualUnitsRequested} {$recipe->unitOfMeasure?->symbol}) - POS Request",
-                        ]);
-                    }
-                }
+                // Broadcast the request creation
+                broadcast(new RequestCreated($productionRequest))->toOthers();
             });
 
-            session()->flash('success', 'Kitchen production request sent successfully!');
+            $this->toast()->success('Production request sent successfully!')->send();
+
+            // Reset form
             $this->requestedItems = [];
-            $this->dispatch('kitchen-request-sent');
+            $this->notes = '';
+            $this->priority = 'normal';
+            $this->showModal = false;
+
+            $this->dispatch('production-request-created');
         } catch (\Exception $e) {
-            session()->flash('error', 'Error sending request: '.$e->getMessage());
+            \Log::error('Request creation failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            $this->dispatch('notify', [
+                'type' => 'error',
+                'message' => 'Error sending request: ' . $e->getMessage()
+            ]);
         }
     }
 
@@ -205,6 +233,12 @@ class RequestModel extends Component
         $stock->updateCalculatedFields();
 
         return max(0, (float) $stock->closing_quantity);
+    }
+
+    public function getCurrencySymbolProperty(): string
+    {
+        $currencyService = new CurrencyFormattingService();
+        return $currencyService->getSymbol(Settings::currencyLocalization('primary_currency', 'NGN'));
     }
 
     public function render()

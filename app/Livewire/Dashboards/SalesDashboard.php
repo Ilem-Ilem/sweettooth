@@ -5,6 +5,9 @@ namespace App\Livewire\Dashboards;
 use Livewire\Attributes\Layout;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use App\Services\SalesWorkflowService;
+use App\Models\Shift;
+use App\Models\Department;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class SalesDashboard extends BaseDashboard
@@ -14,6 +17,106 @@ class SalesDashboard extends BaseDashboard
         parent::mount();
         // Verify user has sales access
         $this->verifyAccess();
+        // Check and redirect based on workflow state
+        $this->checkWorkflowState();
+    }
+
+    /**
+     * Check workflow state and redirect sales users to appropriate page
+     */
+    private function checkWorkflowState(): void
+    {
+        // Super admins bypass workflow
+        if (is_super_admin() || can_access_all_branches()) {
+            return;
+        }
+
+        $user = auth()->user();
+        if (!$user) {
+            return;
+        }
+
+        // Check if user is in a sales department
+        if (!$this->isSalesEmployee($user)) {
+            return;
+        }
+
+        $branchId = $this->getBranchId();
+        $departmentSlug = $this->getEmployeeDepartmentSlug($user);
+
+        // Get active shift for today
+        $activeShift = Shift::where('employee_id', $user->id)
+            ->where('shift_date', Carbon::today())
+            ->where('status', 'active')
+            ->first();
+
+        // No active shift - redirect to clock-in
+        if (!$activeShift) {
+            $this->redirect(route('branch-dashboard.clock-in-board.today', ['b_id' => $branchId]));
+            return;
+        }
+
+        // Check workflow state using the service
+        $workflowService = app(SalesWorkflowService::class);
+        $currentState = $workflowService->getCurrentState($user->id, $activeShift->id);
+
+        // Redirect based on workflow state
+        if ($currentState === 'stock_opening') {
+            // Need to complete stock opening first
+            $this->redirect(route('branch-dashboard.sales-dashboard.stock-opening.index', [
+                'salesDeptSlug' => $departmentSlug,
+                'b_id' => $branchId
+            ]));
+            return;
+        }
+
+        if ($currentState === 'pos') {
+            // Stock verified, redirect to POS
+            $this->redirect(route('branch-dashboard.sales-dashboard.pos.index', [
+                'salesDeptSlug' => $departmentSlug,
+                'b_id' => $branchId
+            ]));
+            return;
+        }
+
+        if ($currentState === 'shift_closing') {
+            // Need to complete shift closing
+            $this->redirect(route('branch-dashboard.sales-dashboard.shift-closing.index', [
+                'salesDeptSlug' => $departmentSlug,
+                'b_id' => $branchId
+            ]));
+            return;
+        }
+    }
+
+    /**
+     * Check if employee belongs to sales department
+     */
+    private function isSalesEmployee($user): bool
+    {
+        if (!$user->department_id) {
+            return false;
+        }
+
+        $department = Department::find($user->department_id);
+        if (!$department || !$department->category) {
+            return false;
+        }
+
+        return strtolower($department->category->name) === 'sales';
+    }
+
+    /**
+     * Get employee's department slug
+     */
+    private function getEmployeeDepartmentSlug($user): ?string
+    {
+        if (!$user->department_id) {
+            return null;
+        }
+
+        $department = Department::find($user->department_id);
+        return $department?->slug;
     }
 
     /**

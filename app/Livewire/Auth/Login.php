@@ -76,12 +76,20 @@ class Login extends Component
     }
 
     /**
-     * Get the branch for super-admin redirect
-     * Priority: user's last accessed branch > first available branch
+     * Get the branch for redirect after login
+     * Priority: user's assigned branch > last accessed branch > first available branch
      */
     protected function getUserBranch(User $user): ?Branch
     {
-        // If user has a last accessed branch, use it (better UX)
+        // If user has an assigned branch, use it (required for non-super-admins)
+        if ($user->branch_id) {
+            $branch = Branch::find($user->branch_id);
+            if ($branch) {
+                return $branch;
+            }
+        }
+
+        // If user has a last accessed branch, use it (for super admins)
         if ($user->last_accessed_branch_id) {
             $branch = Branch::find($user->last_accessed_branch_id);
             if ($branch) {
@@ -89,7 +97,7 @@ class Login extends Component
             }
         }
 
-        // Otherwise, get the first available branch
+        // Otherwise, get the first available branch (for super admins without preference)
         return Branch::orderBy('created_at')->first();
     }
 

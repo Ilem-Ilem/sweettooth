@@ -23,19 +23,16 @@ class DatabaseSeeder extends Seeder
             // 1. Permissions & Roles (Critical - must be first)
             PermissionSeeder::class,
             RoleSeeder::class,
-            // WebRoleSeeder::class, // Skip - included in RoleSeeder
-            // ProtectedRoleSeeder::class, // Skip - included in RoleSeeder
 
-            // 2. Accounting Setup (Before any other seeders)
-            ChartOfAccountsSeeder::class,
-            AccountingAccessControlSeeder::class,
+            // 2. Leave Types
+            LeaveTypeSeeder::class,
 
             // 3. Super Admin & Users (Before branch setup)
             SuperAdminUserSeeder::class,
+            
             // 4. Branch & Department Setup
             BranchSeeder::class,
             BranchUserSeeder::class,
-            MDSeeder::class,
             UnitOfMeasureSeeder::class,
 
             DepartmentCategorySeeder::class,
@@ -60,8 +57,7 @@ class DatabaseSeeder extends Seeder
             // 10. Additional Roles
             InventoryStoreRolesSeeder::class, // Additional inventory and store management roles
 
-            // 11. Production & UI Pages
-            // ProductionSeeder::class, // Skipped due to unique constraint issues
+            // 11. UI Pages
             DepartmentPageSeeder::class,
             SalesPagesSeeder::class,
         ]);

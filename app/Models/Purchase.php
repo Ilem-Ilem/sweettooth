@@ -14,6 +14,7 @@ class Purchase extends Model
 
     protected $fillable = [
         'branch_id',
+        'supplier_id',
         'recorded_by_id',
         'recorded_by_type',
         'purchase_number',
@@ -79,6 +80,14 @@ class Purchase extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    /**
+     * Get the supplier for this purchase
+     */
+    public function supplier(): BelongsTo
+    {
+        return $this->belongsTo(Supplier::class);
     }
 
     /**

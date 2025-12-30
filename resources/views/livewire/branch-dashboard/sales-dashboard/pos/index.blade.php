@@ -82,6 +82,37 @@
         </div>
     @endif
 
+    <!-- Dispatch Verification Bar -->
+    @php
+        $pendingDispatches = \App\Models\ProductDispatch::whereHas('productionRequest', function($q) {
+            $q->where('created_by_id', auth()->id())
+              ->where('status', 'dispatched');
+        })->where('status', 'pending_verification')->count();
+    @endphp
+    @if($pendingDispatches > 0)
+    <div class="rounded-xl border border-amber-300 dark:border-amber-800 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/30 dark:to-yellow-950/30 p-4">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-full bg-amber-600 text-white flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6"><path fill-rule="evenodd" d="M5.25 9a6.75 6.75 0 0113.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 01-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 11-7.48 0 24.585 24.585 0 01-4.831-1.244.75.75 0 01-.298-1.205A8.217 8.217 0 005.25 9.75V9zm4.502 8.9a2.25 2.25 0 104.496 0 25.057 25.057 0 01-4.496 0z" clip-rule="evenodd"/></svg>
+                </div>
+                <div>
+                    <div class="font-semibold text-zinc-900 dark:text-zinc-100">Pending Dispatch Verification</div>
+                    <div class="text-sm text-zinc-600 dark:text-zinc-400">
+                        {{ $pendingDispatches }} dispatch{{ $pendingDispatches > 1 ? 'es' : '' }} awaiting your approval
+                    </div>
+                </div>
+            </div>
+            <button type="button"
+                @click="$dispatch('open-dispatch-verification')"
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600 text-white hover:bg-amber-500 font-medium shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M10.5 3.75a6.75 6.75 0 100 13.5 6.75 6.75 0 000-13.5zM2.25 10.5a8.25 8.25 0 1114.59 5.28l4.69 4.69a.75.75 0 11-1.06 1.06l-4.69-4.69A8.25 8.25 0 012.25 10.5z" clip-rule="evenodd"/></svg>
+                Review
+            </button>
+        </div>
+    </div>
+    @endif
+
     <!-- Kitchen Request Bar (Above Everything) -->
     <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 p-4">
         <div class="flex items-center justify-between">
@@ -94,7 +125,7 @@
                     <div class="text-sm text-zinc-600 dark:text-zinc-400">Request ingredients or products from production</div>
                 </div>
             </div>
-            <button type="button" @click="showKitchenModal = true" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-600 text-white hover:bg-orange-500 font-medium shadow-sm">
+            <button type="button" @click="$dispatch('openKitchenRequestModal')" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-600 text-white hover:bg-orange-500 font-medium shadow-sm">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M12 4.5a.75.75 0 0 1 .75.75v6h6a.75.75 0 0 1 0 1.5h-6v6a.75.75 0 0 1-1.5 0v-6h-6a.75.75 0 0 1 0-1.5h6v-6A.75.75 0 0 1 12 4.5Z" clip-rule="evenodd"/></svg>
                 New Request
             </button>
@@ -567,7 +598,7 @@
         </div>
     </div>
 
-   <livewire:branch-dashboard.componets.pos.request-model>
+    <livewire:branch-dashboard.componets.pos.request-model key="request-model">
 
     <!-- Receipt Print Modal -->
     <div x-show="showReceipt" x-cloak class="fixed inset-0 z-50 flex items-center justify-center" @pos-receipt-ready.window="showReceipt = true">
@@ -742,6 +773,31 @@
             </div>
         </div>
     @endif
+
+    <!-- Dispatch Verification Modal -->
+    <div
+        x-data="{ showDispatchModal: false }"
+        @open-dispatch-verification.window="showDispatchModal = true"
+        class="relative">
+        @if($pendingDispatches > 0)
+            <div x-show="showDispatchModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div class="absolute inset-0 bg-black/50" @click="showDispatchModal = false"></div>
+                <div class="relative w-full max-w-4xl bg-white dark:bg-zinc-900 rounded-xl shadow-2xl max-h-[90vh] overflow-hidden">
+                    <div class="flex items-center justify-between p-6 border-b border-zinc-200 dark:border-zinc-700">
+                        <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Dispatch Verification</h3>
+                        <button @click="showDispatchModal = false" class="text-zinc-400 hover:text-zinc-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+                        <livewire:branch-dashboard.sales-dashboard.dispatch-verification />
+                    </div>
+                </div>
+            </div>
+        @endif
+    </div>
 
     <style>
         @media print {

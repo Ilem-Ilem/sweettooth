@@ -354,6 +354,9 @@
                 $OPEN_PRODUCTION = false;
                 $OPEN_DEPT = null;
 
+                // For Super Admin, always show production departments
+                $forceShowProduction = $isSuperAdmin;
+
                 // Get user's department for filtering
                 $userDepartment = $employee?->department;
 
@@ -384,16 +387,22 @@
 
             @if ($sidebarService::canSeeProduction($currentUser))
                 @php
-                if ($branchId) {
-                    $departments = \App\Models\Department::where(
-                        fn($q) => $q->where('branch_id', $branchId)->orWhereNull('branch_id'),
-                    )
-                        ->with([
-                            'category',
-                            'pages' => fn($q) => $q->where('is_active', true)->orderBy('order')->orderBy('name'),
-                        ])
-                        ->get()
-                        ->filter(fn($d) => $d->category?->name === 'Production');
+                if ($branchId || $forceShowProduction) {
+                    $query = \App\Models\Department::with([
+                        'category',
+                        'pages' => fn($q) => $q->where('is_active', true)->orderBy('order')->orderBy('name'),
+                    ]);
+
+                    // For Super Admin, show all production departments across all branches
+                    if ($forceShowProduction) {
+                        $query->whereHas('category', fn($q) => $q->where('name', 'Production'));
+                    } else {
+                        // For regular users, filter by branch
+                        $query->where(fn($q) => $q->where('branch_id', $branchId)->orWhereNull('branch_id'))
+                              ->whereHas('category', fn($q) => $q->where('name', 'Production'));
+                    }
+
+                    $departments = $query->get();
 
                     // Filter departments based on user role
                     if (!$sidebarService::isProductionAdminRole($currentUser)) {
@@ -405,7 +414,8 @@
                     $departments = $departments->map(function ($dept) {
                         $dept->pages = $dept->pages->reject(
                             fn($p) => str_contains($p->route_name, 'edit') ||
-                                str_contains($p->route_name, 'detail'),
+                                str_contains($p->route_name, 'detail') ||
+                                str_contains($p->route_name, 'shift-closing'),
                         );
                         return $dept;
                     });
@@ -514,11 +524,7 @@
                     {{ __('My Sales Dashboard') }}
                 </flux:navlist.item>
 
-                <flux:navlist.item icon="clipboard-document-check"
-                    :href="branch_route('branch-dashboard.sales-dashboard.shift-closing.index')"
-                    :current="request()->routeIs('branch-dashboard.sales-dashboard.shift-closing.*')" wire:navigate>
-                    {{ __('Shift Closing') }}
-                </flux:navlist.item>
+
 
                 <flux:navlist.item icon="question-mark-circle"
                     :href="branch_route('branch-dashboard.sales-dashboard.helper')"
@@ -550,18 +556,25 @@
                 $OPEN_SALES = false;
                 $OPEN_SALES_DEPT = null;
 
-                if ($branchId && $sidebarService::canSeeSalesManagement($currentUser)) {
-                    $salesDepartments = \App\Models\Department::where(
-                        fn($q) => $q->where('branch_id', $branchId)->orWhereNull('branch_id'),
-                    )
-                        ->with([
-                            'category',
-                            'pages' => fn($q) => $q->where('is_active', true)->orderBy('order')->orderBy('name'),
-                        ])
-                        ->get()
-                        ->filter(fn($d) => $d->category?->name === 'Sales');
+                if (($branchId || $isSuperAdmin) && $sidebarService::canSeeSalesManagement($currentUser)) {
+                    $query = \App\Models\Department::with([
+                        'category',
+                        'pages' => fn($q) => $q->where('is_active', true)->orderBy('order')->orderBy('name'),
+                    ]);
 
-                    if (!$sidebarService::isSalesAdminRole($currentUser)) {
+                    // For Super Admin, show all sales departments across all branches
+                    if ($isSuperAdmin) {
+                        $query->whereHas('category', fn($q) => $q->where('name', 'Sales'));
+                    } else {
+                        // For regular users, filter by branch
+                        $query->where(fn($q) => $q->where('branch_id', $branchId)->orWhereNull('branch_id'))
+                              ->whereHas('category', fn($q) => $q->where('name', 'Sales'));
+                    }
+
+                    $salesDepartments = $query->get();
+
+                    // Only filter departments for non-Super Admin users
+                    if (!$isSuperAdmin && !$sidebarService::isSalesAdminRole($currentUser)) {
                         if ($userDepartment && $currentUser->hasAnyRole($departmentRestrictedSalesRoles)) {
                             $salesDepartments = $salesDepartments->filter(fn($d) => $d->id === $userDepartment->id);
                         }
@@ -570,7 +583,8 @@
                     $salesDepartments = $salesDepartments->map(function ($dept) {
                         $dept->pages = $dept->pages->reject(
                             fn($p) => str_contains($p->route_name, 'edit') ||
-                                str_contains($p->route_name, 'detail'),
+                                str_contains($p->route_name, 'detail') ||
+                                str_contains($p->route_name, 'shift-closing'),
                         );
                         return $dept;
                     });

@@ -16,10 +16,19 @@ class ProductionRequest extends Model
         'recipe_id',
         'planned_production_quantity',
         'notes',
+        'sales_department_id',
+        'production_department_id',
+        'status',
+        'priority',
+        'created_by_id',
+        'started_at',
+        'completed_at',
     ];
 
     protected $casts = [
         'planned_production_quantity' => 'decimal:2',
+        'started_at' => 'datetime',
+        'completed_at' => 'datetime',
     ];
 
     /**
@@ -62,6 +71,46 @@ class ProductionRequest extends Model
     public function recipe(): BelongsTo
     {
         return $this->belongsTo(Recipe::class)->withDefault();
+    }
+
+    /**
+     * Get the sales department that created this request
+     */
+    public function salesDepartment(): BelongsTo
+    {
+        return $this->belongsTo(Department::class, 'sales_department_id');
+    }
+
+    /**
+     * Get the production department assigned to this request
+     */
+    public function productionDepartment(): BelongsTo
+    {
+        return $this->belongsTo(Department::class, 'production_department_id');
+    }
+
+    /**
+     * Get the user who created this request
+     */
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by_id');
+    }
+
+    /**
+     * Get progress feedback for this request
+     */
+    public function progressFeedback()
+    {
+        return $this->hasMany(ProductionProgressFeedback::class);
+    }
+
+    /**
+     * Get dispatches for this request
+     */
+    public function dispatches()
+    {
+        return $this->hasMany(ProductDispatch::class, 'production_request_id');
     }
 
     /**
@@ -179,8 +228,29 @@ class ProductionRequest extends Model
      */
     public function canBeCancelled(): bool
     {
-        return $this->itemRequest &&
-               $this->itemRequest->status !== 'cancelled' &&
+        // For sales-to-production requests (no itemRequest yet)
+        if (!$this->itemRequest) {
+            return in_array($this->status, ['pending', 'approved']);
+        }
+
+        // For production-to-store requests (has itemRequest)
+        return $this->itemRequest->status !== 'cancelled' &&
                $this->getComputedStatus() !== 'completed';
+    }
+
+    /**
+     * Check if this is a sales-to-production request
+     */
+    public function isSalesToProductionRequest(): bool
+    {
+        return $this->sales_department_id && !$this->item_request_id;
+    }
+
+    /**
+     * Check if this is a production-to-store request
+     */
+    public function isProductionToStoreRequest(): bool
+    {
+        return !is_null($this->item_request_id);
     }
 }

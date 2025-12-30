@@ -9,6 +9,12 @@ use App\Models\Sale;
 use App\Models\Purchase;
 use App\Models\Payment;
 use App\Models\StockMovement;
+use App\Models\AccountTransfer;
+use App\Models\ExpenseClaim;
+use App\Models\CreditNote;
+use App\Models\DebitNote;
+use App\Models\ProductionOrder;
+use App\Models\InventoryAdjustment;
 use Illuminate\Support\Facades\DB;
 use Exception;
 
@@ -399,6 +405,560 @@ class GlPostingService
         }
 
         return $entry->post(auth()->id());
+    }
+
+    /**
+     * Post an account transfer transaction
+     * Debit: To Bank Account GL, Credit: From Bank Account GL
+     */
+    public function postAccountTransfer(AccountTransfer $transfer): bool
+    {
+        try {
+            DB::beginTransaction();
+
+            $period = $this->getCurrentPeriod();
+            if (!$period) {
+                throw new Exception('No open accounting period found');
+            }
+
+            $fromAccount = $transfer->fromBankAccount;
+            $toAccount = $transfer->toBankAccount;
+
+            if (!$fromAccount || !$toAccount) {
+                throw new Exception('Bank accounts not found for transfer');
+            }
+
+            $fromGlAccount = $fromAccount->glAccount ?? $this->getGlAccount('1050');
+            $toGlAccount = $toAccount->glAccount ?? $this->getGlAccount('1050');
+
+            // Debit: To Bank Account
+            GlEntry::create([
+                'gl_account_id' => $toGlAccount->id,
+                'accounting_period_id' => $period->id,
+                'entry_type' => 'transfer',
+                'reference_type' => AccountTransfer::class,
+                'reference_id' => $transfer->id,
+                'reference_number' => "TRF-{$transfer->id}",
+                'description' => "Transfer from {$fromAccount->name} to {$toAccount->name}",
+                'debit' => $transfer->amount,
+                'credit' => 0,
+                'entry_date' => $transfer->transfer_date,
+                'status' => 'draft',
+                'entered_by_id' => auth()->id(),
+            ])->post(auth()->id());
+
+            // Credit: From Bank Account
+            GlEntry::create([
+                'gl_account_id' => $fromGlAccount->id,
+                'accounting_period_id' => $period->id,
+                'entry_type' => 'transfer',
+                'reference_type' => AccountTransfer::class,
+                'reference_id' => $transfer->id,
+                'reference_number' => "TRF-{$transfer->id}",
+                'description' => "Transfer from {$fromAccount->name} to {$toAccount->name}",
+                'debit' => 0,
+                'credit' => $transfer->amount,
+                'entry_date' => $transfer->transfer_date,
+                'status' => 'draft',
+                'entered_by_id' => auth()->id(),
+            ])->post(auth()->id());
+
+            DB::commit();
+            return true;
+        } catch (Exception $e) {
+            DB::rollBack();
+            \Log::error('GL Posting Error - Account Transfer', [
+                'transfer_id' => $transfer->id,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Post an expense claim transaction
+     * Debit: Expense Accounts, Credit: Cash/Bank
+     */
+    public function postExpenseClaim(ExpenseClaim $claim): bool
+    {
+        try {
+            DB::beginTransaction();
+
+            $period = $this->getCurrentPeriod();
+            if (!$period) {
+                throw new Exception('No open accounting period found');
+            }
+
+            // Determine payment account
+            $cashAccount = $claim->paidViaBankAccount?->glAccount
+                ?? $this->getGlAccount('1010');
+
+            // Post each expense item to its respective expense account
+            foreach ($claim->items as $item) {
+                $expenseAccount = $item->glAccount ?? $this->getExpenseAccountForCategory($item->category);
+
+                // Debit: Expense Account
+                GlEntry::create([
+                    'gl_account_id' => $expenseAccount->id,
+                    'accounting_period_id' => $period->id,
+                    'entry_type' => 'expense_claim',
+                    'reference_type' => ExpenseClaim::class,
+                    'reference_id' => $claim->id,
+                    'reference_number' => "EXP-{$claim->id}",
+                    'description' => "Expense Claim - {$item->description}",
+                    'debit' => $item->amount,
+                    'credit' => 0,
+                    'entry_date' => $claim->claim_date,
+                    'status' => 'draft',
+                    'entered_by_id' => auth()->id(),
+                ])->post(auth()->id());
+            }
+
+            // Credit: Cash/Bank for total
+            GlEntry::create([
+                'gl_account_id' => $cashAccount->id,
+                'accounting_period_id' => $period->id,
+                'entry_type' => 'expense_claim',
+                'reference_type' => ExpenseClaim::class,
+                'reference_id' => $claim->id,
+                'reference_number' => "EXP-{$claim->id}",
+                'description' => "Expense Claim Payment - {$claim->employee?->name}",
+                'debit' => 0,
+                'credit' => $claim->total_amount,
+                'entry_date' => $claim->claim_date,
+                'status' => 'draft',
+                'entered_by_id' => auth()->id(),
+            ])->post(auth()->id());
+
+            DB::commit();
+            return true;
+        } catch (Exception $e) {
+            DB::rollBack();
+            \Log::error('GL Posting Error - Expense Claim', [
+                'claim_id' => $claim->id,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Post a credit note transaction (sales return/refund)
+     * Debit: Sales Revenue, Credit: Customer/Cash
+     * If inventory returned: Debit: Inventory, Credit: COGS
+     */
+    public function postCreditNote(CreditNote $creditNote): bool
+    {
+        try {
+            DB::beginTransaction();
+
+            $period = $this->getCurrentPeriod();
+            if (!$period) {
+                throw new Exception('No open accounting period found');
+            }
+
+            $revenueAccount = $this->getGlAccount('4010');
+            $receivableAccount = $this->getGlAccount('1100'); // Accounts Receivable
+            $inventoryAccount = $this->getGlAccount('1220');
+            $cogsAccount = $this->getGlAccount('5010');
+
+            // Debit: Sales Revenue (reducing revenue)
+            GlEntry::create([
+                'gl_account_id' => $revenueAccount->id,
+                'accounting_period_id' => $period->id,
+                'entry_type' => 'credit_note',
+                'reference_type' => CreditNote::class,
+                'reference_id' => $creditNote->id,
+                'reference_number' => $creditNote->credit_note_number,
+                'description' => "Credit Note - {$creditNote->credit_note_number}",
+                'debit' => $creditNote->subtotal,
+                'credit' => 0,
+                'entry_date' => $creditNote->credit_note_date,
+                'status' => 'draft',
+                'entered_by_id' => auth()->id(),
+            ])->post(auth()->id());
+
+            // Credit: Accounts Receivable (reducing what customer owes)
+            GlEntry::create([
+                'gl_account_id' => $receivableAccount->id,
+                'accounting_period_id' => $period->id,
+                'entry_type' => 'credit_note',
+                'reference_type' => CreditNote::class,
+                'reference_id' => $creditNote->id,
+                'reference_number' => $creditNote->credit_note_number,
+                'description' => "Credit Note - {$creditNote->credit_note_number}",
+                'debit' => 0,
+                'credit' => $creditNote->total,
+                'entry_date' => $creditNote->credit_note_date,
+                'status' => 'draft',
+                'entered_by_id' => auth()->id(),
+            ])->post(auth()->id());
+
+            // Reverse COGS if items are returned to inventory
+            $totalCogs = $creditNote->items->sum(function ($item) {
+                return $item->quantity * ($item->product?->cost_price ?? 0);
+            });
+
+            if ($totalCogs > 0) {
+                // Debit: Inventory (adding back)
+                GlEntry::create([
+                    'gl_account_id' => $inventoryAccount->id,
+                    'accounting_period_id' => $period->id,
+                    'entry_type' => 'credit_note_cogs',
+                    'reference_type' => CreditNote::class,
+                    'reference_id' => $creditNote->id,
+                    'reference_number' => $creditNote->credit_note_number,
+                    'description' => "Credit Note Inventory Return - {$creditNote->credit_note_number}",
+                    'debit' => $totalCogs,
+                    'credit' => 0,
+                    'entry_date' => $creditNote->credit_note_date,
+                    'status' => 'draft',
+                    'entered_by_id' => auth()->id(),
+                ])->post(auth()->id());
+
+                // Credit: COGS (reducing cost)
+                GlEntry::create([
+                    'gl_account_id' => $cogsAccount->id,
+                    'accounting_period_id' => $period->id,
+                    'entry_type' => 'credit_note_cogs',
+                    'reference_type' => CreditNote::class,
+                    'reference_id' => $creditNote->id,
+                    'reference_number' => $creditNote->credit_note_number,
+                    'description' => "Credit Note COGS Reversal - {$creditNote->credit_note_number}",
+                    'debit' => 0,
+                    'credit' => $totalCogs,
+                    'entry_date' => $creditNote->credit_note_date,
+                    'status' => 'draft',
+                    'entered_by_id' => auth()->id(),
+                ])->post(auth()->id());
+            }
+
+            DB::commit();
+            return true;
+        } catch (Exception $e) {
+            DB::rollBack();
+            \Log::error('GL Posting Error - Credit Note', [
+                'credit_note_id' => $creditNote->id,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Post a debit note transaction (purchase return)
+     * Debit: Accounts Payable, Credit: Inventory
+     */
+    public function postDebitNote(DebitNote $debitNote): bool
+    {
+        try {
+            DB::beginTransaction();
+
+            $period = $this->getCurrentPeriod();
+            if (!$period) {
+                throw new Exception('No open accounting period found');
+            }
+
+            $apAccount = $this->getGlAccount('2010');
+            $inventoryAccount = $this->getGlAccount('1200');
+
+            // Debit: Accounts Payable (reducing what we owe)
+            GlEntry::create([
+                'gl_account_id' => $apAccount->id,
+                'accounting_period_id' => $period->id,
+                'entry_type' => 'debit_note',
+                'reference_type' => DebitNote::class,
+                'reference_id' => $debitNote->id,
+                'reference_number' => $debitNote->debit_note_number,
+                'description' => "Debit Note - {$debitNote->debit_note_number}",
+                'debit' => $debitNote->total,
+                'credit' => 0,
+                'entry_date' => $debitNote->debit_note_date,
+                'status' => 'draft',
+                'entered_by_id' => auth()->id(),
+            ])->post(auth()->id());
+
+            // Credit: Inventory (reducing inventory)
+            GlEntry::create([
+                'gl_account_id' => $inventoryAccount->id,
+                'accounting_period_id' => $period->id,
+                'entry_type' => 'debit_note',
+                'reference_type' => DebitNote::class,
+                'reference_id' => $debitNote->id,
+                'reference_number' => $debitNote->debit_note_number,
+                'description' => "Debit Note Inventory Return - {$debitNote->debit_note_number}",
+                'debit' => 0,
+                'credit' => $debitNote->subtotal,
+                'entry_date' => $debitNote->debit_note_date,
+                'status' => 'draft',
+                'entered_by_id' => auth()->id(),
+            ])->post(auth()->id());
+
+            DB::commit();
+            return true;
+        } catch (Exception $e) {
+            DB::rollBack();
+            \Log::error('GL Posting Error - Debit Note', [
+                'debit_note_id' => $debitNote->id,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Post a production order transaction
+     * Debit: Finished Goods Inventory, Credit: Raw Materials + Labor + Overhead
+     */
+    public function postProductionOrder(ProductionOrder $order): bool
+    {
+        try {
+            DB::beginTransaction();
+
+            $period = $this->getCurrentPeriod();
+            if (!$period) {
+                throw new Exception('No open accounting period found');
+            }
+
+            $finishedGoodsAccount = $this->getGlAccount('1220'); // Finished Goods
+            $rawMaterialsAccount = $this->getGlAccount('1200'); // Raw Materials
+            $wipAccount = $this->getGlAccount('1210'); // Work in Progress (if exists)
+            $laborAccount = $this->getGlAccount('6100'); // Direct Labor (if exists)
+            $overheadAccount = $this->getGlAccount('6200'); // Manufacturing Overhead (if exists)
+
+            // Debit: Finished Goods Inventory
+            GlEntry::create([
+                'gl_account_id' => $finishedGoodsAccount->id,
+                'accounting_period_id' => $period->id,
+                'entry_type' => 'production',
+                'reference_type' => ProductionOrder::class,
+                'reference_id' => $order->id,
+                'reference_number' => $order->order_number,
+                'description' => "Production Output - {$order->order_number}",
+                'debit' => $order->total_cost,
+                'credit' => 0,
+                'entry_date' => $order->completed_date ?? now(),
+                'status' => 'draft',
+                'entered_by_id' => auth()->id(),
+            ])->post(auth()->id());
+
+            // Credit: Raw Materials (material cost)
+            if ($order->total_material_cost > 0) {
+                GlEntry::create([
+                    'gl_account_id' => $rawMaterialsAccount->id,
+                    'accounting_period_id' => $period->id,
+                    'entry_type' => 'production',
+                    'reference_type' => ProductionOrder::class,
+                    'reference_id' => $order->id,
+                    'reference_number' => $order->order_number,
+                    'description' => "Production Materials Used - {$order->order_number}",
+                    'debit' => 0,
+                    'credit' => $order->total_material_cost,
+                    'entry_date' => $order->completed_date ?? now(),
+                    'status' => 'draft',
+                    'entered_by_id' => auth()->id(),
+                ])->post(auth()->id());
+            }
+
+            // Credit: Labor (if applicable)
+            if ($order->total_labor_cost > 0) {
+                try {
+                    GlEntry::create([
+                        'gl_account_id' => $laborAccount->id,
+                        'accounting_period_id' => $period->id,
+                        'entry_type' => 'production',
+                        'reference_type' => ProductionOrder::class,
+                        'reference_id' => $order->id,
+                        'reference_number' => $order->order_number,
+                        'description' => "Production Labor - {$order->order_number}",
+                        'debit' => 0,
+                        'credit' => $order->total_labor_cost,
+                        'entry_date' => $order->completed_date ?? now(),
+                        'status' => 'draft',
+                        'entered_by_id' => auth()->id(),
+                    ])->post(auth()->id());
+                } catch (Exception $e) {
+                    // If labor account doesn't exist, add to materials
+                    \Log::warning('Labor account not found, adding to materials', ['order_id' => $order->id]);
+                }
+            }
+
+            // Credit: Overhead (if applicable)
+            if ($order->total_overhead_cost > 0) {
+                try {
+                    GlEntry::create([
+                        'gl_account_id' => $overheadAccount->id,
+                        'accounting_period_id' => $period->id,
+                        'entry_type' => 'production',
+                        'reference_type' => ProductionOrder::class,
+                        'reference_id' => $order->id,
+                        'reference_number' => $order->order_number,
+                        'description' => "Production Overhead - {$order->order_number}",
+                        'debit' => 0,
+                        'credit' => $order->total_overhead_cost,
+                        'entry_date' => $order->completed_date ?? now(),
+                        'status' => 'draft',
+                        'entered_by_id' => auth()->id(),
+                    ])->post(auth()->id());
+                } catch (Exception $e) {
+                    \Log::warning('Overhead account not found', ['order_id' => $order->id]);
+                }
+            }
+
+            DB::commit();
+            return true;
+        } catch (Exception $e) {
+            DB::rollBack();
+            \Log::error('GL Posting Error - Production Order', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Post an inventory adjustment transaction
+     */
+    public function postInventoryAdjustmentEntry(InventoryAdjustment $adjustment): bool
+    {
+        try {
+            DB::beginTransaction();
+
+            $period = $this->getCurrentPeriod();
+            if (!$period) {
+                throw new Exception('No open accounting period found');
+            }
+
+            $inventoryAccount = $this->getGlAccount('1220');
+            $adjustmentAccount = $this->getAdjustmentAccountForType($adjustment->type);
+
+            $amount = abs($adjustment->cost_impact);
+
+            if ($adjustment->isDecrease()) {
+                // Inventory decreased: Debit Adjustment Account, Credit Inventory
+                GlEntry::create([
+                    'gl_account_id' => $adjustmentAccount->id,
+                    'accounting_period_id' => $period->id,
+                    'entry_type' => 'adjustment',
+                    'reference_type' => InventoryAdjustment::class,
+                    'reference_id' => $adjustment->id,
+                    'reference_number' => $adjustment->adjustment_number,
+                    'description' => ucfirst($adjustment->type) . " Adjustment - {$adjustment->adjustment_number}",
+                    'debit' => $amount,
+                    'credit' => 0,
+                    'entry_date' => $adjustment->adjustment_date,
+                    'status' => 'draft',
+                    'entered_by_id' => auth()->id(),
+                ])->post(auth()->id());
+
+                GlEntry::create([
+                    'gl_account_id' => $inventoryAccount->id,
+                    'accounting_period_id' => $period->id,
+                    'entry_type' => 'adjustment',
+                    'reference_type' => InventoryAdjustment::class,
+                    'reference_id' => $adjustment->id,
+                    'reference_number' => $adjustment->adjustment_number,
+                    'description' => "Inventory Reduction - {$adjustment->adjustment_number}",
+                    'debit' => 0,
+                    'credit' => $amount,
+                    'entry_date' => $adjustment->adjustment_date,
+                    'status' => 'draft',
+                    'entered_by_id' => auth()->id(),
+                ])->post(auth()->id());
+            } else {
+                // Inventory increased: Debit Inventory, Credit Adjustment Account
+                GlEntry::create([
+                    'gl_account_id' => $inventoryAccount->id,
+                    'accounting_period_id' => $period->id,
+                    'entry_type' => 'adjustment',
+                    'reference_type' => InventoryAdjustment::class,
+                    'reference_id' => $adjustment->id,
+                    'reference_number' => $adjustment->adjustment_number,
+                    'description' => "Inventory Increase - {$adjustment->adjustment_number}",
+                    'debit' => $amount,
+                    'credit' => 0,
+                    'entry_date' => $adjustment->adjustment_date,
+                    'status' => 'draft',
+                    'entered_by_id' => auth()->id(),
+                ])->post(auth()->id());
+
+                GlEntry::create([
+                    'gl_account_id' => $adjustmentAccount->id,
+                    'accounting_period_id' => $period->id,
+                    'entry_type' => 'adjustment',
+                    'reference_type' => InventoryAdjustment::class,
+                    'reference_id' => $adjustment->id,
+                    'reference_number' => $adjustment->adjustment_number,
+                    'description' => ucfirst($adjustment->type) . " Adjustment - {$adjustment->adjustment_number}",
+                    'debit' => 0,
+                    'credit' => $amount,
+                    'entry_date' => $adjustment->adjustment_date,
+                    'status' => 'draft',
+                    'entered_by_id' => auth()->id(),
+                ])->post(auth()->id());
+            }
+
+            DB::commit();
+            return true;
+        } catch (Exception $e) {
+            DB::rollBack();
+            \Log::error('GL Posting Error - Inventory Adjustment', [
+                'adjustment_id' => $adjustment->id,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Get expense account based on category
+     */
+    protected function getExpenseAccountForCategory(string $category): GlAccount
+    {
+        $mapping = [
+            'travel' => '6300',         // Travel Expenses
+            'meals' => '6310',          // Meals & Entertainment
+            'supplies' => '6320',       // Office Supplies
+            'communication' => '6330',  // Communication
+            'accommodation' => '6340',  // Accommodation
+            'professional' => '6350',   // Professional Services
+            'other' => '6900',          // Other Expenses
+        ];
+
+        $accountNumber = $mapping[$category] ?? '6900';
+
+        try {
+            return $this->getGlAccount($accountNumber);
+        } catch (Exception $e) {
+            // Fallback to general expense account
+            return $this->getGlAccount('6900');
+        }
+    }
+
+    /**
+     * Get adjustment account based on adjustment type
+     */
+    protected function getAdjustmentAccountForType(string $type): GlAccount
+    {
+        $mapping = [
+            'damage' => '5020',      // Damage Loss
+            'shrinkage' => '5030',   // Shrinkage Loss
+            'write_off' => '5040',   // Write-off Loss
+            'adjustment' => '5050',  // Inventory Adjustment
+            'count' => '5050',       // Stock Count Adjustment
+            'transfer' => '5050',    // Transfer Adjustment
+            'production' => '5010',  // Production COGS
+        ];
+
+        $accountNumber = $mapping[$type] ?? '5050';
+
+        try {
+            return $this->getGlAccount($accountNumber);
+        } catch (Exception $e) {
+            // Fallback to general adjustment account
+            return $this->getGlAccount('5020');
+        }
     }
 
     /**

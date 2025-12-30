@@ -5,9 +5,15 @@ namespace App\Livewire\BranchDashboard\Production\Request;
 use App\Models\ProductionRequest;
 use App\Models\Shift;
 use App\Models\ItemRequest;
+use App\Models\ItemRequestDetail;
 use App\Models\Department;
+use App\Models\Recipe;
+use App\Events\ProductionRequest\RequestApproved;
+use App\Events\ProductionRequest\RequestRejected;
+use App\Events\ProductionRequest\RequestSentToStore;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use function is_super_admin;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -30,19 +36,33 @@ class Index extends Component
     public $search = '';
     public $statusFilter = 'all';
     public $shiftFilter = 'all';
+    public $requestTypeFilter = 'all'; // all, sales_to_production, production_to_store
 
     // Modal properties
     public $showViewModal = false;
     public $viewingRequest = null;
     public $requestItems = [];
 
-    public function mount($deptSlug)
-    {
-        $this->dept_slug = $deptSlug;
-        $this->department = Department::where('slug', $deptSlug)->first();
+    // Assign recipe modal
+    public $showAssignRecipeModal = false;
+    public $assigningRequestId = null;
+    public $selectedRecipeId = null;
+    public $availableRecipes = [];
 
-        if (!$this->department) {
-            abort(404, 'Department not found');
+    public function mount($deptSlug = null)
+    {
+        // Super Admin can access all departments, so deptSlug is optional
+        if (!is_super_admin() && !$deptSlug) {
+            abort(403, 'Department access required');
+        }
+
+        if ($deptSlug) {
+            $this->dept_slug = $deptSlug;
+            $this->department = Department::where('slug', $deptSlug)->first();
+
+            if (!$this->department) {
+                abort(404, 'Department not found');
+            }
         }
     }
 
@@ -70,26 +90,61 @@ class Index extends Component
             'shift',
             'itemRequest.requestDetails.item',
             'itemRequest.department',
-            'itemRequest.requester'
+            'itemRequest.requester',
+            'salesDepartment',
+            'productionDepartment',
+            'createdBy'
         ])
-            ->whereHas('itemRequest', function ($q) use ($branchId) {
-                $q->where('branch_id', $branchId)
-                  ->where('department_id', $this->department->id);
+            ->where(function ($q) use ($branchId) {
+                // Include traditional item requests
+                $q->whereHas('itemRequest', function ($itemQuery) use ($branchId) {
+                    $itemQuery->where('branch_id', $branchId);
+                    if (!is_super_admin()) {
+                        $itemQuery->where('department_id', $this->department->id);
+                    }
+                })
+                // OR include direct POS production requests
+                ->orWhere(function ($posQuery) use ($branchId) {
+                    $posQuery->whereNull('item_request_id')
+                             ->whereHas('productionDepartment', function ($deptQuery) use ($branchId) {
+                                 $deptQuery->whereNull('branch_id')->orWhere('branch_id', $branchId);
+                             });
+                    if (!is_super_admin()) {
+                        $posQuery->where('production_department_id', $this->department->id);
+                    }
+                });
             })
             ->findOrFail($requestId);
 
         $this->viewingRequest = $request;
         $this->requestItems = [];
 
-        // Prepare items data
-        foreach ($request->itemRequest->requestDetails as $detail) {
+        // Handle different request types
+        if ($request->itemRequest) {
+            // Traditional item request workflow
+            foreach ($request->itemRequest->requestDetails as $detail) {
+                $this->requestItems[] = [
+                    'item_name' => $detail->item->name ?? 'N/A',
+                    'quantity_requested' => $detail->quantity_requested,
+                    'quantity_approved' => $detail->quantity_approved,
+                    'quantity_dispatched' => $detail->quantity_dispatched,
+                    'uom' => $detail->uom ?? $detail->item->unitOfMeasure?->symbol ?? '',
+                    'status' => $this->getItemStatus($detail),
+                ];
+            }
+        } else {
+            // POS request - we don't have detailed item breakdown
+            // Show the total quantity as a single line item
             $this->requestItems[] = [
-                'item_name' => $detail->item->name ?? 'N/A',
-                'quantity_requested' => $detail->quantity_requested,
-                'quantity_approved' => $detail->quantity_approved,
-                'quantity_dispatched' => $detail->quantity_dispatched,
-                'uom' => $detail->uom ?? $detail->item->unitOfMeasure?->symbol ?? '',
-                'status' => $this->getItemStatus($detail),
+                'item_name' => 'POS Production Request',
+                'quantity_requested' => $request->planned_production_quantity,
+                'quantity_approved' => $request->planned_production_quantity,
+                'quantity_dispatched' => 0, // Would need to calculate from dispatches
+                'uom' => 'units',
+                'status' => [
+                    'label' => 'POS Request',
+                    'class' => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                ],
             ];
         }
 
@@ -131,6 +186,250 @@ class Index extends Component
         $this->requestItems = [];
     }
 
+    /**
+     * Approve a sales-to-production request
+     */
+    public function approveRequest($requestId)
+    {
+        $branchId = $this->getBranchId();
+
+        try {
+            DB::transaction(function () use ($requestId, $branchId) {
+                $request = ProductionRequest::with(['salesDepartment', 'productionDepartment', 'createdBy'])
+                    ->findOrFail($requestId);
+
+                // Validate this is a sales-to-production request
+                if (!$request->sales_department_id) {
+                    throw new \Exception('This is not a sales-to-production request.');
+                }
+
+                if (!in_array($request->status, ['pending'])) {
+                    throw new \Exception('This request cannot be approved. Current status: ' . $request->status);
+                }
+
+                $request->update([
+                    'status' => 'approved',
+                    'started_at' => now(),
+                ]);
+
+                // Broadcast approval event if the class exists
+                if (class_exists(RequestApproved::class)) {
+                    broadcast(new RequestApproved($request))->toOthers();
+                }
+            });
+
+            $this->toast()->success('Request approved successfully. Sales team has been notified.')->send();
+            $this->closeViewModal();
+        } catch (\Exception $e) {
+            $this->toast()->error('Error approving request: ' . $e->getMessage())->send();
+        }
+    }
+
+    /**
+     * Reject a sales-to-production request
+     */
+    public function rejectRequest($requestId, $reason = null)
+    {
+        $branchId = $this->getBranchId();
+
+        try {
+            DB::transaction(function () use ($requestId, $reason) {
+                $request = ProductionRequest::findOrFail($requestId);
+
+                if (!in_array($request->status, ['pending', 'approved'])) {
+                    throw new \Exception('This request cannot be rejected.');
+                }
+
+                $request->update([
+                    'status' => 'rejected',
+                    'notes' => $request->notes . ($reason ? "\n\nRejection Reason: {$reason}" : ''),
+                ]);
+
+                // Broadcast rejection event if the class exists
+                if (class_exists(RequestRejected::class)) {
+                    broadcast(new RequestRejected($request))->toOthers();
+                }
+            });
+
+            $this->toast()->success('Request rejected. Sales team has been notified.')->send();
+            $this->closeViewModal();
+        } catch (\Exception $e) {
+            $this->toast()->error('Error rejecting request: ' . $e->getMessage())->send();
+        }
+    }
+
+    /**
+     * Send request to store/inventory for raw materials
+     */
+    public function sendToStore($requestId)
+    {
+        $branchId = $this->getBranchId();
+
+        try {
+            DB::transaction(function () use ($requestId, $branchId) {
+                $request = ProductionRequest::with(['recipe.ingredients.item'])
+                    ->findOrFail($requestId);
+
+                if (!$request->recipe) {
+                    throw new \Exception('Please assign a recipe before sending to store.');
+                }
+
+                if (!in_array($request->status, ['approved', 'pending'])) {
+                    throw new \Exception('Request must be approved first.');
+                }
+
+                // Calculate ingredients needed based on recipe and planned quantity
+                $batchSize = (int) ceil($request->planned_production_quantity / ($request->recipe->yield_quantity ?: 1));
+                $ingredientsNeeded = $request->recipe->calculateIngredientsForBatch($batchSize);
+
+                if (empty($ingredientsNeeded)) {
+                    throw new \Exception('No ingredients found in the recipe.');
+                }
+
+                // Create item request to inventory/store
+                $deptCode = strtoupper(substr($this->department->name ?? 'PROD', 0, 4));
+                $requestNumber = ItemRequest::generateRequestNumber(
+                    substr($branchId, 0, 8),
+                    $deptCode
+                );
+
+                $employee = is_super_admin() ? auth()->user() : Auth::guard('web')->user();
+
+                $itemRequest = ItemRequest::create([
+                    'branch_id' => $branchId,
+                    'department_id' => $this->department->id,
+                    'request_number' => $requestNumber,
+                    'requested_by_id' => $employee->id,
+                    'requested_by_type' => get_class($employee),
+                    'request_date' => today(),
+                    'status' => 'pending',
+                    'notes' => "Raw materials for Production Request #{$request->id}",
+                ]);
+
+                // Add ingredients as request details
+                foreach ($ingredientsNeeded as $ingredient) {
+                    ItemRequestDetail::create([
+                        'request_id' => $itemRequest->id,
+                        'item_id' => $ingredient['item_id'],
+                        'quantity_requested' => $ingredient['quantity'],
+                        'uom' => $ingredient['uom'],
+                        'notes' => $ingredient['notes'] ?? null,
+                    ]);
+                }
+
+                // Link item request to production request
+                $request->update([
+                    'item_request_id' => $itemRequest->id,
+                    'status' => 'in_progress',
+                ]);
+
+                // Broadcast event if the class exists
+                if (class_exists(RequestSentToStore::class)) {
+                    broadcast(new RequestSentToStore($request, $itemRequest))->toOthers();
+                }
+            });
+
+            $this->toast()->success('Request sent to store. Raw materials request created.')->send();
+            $this->closeViewModal();
+        } catch (\Exception $e) {
+            $this->toast()->error('Error sending to store: ' . $e->getMessage())->send();
+        }
+    }
+
+    /**
+     * Mark request as completed
+     */
+    public function completeRequest($requestId)
+    {
+        try {
+            DB::transaction(function () use ($requestId) {
+                $request = ProductionRequest::findOrFail($requestId);
+
+                if (!in_array($request->status, ['approved', 'in_progress', 'quality_check'])) {
+                    throw new \Exception('Request must be in progress to complete.');
+                }
+
+                $request->update([
+                    'status' => 'completed',
+                    'completed_at' => now(),
+                ]);
+            });
+
+            $this->toast()->success('Request marked as completed.')->send();
+            $this->closeViewModal();
+        } catch (\Exception $e) {
+            $this->toast()->error('Error completing request: ' . $e->getMessage())->send();
+        }
+    }
+
+    /**
+     * Open recipe assignment modal
+     */
+    public function openAssignRecipeModal($requestId)
+    {
+        $this->assigningRequestId = $requestId;
+        $this->selectedRecipeId = null;
+
+        // Find the request to determine the correct department for recipes
+        $request = ProductionRequest::find($requestId);
+
+        // Use production_department_id if available, otherwise use current department
+        $deptId = $request?->production_department_id ?? $this->department?->id;
+
+        // Load available recipes for the production department
+        $this->availableRecipes = Recipe::where('department_id', $deptId)
+            ->where('status', 'active')
+            ->orderBy('product_name')
+            ->get();
+
+        $this->showAssignRecipeModal = true;
+    }
+
+    /**
+     * Assign recipe to request
+     */
+    public function assignRecipe()
+    {
+        $this->validate([
+            'selectedRecipeId' => 'required|exists:recipes,id',
+        ]);
+
+        try {
+            $request = ProductionRequest::findOrFail($this->assigningRequestId);
+            $request->update(['recipe_id' => $this->selectedRecipeId]);
+
+            $this->showAssignRecipeModal = false;
+            $this->assigningRequestId = null;
+            $this->selectedRecipeId = null;
+            $this->availableRecipes = [];
+
+            $this->toast()->success('Recipe assigned successfully.')->send();
+        } catch (\Exception $e) {
+            $this->toast()->error('Error assigning recipe: ' . $e->getMessage())->send();
+        }
+    }
+
+    public function closeAssignRecipeModal()
+    {
+        $this->showAssignRecipeModal = false;
+        $this->assigningRequestId = null;
+        $this->selectedRecipeId = null;
+        $this->availableRecipes = [];
+    }
+
+    /**
+     * Get request type label
+     */
+    public function getRequestType(ProductionRequest $request): string
+    {
+        if ($request->sales_department_id && !$request->item_request_id) {
+            return 'sales_to_production';
+        } elseif ($request->item_request_id) {
+            return 'production_to_store';
+        }
+        return 'other';
+    }
+
     public function cancelRequest($requestId)
     {
         $branchId = $this->getBranchId();
@@ -138,9 +437,24 @@ class Index extends Component
         try {
             DB::transaction(function () use ($requestId, $branchId) {
                 $request = ProductionRequest::with('itemRequest')
-                    ->whereHas('itemRequest', function ($q) use ($branchId) {
-                        $q->where('branch_id', $branchId)
-                          ->where('department_id', $this->department->id);
+                    ->where(function ($q) use ($branchId) {
+                        // Include traditional item requests
+                        $q->whereHas('itemRequest', function ($itemQuery) use ($branchId) {
+                            $itemQuery->where('branch_id', $branchId);
+                            if (!is_super_admin()) {
+                                $itemQuery->where('department_id', $this->department->id);
+                            }
+                        })
+                        // OR include direct POS production requests
+                        ->orWhere(function ($posQuery) use ($branchId) {
+                            $posQuery->whereNull('item_request_id')
+                                     ->whereHas('productionDepartment', function ($deptQuery) use ($branchId) {
+                                         $deptQuery->whereNull('branch_id')->orWhere('branch_id', $branchId);
+                                     });
+                            if (!is_super_admin()) {
+                                $posQuery->where('production_department_id', $this->department->id);
+                            }
+                        });
                     })
                     ->findOrFail($requestId);
 
@@ -148,8 +462,14 @@ class Index extends Component
                     throw new \Exception('This request cannot be cancelled.');
                 }
 
-                // Update the item request status to cancelled
-                $request->itemRequest->update(['status' => 'cancelled']);
+                // Handle cancellation based on request type
+                if ($request->itemRequest) {
+                    // Traditional item request - update itemRequest status
+                    $request->itemRequest->update(['status' => 'cancelled']);
+                } else {
+                    // POS request - update production request status directly
+                    $request->update(['status' => 'cancelled']);
+                }
             });
 
             $this->toast()->success('Request cancelled successfully.')->send();
@@ -163,27 +483,121 @@ class Index extends Component
     {
         $branchId = $this->getBranchId();
 
-        $query = ProductionRequest::with(['recipe', 'shift', 'itemRequest.requestDetails'])
-            ->whereHas('itemRequest', function ($q) use ($branchId) {
-                $q->where('branch_id', $branchId)
-                  ->where('department_id', $this->department->id);
+        $query = ProductionRequest::with([
+                'recipe',
+                'shift',
+                'itemRequest.requestDetails.item',
+                'salesDepartment',
+                'productionDepartment',
+                'createdBy'
+            ])
+            ->where(function ($q) use ($branchId) {
+                // Include traditional item requests
+                $q->whereHas('itemRequest', function ($itemQuery) use ($branchId) {
+                    $itemQuery->where('branch_id', $branchId);
+                    // Only filter by department if not Super Admin
+                    if (!is_super_admin()) {
+                        $itemQuery->where('department_id', $this->department->id);
+                    }
+                })
+                // OR include direct POS/Sales production requests (no itemRequest yet)
+                ->orWhere(function ($posQuery) use ($branchId) {
+                    $posQuery->whereNull('item_request_id');
+                    // For POS/Sales requests, allow departments that are either global or belong to current branch
+                    $posQuery->where(function ($deptQuery) use ($branchId) {
+                        $deptQuery->whereHas('productionDepartment', function ($q) use ($branchId) {
+                            $q->whereNull('branch_id')->orWhere('branch_id', $branchId);
+                        });
+                    });
+                    // Only filter by production department if not Super Admin
+                    if (!is_super_admin() && $this->department) {
+                        $posQuery->where('production_department_id', $this->department->id);
+                    }
+                });
             });
+
+        // Apply request type filter
+        if ($this->requestTypeFilter === 'sales_to_production') {
+            $query->whereNotNull('sales_department_id')->whereNull('item_request_id');
+        } elseif ($this->requestTypeFilter === 'production_to_store') {
+            $query->whereNotNull('item_request_id');
+        }
 
         // Apply status filter
         if ($this->statusFilter !== 'all') {
-            $query->whereHas('itemRequest', function ($q) {
-                if ($this->statusFilter === 'pending') {
-                    $q->where('status', 'pending');
-                } elseif ($this->statusFilter === 'approved') {
-                    $q->where('status', 'approved');
-                } elseif ($this->statusFilter === 'completed') {
-                    $q->where('status', 'completed');
-                } elseif ($this->statusFilter === 'cancelled') {
-                    $q->where('status', 'cancelled');
-                } elseif ($this->statusFilter === 'partially_dispatched') {
-                    $q->where('status', 'partially_dispatched');
-                }
-            });
+            if ($this->statusFilter === 'pending') {
+                $query->where(function ($q) {
+                    // For traditional requests: check itemRequest status
+                    $q->whereHas('itemRequest', function ($itemQ) {
+                        $itemQ->where('status', 'pending');
+                    })
+                    // For POS requests: use production request status directly
+                    ->orWhere(function ($posQ) {
+                        $posQ->whereNull('item_request_id')
+                             ->where('status', 'pending');
+                    });
+                });
+            } elseif ($this->statusFilter === 'approved') {
+                $query->where(function ($q) {
+                    $q->whereHas('itemRequest', function ($itemQ) {
+                        $itemQ->where('status', 'approved');
+                    })
+                    ->orWhere(function ($posQ) {
+                        $posQ->whereNull('item_request_id')
+                             ->where('status', 'approved');
+                    });
+                });
+            } elseif ($this->statusFilter === 'completed') {
+                $query->where(function ($q) {
+                    $q->whereHas('itemRequest', function ($itemQ) {
+                        $itemQ->where('status', 'completed');
+                    })
+                    ->orWhere(function ($posQ) {
+                        $posQ->whereNull('item_request_id')
+                             ->where('status', 'completed');
+                    });
+                });
+            } elseif ($this->statusFilter === 'cancelled') {
+                $query->where(function ($q) {
+                    $q->whereHas('itemRequest', function ($itemQ) {
+                        $itemQ->where('status', 'cancelled');
+                    })
+                    ->orWhere(function ($posQ) {
+                        $posQ->whereNull('item_request_id')
+                             ->where('status', 'cancelled');
+                    });
+                });
+            } elseif ($this->statusFilter === 'partially_dispatched') {
+                $query->where(function ($q) {
+                    $q->whereHas('itemRequest', function ($itemQ) {
+                        $itemQ->where('status', 'partially_dispatched');
+                    })
+                    ->orWhere(function ($posQ) {
+                        $posQ->whereNull('item_request_id')
+                             ->where('status', 'partially_dispatched');
+                    });
+                });
+            } elseif ($this->statusFilter === 'in_progress') {
+                $query->where(function ($q) {
+                    $q->whereHas('itemRequest', function ($itemQ) {
+                        $itemQ->where('status', 'in_progress');
+                    })
+                    ->orWhere(function ($posQ) {
+                        $posQ->whereNull('item_request_id')
+                             ->where('status', 'in_progress');
+                    });
+                });
+            } elseif ($this->statusFilter === 'rejected') {
+                $query->where(function ($q) {
+                    $q->whereHas('itemRequest', function ($itemQ) {
+                        $itemQ->where('status', 'rejected');
+                    })
+                    ->orWhere(function ($posQ) {
+                        $posQ->whereNull('item_request_id')
+                             ->where('status', 'rejected');
+                    });
+                });
+            }
         }
 
         // Apply shift filter
@@ -205,32 +619,53 @@ class Index extends Component
         $requests = $query->latest()->paginate(15);
 
         // Get all shifts for the department
-        $allShifts = Shift::where('branch_id', $branchId)
-            ->where('department_id', $this->department->id)
-            ->orderBy('shift_date', 'desc')
-            ->orderBy('shift_type')
-            ->limit(30) // Limit to recent shifts
-            ->get();
+        $allShifts = collect();
+        if ($this->department) {
+            $allShifts = Shift::where('branch_id', $branchId)
+                ->where('department_id', $this->department->id)
+                ->orderBy('shift_date', 'desc')
+                ->orderBy('shift_type')
+                ->limit(30) // Limit to recent shifts
+                ->get();
+        }
 
-        // Get status summary - requests that have been worked on (not pending, not cancelled)
-        $statusSummary = ProductionRequest::with('itemRequest')
-            ->whereHas('itemRequest', function ($q) use ($branchId) {
-                $q->where('branch_id', $branchId)
-                  ->where('department_id', $this->department->id);
-            })
-            ->get()
-            ->groupBy(function ($request) {
-                return $request->getComputedStatus();
-            })
-            ->map(function ($group) {
-                return $group->count();
-            });
+        // Get status summary
+        $statusSummary = collect();
+        if ($this->department) {
+            $statusQuery = ProductionRequest::where(function ($q) use ($branchId) {
+                $q->whereHas('itemRequest', function ($itemQ) use ($branchId) {
+                    $itemQ->where('branch_id', $branchId)
+                          ->where('department_id', $this->department->id);
+                })
+                ->orWhere(function ($posQ) {
+                    $posQ->whereNull('item_request_id')
+                         ->where('production_department_id', $this->department->id);
+                });
+            })->get();
+
+            $statusSummary = $statusQuery->groupBy(function ($request) {
+                    return $request->status ?? 'pending';
+                })
+                ->map(function ($group) {
+                    return $group->count();
+                });
+        }
+
+        // Get available recipes for assignment dropdown
+        $departmentRecipes = collect();
+        if ($this->department) {
+            $departmentRecipes = Recipe::where('department_id', $this->department->id)
+                ->where('status', 'active')
+                ->orderBy('product_name')
+                ->get();
+        }
 
         return view('livewire.branch-dashboard.production.request.index', [
             'requests' => $requests,
             'allShifts' => $allShifts,
             'statusSummary' => $statusSummary,
-            'dept_slug'=>$this->dept_slug
+            'departmentRecipes' => $departmentRecipes,
+            'dept_slug' => $this->dept_slug
         ]);
     }
 }

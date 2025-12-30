@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Response;
+use function is_super_admin;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Index extends Component
@@ -49,7 +50,10 @@ class Index extends Component
     public function mount()
     {
         $this->branchId = auth()->user()->branch_id;
-        $this->departmentId = auth()->user()->department_id;
+        // Super Admin can see all departments, so don't restrict to their department
+        if (!is_super_admin()) {
+            $this->departmentId = auth()->user()->department_id;
+        }
         $this->setDateRange('today');
     }
 
@@ -130,7 +134,9 @@ class Index extends Component
         return Cache::remember($this->getCacheKey('overview'), 300, function() {
             $query = Sale::query()
                 ->where('branch_id', $this->branchId)
-                ->where('department_id', $this->departmentId)
+                ->when(!is_super_admin(), function($q) {
+                    $q->where('department_id', $this->departmentId);
+                })
                 ->whereBetween('sale_time', [$this->dateFrom, $this->dateTo])
                 ->where('status', '!=', 'cancelled');
 
@@ -142,7 +148,9 @@ class Index extends Component
 
             // Cancelled sales for tracking
             $cancelledSales = Sale::where('branch_id', $this->branchId)
-                ->where('department_id', $this->departmentId)
+                ->when(!is_super_admin(), function($q) {
+                    $q->where('department_id', $this->departmentId);
+                })
                 ->whereBetween('sale_time', [$this->dateFrom, $this->dateTo])
                 ->where('status', 'cancelled')
                 ->get();

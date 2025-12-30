@@ -52,7 +52,7 @@ return new class extends Migration
             $table->index(['gl_account_id', 'entry_date']);
             $table->index(['accounting_period_id', 'status']);
             $table->index(['reference_type', 'reference_id']);
-            $table->index(['entry_date']);
+            $table->index(['entry_date', 'branch_id']);
         });
     }
 
