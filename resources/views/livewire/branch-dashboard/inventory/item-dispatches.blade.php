@@ -482,25 +482,33 @@
                         </div>
 
                         <!-- Info & Legend -->
-                        <div class="px-4 py-3 bg-zinc-50 dark:bg-zinc-800/50 border-t border-zinc-200 dark:border-zinc-700 space-y-2">
-                            <div class="text-xs text-zinc-600 dark:text-zinc-400">
-                                <span class="font-semibold">Workflow:</span>
-                                1️⃣ Enter quantities to approve → 2️⃣ Click "Approve Items" → 3️⃣ Click "Dispatch All Approved" to dispatch
-                            </div>
-                            <div class="text-xs text-zinc-600 dark:text-zinc-400">
-                                <span class="font-semibold">Note:</span>
-                                <span class="text-green-600 dark:text-green-400">Green</span> = Sufficient stock |
-                                <span class="text-red-600 dark:text-red-400">Red</span> = Low/insufficient stock
-                            </div>
-                        </div>
+                         <div class="px-4 py-3 bg-zinc-50 dark:bg-zinc-800/50 border-t border-zinc-200 dark:border-zinc-700 space-y-2">
+                             <div class="flex items-center justify-between">
+                                 <div class="space-y-1">
+                                     <div class="text-xs text-zinc-600 dark:text-zinc-400">
+                                         <span class="font-semibold">Workflow:</span>
+                                         1️⃣ Enter quantities to approve → 2️⃣ Click "Approve Items" → 3️⃣ Click "Dispatch All Approved" to dispatch
+                                     </div>
+                                     <div class="text-xs text-zinc-600 dark:text-zinc-400">
+                                         <span class="font-semibold">Note:</span>
+                                         <span class="text-green-600 dark:text-green-400">Green</span> = Sufficient stock |
+                                         <span class="text-red-600 dark:text-red-400">Red</span> = Low/insufficient stock
+                                     </div>
+                                 </div>
+                                 <button wire:click="approveAll" type="button"
+                                     class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-lg transition-colors whitespace-nowrap ml-4">
+                                     ✓ Approve All
+                                 </button>
+                             </div>
+                         </div>
                     </div>
                     @endif
                 </div>
             </div>
 
-            <div class="px-6 py-4 border-t border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
+            <div class="px-6 py-4 border-t border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 flex items-center justify-between gap-4">
                 <button wire:click="closeModal" type="button"
-                    class="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors">
+                    class="px-4 py-2.5 bg-zinc-300 hover:bg-zinc-400 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors">
                     Cancel
                 </button>
 
@@ -509,13 +517,13 @@
                     <button wire:click="approveItems()" type="button"
                         wire:loading.attr="disabled"
                         wire:loading.class="opacity-50 cursor-not-allowed"
-                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" wire:loading.remove wire:target="approveItems">
+                        class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white rounded-lg font-medium transition-colors inline-flex items-center gap-2 whitespace-nowrap">
+                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" wire:loading.remove wire:target="approveItems">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <span wire:loading.remove wire:target="approveItems">Approve Items</span>
-                        <span wire:loading wire:target="approveItems" class="flex items-center gap-2">
-                            <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <span wire:loading wire:target="approveItems" class="inline-flex items-center gap-2">
+                            <svg class="animate-spin h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
@@ -527,13 +535,13 @@
                     <button wire:click="dispatchItems()" type="button"
                         wire:loading.attr="disabled"
                         wire:loading.class="opacity-50 cursor-not-allowed"
-                        class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" wire:loading.remove wire:target="dispatchItems">
+                        class="px-4 py-2.5 bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600 text-white rounded-lg font-medium transition-colors inline-flex items-center gap-2 whitespace-nowrap">
+                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" wire:loading.remove wire:target="dispatchItems">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                         </svg>
                         <span wire:loading.remove wire:target="dispatchItems">Dispatch All Approved</span>
-                        <span wire:loading wire:target="dispatchItems" class="flex items-center gap-2">
-                            <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <span wire:loading wire:target="dispatchItems" class="inline-flex items-center gap-2">
+                            <svg class="animate-spin h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>

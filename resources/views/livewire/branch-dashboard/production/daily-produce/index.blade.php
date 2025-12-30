@@ -50,6 +50,17 @@
                 <select wire:model.live="selectedShiftId"
                         class="px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200">
                     <option value="">-- Select Shift --</option>
+                    @if($selectedShiftId === 'no-shift')
+                    <option value="no-shift" selected>
+                        🔧 No Shift (Super Admin) - Today's Requests
+                    </option>
+                    @else
+                    @if(count($availableShifts) == 0)
+                        <option value="no-shift">
+                            🔧 No Shift (Super Admin) - Today's Requests
+                        </option>
+                    @endif
+                    @endif
                     @foreach($availableShifts as $shift)
                         <option value="{{ $shift->id }}">
                             {{ $shift->shift_date->format('M d, Y') }} - {{ ucfirst($shift->shift_type) }} Shift
@@ -94,10 +105,17 @@
                             <li>Then you can track production here</li>
                         </ol>
                     </div>
-                    <a href="{{ branch_route('branch-dashboard.production.request.create', ['deptSlug' => $dept_slug]) }}"
-                       class="inline-block mt-4 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-medium">
-                        Create Production Request
-                    </a>
+                    <div class="mt-4 flex gap-2">
+                        @if(!$currentShift && auth()->user()->is_super_admin)
+                            <span class="text-xs text-yellow-600 dark:text-yellow-400 italic">
+                                💡 As a super admin, you can create production requests without selecting a shift.
+                            </span>
+                        @endif
+                        <a href="{{ branch_route('branch-dashboard.production.request.create', ['deptSlug' => $dept_slug]) }}"
+                           class="inline-block px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-medium">
+                            Create Production Request
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>

@@ -432,7 +432,7 @@
                                 @foreach($selectedRequest->requestDetails as $detail)
                                 <tr class="border-t border-zinc-200 dark:border-zinc-700">
                                     <td class="px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100">{{ $detail->item->name ?? 'N/A' }}</td>
-                                    <td class="px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100">{{ $detail->uom }}</td>
+                                    <td class="px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100">{{ $detail->unitOfMeasure?->symbol ?? 'N/A' }}</td>
                                     <td class="px-4 py-3 text-sm text-right text-zinc-900 dark:text-zinc-100">{{ number_format($detail->quantity_requested, 2) }}</td>
                                     <td class="px-4 py-3 text-sm text-right text-zinc-900 dark:text-zinc-100">{{ number_format($detail->quantity_approved, 2) }}</td>
                                     <td class="px-4 py-3 text-sm text-right text-zinc-900 dark:text-zinc-100">{{ number_format($detail->quantity_dispatched, 2) }}</td>

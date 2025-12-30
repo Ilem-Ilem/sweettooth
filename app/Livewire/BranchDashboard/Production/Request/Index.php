@@ -270,7 +270,7 @@ class Index extends Component
                 $request = ProductionRequest::with(['recipe.ingredients.item'])
                     ->findOrFail($requestId);
 
-                if (!$request->recipe) {
+                if (!$request->recipe_id || !$request->recipe) {
                     throw new \Exception('Please assign a recipe before sending to store.');
                 }
 
@@ -279,11 +279,16 @@ class Index extends Component
                 }
 
                 // Calculate ingredients needed based on recipe and planned quantity
-                $batchSize = (int) ceil($request->planned_production_quantity / ($request->recipe->yield_quantity ?: 1));
+                $yieldQuantity = (float) ($request->recipe->yield_quantity ?: 1);
+                if ($yieldQuantity <= 0) {
+                    throw new \Exception('Recipe yield quantity must be greater than 0.');
+                }
+                
+                $batchSize = (int) ceil($request->planned_production_quantity / $yieldQuantity);
                 $ingredientsNeeded = $request->recipe->calculateIngredientsForBatch($batchSize);
 
                 if (empty($ingredientsNeeded)) {
-                    throw new \Exception('No ingredients found in the recipe.');
+                    throw new \Exception('Recipe "' . $request->recipe->product_name . '" has no ingredients defined. Please add ingredients to the recipe before sending to store.');
                 }
 
                 // Create item request to inventory/store
@@ -293,17 +298,21 @@ class Index extends Component
                     $deptCode
                 );
 
-                $employee = is_super_admin() ? auth()->user() : Auth::guard('web')->user();
+                $actor = current_actor();
 
                 $itemRequest = ItemRequest::create([
                     'branch_id' => $branchId,
                     'department_id' => $this->department->id,
                     'request_number' => $requestNumber,
-                    'requested_by_id' => $employee->id,
-                    'requested_by_type' => get_class($employee),
+                    'requested_by_id' => $actor->id,
+                    'requested_by_type' => get_class($actor),
                     'request_date' => today(),
                     'status' => 'pending',
                     'notes' => "Raw materials for Production Request #{$request->id}",
+                    'approved_by_id' => null,
+                    'approved_by_type' => null,
+                    'cancelled_by_id' => null,
+                    'cancelled_by_type' => null,
                 ]);
 
                 // Add ingredients as request details
@@ -312,7 +321,7 @@ class Index extends Component
                         'request_id' => $itemRequest->id,
                         'item_id' => $ingredient['item_id'],
                         'quantity_requested' => $ingredient['quantity'],
-                        'uom' => $ingredient['uom'],
+                        'uom_id' => $ingredient['uom_id'],
                         'notes' => $ingredient['notes'] ?? null,
                     ]);
                 }

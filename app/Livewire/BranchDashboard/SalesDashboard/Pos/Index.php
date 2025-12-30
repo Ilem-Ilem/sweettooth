@@ -340,6 +340,23 @@ class Index extends BaseComponent
         $this->recalculateTotals();
     }
 
+    public function resetCart(): void
+    {
+        $this->cart = [];
+        $this->subtotal = 0.0;
+        $this->discount = 0.0;
+        $this->tax = 0.0;
+        $this->total = 0.0;
+        $this->cashReceived = 0.0;
+        $this->changeDue = 0.0;
+        $this->paymentTotal = 0.0;
+        $this->paymentRemaining = 0.0;
+        $this->payments = [['method' => 'cash', 'amount' => 0.0]];
+        $this->selectedTableId = null;
+        $this->currentSaleId = null;
+        $this->search = '';
+    }
+
     public function updatedDiscount(): void
     {
         $this->recalculateTotals();

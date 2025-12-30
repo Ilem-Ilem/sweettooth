@@ -140,16 +140,28 @@ class Index extends Component
             $this->selectedShiftId = $this->currentShift->id;
             $this->loadDailyProduces();
         } else {
-            // If no shift found for today, try to get the most recent shift
-            $this->currentShift = Shift::where('branch_id', $branchId)
-                ->where('department_id', $this->department->id)
-                ->orderBy('shift_date', 'desc')
-                ->orderBy('shift_type', 'desc')
-                ->first();
+            // Check if there are production requests without a shift (created by super admins)
+            $hasNoShiftRequests = ProductionRequest::forBranch($branchId)
+                ->whereNull('shift_id')
+                ->where('created_at', '>=', today())
+                ->exists();
 
-            if ($this->currentShift) {
-                $this->selectedShiftId = $this->currentShift->id;
+            if ($hasNoShiftRequests) {
+                // Show the "no shift" production requests
+                $this->selectedShiftId = 'no-shift';
                 $this->loadDailyProduces();
+            } else {
+                // If no shift found for today, try to get the most recent shift
+                $this->currentShift = Shift::where('branch_id', $branchId)
+                    ->where('department_id', $this->department->id)
+                    ->orderBy('shift_date', 'desc')
+                    ->orderBy('shift_type', 'desc')
+                    ->first();
+
+                if ($this->currentShift) {
+                    $this->selectedShiftId = $this->currentShift->id;
+                    $this->loadDailyProduces();
+                }
             }
         }
     }
@@ -157,6 +169,61 @@ class Index extends Component
     public function loadDailyProduces()
     {
         if (!$this->selectedShiftId) {
+            return;
+        }
+
+        // Handle "no-shift" production requests (created by super admins)
+        if ($this->selectedShiftId === 'no-shift') {
+            $branchId = $this->getBranchId();
+            
+            // Load production requests without a shift
+            $productionRequests = ProductionRequest::forBranch($branchId)
+                ->whereNull('shift_id')
+                ->where('created_at', '>=', today())
+                ->with(['recipe', 'itemRequest.requestDetails.item'])
+                ->get();
+            
+            $this->dailyProduces = $productionRequests->map(function ($prodRequest) {
+                $recipe = $prodRequest->recipe;
+                $itemRequest = $prodRequest->itemRequest;
+                
+                $produced = 0;
+                $damaged = 0;
+                $netAvailable = $produced - $damaged;
+                
+                return [
+                    'id' => $prodRequest->id,
+                    'recipe_id' => $recipe->id,
+                    'recipe_name' => $recipe->product_name,
+                    'item_request_number' => $itemRequest->request_number ?? 'N/A',
+                    'requested_quantity' => $prodRequest->planned_production_quantity,
+                    'produced_quantity' => $produced,
+                    'opening_quantity' => 0,
+                    'closing_quantity' => 0,
+                    'callback_quantity' => $damaged,
+                    'damaged_quantity' => $damaged,
+                    'sent_out_quantity' => 0,
+                    'order_quantity' => 0,
+                    'net_available' => $netAvailable,
+                    'expected_closing' => 0,
+                    'variance' => 0,
+                    'variance_quantity' => 0,
+                    'variance_percentage' => 0,
+                    'uom' => $recipe->unitOfMeasure?->symbol ?? 'unit',
+                    'status' => 'not_started',
+                    'computed_status' => 'Not Started - Awaiting Ingredients',
+                    'status_badge_color' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+                    'production_records_count' => 0,
+                    'manual_status' => null,
+                    'has_variance_issue' => false,
+                    'producability' => [
+                        'producable_quantity' => 0,
+                        'requested_quantity' => $prodRequest->planned_production_quantity,
+                        'limiting_ingredient' => 'Awaiting ingredients dispatch',
+                    ],
+                ];
+            })->toArray();
+            
             return;
         }
 
@@ -1144,7 +1211,15 @@ class Index extends Component
         // Debug info: count production requests for current shift
         $productionRequestsCount = 0;
         if ($this->selectedShiftId) {
-            $productionRequestsCount = ProductionRequest::where('shift_id', $this->selectedShiftId)->count();
+            if ($this->selectedShiftId === 'no-shift') {
+                // Count no-shift production requests
+                $productionRequestsCount = ProductionRequest::forBranch($branchId)
+                    ->whereNull('shift_id')
+                    ->where('created_at', '>=', today())
+                    ->count();
+            } else {
+                $productionRequestsCount = ProductionRequest::where('shift_id', $this->selectedShiftId)->count();
+            }
         }
 
         return view('livewire.branch-dashboard.production.daily-produce.index', [

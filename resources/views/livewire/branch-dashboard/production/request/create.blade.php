@@ -16,6 +16,21 @@
         <form wire:submit.prevent="save" class="space-y-6">
 
             <!-- Shift Information -->
+            @if(auth()->user()->is_super_admin)
+            <div class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+                <div class="flex items-center gap-3">
+                    <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    <div>
+                        <h3 class="font-semibold text-purple-900 dark:text-purple-100">Super Admin Mode</h3>
+                        <p class="text-sm text-purple-700 dark:text-purple-300">
+                            ✓ You can create production requests without a shift assignment
+                        </p>
+                    </div>
+                </div>
+            </div>
+            @else
             <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                 <div class="flex items-center gap-3">
                     <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -29,6 +44,7 @@
                     </div>
                 </div>
             </div>
+            @endif
 
             <!-- Product Selection -->
             <div class="space-y-4">

@@ -85,8 +85,7 @@
     <!-- Dispatch Verification Bar -->
     @php
         $pendingDispatches = \App\Models\ProductDispatch::whereHas('productionRequest', function($q) {
-            $q->where('created_by_id', auth()->id())
-              ->where('status', 'dispatched');
+            $q->where('production_requests.created_by_id', auth()->id());
         })->where('status', 'pending_verification')->count();
     @endphp
     @if($pendingDispatches > 0)

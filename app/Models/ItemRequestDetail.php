@@ -16,7 +16,7 @@ class ItemRequestDetail extends Model
         'quantity_requested',
         'quantity_approved',
         'quantity_dispatched',
-        'uom',
+        'uom_id',
         'notes',
     ];
 
@@ -40,6 +40,30 @@ class ItemRequestDetail extends Model
     public function item(): BelongsTo
     {
         return $this->belongsTo(Item::class);
+    }
+
+    /**
+     * Get the unit of measure
+     */
+    public function unitOfMeasure(): BelongsTo
+    {
+        return $this->belongsTo(UnitOfMeasure::class, 'uom_id');
+    }
+
+    /**
+     * Get available stock for this item
+     */
+    public function getAvailableStock(): float
+    {
+        $stock = Stock::where('item_id', $this->item_id)
+            ->where('branch_id', $this->itemRequest->branch_id)
+            ->first();
+
+        if (!$stock) {
+            return 0;
+        }
+
+        return max(0, (float) $stock->quantity_available);
     }
 
     /**

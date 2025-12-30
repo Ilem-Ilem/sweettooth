@@ -157,6 +157,18 @@ class ItemDispatches extends Component
         $this->showDispatchModal = true;
     }
 
+    /**
+     * Approve all items with their full remaining quantities
+     */
+    public function approveAll()
+    {
+        foreach ($this->dispatchedItems as $index => $item) {
+            if ($item['remaining_to_approve'] > 0) {
+                $this->dispatchedItems[$index]['approve_quantity'] = $item['remaining_to_approve'];
+            }
+        }
+    }
+
     public function approveItems()
     {
         // $this->authorize('approve-items');
@@ -282,10 +294,11 @@ class ItemDispatches extends Component
                 return;
             }
 
-            // Track low stock warnings
+            // Track warnings and skipped items
             $lowStockWarnings = [];
+            $skippedItems = [];
 
-            DB::transaction(function () use ($branchId, &$lowStockWarnings) {
+            DB::transaction(function () use ($branchId, &$lowStockWarnings, &$skippedItems) {
                 // Verify request belongs to this branch
                 $request = ItemRequest::where('id', $this->requestId)
                     ->where('branch_id', $branchId)
@@ -307,7 +320,8 @@ class ItemDispatches extends Component
                     }
 
                     // Lock stock row for concurrency safety
-                    $stock = Stock::where('item_id', $item['item_id'])
+                    $stock = Stock::forBranch($branchId)
+                        ->where('item_id', $item['item_id'])
                         ->lockForUpdate()
                         ->first();
 
@@ -315,9 +329,10 @@ class ItemDispatches extends Component
                         throw new \Exception("Stock not found for {$item['item_name']} in this branch.");
                     }
 
-                    // Check if stock is insufficient - still dispatch but warn
+                    // Check if stock is insufficient - SKIP dispatch and notify user
                     if ($stock->quantity_available < $dispatchQty) {
-                        $lowStockWarnings[] = "{$item['item_name']}: Dispatching {$dispatchQty} {$item['uom']}, but only {$stock->quantity_available} {$item['uom']} available. Stock will go negative!";
+                        $skippedItems[] = "{$item['item_name']}: Requested {$dispatchQty} {$item['uom']}, but only {$stock->quantity_available} {$item['uom']} available in stock. Not dispatched to prevent negative inventory.";
+                        continue; // Skip this item - do NOT dispatch
                     }
 
                     // Save before and after quantities
@@ -326,7 +341,7 @@ class ItemDispatches extends Component
                     $stock->save();
                     $quantityAfter = $stock->quantity_available;
 
-                    // Check if stock is now below reorder level
+                    // Check if stock is now below reorder level (warn but still dispatch since we have enough)
                     if ($stock->item && $stock->item->reorder_level && $quantityAfter <= $stock->item->reorder_level) {
                         $lowStockWarnings[] = "{$item['item_name']}: Stock level is now {$quantityAfter} {$item['uom']}, which is at or below the reorder level of {$stock->item->reorder_level} {$item['uom']}. Please restock!";
                     }
@@ -424,10 +439,16 @@ class ItemDispatches extends Component
                 }
             });
 
-            // Show success message with warnings if applicable
-            if (! empty($lowStockWarnings)) {
-                $warningMessage = 'Items dispatched successfully, but with warnings: '.implode(' | ', $lowStockWarnings);
-                $this->toast()->warning($warningMessage)->send();
+            // Show appropriate message based on what happened
+            if (! empty($skippedItems) && ! empty($lowStockWarnings)) {
+                $message = 'SKIPPED (insufficient stock): '.implode(' | ', $skippedItems).' | WARNINGS: '.implode(' | ', $lowStockWarnings);
+                $this->toast()->error($message)->send();
+            } elseif (! empty($skippedItems)) {
+                $message = 'Some items could not be dispatched due to insufficient stock: '.implode(' | ', $skippedItems);
+                $this->toast()->error($message)->send();
+            } elseif (! empty($lowStockWarnings)) {
+                $message = 'Items dispatched successfully, but with reorder warnings: '.implode(' | ', $lowStockWarnings);
+                $this->toast()->warning($message)->send();
             } else {
                 $this->toast()->success('All approved items dispatched successfully. Stock updated')->send();
             }
