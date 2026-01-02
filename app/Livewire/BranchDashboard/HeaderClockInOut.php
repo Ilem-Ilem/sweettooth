@@ -78,13 +78,24 @@ class HeaderClockInOut extends Component
 
             // Check if this is a sales employee (skip for super admins)
             $isSalesEmployee = $this->checkIfSalesEmployee();
+            $isSuperAdmin = is_super_admin();
+            $canAccessAllBranches = can_access_all_branches();
+
+            \Log::info('Clock out initiated', [
+                'employee_id' => auth()->id(),
+                'shift_id' => $this->currentShift->id,
+                'is_sales_employee' => $isSalesEmployee,
+                'is_super_admin' => $isSuperAdmin,
+                'can_access_all_branches' => $canAccessAllBranches,
+                'will_redirect_to_shift_closing' => $isSalesEmployee && !$isSuperAdmin && !$canAccessAllBranches
+            ]);
 
             // Update shift with clock out time
             $this->currentShift->clock_out = Carbon::now();
 
             // For sales employees, set to 'active' to trigger shift closing workflow
             // For other employees, complete the shift immediately
-            if ($isSalesEmployee && !is_super_admin() && !can_access_all_branches()) {
+            if ($isSalesEmployee && !$isSuperAdmin && !$canAccessAllBranches) {
                 $this->currentShift->status = 'active'; // Keep active until shift closing
                 $this->currentShift->workflow_state = 'shift_closing';
 
@@ -108,16 +119,25 @@ class HeaderClockInOut extends Component
             $this->dispatch('workflow-state-changed');
 
             // For sales employees, redirect to shift closing
-            if ($isSalesEmployee && !is_super_admin() && !can_access_all_branches()) {
+            if ($isSalesEmployee && !$isSuperAdmin && !$canAccessAllBranches) {
                 $branchId = $this->b_id ?: current_branch_id();
                 $departmentSlug = $this->getEmployeeDepartmentSlug();
 
+                \Log::info('Redirecting sales employee to shift closing', [
+                    'employee_id' => auth()->id(),
+                    'branch_id' => $branchId,
+                    'department_slug' => $departmentSlug
+                ]);
+
                 $this->toast()->success("Clocked out! Please complete shift closing.")->send();
 
-                return redirect()->route('branch-dashboard.sales-dashboard.shift-closing.index', [
-                    'salesDeptSlug' => $departmentSlug,
-                    'b_id' => $branchId
-                ]);
+                return $this->redirect(
+                    route('branch-dashboard.sales-dashboard.shift-closing.index', [
+                        'salesDeptSlug' => $departmentSlug,
+                        'b_id' => $branchId
+                    ]),
+                    navigate: true
+                );
             }
 
             $this->toast()->success("Clocked out! Total time: {$totalHours}h {$totalMinutes}m")->send();
@@ -142,15 +162,47 @@ class HeaderClockInOut extends Component
     {
         $employee = auth()->user();
         if (!$employee || !$employee->department_id) {
+            \Log::debug('Sales check failed: No employee or department_id', [
+                'employee_id' => $employee?->id,
+                'department_id' => $employee?->department_id
+            ]);
             return false;
         }
 
         $department = Department::with('category')->find($employee->department_id);
-        if (!$department || !$department->category) {
+        if (!$department) {
+            \Log::debug('Sales check failed: Department not found', [
+                'department_id' => $employee->department_id
+            ]);
             return false;
         }
 
-        return strtolower($department->category->name) === 'sales';
+        // Primary check: category name
+        if ($department->category && strtolower($department->category->name) === 'sales') {
+            \Log::debug('Sales check passed via category', [
+                'department' => $department->name,
+                'category' => $department->category->name
+            ]);
+            return true;
+        }
+
+        // Fallback: check department slug or name contains 'sales'
+        $deptName = strtolower($department->name ?? '');
+        $deptSlug = strtolower($department->slug ?? '');
+        if (str_contains($deptSlug, 'sales') || str_contains($deptName, 'sales')) {
+            \Log::debug('Sales check passed via name/slug fallback', [
+                'department' => $department->name,
+                'slug' => $department->slug
+            ]);
+            return true;
+        }
+
+        \Log::debug('Sales check failed: Not a sales department', [
+            'department' => $department->name,
+            'category' => $department->category?->name,
+            'slug' => $department->slug
+        ]);
+        return false;
     }
 
     /**

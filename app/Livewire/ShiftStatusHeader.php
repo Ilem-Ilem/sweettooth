@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use Livewire\Component;
 use App\Models\Shift;
+use App\Models\Department;
 use App\Services\ShiftNotificationService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -110,8 +111,59 @@ class ShiftStatusHeader extends Component
             ->first();
 
         if ($activeShift) {
+            // Check if this is a sales employee
+            $isSalesEmployee = $this->checkIfSalesEmployee($user);
+            $isSuperAdmin = is_super_admin();
+            $canAccessAllBranches = can_access_all_branches();
+
+            \Log::info('ShiftStatusHeader: Clock out initiated', [
+                'employee_id' => $user->id,
+                'shift_id' => $activeShift->id,
+                'is_sales_employee' => $isSalesEmployee,
+                'is_super_admin' => $isSuperAdmin,
+                'will_redirect_to_shift_closing' => $isSalesEmployee && !$isSuperAdmin && !$canAccessAllBranches
+            ]);
+
             $activeShift->clock_out = Carbon::now();
+
+            // For sales employees, keep shift active for shift closing workflow
+            if ($isSalesEmployee && !$isSuperAdmin && !$canAccessAllBranches) {
+                $activeShift->status = 'active'; // Keep active until shift closing
+                $activeShift->workflow_state = 'shift_closing';
+
+                // Update metadata
+                $metadata = $activeShift->metadata ?? [];
+                $metadata['clock_out_at'] = now()->toIso8601String();
+                $activeShift->metadata = $metadata;
+                $activeShift->save();
+
+                $this->dispatch('shift-updated');
+                $this->dispatch('workflow-state-changed');
+
+                // Redirect to shift closing
+                $departmentSlug = $this->getEmployeeDepartmentSlug($user);
+                $branchId = current_branch_id();
+
+                \Log::info('ShiftStatusHeader: Redirecting to shift closing', [
+                    'employee_id' => $user->id,
+                    'branch_id' => $branchId,
+                    'department_slug' => $departmentSlug
+                ]);
+
+                session()->flash('info', 'Clocked out! Please complete shift closing.');
+
+                return $this->redirect(
+                    route('branch-dashboard.sales-dashboard.shift-closing.index', [
+                        'salesDeptSlug' => $departmentSlug,
+                        'b_id' => $branchId
+                    ]),
+                    navigate: true
+                );
+            }
+
+            // Non-sales employees: close immediately
             $activeShift->status = 'closed';
+            $activeShift->workflow_state = 'completed';
             $activeShift->save();
 
             // Send completion notification
@@ -123,6 +175,48 @@ class ShiftStatusHeader extends Component
 
             session()->flash('success', 'Successfully clocked out!');
         }
+    }
+
+    /**
+     * Check if employee is in a sales department
+     */
+    protected function checkIfSalesEmployee($employee): bool
+    {
+        if (!$employee || !$employee->department_id) {
+            return false;
+        }
+
+        $department = Department::with('category')->find($employee->department_id);
+        if (!$department) {
+            return false;
+        }
+
+        // Primary check: category name
+        if ($department->category && strtolower($department->category->name) === 'sales') {
+            return true;
+        }
+
+        // Fallback: check department slug or name contains 'sales'
+        $deptName = strtolower($department->name ?? '');
+        $deptSlug = strtolower($department->slug ?? '');
+        if (str_contains($deptSlug, 'sales') || str_contains($deptName, 'sales')) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Get employee's department slug
+     */
+    protected function getEmployeeDepartmentSlug($employee): ?string
+    {
+        if (!$employee || !$employee->department_id) {
+            return null;
+        }
+
+        $department = Department::find($employee->department_id);
+        return $department?->slug;
     }
 
     public function render()

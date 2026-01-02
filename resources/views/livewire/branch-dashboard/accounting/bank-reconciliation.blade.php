@@ -116,7 +116,7 @@
 
                     <!-- Action Buttons -->
                     <div class="flex justify-end">
-                        <button wire:click="startReconciliation" wire:loading.attr="disabled" class="inline-flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-md font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <button wire:click="startReconciliation" wire:loading.attr="disabled" wire:target="startReconciliation" class="inline-flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-md font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
                             <span wire:loading.remove wire:target="startReconciliation">Start Reconciliation</span>
                             <span wire:loading wire:target="startReconciliation">
                                 <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -204,7 +204,7 @@
 
     <!-- Auto Match Section -->
     <div class="mb-6">
-        <button wire:click="performAutoMatch" wire:loading.attr="disabled" class="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md">
+        <button wire:click="performAutoMatch" wire:loading.attr="disabled" wire:target="performAutoMatch" class="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
             </svg>
@@ -369,7 +369,7 @@
         </button>
 
         @if($isBalanced)
-            <button wire:click="completeReconciliation" wire:loading.attr="disabled" class="inline-flex items-center gap-2 px-6 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+            <button wire:click="completeReconciliation" wire:loading.attr="disabled" wire:target="completeReconciliation" class="inline-flex items-center gap-2 px-6 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
                 <span wire:loading.remove wire:target="completeReconciliation">
                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>

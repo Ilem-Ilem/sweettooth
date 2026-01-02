@@ -61,6 +61,12 @@
                     :current="request()->routeIs('branch-dashboard.settings.index')" wire:navigate>
                     {{ __('System Settings') }}
                 </flux:navlist.item>
+
+                <flux:navlist.item icon="cog" :href="branch_route('branch-dashboard.audit.index')"
+                :current="request()->routeIs('branch-dashboard.audit.index')" wire:navigate>
+                {{ __('Audit Management') }}
+                </flux:navlist.item>
+<!--                  branch-dashboard.audit.index  -->
             </flux:navlist.group>
             @endif
             {{-- ==================== END ADMINISTRATION ==================== --}}
@@ -918,18 +924,7 @@
         @if (auth()->user() != null)
             <livewire:components.branch-selector />
         @endif
-        <div wire:loading
-            class="fixed top-4 right-4 z-50 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center space-x-2">
-            <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                    stroke-width="4">
-                </circle>
-                <path class="opacity-75" fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-                </path>
-            </svg>
-            <span>Updating...</span>
-        </div>
+
         <x-toast />
         <x-dialog />
         {{ $slot }}

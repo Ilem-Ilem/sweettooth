@@ -301,10 +301,10 @@
                     This will create journal entries that affect your financial statements.
                 </p>
                 <div class="flex justify-end gap-3">
-                    <button wire:click="cancelPosting" wire:loading.attr="disabled" class="px-4 py-2 bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-zinc-300 dark:hover:bg-zinc-600 transition disabled:opacity-50">
+                    <button wire:click="cancelPosting" wire:loading.attr="disabled" wire:target="cancelPosting" class="px-4 py-2 bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-zinc-300 dark:hover:bg-zinc-600 transition disabled:opacity-50">
                         Cancel
                     </button>
-                    <button wire:click="postToGL" wire:loading.attr="disabled" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-2">
+                    <button wire:click="postToGL" wire:loading.attr="disabled" wire:target="postToGL" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-2">
                         <span wire:loading wire:target="postToGL">
                             <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>

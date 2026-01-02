@@ -57,8 +57,8 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                                M12 4v16m8-8H4" />
                         </svg>
-                        <span wire:loading.remove>Create Category</span>
-                        <span wire:loading  wire:loading.target="saveCategory">Creating...</span>
+                        <span wire:loading.remove wire:target="saveCategory">Create Category</span>
+                        <span wire:loading wire:target="saveCategory">Creating...</span>
                     </button>
                 </div>
             </form>

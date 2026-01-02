@@ -8,10 +8,10 @@
 
     <!-- Header with Add Button -->
     <div class="flex justify-between items-center">
-        <button wire:click="openCreateModal" wire:loading.attr="disabled"
+        <button wire:click="openCreateModal" wire:loading.attr="disabled" wire:target="openCreateModal"
             class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center shadow-sm relative"
             :class="{ 'opacity-75 cursor-not-allowed': $wire.loading }">
-            <span wire:loading.remove class="flex items-center">
+            <span wire:loading.remove wire:target="openCreateModal" class="flex items-center">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                 </svg>
@@ -160,14 +160,14 @@
             </div>
 
             <div class="flex flex-wrap gap-2 justify-end pt-2.5 border-t border-zinc-200 dark:border-zinc-700">
-                <button wire:click="resetFilters" wire:loading.attr="disabled"
+                <button wire:click="resetFilters" wire:loading.attr="disabled" wire:target="resetFilters"
                     class="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors duration-200 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
                     :class="{ 'opacity-50 cursor-not-allowed': $wire.loading }">
-                    <svg wire:loading.remove class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg wire:loading.remove wire:target="resetFilters" class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
-                    <svg wire:loading class="w-5 h-5 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg wire:loading wire:target="resetFilters" class="w-5 h-5 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
@@ -188,52 +188,43 @@
 
             @interact('column_sku', $row)
                 <span class="font-mono text-zinc-900 dark:text-zinc-100 font-semibold">
-                    <span wire:loading.remove>{{ $row->sku }}</span>
-                    <span wire:loading class="inline-block h-4 w-24 bg-zinc-300 dark:bg-zinc-600 rounded animate-pulse"></span>
+                    {{ $row->sku }}
                 </span>
             @endinteract
 
             @interact('column_product_type', $row)
-                <div wire:loading.remove>
+                <div>
                     <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $row->productType->name }}</div>
                     <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $row->productType->code }}</div>
-                </div>
-                <div wire:loading class="space-y-1">
-                    <div class="h-4 w-20 bg-zinc-300 dark:bg-zinc-600 rounded animate-pulse"></div>
-                    <div class="h-3 w-12 bg-zinc-300 dark:bg-zinc-600 rounded animate-pulse"></div>
                 </div>
             @endinteract
 
             @interact('column_department', $row)
                 <span class="text-sm text-zinc-700 dark:text-zinc-300">
-                    <span wire:loading.remove>{{ $row->productType->department->name }}</span>
-                    <span wire:loading class="inline-block h-4 w-28 bg-zinc-300 dark:bg-zinc-600 rounded animate-pulse"></span>
+                    {{ $row->productType->department->name }}
                 </span>
             @endinteract
 
             @interact('column_price', $row)
                 <span class="font-semibold text-zinc-900 dark:text-zinc-100">
-                    <span wire:loading.remove>${{ number_format($row->price, 2) }}</span>
-                    <span wire:loading class="inline-block h-4 w-16 bg-zinc-300 dark:bg-zinc-600 rounded animate-pulse"></span>
+                    ${{ number_format($row->price, 2) }}
                 </span>
             @endinteract
 
             @interact('column_shelf_life', $row)
                 <span class="text-zinc-600 dark:text-zinc-400">
-                    <span wire:loading.remove>{{ $row->shelf_life_days }} days</span>
-                    <span wire:loading class="inline-block h-4 w-12 bg-zinc-300 dark:bg-zinc-600 rounded animate-pulse"></span>
+                    {{ $row->shelf_life_days }} days
                 </span>
             @endinteract
 
             @interact('column_uom', $row)
                 <span class="px-2 py-1 text-xs font-medium rounded-full bg-zinc-100 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200 uppercase">
-                    <span wire:loading.remove>{{ $row->unitOfMeasure?->symbol ?? 'N/A' }}</span>
-                    <span wire:loading class="inline-block h-3 w-12 bg-zinc-300 dark:bg-zinc-600 rounded animate-pulse"></span>
+                    {{ $row->unitOfMeasure?->symbol ?? 'N/A' }}
                 </span>
             @endinteract
 
             @interact('column_status', $row)
-                <div class="flex flex-col gap-1" wire:loading.remove>
+                <div class="flex flex-col gap-1">
                     <span
                         class="px-2 py-1 text-xs font-semibold rounded-full
                         {{ $row->is_active ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' }}">
@@ -247,36 +238,32 @@
                         </span>
                     @endif
                 </div>
-                <div wire:loading class="space-y-1">
-                    <div class="h-3 w-16 bg-zinc-300 dark:bg-zinc-600 rounded animate-pulse"></div>
-                    <div class="h-3 w-20 bg-zinc-300 dark:bg-zinc-600 rounded animate-pulse"></div>
-                </div>
             @endinteract
 
             @interact('column_action', $row)
                 <div class="flex items-center space-x-2">
-                    <button wire:click="openEditModal('{{ $row->id }}')" wire:loading.attr="disabled"
+                    <button wire:click="openEditModal('{{ $row->id }}')" wire:loading.attr="disabled" wire:target="openEditModal('{{ $row->id }}')"
                         class="p-2 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         :class="{ 'opacity-50 cursor-not-allowed': $wire.loading }"
                         title="Edit">
-                        <svg wire:loading.remove class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg wire:loading.remove wire:target="openEditModal('{{ $row->id }}')" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
-                        <svg wire:loading class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg wire:loading wire:target="openEditModal('{{ $row->id }}')" class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
                     </button>
-                    <button wire:click="delete('{{ $row->id }}')" wire:loading.attr="disabled"
+                    <button wire:click="delete('{{ $row->id }}')" wire:loading.attr="disabled" wire:target="delete('{{ $row->id }}')"
                         class="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         :class="{ 'opacity-50 cursor-not-allowed': $wire.loading }"
                         title="Delete">
-                        <svg wire:loading.remove class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg wire:loading.remove wire:target="delete('{{ $row->id }}')" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
-                        <svg wire:loading class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg wire:loading wire:target="delete('{{ $row->id }}')" class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>

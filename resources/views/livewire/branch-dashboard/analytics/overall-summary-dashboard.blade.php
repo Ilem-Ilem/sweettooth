@@ -1,4 +1,4 @@
-<div class="p-3 space-y-3" wire:poll.60s="refresh" x-data="{ showFilters: false }">
+<div class="p-3 space-y-3" wire:poll.60s="refresh" wire:poll:keep-alive x-data="{ showFilters: false }">
 
     <x-breadcrumb title="Overall Analytics Summary" :items="[
         ['label' => 'Dashboard', 'url' => branch_route('branch-dashboard.index')],

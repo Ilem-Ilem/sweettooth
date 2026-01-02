@@ -169,9 +169,8 @@
                         @click="showDeleteModal = false">Cancel</button>
                     <button class="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition shadow-sm"
                        wire:click="delete('{{ $selectedCategoryId }}')">
-                        <span wire:loading.remove> Confirm Delete</span>
-                        <span wire:loading wire:loading.target="delete">Deleting</span>
-                       
+                        <span wire:loading.remove wire:target="delete">Confirm Delete</span>
+                        <span wire:loading wire:target="delete">Deleting...</span>
                     </button>
                 </div>
             </div>

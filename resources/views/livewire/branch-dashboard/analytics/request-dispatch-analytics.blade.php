@@ -448,7 +448,7 @@
     {{-- Requests Table --}}
     <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
         <h3 class="text-base font-semibold text-zinc-800 dark:text-zinc-100 mb-4">Request Details</h3>
-        <div class="overflow-x-auto" wire:loading.class="opacity-50">
+        <div class="overflow-x-auto" wire:loading.class="opacity-50" wire:target="updatedSearchTerm, updatedSelectedStatus, updatedDateFrom, updatedDateTo">
             <table class="w-full text-sm text-left">
                 <thead class="text-xs uppercase bg-zinc-100 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300">
                     <tr>

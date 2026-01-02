@@ -444,10 +444,10 @@
                                 Reject
                             </button>
                             <button wire:click="approveRequest({{ $selectedRequest->id }})"
-                                wire:loading.attr="disabled"
+                                wire:loading.attr="disabled" wire:target="approveRequest"
                                 class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                                <span wire:loading.remove>Approve</span>
-                                <span wire:loading>Approving...</span>
+                                <span wire:loading.remove wire:target="approveRequest">Approve</span>
+                                <span wire:loading wire:target="approveRequest">Approving...</span>
                             </button>
                         </div>
 
@@ -469,10 +469,10 @@
                                     Cancel
                                 </button>
                                 <button wire:click="rejectRequest({{ $selectedRequest->id }})"
-                                    wire:loading.attr="disabled"
+                                    wire:loading.attr="disabled" wire:target="rejectRequest"
                                     class="px-3 py-1 text-sm bg-red-600 hover:bg-red-700 text-white rounded font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                                    <span wire:loading.remove>Confirm Rejection</span>
-                                    <span wire:loading>Rejecting...</span>
+                                    <span wire:loading.remove wire:target="rejectRequest">Confirm Rejection</span>
+                                    <span wire:loading wire:target="rejectRequest">Rejecting...</span>
                                 </button>
                             </div>
                         </div>

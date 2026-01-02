@@ -34,7 +34,7 @@
                 </div>
                 <button type="button"
                         wire:click="changeBranch"
-                        wire:loading.attr="disabled"
+                        wire:loading.attr="disabled" wire:target="changeBranch"
                         class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
                     <span wire:loading.remove wire:target="changeBranch">Switch</span>
                     <span wire:loading wire:target="changeBranch" class="flex items-center gap-2">

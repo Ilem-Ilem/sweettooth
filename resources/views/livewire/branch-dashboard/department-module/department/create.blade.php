@@ -50,8 +50,8 @@
                 <button type="button" wire:click="proceedWithReasonSubmitted" 
                     {{ strlen($creationReason) < 5 ? 'disabled' : '' }}
                     class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg transition-colors">
-                    <span wire:loading.remove wire:loading.target="proceedWithReasonSubmitted">Submit Request</span>
-                    <span wire:loading wire:loading.target="proceedWithReasonSubmitted">Submitting...</span>
+                    <span wire:loading.remove wire:target="proceedWithReasonSubmitted">Submit Request</span>
+                    <span wire:loading wire:target="proceedWithReasonSubmitted">Submitting...</span>
                 </button>
             </div>
         </div>
@@ -120,11 +120,11 @@
 
             <button type="button" wire:click="initiateSave"
                 class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors">
-                <span wire:loading.remove>
+                <span wire:loading.remove wire:target="initiateSave">
                     {{ $isEditing ? 'Update Department' : 'Create Department' }}
                 </span>
-                <span wire:loading>
-                    {{ $isEditing ? 'Updating' : 'Creating' }}
+                <span wire:loading wire:target="initiateSave">
+                    {{ $isEditing ? 'Updating...' : 'Creating...' }}
                 </span>
             </button>
         </form>

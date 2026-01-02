@@ -657,9 +657,13 @@ class RolePermissionService
 
         // Check if user's department is in the allowed list
         if (! in_array($department->name, $allowedDepts)) {
+            $deptList = count($allowedDepts) === 1
+                ? $allowedDepts[0]
+                : implode(', ', array_slice($allowedDepts, 0, -1)).' or '.end($allowedDepts);
+
             throw new \Exception(
-                "Users in the {$department->name} department cannot be assigned the '{$roleName}' role. ".
-                'This role is only for: '.implode(', ', $allowedDepts)
+                "The \"{$roleName}\" role is only available for {$deptList} department staff. ".
+                "Please choose a different role for this employee."
             );
         }
     }

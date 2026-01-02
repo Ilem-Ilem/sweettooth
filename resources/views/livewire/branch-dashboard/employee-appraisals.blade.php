@@ -37,7 +37,7 @@
             </div>
         </div>
 
-        <!-- Employees Grid -->
+        <!-- Employees List -->
          <div class="p-6">
              @if($employees->isEmpty())
                  <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
@@ -46,7 +46,7 @@
                      </p>
                  </div>
              @endif
-             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+             <div class="flex flex-col space-y-4">
                 @forelse($employees as $employee)
                     <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm hover:shadow-md transition-shadow">
                         <div class="p-6">
@@ -56,26 +56,26 @@
                                         <div class="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
                                             {{ substr($employee->name, 0, 1) }}
                                         </div>
-                                        <div class="ml-4">
-                                            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ $employee->name }}</h3>
-                                            <p class="text-sm text-gray-600 dark:text-gray-400">{{ $employee->email }}</p>
-                                        </div>
+                                         <div class="ml-4 min-w-0 flex-1">
+                                             <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">{{ $employee->name }}</h3>
+                                             <p class="text-sm text-gray-600 dark:text-gray-400 truncate">{{ $employee->email }}</p>
+                                         </div>
                                     </div>
 
                                     <div class="mt-4 space-y-2">
-                                        <div class="flex items-center justify-between">
-                                            <span class="text-sm text-gray-600 dark:text-gray-400">Department:</span>
-                                            <span class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                                {{ $employee->department ? $employee->department->name : 'Not Assigned' }}
-                                            </span>
-                                        </div>
+                                         <div class="flex items-center justify-between">
+                                             <span class="text-sm text-gray-600 dark:text-gray-400">Department:</span>
+                                             <span class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                                                 {{ $employee->department ? $employee->department->name : 'Not Assigned' }}
+                                             </span>
+                                         </div>
 
-                                        <div class="flex items-center justify-between">
-                                            <span class="text-sm text-gray-600 dark:text-gray-400">Role:</span>
-                                            <span class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                                {{ $employee->roles->first()?->name ?? 'No Role' }}
-                                            </span>
-                                        </div>
+                                         <div class="flex items-center justify-between">
+                                             <span class="text-sm text-gray-600 dark:text-gray-400">Role:</span>
+                                             <span class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                                                 {{ $employee->roles->first()?->name ?? 'No Role' }}
+                                             </span>
+                                         </div>
 
                                         <div class="flex items-center justify-between">
                                             <span class="text-sm text-gray-600 dark:text-gray-400">Current Rating:</span>
@@ -117,15 +117,15 @@
                             </div>
                         </div>
                     </div>
-                @empty
-                    <div class="col-span-full text-center py-12">
-                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.856-1.487M15 10a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        <h3 class="mt-2 text-lg font-medium text-gray-900 dark:text-gray-100">No employees found</h3>
-                        <p class="mt-1 text-gray-600 dark:text-gray-400">Try adjusting your search or filter criteria.</p>
-                    </div>
-                @endforelse
+                 @empty
+                     <div class="text-center py-12">
+                         <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.856-1.487M15 10a3 3 0 016 0z" />
+                         </svg>
+                         <h3 class="mt-2 text-lg font-medium text-gray-900 dark:text-gray-100">No employees found</h3>
+                         <p class="mt-1 text-gray-600 dark:text-gray-400">Try adjusting your search or filter criteria.</p>
+                     </div>
+                 @endforelse
             </div>
         </div>
 

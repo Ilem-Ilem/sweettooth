@@ -1,4 +1,4 @@
-<div class="p-3 space-y-4" wire:poll.120s="$refresh" 
+<div class="p-3 space-y-4" wire:poll.120s="$refresh" wire:poll:keep-alive
     x-data="{ 
         viewingRequest: false,
         selectedApproval: null,

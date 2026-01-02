@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\ProductStock;
 use App\Models\Sale;
 use App\Models\SaleItem;
+use App\Models\Payment;
 use App\Models\Receipt;
 use App\Models\SalesShift;
 use App\Models\Shift;
@@ -443,6 +444,7 @@ class Index extends BaseComponent
                 'sales_shift_id' => null, // Nullable - using general shifts table instead
                 'branch_id' => $this->branchId,
                 'department_id' => $this->departmentId,
+                'table_id' => $this->selectedTableId,
                 'sold_by' => auth()->id(),
                 'sale_number' => 'POS-' . Carbon::now()->format('Ymd-His'),
                 'sale_time' => Carbon::now(),
@@ -490,6 +492,23 @@ class Index extends BaseComponent
                         $stock->updateCalculatedFields();
                         $stock->save();
                     }
+                }
+            }
+
+            // Create payment records for each payment method
+            foreach ($this->payments as $paymentData) {
+                $amount = (float)($paymentData['amount'] ?? 0);
+                if ($amount > 0) {
+                    Payment::create([
+                        'sale_id' => $sale->id,
+                        'branch_id' => $this->branchId,
+                        'payment_method' => $paymentData['method'] ?? 'cash',
+                        'amount' => $amount,
+                        'payment_time' => Carbon::now(),
+                        'status' => 'completed',
+                        'reference_number' => null,
+                        'notes' => null,
+                    ]);
                 }
             }
 
@@ -546,6 +565,7 @@ class Index extends BaseComponent
             'sales_shift_id' => null, // Nullable - using general shifts table instead
             'branch_id' => $this->branchId,
             'department_id' => $this->departmentId,
+            'table_id' => $this->selectedTableId,
             'sold_by' => auth()->id(),
             'sale_number' => 'HOLD-' . Carbon::now()->format('Ymd-His'),
             'sale_time' => Carbon::now(),
@@ -736,6 +756,7 @@ class Index extends BaseComponent
                     'sales_shift_id' => null, // Nullable - using general shifts table instead
                     'branch_id' => $this->branchId,
                     'department_id' => $this->departmentId,
+                    'table_id' => $table->id,
                     'sold_by' => auth()->id(),
                     'sale_number' => 'TAB-' . $table->table_number . '-' . Carbon::now()->format('Ymd-His'),
                     'sale_time' => Carbon::now(),

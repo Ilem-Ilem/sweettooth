@@ -1,4 +1,4 @@
-<div class="flex items-center gap-3" wire:poll.60s>
+<div class="flex items-center gap-3" wire:poll.60s="calculateTimeWorked" wire:poll:keep-alive>
     @if($hasActiveShift && $currentShift)
         <!-- Active Shift Display -->
         <div class="flex items-center gap-3">
@@ -19,16 +19,16 @@
             </button>
 
             <!-- Active Time Display -->
-            <div class="flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                <div class="flex items-center gap-1.5">
-                    <span class="relative flex h-2 w-2">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                    </span>
-                    <span class="text-sm font-medium text-green-700 dark:text-green-400">Active</span>
-                </div>
-                <span class="text-xs text-green-600 dark:text-green-500">{{ $timeWorked }}</span>
-            </div>
+             <div class="flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg" wire:loading.class="opacity-50" wire:target="calculateTimeWorked">
+                 <div class="flex items-center gap-1.5">
+                     <span class="relative flex h-2 w-2">
+                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                         <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                     </span>
+                     <span class="text-sm font-medium text-green-700 dark:text-green-400">Active</span>
+                 </div>
+                 <span class="text-xs text-green-600 dark:text-green-500">{{ $timeWorked }}</span>
+             </div>
 
             <!-- Shift Details (Desktop only) -->
             <div class="hidden lg:flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
