@@ -1,17 +1,15 @@
 @if($showEditModal && $editingStockId)
     <div x-data="{ 
         show: @entangle('showEditModal').live,
-        isLoading: true,
+        isLoading: false,
         init() {
-            // Set loading to false after modal mounts
-            this.$nextTick(() => {
-                setTimeout(() => { this.isLoading = false; }, 100);
-            });
-            // Watch for reopens
+            // Watch for opens/reopens
             this.$watch('show', (value) => {
                 if (value) {
                     this.isLoading = true;
-                    setTimeout(() => { this.isLoading = false; }, 100);
+                    setTimeout(() => { this.isLoading = false; }, 200);
+                } else {
+                    this.isLoading = false;
                 }
             });
         }

@@ -159,10 +159,17 @@
     </div>
 </div>
 
+@push('scripts')
 <script>
     // Auto-refresh every 30 seconds
-    setInterval(() => {
-        @this.call('$refresh');
-        document.getElementById('refresh-time').textContent = new Date().toLocaleTimeString();
-    }, 30000);
+    document.addEventListener('livewire:initialized', () => {
+        const refreshElement = document.getElementById('refresh-time');
+        if (refreshElement) {
+            setInterval(() => {
+                Livewire.dispatch('$refresh');
+                refreshElement.textContent = new Date().toLocaleTimeString();
+            }, 30000);
+        }
+    });
 </script>
+@endpush

@@ -177,10 +177,6 @@
         </div>
     </div>
 
-    <!-- Table Loading Overlay -->
-    <div wire:loading wire:target="updatedSearch, updatedFilterProductType, updatedFilterDepartment, updatedFilterStatus, resetFilters"
-        class="fixed inset-0 bg-black/30 z-40 rounded-lg pointer-events-none"></div>
-
     <!-- Table -->
     <div wire:loading.class="opacity-50 pointer-events-none" wire:target="updatedSearch, updatedFilterProductType, updatedFilterDepartment, updatedFilterStatus, resetFilters" class="transition-opacity duration-200">
         <x-table :$headers :$rows selectable wire:model="selectedIds" striped paginate persist :filter="['quantity' => 'quantity', 'search' => 'search']"

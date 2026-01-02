@@ -92,6 +92,11 @@ select:focus[data-flux-control] {
 [x-cloak] {
     display: none !important;
 }
+
+/* Hide Livewire loading elements by default - they will be shown by Livewire JS when loading */
+[wire\:loading]:not([wire\:loading\.remove]) {
+    display: none;
+}
 /* \[:where(&)\]:size-4 {
     @apply size-4;🤚🏿
 } */
