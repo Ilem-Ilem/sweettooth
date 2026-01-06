@@ -141,8 +141,14 @@ class CompiledReport extends Model
     /**
      * Mark report as approved.
      */
-    public function markAsApproved($employeeId, $employeeType)
+    public function markAsApproved($employeeId, $employeeType = null)
     {
+        // If no type provided, determine it from the ID
+        if (!$employeeType) {
+            $user = auth()->user();
+            $employeeType = $user instanceof Employee ? Employee::class : User::class;
+        }
+
         $this->update([
             'status' => 'approved',
             'approved_by_id' => $employeeId,

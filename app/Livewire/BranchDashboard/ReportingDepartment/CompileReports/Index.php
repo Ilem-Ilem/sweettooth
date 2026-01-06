@@ -76,6 +76,15 @@ class Index extends Component
         $this->toast()->info('All reports deselected')->send();
     }
 
+    public function toggleSelectAll()
+    {
+        if (empty($this->selectedReports)) {
+            $this->selectAll();
+        } else {
+            $this->deselectAll();
+        }
+    }
+
     public function openCompileModal()
     {
         if (empty($this->selectedReports)) {

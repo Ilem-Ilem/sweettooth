@@ -40,10 +40,15 @@ class ReportCompilationService
             // Generate recommendations
             $recommendations = $this->generateRecommendations($departmentReports);
 
+            // Get the current user/employee to determine polymorphic type
+            $user = auth()->user();
+            $compiledByType = $user instanceof \App\Models\Employee ? \App\Models\Employee::class : \App\Models\User::class;
+
             // Create compiled report
             $compiledReport = CompiledReport::create([
                 'branch_id' => $branchId,
-                'compiled_by' => $employeeId,
+                'compiled_by_id' => $employeeId,
+                'compiled_by_type' => $compiledByType,
                 'compilation_title' => $title,
                 'compilation_description' => $description,
                 'compilation_date' => now()->toDateString(),
@@ -424,7 +429,11 @@ class ReportCompilationService
             throw new \InvalidArgumentException('Report cannot be approved in its current state');
         }
 
-        $compiledReport->markAsApproved($employeeId);
+        // Determine the morph type based on authenticated user
+        $user = auth()->user();
+        $employeeType = $user instanceof \App\Models\Employee ? \App\Models\Employee::class : \App\Models\User::class;
+
+        $compiledReport->markAsApproved($employeeId, $employeeType);
 
         return $compiledReport->fresh();
     }
