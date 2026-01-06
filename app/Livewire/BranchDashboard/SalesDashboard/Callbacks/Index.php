@@ -35,6 +35,10 @@ class Index extends BaseComponent
     public $callbackUom = 'kg';
     public $currentSalesShiftId = null;
 
+    protected array $bulkActions = [
+        'export' => ['label' => 'Export Selected', 'method' => 'exportSelected'],
+    ];
+
     // Reason options
     public array $reasonOptions = [
         'expired' => 'Expired',
@@ -301,6 +305,29 @@ class Index extends BaseComponent
         }
 
         return $query->orderBy('callback_time', 'desc')->get();
+    }
+
+    protected function exportSelected(): void
+    {
+        if (empty($this->selectedIds)) {
+            session()->flash('info', 'No callbacks selected for export.');
+            return;
+        }
+
+        $callbacks = ProductDispatchCallback::whereIn('id', $this->selectedIds)
+            ->with(['product', 'salesShift', 'recordedBy', 'approvedBy', 'receivedBy'])
+            ->orderBy('callback_time', 'desc')
+            ->get();
+
+        $this->export(
+            'callbacks_' . date('Y-m-d'),
+            $callbacks,
+            'exports.sales.callbacks',
+            'excel'
+        );
+
+        session()->flash('success', count($this->selectedIds) . ' callbacks exported successfully.');
+        $this->resetBulkSelection();
     }
 
     /**

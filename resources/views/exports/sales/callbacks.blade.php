@@ -1,155 +1,107 @@
-@if($forPdf ?? false)
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { font-family: 'DejaVu Sans', sans-serif; font-size: 9pt; line-height: 1.4; color: #333; }
-            .header { margin-bottom: 25px; padding-bottom: 15px; border-bottom: 3px solid #9b59b6; }
-            .header h1 { font-size: 20pt; color: #9b59b6; margin-bottom: 5px; }
-            .meta { font-size: 8pt; color: #666; margin-top: 8px; }
-            .section-title { font-size: 12pt; font-weight: bold; color: #9b59b6; margin-top: 20px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 2px solid #9b59b6; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 8pt; }
-            thead { background-color: #9b59b6; color: white; }
-            th { padding: 8px 6px; text-align: left; font-weight: bold; border: 1px solid #9b59b6; }
-            td { padding: 6px; border: 1px solid #ddd; }
-            tbody tr:nth-child(odd) { background-color: #f9f9f9; }
-            .status-pending { color: #f39c12; font-weight: bold; }
-            .status-approved { color: #3498db; font-weight: bold; }
-            .status-received { color: #9b59b6; font-weight: bold; }
-            .status-completed { color: #27ae60; font-weight: bold; }
-            .footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #ddd; text-align: center; font-size: 7pt; color: #999; }
-            .summary-box { display: inline-block; width: 23%; margin: 1%; padding: 12px; background-color: #f8f9fa; border-left: 4px solid #9b59b6; vertical-align: top; }
-            .summary-label { font-size: 8pt; color: #666; }
-            .summary-value { font-size: 14pt; font-weight: bold; color: #2C3E50; }
-        </style>
-    </head>
-    <body>
-        <div class="header">
-            <h1>Sales Callbacks Report</h1>
-            <div class="meta">
-                <p><strong>Period:</strong> {{ $data['period']['from'] ?? 'N/A' }} to {{ $data['period']['to'] ?? 'N/A' }}</p>
-                <p><strong>Generated:</strong> {{ now()->format('d/m/Y H:i:s') }}</p>
-                <p><strong>Branch:</strong> {{ $data['branch_name'] ?? 'All Branches' }}</p>
-            </div>
-        </div>
-
-        <!-- Summary -->
-        @if(!empty($data['summary']))
-        <div style="margin-bottom: 20px;">
-            <div class="summary-box">
-                <div class="summary-label">Total Callbacks</div>
-                <div class="summary-value">{{ $data['summary']['total'] ?? 0 }}</div>
-            </div>
-            <div class="summary-box">
-                <div class="summary-label">Pending</div>
-                <div class="summary-value" style="color: #f39c12;">{{ $data['summary']['pending'] ?? 0 }}</div>
-            </div>
-            <div class="summary-box">
-                <div class="summary-label">Approved</div>
-                <div class="summary-value" style="color: #3498db;">{{ $data['summary']['approved'] ?? 0 }}</div>
-            </div>
-            <div class="summary-box">
-                <div class="summary-label">Completed</div>
-                <div class="summary-value" style="color: #27ae60;">{{ $data['summary']['completed'] ?? 0 }}</div>
-            </div>
-        </div>
-        @endif
-
-        <!-- Callbacks Table -->
-        <div class="section-title">Callback Details</div>
-        <table>
-            <thead>
+@if($forExcel)
+    <table>
+        <thead>
+            <tr>
+                <th>Callback ID</th>
+                <th>Product Name</th>
+                <th>SKU</th>
+                <th>Quantity</th>
+                <th>UOM</th>
+                <th>Reason</th>
+                <th>Status</th>
+                <th>Callback Date & Time</th>
+                <th>Recorded By</th>
+                <th>Approved By</th>
+                <th>Received By</th>
+                <th>Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($data as $callback)
                 <tr>
-                    <th style="width: 10%;">ID</th>
-                    <th style="width: 20%;">Product</th>
-                    <th style="width: 10%;">Quantity</th>
-                    <th style="width: 15%;">Reason</th>
-                    <th style="width: 12%;">Status</th>
-                    <th style="width: 18%;">Callback Time</th>
-                    <th style="width: 15%;">Recorded By</th>
+                    <td>{{ $callback->id ?? '-' }}</td>
+                    <td>{{ $callback->product?->name ?? '-' }}</td>
+                    <td>{{ $callback->product?->sku ?? '-' }}</td>
+                    <td>{{ $callback->quantity ?? 0 }}</td>
+                    <td>{{ $callback->uom ?? 'kg' }}</td>
+                    <td>{{ ucfirst(str_replace('_', ' ', $callback->reason ?? '-')) }}</td>
+                    <td>{{ ucfirst(str_replace('_', ' ', $callback->status ?? 'pending')) }}</td>
+                    <td>{{ $callback->callback_time ? \Carbon\Carbon::parse($callback->callback_time)->format('Y-m-d H:i:s') : '-' }}</td>
+                    <td>{{ $callback->recordedBy?->name ?? '-' }}</td>
+                    <td>{{ $callback->approvedBy?->name ?? '-' }}</td>
+                    <td>{{ $callback->receivedBy?->name ?? '-' }}</td>
+                    <td>{{ $callback->notes ?? '-' }}</td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
+@elseif($forPdf)
+    <div style="font-family: Arial, sans-serif; padding: 20px;">
+        <h2 style="text-align: center; color: #333;">Product Callbacks Report</h2>
+        <p style="text-align: center; color: #666; margin-bottom: 20px;">
+            Generated on {{ now()->format('Y-m-d H:i:s') }}
+        </p>
+        
+        <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+            <thead>
+                <tr style="background-color: #f5f5f5;">
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Callback ID</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Product</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">SKU</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Qty</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Reason</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Status</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Recorded By</th>
                 </tr>
             </thead>
             <tbody>
-                @forelse($data['callbacks'] ?? [] as $callback)
-                <tr>
-                    <td>{{ $callback['id'] ?? 'N/A' }}</td>
-                    <td style="font-weight: bold;">{{ $callback['product_name'] ?? 'N/A' }}</td>
-                    <td style="text-align: right;">{{ number_format($callback['quantity'] ?? 0, 2) }} {{ $callback['uom'] ?? '' }}</td>
-                    <td>{{ ucfirst(str_replace('_', ' ', $callback['reason'] ?? 'N/A')) }}</td>
-                    <td>
-                        <span class="status-{{ $callback['status'] ?? 'pending' }}">
-                            {{ ucfirst(str_replace('_', ' ', $callback['status'] ?? 'pending')) }}
-                        </span>
-                    </td>
-                    <td>{{ $callback['callback_time'] ?? 'N/A' }}</td>
-                    <td>{{ $callback['recorded_by'] ?? 'N/A' }}</td>
-                </tr>
-                @empty
-                <tr>
-                    <td colspan="7" style="text-align: center; color: #999; padding: 20px;">No callbacks found for the selected period</td>
-                </tr>
-                @endforelse
+                @foreach($data as $callback)
+                    <tr>
+                        <td style="border: 1px solid #ddd; padding: 8px;">{{ $callback->id ?? '-' }}</td>
+                        <td style="border: 1px solid #ddd; padding: 8px;">{{ $callback->product?->name ?? '-' }}</td>
+                        <td style="border: 1px solid #ddd; padding: 8px;">{{ $callback->product?->sku ?? '-' }}</td>
+                        <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{{ $callback->quantity ?? 0 }}</td>
+                        <td style="border: 1px solid #ddd; padding: 8px;">{{ ucfirst(str_replace('_', ' ', $callback->reason ?? '-')) }}</td>
+                        <td style="border: 1px solid #ddd; padding: 8px;">
+                            <span style="padding: 4px 8px; border-radius: 4px; {{ match($callback->status ?? 'pending') {
+                                'pending' => 'background-color: #fff3cd; color: #856404;',
+                                'approved_by_production' => 'background-color: #cfe2ff; color: #084298;',
+                                'received_by_production' => 'background-color: #d1ecf1; color: #0c5460;',
+                                'completed' => 'background-color: #d4edda; color: #155724;',
+                                default => 'background-color: #e2e3e5; color: #383d41;'
+                            } }}">
+                                {{ ucfirst(str_replace('_', ' ', $callback->status ?? 'pending')) }}
+                            </span>
+                        </td>
+                        <td style="border: 1px solid #ddd; padding: 8px;">{{ $callback->recordedBy?->name ?? '-' }}</td>
+                    </tr>
+                @endforeach
             </tbody>
         </table>
 
-        <div class="footer">
-            <p>SweetTooth Sales Callbacks Report - Generated automatically</p>
+        @php
+            $statuses = $data->groupBy('status')->map->count();
+            $totalQty = $data->sum(fn ($c) => $c->quantity ?? 0);
+        @endphp
+
+        <div style="margin-top: 30px; padding: 15px; background-color: #f9f9f9; border-left: 4px solid #dc3545;">
+            <h3 style="margin-top: 0; color: #333;">Summary</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>Total Callbacks:</strong></td>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">{{ $data->count() }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>Total Quantity:</strong></td>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">{{ number_format($totalQty, 2) }}</td>
+                </tr>
+                @foreach($statuses as $status => $count)
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>{{ ucfirst(str_replace('_', ' ', $status ?? 'pending')) }}:</strong></td>
+                    <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">{{ $count }}</td>
+                </tr>
+                @endforeach
+            </table>
         </div>
-    </body>
-    </html>
-@endif
-
-@if($forExcel ?? false)
-<table>
-    <thead>
-        <tr style="background-color: #9b59b6; color: white; font-weight: bold;">
-            <th colspan="7" style="text-align: center; padding: 15px; font-size: 16pt;">Sales Callbacks Report</th>
-        </tr>
-        <tr style="background-color: #8e44ad; color: white;">
-            <th colspan="4">Period: {{ $data['period']['from'] ?? 'N/A' }} to {{ $data['period']['to'] ?? 'N/A' }}</th>
-            <th colspan="3">Generated: {{ now()->format('d/m/Y H:i:s') }}</th>
-        </tr>
-    </thead>
-</table>
-
-<table><tr><td></td></tr></table>
-
-<table>
-    <thead>
-        <tr style="background-color: #2C3E50; color: white; font-weight: bold;">
-            <th>ID</th>
-            <th>Product</th>
-            <th>Quantity</th>
-            <th>UOM</th>
-            <th>Reason</th>
-            <th>Status</th>
-            <th>Callback Time</th>
-            <th>Recorded By</th>
-            <th>Notes</th>
-        </tr>
-    </thead>
-    <tbody>
-        @forelse($data['callbacks'] ?? [] as $index => $callback)
-        <tr style="{{ $index % 2 == 0 ? '' : 'background-color: #f9f9f9;' }}">
-            <td>{{ $callback['id'] ?? 'N/A' }}</td>
-            <td style="font-weight: bold;">{{ $callback['product_name'] ?? 'N/A' }}</td>
-            <td style="text-align: right;">{{ number_format($callback['quantity'] ?? 0, 2) }}</td>
-            <td>{{ $callback['uom'] ?? '' }}</td>
-            <td>{{ ucfirst(str_replace('_', ' ', $callback['reason'] ?? 'N/A')) }}</td>
-            <td style="{{ ($callback['status'] ?? '') == 'completed' ? 'color: green;' : (($callback['status'] ?? '') == 'pending' ? 'color: orange;' : '') }}">
-                {{ ucfirst(str_replace('_', ' ', $callback['status'] ?? 'pending')) }}
-            </td>
-            <td>{{ $callback['callback_time'] ?? 'N/A' }}</td>
-            <td>{{ $callback['recorded_by'] ?? 'N/A' }}</td>
-            <td>{{ $callback['notes'] ?? '' }}</td>
-        </tr>
-        @empty
-        <tr>
-            <td colspan="9" style="text-align: center; color: #999;">No callbacks found</td>
-        </tr>
-        @endforelse
-    </tbody>
-</table>
+    </div>
 @endif

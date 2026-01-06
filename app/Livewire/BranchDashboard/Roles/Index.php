@@ -44,7 +44,6 @@ class Index extends BaseComponent
 
     protected array $bulkActions = [
         'delete' => ['label' => 'Delete Selected', 'method' => 'bulkDelete'],
-        'export' => ['label' => 'Export Selected', 'method' => 'exportSelected'],
     ];
 
     /**

@@ -10,6 +10,7 @@ use App\Models\DepartmentCategory;
 use App\Models\ApprovalAuditRequest;
 use App\Services\AuditService;
 use App\Services\DepartmentApprovalService;
+use App\Traits\Exportable;
 use Livewire\Attributes\{Layout, On, Title, Url};
 
 /**
@@ -37,6 +38,7 @@ use Livewire\Attributes\{Layout, On, Title, Url};
 #[Title("Manage Departments")]
 class Index extends BaseComponent
 {
+    use Exportable;
     /**
      * Pagination: number of items per page
      * @var int
@@ -537,6 +539,28 @@ class Index extends BaseComponent
         $this->deleteReason = '';
         $this->showDeleteReasonModal = false;
         $this->toast()->info('Cancelled')->send();
+    }
+
+    protected function exportSelected(): void
+    {
+        if (empty($this->selectedIds)) {
+            session()->flash('info', 'No departments selected for export.');
+            return;
+        }
+
+        $departments = Department::whereIn('id', $this->selectedIds)
+            ->with(['category', 'branch'])
+            ->get();
+
+        $this->export(
+            'departments_' . date('Y-m-d'),
+            $departments,
+            'exports.departments',
+            'excel'
+        );
+
+        session()->flash('success', count($this->selectedIds) . ' departments exported successfully.');
+        $this->resetBulkSelection();
     }
 
     /**

@@ -7,6 +7,7 @@ use App\Models\Department;
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 use Livewire\WithPagination;
+use function is_super_admin;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class AppraisalCycles extends Component
@@ -119,6 +120,17 @@ class AppraisalCycles extends Component
     {
         $query = AppraisalCycle::with('department');
 
+        if (is_super_admin() && !$this->b_id) {
+            // Super admin with no branch selected sees all cycles
+        } else {
+            $query->where(function($q) {
+                $q->whereNull('department_id') // Global cycles
+                  ->orWhereHas('department', function($subQ) {
+                      $subQ->where('branch_id', $this->b_id);
+                  });
+            });
+        }
+
         if ($this->search) {
             $query->where('name', 'like', '%' . $this->search . '%');
         }
@@ -132,7 +144,16 @@ class AppraisalCycles extends Component
 
     public function getDepartmentsProperty()
     {
-        return Department::where('branch_id', $this->b_id)->get();
+        if (is_super_admin()) {
+            // Super admin can see departments from all branches or current selected branch
+            if ($this->b_id) {
+                return Department::where('branch_id', $this->b_id)->get();
+            } else {
+                return Department::all();
+            }
+        } else {
+            return Department::where('branch_id', $this->b_id)->get();
+        }
     }
 
     public function render()

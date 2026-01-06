@@ -6,9 +6,11 @@ use App\Livewire\BaseComponent;
 use Livewire\Component;
 use App\Models\Branch;
 use App\Models\User;
+use App\Traits\Exportable;
 
 class Index extends BaseComponent
 {
+    use Exportable;
     public ?int $quantity = 10;
     public ?string $search = null;
     public ?string $advancedSearch = null;
@@ -287,6 +289,28 @@ class Index extends BaseComponent
     public function cancelledBulkDelete(string $message): void
     {
         $this->dialog()->info('Cancelled', $message)->send();
+    }
+
+    protected function exportSelected(): void
+    {
+        if (empty($this->selectedIds)) {
+            session()->flash('info', 'No branches selected for export.');
+            return;
+        }
+
+        $branches = Branch::whereIn('id', $this->selectedIds)
+            ->with('manager')
+            ->get();
+
+        $this->export(
+            'branches_' . date('Y-m-d'),
+            $branches,
+            'exports.branches',
+            'excel'
+        );
+
+        session()->flash('success', count($this->selectedIds) . ' branches exported successfully.');
+        $this->resetBulkSelection();
     }
 
     public function render()

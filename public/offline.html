@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Offline Page</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#f9f506",
+                        "background-light": "#f8f8f5",
+                        "background-dark": "#23220f",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+    <style>
+        .material-symbols-outlined {
+          font-variation-settings:
+          'FILL' 0,
+          'wght' 500,
+          'GRAD' 0,
+          'opsz' 24
+        }
+    </style>
+    <style>
+        body {
+          min-height: max(884px, 100dvh);
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display antialiased transition-colors duration-300">
+    <div class="relative flex min-h-screen w-full flex-col justify-center overflow-hidden">
+        <!-- Main Content Wrapper -->
+        <div class="flex flex-col items-center justify-center px-6 py-10 w-full max-w-md mx-auto">
+            <!-- Illustration Area -->
+            <div class="relative mb-12 flex items-center justify-center w-full group/illustration">
+                <!-- Decorative Primary Color Blob -->
+                <div class="absolute inset-0 m-auto h-72 w-72 rounded-full bg-primary opacity-20 blur-3xl transform group-hover/illustration:scale-110 transition-transform duration-700 ease-in-out"></div>
+                <!-- Main Graphic Container -->
+                <div class="relative z-10 flex flex-col items-center">
+                    <!-- Image Placeholder representing vector graphic -->
+                    <div class="bg-center bg-no-repeat bg-contain rounded-xl aspect-square w-64" data-alt="Illustration of a cute robot looking confused with a disconnected plug wire" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuC332QtuK_rdEc6vCJ7VIS8EKkwdhhxC42TLjxZIeIshhJ_DsP52uzAVkBBfowSQ7iM_rwFLIPUcxk7bnXpZqXDMH_Xey_uATL5rM03LWYW2D7PeoIXRjHgPcaVwZsOTxiq7j-jwR6oV5euDJdw5eD3aw63t3GdhzTuw9xXLnUrRh_EeE0h1ErHCLF-35TQSizzHF9c7KPowqpbfCbXJjeLa1EMO0hoSgobNVlCK_TCraWbv8ihq_FjR3CM2vhiJae5hrtt83SRXiOx">
+                    </div>
+                    <!-- Floating Status Icon -->
+                    <div class="absolute -bottom-5 bg-white dark:bg-[#323118] p-4 rounded-full shadow-lg border-4 border-background-light dark:border-background-dark animate-bounce" style="animation-duration: 3s;">
+                        <span class="material-symbols-outlined text-4xl text-slate-900 dark:text-primary">wifi_off</span>
+                    </div>
+                </div>
+            </div>
+            <!-- Text Content -->
+            <div class="flex flex-col items-center text-center gap-4 mb-12 z-10 px-4">
+                <h1 class="text-[#181811] dark:text-white text-3xl font-bold leading-tight tracking-tight">
+                    Whoops! No Internet.
+                </h1>
+                <p class="text-slate-600 dark:text-slate-300 text-base font-normal leading-relaxed max-w-[320px]">
+                    It looks like you're offline. Check your connection and give it another shot.
+                </p>
+            </div>
+            <!-- Action Buttons -->
+            <div class="flex flex-col items-center gap-4 w-full z-10">
+                <!-- Primary Action: Try Again -->
+                <button onclick="location.reload()" class="group relative flex w-full max-w-[320px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-14 px-8 bg-primary text-[#181811] text-base font-bold leading-normal tracking-wide shadow-md transition-all active:scale-95 hover:shadow-lg hover:brightness-105">
+                    <span class="mr-2 material-symbols-outlined text-xl group-hover:rotate-180 transition-transform duration-500">refresh</span>
+                    <span class="truncate">Try Again</span>
+                </button>
+                <!-- Secondary Action: Check Settings -->
+                <button onclick="window.open('chrome://settings/network', '_blank')" class="flex w-full max-w-[320px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-12 px-6 bg-transparent text-slate-500 dark:text-slate-400 hover:text-[#181811] dark:hover:text-white text-sm font-bold leading-normal tracking-wide hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                    <span class="truncate">Check Settings</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

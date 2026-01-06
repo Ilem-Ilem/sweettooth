@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             // 1. Permissions & Roles (Critical - must be first)
             PermissionSeeder::class,
             RoleSeeder::class,
+            FixRolePermissionsSeeder::class, // Ensure all roles have complete permissions
 
             // 2. Leave Types
             LeaveTypeSeeder::class,

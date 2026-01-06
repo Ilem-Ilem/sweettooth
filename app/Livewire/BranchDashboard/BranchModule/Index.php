@@ -5,9 +5,11 @@ namespace App\Livewire\BranchDashboard\BranchModule;
 use App\Livewire\BaseComponent;
 use App\Models\Branch;
 use App\Models\User;
+use App\Traits\Exportable;
 
 class Index extends BaseComponent
 {
+    use Exportable;
     public ?int $quantity = 10;
     public ?string $search = null;
     public ?string $advancedSearch = null;
@@ -278,6 +280,28 @@ class Index extends BaseComponent
     public function cancelledBulkDelete(string $message): void
     {
         $this->dialog()->info('Cancelled', $message)->send();
+    }
+
+    protected function exportSelected(): void
+    {
+        if (empty($this->selectedIds)) {
+            session()->flash('info', 'No branch modules selected for export.');
+            return;
+        }
+
+        $branches = Branch::whereIn('id', $this->selectedIds)
+            ->with('manager')
+            ->get();
+
+        $this->export(
+            'branch_modules_' . date('Y-m-d'),
+            $branches,
+            'exports.branch_modules',
+            'excel'
+        );
+
+        session()->flash('success', count($this->selectedIds) . ' branch modules exported successfully.');
+        $this->resetBulkSelection();
     }
 
     public function render()

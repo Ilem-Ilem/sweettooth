@@ -41,6 +41,10 @@ class StockTakes extends Component
 
     public $stockTakeItems = [];
 
+    protected array $bulkActions = [
+        'export' => ['label' => 'Export Selected', 'method' => 'exportSelected'],
+    ];
+
     protected $rules = [
         'stock_take_date' => 'required|date',
         'type' => 'required|in:full,partial,cycle',
@@ -254,6 +258,28 @@ class StockTakes extends Component
         $branchId = $this->getBranchId();
 
         return StockTake::where('branch_id', $branchId)->pluck('id')->toArray();
+    }
+
+    protected function exportSelected(): void
+    {
+        if (empty($this->selectedIds)) {
+            session()->flash('info', 'No stock takes selected for export.');
+            return;
+        }
+
+        $stockTakes = StockTake::whereIn('id', $this->selectedIds)
+            ->with(['branch', 'conductor', 'verifier', 'stockTakeDetails.stock'])
+            ->get();
+
+        $this->export(
+            'stock_takes_' . date('Y-m-d'),
+            $stockTakes,
+            'exports.inventory.stock_takes',
+            'excel'
+        );
+
+        session()->flash('success', count($this->selectedIds) . ' stock takes exported successfully.');
+        $this->resetBulkSelection();
     }
 
     /**

@@ -4,8 +4,8 @@ namespace App\Livewire\BranchDashboard;
 
 use App\Models\Appraisal;
 use App\Models\AppraisalCycle;
-
 use App\Models\User;
+use function is_super_admin;
 use Livewire\Component;
 use Livewire\Attributes\Layout;
 
@@ -111,7 +111,22 @@ class AppraiseEmployee extends Component
 
     public function render()
     {
-        $cycles = AppraisalCycle::active()->forDepartment($this->employee->department_id)->get();
+        $query = AppraisalCycle::active();
+
+        if (!is_super_admin() || $this->branch) {
+            $query->where(function($q) {
+                $q->whereNull('department_id') // Global cycles
+                  ->orWhere(function($subQ) {
+                      $subQ->where('department_id', $this->employee->department_id)
+                           ->whereHas('department', function($deptQ) {
+                               $deptQ->where('branch_id', $this->branch);
+                           });
+                  });
+            });
+        }
+        // If super admin and no branch, show all active cycles
+
+        $cycles = $query->get();
 
         return view('livewire.branch-dashboard.appraise-employee', [
             'employee' => $this->employee,

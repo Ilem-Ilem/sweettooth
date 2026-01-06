@@ -32,6 +32,10 @@ class StockMovementAnalytics extends Component
     #[Url(keep: true)]
     public ?string $b_id = null;
 
+    protected array $bulkActions = [
+        'export' => ['label' => 'Export Selected', 'method' => 'exportSelected'],
+    ];
+
     protected $listeners = ['refresh' => '$refresh'];
 
     protected $queryString = [
@@ -101,6 +105,27 @@ class StockMovementAnalytics extends Component
         $this->resetPage();
 
         session()->flash('success', 'Filters reset successfully.');
+    }
+
+    protected function getModelClass(): string
+    {
+        return StockMovement::class;
+    }
+
+    protected function getAllSelectableIds(): array
+    {
+        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
+        $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
+        $dateTo   = Carbon::parse($this->dateTo)->endOfDay();
+
+        $query = StockMovement::query()
+            ->whereHas('stock', fn ($q) => $q->where('branch_id', $branchId))
+            ->whereBetween('movement_date', [$dateFrom, $dateTo])
+            ->orderBy('movement_date', 'desc');
+
+        $this->applyFiltersToQuery($query);
+
+        return $query->pluck('id')->toArray();
     }
 
     private function getAnalyticsSummary($branchId)
@@ -312,6 +337,30 @@ class StockMovementAnalytics extends Component
             }
             return true;
         });
+    }
+
+    protected function exportSelected(): void
+    {
+        if (empty($this->selectedIds)) {
+            session()->flash('info', 'No movements selected for export.');
+            return;
+        }
+
+        $movements = StockMovement::whereIn('id', $this->selectedIds)
+            ->with(['stock.item', 'mover', 'reference'])
+            ->orderBy('movement_date', 'desc')
+            ->get()
+            ->append('department_name');
+
+        $this->export(
+            'stock_movements_' . date('Y-m-d'),
+            $movements,
+            'exports.inventory.stock_movements',
+            'excel'
+        );
+
+        session()->flash('success', count($this->selectedIds) . ' movements exported successfully.');
+        $this->resetBulkSelection();
     }
 
     /**
