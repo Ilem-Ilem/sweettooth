@@ -5,10 +5,11 @@ namespace App\Livewire\BranchDashboard\Dashboards;
 use Livewire\Component;
 use App\Models\Employee;
 use App\Models\Department;
+use App\Services\SidebarVisibilityService;
 
 /**
- * Manager Dashboard - Manager level view
- * 
+ * Manager Dashboard - Manager level view (Level 3)
+ *
  * Provides Manager roles with:
  * - Team/department statistics
  * - Employee performance overview
@@ -19,10 +20,12 @@ class ManagerDashboard extends Component
 {
     public function mount()
     {
-        // Check if user has manager role
         $currentUser = get_user_auth();
-        if (!$currentUser->hasRole('manager')) {
-            abort(403, 'Only Managers can access this dashboard');
+        $roleLevel = SidebarVisibilityService::getRoleLevel($currentUser);
+
+        // Level 3 (Manager) or higher can access
+        if ($roleLevel < SidebarVisibilityService::LEVEL_MANAGER) {
+            abort(403, 'This dashboard requires Manager access or higher.');
         }
     }
 

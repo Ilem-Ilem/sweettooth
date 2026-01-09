@@ -187,12 +187,17 @@ class ApproveCallbacks extends BaseComponent
     public function approveCallback($callbackId)
     {
         try {
-            DB::beginTransaction();
-
             $callback = ProductDispatchCallback::find($callbackId);
 
             if (!$callback) {
                 $this->toast()->error('Callback not found.')->send();
+                return;
+            }
+
+            // Authorization check using policy
+            $user = auth()->user();
+            if ($user && !$user->can('approve', $callback)) {
+                $this->toast()->error('You are not authorized to approve this callback.')->send();
                 return;
             }
 
@@ -207,15 +212,19 @@ class ApproveCallbacks extends BaseComponent
                 return;
             }
 
-            $callback->approve($actor);
+            // approve() method now handles its own transaction with locking
+            if (!$callback->approve($actor)) {
+                $this->toast()->error('Callback could not be approved. It may have been modified by another user.')->send();
+                return;
+            }
 
-            DB::commit();
+            // Clear stats cache
+            $this->clearStatsCache();
 
             $this->toast()->success('Callback approved successfully!')->send();
             $this->dispatch('$refresh');
 
         } catch (\Exception $e) {
-            DB::rollBack();
             $this->toast()->error('Failed to approve callback: ' . $e->getMessage())->send();
         }
     }
@@ -223,12 +232,17 @@ class ApproveCallbacks extends BaseComponent
     public function receiveCallback($callbackId)
     {
         try {
-            DB::beginTransaction();
-
             $callback = ProductDispatchCallback::find($callbackId);
 
             if (!$callback) {
                 $this->toast()->error('Callback not found.')->send();
+                return;
+            }
+
+            // Authorization check using policy
+            $user = auth()->user();
+            if ($user && !$user->can('receive', $callback)) {
+                $this->toast()->error('You are not authorized to receive this callback.')->send();
                 return;
             }
 
@@ -243,15 +257,19 @@ class ApproveCallbacks extends BaseComponent
                 return;
             }
 
-            $callback->markAsReceived($actor);
+            // markAsReceived() method now handles its own transaction with locking
+            if (!$callback->markAsReceived($actor)) {
+                $this->toast()->error('Callback could not be received. It may have been modified by another user.')->send();
+                return;
+            }
 
-            DB::commit();
+            // Clear stats cache
+            $this->clearStatsCache();
 
             $this->toast()->success('Callback received successfully!')->send();
             $this->dispatch('$refresh');
 
         } catch (\Exception $e) {
-            DB::rollBack();
             $this->toast()->error('Failed to receive callback: ' . $e->getMessage())->send();
         }
     }
@@ -259,12 +277,17 @@ class ApproveCallbacks extends BaseComponent
     public function completeCallback($callbackId)
     {
         try {
-            DB::beginTransaction();
-
             $callback = ProductDispatchCallback::find($callbackId);
 
             if (!$callback) {
                 $this->toast()->error('Callback not found.')->send();
+                return;
+            }
+
+            // Authorization check using policy
+            $user = auth()->user();
+            if ($user && !$user->can('complete', $callback)) {
+                $this->toast()->error('You are not authorized to complete this callback.')->send();
                 return;
             }
 
@@ -273,12 +296,13 @@ class ApproveCallbacks extends BaseComponent
                 return;
             }
 
-            // Use model's completeWithStockUpdate() instead
+            // Use model's completeWithStockUpdate() - handles its own transaction
             $callback->completeWithStockUpdate();
 
-            DB::commit();
+            // Clear stats cache
+            $this->clearStatsCache();
 
-            $this->toast()->success('Callback completed successfully!')->send();
+            $this->toast()->success('Callback completed successfully! Stock has been updated.')->send();
             $this->dispatch('$refresh');
 
             // Close modal if open
@@ -287,9 +311,50 @@ class ApproveCallbacks extends BaseComponent
             }
 
         } catch (\Exception $e) {
-            DB::rollBack();
             $this->toast()->error('Failed to complete callback: ' . $e->getMessage())->send();
         }
+    }
+
+    /**
+     * Get stats cache key for current branch
+     */
+    protected function getStatsCacheKey(): string
+    {
+        return "callback_stats_branch_{$this->getBranchId()}";
+    }
+
+    /**
+     * Clear stats cache
+     */
+    protected function clearStatsCache(): void
+    {
+        cache()->forget($this->getStatsCacheKey());
+    }
+
+    /**
+     * Get cached stats for the branch
+     */
+    protected function getCachedStats(): array
+    {
+        return cache()->remember(
+            $this->getStatsCacheKey(),
+            now()->addMinutes(5),
+            function () {
+                $branchId = $this->getBranchId();
+                $baseQuery = ProductDispatchCallback::whereHas('productDispatch.salesShift', function ($q) use ($branchId) {
+                    $q->where('branch_id', $branchId);
+                });
+
+                return [
+                    'total' => (clone $baseQuery)->count(),
+                    'pending' => (clone $baseQuery)->where('status', 'pending')->count(),
+                    'approved' => (clone $baseQuery)->where('status', 'approved_by_production')->count(),
+                    'received' => (clone $baseQuery)->where('status', 'received_by_production')->count(),
+                    'completed' => (clone $baseQuery)->where('status', 'completed')->count(),
+                    'stuck' => (clone $baseQuery)->stuck()->count(),
+                ];
+            }
+        );
     }
 
 
@@ -307,28 +372,8 @@ class ApproveCallbacks extends BaseComponent
 
     public function render()
     {
-        // Get stats for the branch
-        $stats = [
-            'total' => ProductDispatchCallback::whereHas('productDispatch.salesShift', function($q) {
-                $q->where('branch_id', $this->getBranchId());
-            })->count(),
-
-            'pending' => ProductDispatchCallback::whereHas('productDispatch.salesShift', function($q) {
-                $q->where('branch_id', $this->getBranchId());
-            })->where('status', 'pending')->count(),
-
-            'approved' => ProductDispatchCallback::whereHas('productDispatch.salesShift', function($q) {
-                $q->where('branch_id', $this->getBranchId());
-            })->where('status', 'approved_by_production')->count(),
-
-            'received' => ProductDispatchCallback::whereHas('productDispatch.salesShift', function($q) {
-                $q->where('branch_id', $this->getBranchId());
-            })->where('status', 'received_by_production')->count(),
-
-            'completed' => ProductDispatchCallback::whereHas('productDispatch.salesShift', function($q) {
-                $q->where('branch_id', $this->getBranchId());
-            })->where('status', 'completed')->count(),
-        ];
+        // Use cached stats for better performance
+        $stats = $this->getCachedStats();
 
         return view('livewire.branch-dashboard.production.callbacks.approve-callbacks', [
             'rows' => $this->rows,

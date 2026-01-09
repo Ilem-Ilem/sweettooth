@@ -2,501 +2,405 @@
 
 namespace App\Services;
 
-use Illuminate\Database\Eloquent\Model;
+use App\Models\User;
+use App\Models\Department;
+use Illuminate\Support\Collection;
 
 /**
- * Sidebar Visibility Control Service
+ * Sidebar Visibility Service (Simplified)
  *
- * Controls which sidebar menu items are visible based on user roles and permissions.
- * Integrates with the permission system to show/hide menu sections.
+ * Controls sidebar menu visibility based on:
+ * 1. User's DEPARTMENT (determines what features they see)
+ * 2. User's ROLE LEVEL (determines what they can do)
+ *
+ * Role Levels:
+ * 5 = Super Admin (everything)
+ * 4 = Admin (all departments in branch)
+ * 3 = Manager (all departments in category)
+ * 2 = Supervisor (own department + reports)
+ * 1 = Staff (own department, basic access)
  */
 class SidebarVisibilityService
 {
-    /**
-     * Check if user is a super admin
-     * Super admins should see everything
-     */
-    public static function isSuperAdmin(): bool
-    {
-        return is_super_admin();
-    }
+    // Role levels
+    public const LEVEL_SUPER_ADMIN = 5;
+    public const LEVEL_ADMIN = 4;
+    public const LEVEL_MANAGER = 3;
+    public const LEVEL_SUPERVISOR = 2;
+    public const LEVEL_STAFF = 1;
 
     /**
-     * Check if user can see Administration section
-     * Super Admins (web guard) should always see this
+     * Get user's role level (1-5)
      */
-    public static function canSeeAdministration(Model $user): bool
+    public static function getRoleLevel(?User $user = null): int
     {
-        // Super admins see everything
-        if (self::isSuperAdmin()) {
-            return true;
+        $user = $user ?? auth()->user();
+
+        if (!$user) {
+            return 0;
         }
 
-        // For employees guard, check roles
-        return $user->hasAnyRole(['Super Admin', 'MD', 'Managing Director', 'Admin']);
-    }
+        // Check by role level column first (new system)
+        $role = $user->roles()->orderByDesc('level')->first();
 
-    /**
-     * Check if user can see Organization section
-     * Admin, Super Admin, MD, and HR Manager can see this
-     */
-    public static function canSeeOrganization(Model $user): bool
-    {
-        // Super Admin, Admin, MD can see everything
-        if (self::isSuperAdmin()) {
-            return true;
+        if ($role && isset($role->level) && $role->level > 0) {
+            return (int) $role->level;
         }
 
-        return $user->hasAnyRole(['Admin', 'MD', 'Managing Director', 'HR Manager']);
-    }
+        // Fallback: check by role name (old system compatibility)
+        if ($user->hasRole('Super Admin')) return self::LEVEL_SUPER_ADMIN;
+        if ($user->hasRole('Admin')) return self::LEVEL_ADMIN;
 
-    /**
-     * Check if user can see Employee Management
-     */
-    public static function canSeeEmployeeManagement(Model $user): bool
-    {
-        if (self::isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->can('view-employees')
-            || $user->can('create-employees')
-            || $user->can('edit-employees')
-            || $user->can('manage_organization')
-            || $user->hasAnyRole(['Super Admin', 'Admin', 'HR Manager', 'HR Officer']);
-    }
-
-    /**
-     * Check if user can see Departments
-     */
-    public static function canSeeDepartments(Model $user): bool
-    {
-        if (self::isSuperAdmin()) {
-            return true;
-        }
-
-        // Hide departments for HR Manager/Officer (they don't need to manage departments)
-        if ($user->hasAnyRole(['HR Manager', 'HR Officer'])) {
-            return false;
-        }
-
-        return $user->can('view-departments')
-            || $user->hasAnyRole(['Super Admin', 'admin', 'manager']);
-    }
-
-    /**
-     * Check if user can see Leave Management
-     */
-    public static function canSeeLeaveManagement(Model $user): bool
-    {
-        if (self::isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->can('manage-leave')
-            || $user->can('approve-leave')
-            || $user->can('manage_organization')
-            || $user->hasAnyRole(['Super Admin', 'leave_manager', 'HR Manager', 'HR Officer']);
-    }
-
-    /**
-     * Check if user can see Audit Management
-     */
-    public static function canSeeAuditManagement(Model $user): bool
-    {
-        if (self::isSuperAdmin()) {
-            return true;
-        }
-
-        // Hide audit for HR Manager/Officer
-        if ($user->hasAnyRole(['HR Manager', 'HR Officer'])) {
-            return false;
-        }
-
-        return $user->can('view-audit-logs')
-            || $user->hasAnyRole(['Super Admin', 'auditor']);
-    }
-
-    /**
-     * Check if user can see Inventory section
-     * Only inventory-specific roles should see this section
-     */
-    public static function canSeeInventory(Model $user): bool
-    {
-        // Super Admin, Admin, MD can see everything - don't show for them as separate section
-        if (self::isSuperAdmin()) {
-            return false;
-        }
-        if ($user->hasAnyRole(['Admin', 'MD', 'Managing Director'])) {
-            return false;
-        }
-
-        // Only inventory roles should see inventory section
-        return $user->hasAnyRole(['Inventory Manager', 'Store Keeper', 'Stock Controller', 'Store Manager']);
-    }
-
-    /**
-     * Check if user can see Inventory Management subsection
-     */
-    public static function canSeeInventoryManagement(Model $user): bool
-    {
-        if (self::isSuperAdmin()) {
-            return true;
-        }
-
-        // Hide for super admins/admins/MD as they see everything
-        if ($user->hasAnyRole(['Admin', 'MD', 'Managing Director'])) {
-            return false;
-        }
-
-        // Only show for inventory-specific roles
-        return $user->hasAnyRole(['Inventory Manager'])
-            && ($user->can('view-stock-levels')
-                || $user->can('receive-stock')
-                || $user->can('adjust-inventory'));
-    }
-
-    /**
-     * Check if user can see Inventory Callbacks
-     */
-    public static function canSeeInventoryCallbacks(Model $user): bool
-    {
-        if (self::isSuperAdmin()) {
-            return true;
-        }
-
-        // Hide for super admins/admins/MD as they see everything
-        if ($user->hasAnyRole(['Admin', 'MD', 'Managing Director'])) {
-            return false;
-        }
-
-        // Only show for inventory-specific roles
-        return $user->hasAnyRole(['Inventory Manager'])
-            && ($user->can('view-callbacks')
-                || $user->can('approve-callbacks'));
-    }
-
-    /**
-     * Check if user can see Analytics section
-     */
-    public static function canSeeAnalytics(Model $user): bool
-    {
-        if (self::isSuperAdmin()) {
-            return true;
-        }
-
-        // HR Manager should not see analytics (only organization items)
-        if ($user->hasRole('HR Manager')) {
-            return false;
-        }
-
-        return $user->can('view-analytics')
-            || $user->hasAnyRole(['Super Admin', 'reporting_manager', 'admin']);
-    }
-
-    /**
-     * Check if user can see Production section
-     * Only production-specific roles should see this section
-     */
-    public static function canSeeProduction(Model $user): bool
-    {
-        // Super admins should see everything including production
-        if (self::isSuperAdmin()) {
-            return true;
-        }
-
-        // Admin, MD see everything - don't show separate sections
-        if ($user->hasAnyRole(['Admin', 'MD', 'Managing Director'])) {
-            return false;
-        }
-
-        // Only production roles should see production section
-        return $user->hasAnyRole([
-            'Head of Production',
-            'Chef',
-            'Head of Gelato',
-            'Confectioneries Manager',
-            'Kitchen Staff',
-            'Gelato Production Staff',
-            'Confectioneries Production Staff',
-        ]);
-    }
-
-    /**
-     * Check if user can see Production Callbacks
-     */
-    public static function canSeeProductionCallbacks(Model $user): bool
-    {
-        if (self::isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->can('view-callbacks')
-            || $user->can('approve-callbacks')
-            || $user->hasAnyRole([
-                'Super Admin',
-                'Head of Production',
-                'Chef',
-                'Head of Gelato',
-                'Confectioneries Manager',
-                'Admin',
-            ]);
-    }
-
-    /**
-     * Check if user can see Sales Management section
-     */
-    public static function canSeeSalesManagement(Model $user): bool
-    {
-        if (self::isSuperAdmin()) {
-            return true;
-        }
-
-        // Explicitly exclude production roles from seeing sales
-        $productionRoles = [
-            'Head of Production',
-            'Chef',
-            'Head of Gelato',
-            'Confectionaries Manager',
-            'Kitchen Staff',
-            'Gelato Production Staff',
-            'Confectionaries Production Staff',
+        $managerRoles = [
+            'Manager', 'Head of Production', 'Chef', 'Head of Gelato',
+            'Confectioneries Manager', 'Sales Manager', 'HR Manager',
+            'Inventory Manager', 'Corner Store Manager', 'MD', 'Managing Director'
         ];
+        if ($user->hasAnyRole($managerRoles)) return self::LEVEL_MANAGER;
 
-        if ($user->hasAnyRole($productionRoles)) {
-            return false;
-        }
+        $supervisorRoles = ['Supervisor', 'Till Supervisor', 'Sales Supervisor', 'Stock Controller'];
+        if ($user->hasAnyRole($supervisorRoles)) return self::LEVEL_SUPERVISOR;
 
-        return $user->can('process-sale')
-            || $user->can('view-daily-sales')
-            || $user->can('close-register')
-            || $user->hasAnyRole([
-                'Super Admin',
-                'Sales Manager',
-                'Till Supervisor',
-                'Cashier',
-                'Corner Store Manager',
-                'Corner Store Staff',
-                'Confectionaries Sales Staff',
-                'Admin',
-            ]);
+        return self::LEVEL_STAFF;
     }
 
     /**
-     * Check if user can see Inventory Dashboard
-     * Sales roles and production roles should NOT see inventory dashboard (they have access via their own sections)
+     * Check if user is Super Admin (level 5)
      */
-    public static function canSeeInventoryDashboard(Model $user): bool
+    public static function isSuperAdmin(?User $user = null): bool
     {
-        // Super Admin, Admin, MD see everything - don't show separate inventory
-        if (self::isSuperAdmin()) {
-            return false;
-        }
-        if ($user->hasAnyRole(['Admin', 'MD', 'Managing Director', 'Super Admin'])) {
-            return true;
+        return self::getRoleLevel($user) >= self::LEVEL_SUPER_ADMIN;
+    }
+
+    /**
+     * Check if user is Admin or higher (level 4+)
+     */
+    public static function isAdmin(?User $user = null): bool
+    {
+        return self::getRoleLevel($user) >= self::LEVEL_ADMIN;
+    }
+
+    /**
+     * Check if user is Manager or higher (level 3+)
+     */
+    public static function isManager(?User $user = null): bool
+    {
+        return self::getRoleLevel($user) >= self::LEVEL_MANAGER;
+    }
+
+    /**
+     * Check if user is Supervisor or higher (level 2+)
+     */
+    public static function isSupervisor(?User $user = null): bool
+    {
+        return self::getRoleLevel($user) >= self::LEVEL_SUPERVISOR;
+    }
+
+    /**
+     * Get user's department category name
+     */
+    public static function getDepartmentCategory(?User $user = null): ?string
+    {
+        $user = $user ?? auth()->user();
+        return $user?->department?->category?->name;
+    }
+
+    /**
+     * Get departments user can access in sidebar
+     */
+    public static function getAccessibleDepartments(?User $user = null): Collection
+    {
+        $user = $user ?? auth()->user();
+
+        if (!$user) {
+            return collect();
         }
 
-        // Exclude sales-only roles from seeing inventory
-        $salesOnlyRoles = [
-            'Till Supervisor',
-            'Cashier',
-            'Corner Store Manager',
-            'Corner Store Staff',
-            'Confectionaries Sales Staff',
+        $level = self::getRoleLevel($user);
+        $branchId = session('current_branch_id') ?? $user->branch_id;
+
+        // Level 5: Super Admin sees all departments (across all branches if needed)
+        if ($level >= self::LEVEL_SUPER_ADMIN) {
+            $query = Department::where('is_active', true);
+            if ($branchId) {
+                $query->where('branch_id', $branchId);
+            }
+            return $query->with('category')->orderBy('name')->get();
+        }
+
+        // Level 4: Admin sees all departments in their branch
+        if ($level >= self::LEVEL_ADMIN) {
+            return Department::where('branch_id', $branchId)
+                ->where('is_active', true)
+                ->with('category')
+                ->orderBy('name')
+                ->get();
+        }
+
+        // Level 3: Manager sees all departments in same category
+        if ($level >= self::LEVEL_MANAGER) {
+            $categoryId = $user->department?->category_id;
+            return Department::where('branch_id', $branchId)
+                ->where('category_id', $categoryId)
+                ->where('is_active', true)
+                ->with('category')
+                ->orderBy('name')
+                ->get();
+        }
+
+        // Level 1-2: Supervisor/Staff see only their department
+        $dept = $user->department;
+        return $dept ? collect([$dept->load('category')]) : collect();
+    }
+
+    /**
+     * Get visible menu sections based on department and role level
+     */
+    public static function getVisibleSections(?User $user = null): array
+    {
+        $user = $user ?? auth()->user();
+
+        if (!$user) {
+            return [];
+        }
+
+        $level = self::getRoleLevel($user);
+        $category = self::getDepartmentCategory($user);
+        $deptName = $user->department?->name;
+
+        return [
+            // Dashboard - everyone
+            'dashboard' => true,
+
+            // Department-specific sections (based on category)
+            'production' => $category === 'Production' || $level >= self::LEVEL_ADMIN,
+            'sales' => $category === 'Sales' || $level >= self::LEVEL_ADMIN,
+            'inventory' => ($category === 'Support' && str_contains($deptName ?? '', 'Inventory')) || $level >= self::LEVEL_ADMIN,
+            'hr' => ($category === 'Support' && $deptName === 'HR') || $level >= self::LEVEL_ADMIN,
+            'accounting' => ($category === 'Support' && str_contains($deptName ?? '', 'Account')) || $level >= self::LEVEL_ADMIN,
+
+            // Role-level sections
+            'reports' => $level >= self::LEVEL_SUPERVISOR,
+            'analytics' => $level >= self::LEVEL_SUPERVISOR,
+            'staff_schedule' => $level >= self::LEVEL_SUPERVISOR,
+
+            // Admin sections (level 4+)
+            'organization' => $level >= self::LEVEL_ADMIN,
+            'administration' => $level >= self::LEVEL_ADMIN,
+            'user_management' => $level >= self::LEVEL_ADMIN,
+            'department_management' => $level >= self::LEVEL_ADMIN,
+
+            // Super Admin only (level 5)
+            'roles_permissions' => $level >= self::LEVEL_SUPER_ADMIN,
+            'branch_management' => $level >= self::LEVEL_SUPER_ADMIN,
+            'system_settings' => $level >= self::LEVEL_SUPER_ADMIN,
+            'audit_logs' => $level >= self::LEVEL_SUPER_ADMIN,
         ];
+    }
 
-        if ($user->hasAnyRole($salesOnlyRoles)) {
-            return false;
-        }
+    // =========================================================================
+    // LEGACY COMPATIBILITY METHODS (for existing blade templates)
+    // These map old method names to new logic
+    // =========================================================================
 
-        // Exclude production roles from seeing inventory (they access stock via production section)
-        $productionRoles = [
-            'Head of Production',
-            'Chef',
-            'Head of Gelato',
-            'Confectionaries Manager',
-            'Kitchen Staff',
-            'Gelato Production Staff',
-            'Confectionaries Production Staff',
-        ];
+    public static function canSeeAdministration($user = null): bool
+    {
+        return self::getRoleLevel($user) >= self::LEVEL_ADMIN;
+    }
 
-        if ($user->hasAnyRole($productionRoles)) {
-            return false;
-        }
+    public static function canSeeOrganization($user = null): bool
+    {
+        return self::getRoleLevel($user) >= self::LEVEL_ADMIN;
+    }
 
+    public static function canSeeEmployeeManagement($user = null): bool
+    {
+        $user = $user ?? auth()->user();
+        $level = self::getRoleLevel($user);
+        $category = self::getDepartmentCategory($user);
+
+        // HR department or Admin+
+        return ($category === 'Support' && $user?->department?->name === 'HR') || $level >= self::LEVEL_ADMIN;
+    }
+
+    public static function canSeeDepartments($user = null): bool
+    {
+        return self::getRoleLevel($user) >= self::LEVEL_ADMIN;
+    }
+
+    public static function canSeeLeaveManagement($user = null): bool
+    {
+        $user = $user ?? auth()->user();
+        $level = self::getRoleLevel($user);
+        $category = self::getDepartmentCategory($user);
+
+        return ($category === 'Support' && $user?->department?->name === 'HR') || $level >= self::LEVEL_ADMIN;
+    }
+
+    public static function canSeeAuditManagement($user = null): bool
+    {
+        return self::getRoleLevel($user) >= self::LEVEL_SUPER_ADMIN;
+    }
+
+    public static function canSeeInventory($user = null): bool
+    {
+        $user = $user ?? auth()->user();
+        $level = self::getRoleLevel($user);
+        $category = self::getDepartmentCategory($user);
+        $deptName = $user?->department?->name ?? '';
+
+        return (str_contains($deptName, 'Inventory') || str_contains($deptName, 'Store'))
+            || $level >= self::LEVEL_ADMIN;
+    }
+
+    public static function canSeeInventoryManagement($user = null): bool
+    {
+        return self::canSeeInventory($user) && self::getRoleLevel($user) >= self::LEVEL_MANAGER;
+    }
+
+    public static function canSeeInventoryCallbacks($user = null): bool
+    {
+        return self::canSeeInventory($user) && self::getRoleLevel($user) >= self::LEVEL_MANAGER;
+    }
+
+    public static function canSeeAnalytics($user = null): bool
+    {
+        return self::getRoleLevel($user) >= self::LEVEL_SUPERVISOR;
+    }
+
+    public static function canSeeProduction($user = null): bool
+    {
+        $user = $user ?? auth()->user();
+        $level = self::getRoleLevel($user);
+        $category = self::getDepartmentCategory($user);
+
+        return $category === 'Production' || $level >= self::LEVEL_ADMIN;
+    }
+
+    public static function canSeeProductionCallbacks($user = null): bool
+    {
+        return self::canSeeProduction($user) && self::getRoleLevel($user) >= self::LEVEL_MANAGER;
+    }
+
+    public static function canSeeSalesManagement($user = null): bool
+    {
+        $user = $user ?? auth()->user();
+        $level = self::getRoleLevel($user);
+        $category = self::getDepartmentCategory($user);
+
+        return $category === 'Sales' || $level >= self::LEVEL_ADMIN;
+    }
+
+    public static function canSeeInventoryDashboard($user = null): bool
+    {
         return self::canSeeInventory($user);
     }
 
-    /**
-     * Check if user can see Sales Management static items (manager level)
-     */
-    public static function canSeeSalesManagerItems(Model $user): bool
+    public static function canSeeSalesManagerItems($user = null): bool
     {
-        if (self::isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->can('view-stock-levels')
-            || $user->hasAnyRole(['Super Admin', 'Sales Manager', 'Admin']);
+        return self::canSeeSalesManagement($user) && self::getRoleLevel($user) >= self::LEVEL_MANAGER;
     }
 
-    /**
-     * Check if user can see Reporting section
-     */
-    public static function canSeeReporting(Model $user): bool
+    public static function canSeeReporting($user = null): bool
     {
-        if (self::isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->can('view-reports')
-            || $user->can('generate-reports')
-            || $user->hasAnyRole(['Super Admin', 'reporting_manager', 'admin']);
+        return self::getRoleLevel($user) >= self::LEVEL_SUPERVISOR;
     }
 
-    /**
-     * Check if user can see Accounting section
-     */
-    public static function canSeeAccounting(Model $user): bool
+    public static function canSeeAccounting($user = null): bool
     {
-        if (self::isSuperAdmin()) {
-            return true;
-        }
+        $user = $user ?? auth()->user();
+        $level = self::getRoleLevel($user);
+        $deptName = $user?->department?->name ?? '';
 
-        return $user->can('access_accounting')
-            || $user->can('view_financial_reports')
-            || $user->hasAnyRole(['Super Admin', 'MD', 'Managing Director', 'admin', 'accountant']);
+        return str_contains($deptName, 'Account') || $level >= self::LEVEL_ADMIN;
     }
 
-    /**
-     * Check if user can see Role Assignments
-     */
-    public static function canSeeRoleAssignments(Model $user): bool
+    public static function canSeeRoleAssignments($user = null): bool
     {
-        if (self::isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->can('assign-roles')
-            || $user->can('manage_organization')
-            || $user->hasAnyRole(['Super Admin', 'admin', 'HR Manager', 'HR Officer']);
+        return self::getRoleLevel($user) >= self::LEVEL_ADMIN;
     }
 
-    /**
-     * Check if user can see Roles & Permissions link
-     */
-    public static function canSeeRolesPermissions(Model $user): bool
+    public static function canSeeRolesPermissions($user = null): bool
     {
-        if (self::isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->can('view-roles')
-            || $user->hasAnyRole(['Super Admin', 'admin']);
+        return self::getRoleLevel($user) >= self::LEVEL_SUPER_ADMIN;
     }
 
-    /**
-     * Check if user can see Branch Management
-     */
-    public static function canSeeBranchManagement(Model $user): bool
+    public static function canSeeBranchManagement($user = null): bool
     {
-        if (self::isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->can('view-branches')
-            || $user->hasAnyRole(['Super Admin', 'admin']);
+        return self::getRoleLevel($user) >= self::LEVEL_SUPER_ADMIN;
     }
 
-    /**
-     * Check if user can see MD Reports
-     */
-    public static function canSeeMDReports(Model $user): bool
+    public static function canSeeMDReports($user = null): bool
     {
-        if (self::isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->can('view-reports')
-            || $user->hasAnyRole(['Super Admin', 'MD', 'Managing Director', 'admin']);
+        return self::getRoleLevel($user) >= self::LEVEL_ADMIN;
     }
 
-    /**
-     * Check if user can see System Settings
-     */
-    public static function canSeeSettings(Model $user): bool
+    public static function canSeeSettings($user = null): bool
     {
-        if (self::isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->can('manage-settings')
-            || $user->hasAnyRole(['Super Admin', 'admin']);
+        return self::getRoleLevel($user) >= self::LEVEL_SUPER_ADMIN;
     }
 
-    /**
-     * Check if user is department restricted production role
-     */
-    public static function isDepartmentRestrictedProductionRole(Model $user): bool
+    // =========================================================================
+    // DEPARTMENT-RESTRICTED ROLE CHECKS (for sidebar department filtering)
+    // =========================================================================
+
+    public static function isDepartmentRestrictedProductionRole($user = null): bool
     {
-        return $user->hasAnyRole([
-            'Chef',
-            'Head of Gelato',
-            'Confectionaries Manager',
-            'Kitchen Staff',
-            'Gelato Production Staff',
-            'Confectionaries Production Staff',
-        ]);
+        $user = $user ?? auth()->user();
+        $level = self::getRoleLevel($user);
+        $category = self::getDepartmentCategory($user);
+
+        // Production category and below Manager level = restricted to own dept
+        return $category === 'Production' && $level < self::LEVEL_MANAGER;
     }
 
-    /**
-     * Check if user is production admin role
-     */
-    public static function isProductionAdminRole(Model $user): bool
+    public static function isProductionAdminRole($user = null): bool
     {
-        return $user->hasAnyRole(['Super Admin', 'Head of Production', 'Admin']);
+        $user = $user ?? auth()->user();
+        $level = self::getRoleLevel($user);
+        $category = self::getDepartmentCategory($user);
+
+        // Admin+ OR Manager in Production
+        return $level >= self::LEVEL_ADMIN || ($category === 'Production' && $level >= self::LEVEL_MANAGER);
     }
 
-    /**
-     * Check if user is department restricted sales role
-     */
-    public static function isDepartmentRestrictedSalesRole(Model $user): bool
+    public static function isDepartmentRestrictedSalesRole($user = null): bool
     {
-        return $user->hasAnyRole([
-            'Till Supervisor',
-            'Cashier',
-            'Corner Store Manager',
-            'Corner Store Staff',
-            'Confectionaries Sales Staff',
-        ]);
+        $user = $user ?? auth()->user();
+        $level = self::getRoleLevel($user);
+        $category = self::getDepartmentCategory($user);
+
+        // Sales category and below Manager level = restricted to own dept
+        return $category === 'Sales' && $level < self::LEVEL_MANAGER;
     }
 
-    /**
-     * Check if user is sales admin role
-     */
-    public static function isSalesAdminRole(Model $user): bool
+    public static function isSalesAdminRole($user = null): bool
     {
-        return $user->hasAnyRole(['Super Admin', 'Sales Manager', 'Admin']);
+        $user = $user ?? auth()->user();
+        $level = self::getRoleLevel($user);
+        $category = self::getDepartmentCategory($user);
+
+        // Admin+ OR Manager in Sales
+        return $level >= self::LEVEL_ADMIN || ($category === 'Sales' && $level >= self::LEVEL_MANAGER);
     }
 
-    /**
-     * Get all visible menu sections for user
-     */
-    public static function getVisibleSections(Model $user): array
+    // =========================================================================
+    // PRODUCTION MENU ITEMS
+    // =========================================================================
+
+    public static function getProductionDepartments(?User $user = null): Collection
     {
-        return [
-            'administration' => self::canSeeAdministration($user),
-            'organization' => self::canSeeOrganization($user),
-            'employee_management' => self::canSeeEmployeeManagement($user),
-            'departments' => self::canSeeDepartments($user),
-            'leave_management' => self::canSeeLeaveManagement($user),
-            'audit_management' => self::canSeeAuditManagement($user),
-            'inventory' => self::canSeeInventory($user),
-            'analytics' => self::canSeeAnalytics($user),
-            'production' => self::canSeeProduction($user),
-            'sales' => self::canSeeSalesManagement($user),
-            'reporting' => self::canSeeReporting($user),
-            'accounting' => self::canSeeAccounting($user),
-        ];
+        return self::getAccessibleDepartments($user)
+            ->filter(fn($d) => $d->category?->name === 'Production');
+    }
+
+    // =========================================================================
+    // SALES MENU ITEMS
+    // =========================================================================
+
+    public static function getSalesDepartments(?User $user = null): Collection
+    {
+        return self::getAccessibleDepartments($user)
+            ->filter(fn($d) => $d->category?->name === 'Sales');
     }
 }

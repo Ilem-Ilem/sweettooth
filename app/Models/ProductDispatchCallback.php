@@ -211,14 +211,15 @@ class ProductDispatchCallback extends Model
 
     /**
      * Approve the callback (Sales→Production approval)
-     * 
+     *
      * Marks the return as approved by production, confirming they accept the returned product.
      * If no actor is provided, uses current_actor() for polymorphic tracking.
-     * 
+     * Uses pessimistic locking to prevent race conditions.
+     *
      * @param \App\Models\Employee|\App\Models\User|null $actor The actor approving (defaults to current_actor())
      * @return bool True if successfully approved, false if cannot be approved
      * @throws RuntimeException If no actor is authenticated
-     * 
+     *
      * @example
      * $callback = ProductDispatchCallback::find(1);
      * $actor = current_actor();  // Employee or User
@@ -228,59 +229,75 @@ class ProductDispatchCallback extends Model
      */
     public function approve($actor = null): bool
     {
-        if (! $this->canBeApproved()) {
-            return false;
-        }
+        return DB::transaction(function () use ($actor) {
+            // Lock the record to prevent concurrent updates
+            $locked = self::where('id', $this->id)->lockForUpdate()->first();
 
-        $actor = $actor ?? current_actor();
-        if (! $actor) {
-            throw new RuntimeException('No authenticated actor found');
-        }
+            if (!$locked || $locked->status !== 'pending') {
+                return false;
+            }
 
-        $this->update([
-            'status' => 'approved_by_production',
-            'approved_by_id' => $actor->id,
-            'approved_by_type' => get_class($actor),
-            'approved_at' => now(),
-        ]);
+            $actor = $actor ?? current_actor();
+            if (! $actor) {
+                throw new RuntimeException('No authenticated actor found');
+            }
 
-        return true;
+            $locked->update([
+                'status' => 'approved_by_production',
+                'approved_by_id' => $actor->id,
+                'approved_by_type' => get_class($actor),
+                'approved_at' => now(),
+            ]);
+
+            // Refresh the current instance
+            $this->refresh();
+
+            return true;
+        });
     }
 
     /**
      * Mark callback as received by production
-     * 
+     *
      * Records that production has physically received the returned product.
      * Can only be called after approval. Once received, callback can be completed
-     * with automatic stock updates.
-     * 
+     * with automatic stock updates. Uses pessimistic locking to prevent race conditions.
+     *
      * @param \App\Models\Employee|\App\Models\User|null $actor The actor receiving (defaults to current_actor())
      * @return bool True if successfully marked as received, false if cannot be received
      * @throws RuntimeException If no actor is authenticated
-     * 
+     *
      * @example
      * $callback->markAsReceived(current_actor());
      * // Now callback can be completed with stock updates
      */
     public function markAsReceived($actor = null): bool
     {
-        if (! $this->canBeReceived()) {
-            return false;
-        }
+        return DB::transaction(function () use ($actor) {
+            // Lock the record to prevent concurrent updates
+            $locked = self::where('id', $this->id)->lockForUpdate()->first();
 
-        $actor = $actor ?? current_actor();
-        if (! $actor) {
-            throw new RuntimeException('No authenticated actor found');
-        }
+            if (!$locked || $locked->status !== 'approved_by_production') {
+                return false;
+            }
 
-        $this->update([
-            'status' => 'received_by_production',
-            'received_by_id' => $actor->id,
-            'received_by_type' => get_class($actor),
-            'received_at' => now(),
-        ]);
+            $actor = $actor ?? current_actor();
+            if (! $actor) {
+                throw new RuntimeException('No authenticated actor found');
+            }
 
-        return true;
+            $locked->update([
+                'status' => 'received_by_production',
+                'received_by_id' => $actor->id,
+                'received_by_type' => get_class($actor),
+                'received_at' => now(),
+            ]);
+
+            // Refresh the current instance
+            $this->refresh();
+
+            return true;
+        });
     }
 
     /**
@@ -341,6 +358,50 @@ class ProductDispatchCallback extends Model
     public function getFormattedStatusAttribute(): string
     {
         return ucwords(str_replace('_', ' ', $this->status));
+    }
+
+    /**
+     * Check if callback is stuck in a workflow state
+     *
+     * @param int $pendingTimeoutHours Hours before pending is considered stuck (default: 24)
+     * @param int $approvedTimeoutHours Hours before approved is considered stuck (default: 48)
+     * @return bool
+     */
+    public function isStuck(int $pendingTimeoutHours = 24, int $approvedTimeoutHours = 48): bool
+    {
+        $timeInCurrentState = now()->diffInHours($this->updated_at);
+
+        return match ($this->status) {
+            'pending' => $timeInCurrentState > $pendingTimeoutHours,
+            'approved_by_production' => $timeInCurrentState > $approvedTimeoutHours,
+            default => false,
+        };
+    }
+
+    /**
+     * Get hours stuck in current state
+     *
+     * @return int
+     */
+    public function getHoursStuck(): int
+    {
+        return (int) now()->diffInHours($this->updated_at);
+    }
+
+    /**
+     * Scope: Stuck callbacks
+     */
+    public function scopeStuck($query, int $pendingTimeoutHours = 24, int $approvedTimeoutHours = 48)
+    {
+        return $query->where(function ($q) use ($pendingTimeoutHours, $approvedTimeoutHours) {
+            $q->where(function ($sub) use ($pendingTimeoutHours) {
+                $sub->where('status', 'pending')
+                    ->where('updated_at', '<', now()->subHours($pendingTimeoutHours));
+            })->orWhere(function ($sub) use ($approvedTimeoutHours) {
+                $sub->where('status', 'approved_by_production')
+                    ->where('updated_at', '<', now()->subHours($approvedTimeoutHours));
+            });
+        });
     }
 
     /**

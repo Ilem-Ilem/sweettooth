@@ -158,12 +158,45 @@ class RolePermission
             'Head of Production',
             'Sales Manager',
             'HR Manager',
+            'Accounting Manager',
             'Inventory Manager',
             'Confectionaries Manager',
             'Corner Store Manager'
         ];
 
         return self::hasAnyRole($managerRoles, $guard);
+    }
+
+    /**
+     * Check if user is an HR Manager
+     */
+    public static function isHRManager(?string $guard = null): bool
+    {
+        return self::hasRole('HR Manager', $guard);
+    }
+
+    /**
+     * Check if user is an Accounting Manager
+     */
+    public static function isAccountingManager(?string $guard = null): bool
+    {
+        return self::hasRole('Accounting Manager', $guard);
+    }
+
+    /**
+     * Check if user is a Production Helper
+     */
+    public static function isProductionHelper(?string $guard = null): bool
+    {
+        return self::hasRole('Production Helper', $guard);
+    }
+
+    /**
+     * Check if user has cross-department access (for accounting purposes)
+     */
+    public static function hasCrossDepartmentAccess(?string $guard = null): bool
+    {
+        return self::isAccountingManager($guard) || self::isSuperAdmin($guard) || self::isManagingDirector($guard);
     }
 
     /**

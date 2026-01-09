@@ -5,45 +5,52 @@ namespace App\Livewire\BranchDashboard\Dashboards;
 use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
+use App\Services\SidebarVisibilityService;
 
 /**
- * Dashboard Router - Single entry point for role-based dashboard redirects
- * 
- * Routes users to appropriate dashboard based on their role and guard
- * Checks for clock-in requirement first
- * Handles all cases without redirect loops
+ * Dashboard Router - Routes users based on DEPARTMENT + ROLE LEVEL
+ *
+ * Simplified routing logic:
+ * 1. Super Admin (level 5) -> Admin dashboard
+ * 2. Admin (level 4) -> Admin dashboard
+ * 3. Others -> Route by department category (Production/Sales/Support)
  */
 class Router extends Component
 {
     public function mount()
     {
         $branchId = request()->query('b_id');
-
-        // Get authenticated user - use direct Auth::user() instead of helper to avoid serialization issues
         $currentUser = Auth::user();
 
         if (!$currentUser || !($currentUser instanceof \App\Models\User)) {
-            // User not authenticated or serialized - force re-auth
             Auth::logout();
             return Redirect::route('login');
         }
 
-        \Log::info('Router component called', [
+        // Get role level and department info
+        $roleLevel = SidebarVisibilityService::getRoleLevel($currentUser);
+        $category = SidebarVisibilityService::getDepartmentCategory($currentUser);
+        $deptSlug = $currentUser->department?->slug;
+
+        \Log::info('Router: Department-based routing', [
             'user_id' => $currentUser->id,
             'user_email' => $currentUser->email,
-            'user_type' => $currentUser->user_type ?? 'unknown',
-            'roles' => method_exists($currentUser, 'getRoleNames') ? $currentUser->getRoleNames()->toArray() : [],
-            'branch_id' => $branchId,
-            'has_active_shift_check' => $currentUser->user_type === 'employee' ? 'yes' : 'no',
+            'role_level' => $roleLevel,
+            'department' => $currentUser->department?->name,
+            'category' => $category,
         ]);
 
-        // PRIORITY 1: Super Admin users go to super-admin dashboard
-        if (is_super_admin()) {
+        // LEVEL 5: Super Admin -> Super Admin Dashboard
+        if ($roleLevel >= SidebarVisibilityService::LEVEL_SUPER_ADMIN) {
             return Redirect::route('branch-dashboard.dashboards.super-admin', ['b_id' => $branchId]);
         }
 
-        // PRIORITY 2: Regular employees (non-admin)
-        // Check if they have an active shift today
+        // LEVEL 4: Admin -> Admin Dashboard
+        if ($roleLevel >= SidebarVisibilityService::LEVEL_ADMIN) {
+            return Redirect::route('branch-dashboard.dashboard.admin', ['b_id' => $branchId]);
+        }
+
+        // Check shift requirement for employees
         if ($currentUser->user_type === 'employee') {
             $today = now()->startOfDay();
             $hasActiveShift = \App\Models\Shift::where('employee_id', $currentUser->id)
@@ -51,82 +58,108 @@ class Router extends Component
                 ->where('status', 'active')
                 ->exists();
 
-            \Log::info('Employee shift check', [
-                'user_id' => $currentUser->id,
-                'has_active_shift' => $hasActiveShift,
-                'user_type' => $currentUser->user_type,
-            ]);
-
             if (!$hasActiveShift) {
-                // Employee hasn't clocked in today, redirect to clock-in
                 return Redirect::route('branch-dashboard.select_shift', ['b_id' => $branchId]);
             }
         }
 
-        // Check employee roles using SidebarVisibilityService for comprehensive role checking
-        $sidebarService = \App\Services\SidebarVisibilityService::class;
+        // Route by DEPARTMENT CATEGORY
+        return match ($category) {
+            'Production' => $this->routeProduction($branchId, $deptSlug),
+            'Sales' => $this->routeSales($branchId, $deptSlug),
+            'Support' => $this->routeSupport($branchId, $currentUser),
+            default => $this->routeFallback($branchId, $currentUser, $roleLevel, $category),
+        };
+    }
 
-        // Check for Admin role first (admins should go to HR/Admin, not department dashboards)
-        $isAdmin = $currentUser->hasRole('Admin') || $currentUser->hasRole('admin');
-        \Log::info('Admin check', ['is_admin' => $isAdmin]);
-        if ($isAdmin) {
-            return Redirect::route('branch-dashboard.dashboard.hr', ['b_id' => $branchId]);
+    /**
+     * Route Production department users
+     */
+    private function routeProduction(string $branchId, ?string $deptSlug)
+    {
+        // If we have a department slug, route to department-specific dashboard
+        if ($deptSlug) {
+            return Redirect::route('branch-dashboard.dashboard.production', [
+                'b_id' => $branchId,
+                // 'deptSlug' => $deptSlug  // Uncomment when routes support dept slug
+            ]);
         }
 
-        // HR roles (check early to prioritize HR over other departments)
-        $isHR = $currentUser->hasRole('HR Manager') || $currentUser->hasRole('HR Officer') || $currentUser->hasRole('Hr') || $sidebarService::canSeeEmployeeManagement($currentUser);
-        \Log::info('HR check', ['is_hr' => $isHR, 'roles' => $currentUser->getRoleNames()->toArray(), 'can_see_employee_management' => $sidebarService::canSeeEmployeeManagement($currentUser)]);
-        if ($isHR) {
-            return Redirect::route('branch-dashboard.dashboard.hr', ['b_id' => $branchId]);
-        }
+        return Redirect::route('branch-dashboard.dashboard.production', ['b_id' => $branchId]);
+    }
 
-        // Production roles
-        if ($sidebarService::canSeeProduction($currentUser)) {
-            return Redirect::route('branch-dashboard.dashboard.production', ['b_id' => $branchId]);
-        }
-
-        // Corner Store Staff/Manager - dedicated dashboard
-        if ($currentUser->hasRole('Corner Store Staff') || $currentUser->hasRole('Corner Store Manager')) {
+    /**
+     * Route Sales department users
+     */
+    private function routeSales(string $branchId, ?string $deptSlug)
+    {
+        // Check for Corner Store specifically
+        if ($deptSlug && str_contains(strtolower($deptSlug), 'corner')) {
             return Redirect::route('branch-dashboard.dashboard.corner-store', ['b_id' => $branchId]);
         }
 
-        // Sales roles (check after HR to prevent HR users being redirected to sales)
-        if ($sidebarService::canSeeSalesManagement($currentUser)) {
-            return Redirect::route('branch-dashboard.dashboard.sales', ['b_id' => $branchId]);
+        return Redirect::route('branch-dashboard.dashboard.sales', ['b_id' => $branchId]);
+    }
+
+    /**
+     * Route Support department users (HR, Inventory, Accounting)
+     */
+    private function routeSupport(string $branchId, $user)
+    {
+        $deptName = $user->department?->name ?? '';
+
+        // HR Department
+        if ($deptName === 'HR') {
+            return Redirect::route('branch-dashboard.dashboard.hr', ['b_id' => $branchId]);
         }
 
-        // Inventory roles (check after sales)
-        if ($sidebarService::canSeeInventory($currentUser)) {
+        // Inventory/Store Department
+        if (str_contains($deptName, 'Inventory') || str_contains($deptName, 'Store')) {
             return Redirect::route('branch-dashboard.dashboard.inventory', ['b_id' => $branchId]);
         }
 
-        // Reporting roles
-        if ($sidebarService::canSeeReporting($currentUser)) {
-            return Redirect::route('branch-dashboard.dashboard.admin', ['b_id' => $branchId]);
+        // Accounting Department
+        if (str_contains($deptName, 'Account')) {
+            return Redirect::route('branch-dashboard.accounting.dashboard', ['b_id' => $branchId]);
         }
 
-        // Organization/General access
-        if ($sidebarService::canSeeOrganization($currentUser)) {
-            return Redirect::route('branch-dashboard.dashboard.admin', ['b_id' => $branchId]);
-        }
+        // Default support -> HR dashboard
+        return Redirect::route('branch-dashboard.dashboard.hr', ['b_id' => $branchId]);
+    }
 
-        // FALLBACK: If employee has no recognized dashboard access, show 403 error instead of redirect loop
-        // Log detailed information to help debug permission issues
-        \Log::warning('Employee denied dashboard access - no permissions matched', [
-            'user_id' => $currentUser?->id,
-            'user_email' => $currentUser?->email ?? 'unknown',
-            'employee_number' => $currentUser?->employee_number ?? 'unknown',
-            'web_guard' => Auth::check(),
-            'employee_guard' => Auth::check(),
-            'accessible_dashboards' => [
-                'production' => $sidebarService::canSeeProduction($currentUser),
-                'sales' => $sidebarService::canSeeSalesManagement($currentUser),
-                'inventory' => $sidebarService::canSeeInventory($currentUser),
-                'hr' => $sidebarService::canSeeEmployeeManagement($currentUser),
-                'reporting' => $sidebarService::canSeeReporting($currentUser),
-                'organization' => $sidebarService::canSeeOrganization($currentUser),
-            ],
+    /**
+     * Fallback routing when no department category matches
+     */
+    private function routeFallback(string $branchId, $user, int $roleLevel, ?string $category)
+    {
+        \Log::warning('Router: Fallback routing triggered', [
+            'user_id' => $user->id,
+            'user_email' => $user->email,
+            'role_level' => $roleLevel,
+            'category' => $category,
+            'department' => $user->department?->name,
         ]);
+
+        // Super Admin/Admin without department -> Admin dashboard
+        // (Super Admin doesn't need a department assignment)
+        if ($roleLevel >= SidebarVisibilityService::LEVEL_ADMIN) {
+            return Redirect::route('branch-dashboard.dashboards.admin', ['b_id' => $branchId]);
+        }
+
+        // Manager+ needs a department
+        if ($roleLevel >= SidebarVisibilityService::LEVEL_MANAGER) {
+            if (!$user->department_id) {
+                abort(403, 'You are not assigned to any department. Please contact your administrator.');
+            }
+            return Redirect::route('branch-dashboard.dashboard.admin', ['b_id' => $branchId]);
+        }
+
+        // Lower level users need a department
+        if (!$user->department_id) {
+            abort(403, 'You are not assigned to any department. Please contact your administrator.');
+        }
+
+        // Last resort - generic error
         abort(403, 'Your account does not have access to any dashboard. Please contact your administrator.');
     }
 

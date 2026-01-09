@@ -203,13 +203,15 @@
                         </thead>
                         <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                             @foreach($bankPositions ?? [] as $position)
+                                @if(is_array($position) && isset($position['opening_balance']))
                                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{{ is_array($position) && isset($position['bank_account']) ? $position['bank_account'] : $position }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{{ $position['bank_account'] ?? 'N/A' }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ number_format($position['opening_balance'], 2) }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600 dark:text-green-400 font-medium">{{ number_format($position['total_deposits'], 2) }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-red-600 dark:text-red-400 font-medium">{{ number_format($position['total_withdrawals'], 2) }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-white">{{ number_format($position['closing_balance'], 2) }}</td>
                                 </tr>
+                                @endif
                             @endforeach
                             @if(empty($bankPositions))
                                 <tr>
@@ -269,13 +271,15 @@
                         </thead>
                         <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                             @foreach($cashPositions ?? [] as $position)
+                                @if(is_array($position) && isset($position['opening_balance']))
                                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{{ $position['location'] }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{{ $position['location'] ?? 'N/A' }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ number_format($position['opening_balance'], 2) }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600 dark:text-green-400 font-medium">{{ number_format($position['total_inflows'], 2) }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-red-600 dark:text-red-400 font-medium">{{ number_format($position['total_outflows'], 2) }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-white">{{ number_format($position['closing_balance'], 2) }}</td>
                                 </tr>
+                                @endif
                             @endforeach
                             @if(empty($cashPositions))
                                 <tr>

@@ -4,6 +4,7 @@ namespace App\Livewire\BranchDashboard\Accounting\Report;
 
 use App\Models\AccountingPeriod;
 use App\Services\IncomeStatementService;
+use App\Services\CurrencyFormattingService;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -11,6 +12,7 @@ use Livewire\Component;
 class IncomeStatementReport extends Component
 {
     protected IncomeStatementService $isService;
+    protected CurrencyFormattingService $currencyService;
 
     public ?int $periodId = null;
 
@@ -21,6 +23,7 @@ class IncomeStatementReport extends Component
     public function boot()
     {
         $this->isService = app(IncomeStatementService::class);
+        $this->currencyService = app(CurrencyFormattingService::class);
     }
 
     public function render()
@@ -55,5 +58,10 @@ class IncomeStatementReport extends Component
             }
             fclose($f);
         }, $filename);
+    }
+
+    public function formatCurrency($value)
+    {
+        return $this->currencyService->format($value);
     }
 }

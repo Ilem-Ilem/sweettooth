@@ -4,10 +4,11 @@ namespace App\Livewire\BranchDashboard\Dashboards;
 
 use Livewire\Component;
 use App\Models\Employee;
+use App\Services\SidebarVisibilityService;
 
 /**
- * Supervisor Dashboard - Supervisor level view
- * 
+ * Supervisor Dashboard - Supervisor level view (Level 2)
+ *
  * Provides Supervisor roles with:
  * - Shift/operation monitoring
  * - Staff oversight
@@ -18,10 +19,12 @@ class SupervisorDashboard extends Component
 {
     public function mount()
     {
-        // Check if user has supervisor role
         $currentUser = get_user_auth();
-        if (!$currentUser->hasRole('supervisor')) {
-            abort(403, 'Only Supervisors can access this dashboard');
+        $roleLevel = SidebarVisibilityService::getRoleLevel($currentUser);
+
+        // Level 2 (Supervisor) or higher can access
+        if ($roleLevel < SidebarVisibilityService::LEVEL_SUPERVISOR) {
+            abort(403, 'This dashboard requires Supervisor access or higher.');
         }
     }
 

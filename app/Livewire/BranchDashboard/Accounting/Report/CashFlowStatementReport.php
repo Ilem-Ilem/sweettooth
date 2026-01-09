@@ -3,6 +3,7 @@
 namespace App\Livewire\BranchDashboard\Accounting\Report;
 
 use App\Services\CashFlowStatementService;
+use App\Services\CurrencyFormattingService;
 use Carbon\Carbon;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -11,6 +12,7 @@ use Livewire\Component;
 class CashFlowStatementReport extends Component
 {
     protected CashFlowStatementService $cfsService;
+    protected CurrencyFormattingService $currencyService;
 
     public ?string $startDate = null;
 
@@ -23,6 +25,7 @@ class CashFlowStatementReport extends Component
     public function boot()
     {
         $this->cfsService = app(CashFlowStatementService::class);
+        $this->currencyService = app(CurrencyFormattingService::class);
 
         // Default to current month
         if (! $this->startDate) {
@@ -91,5 +94,10 @@ class CashFlowStatementReport extends Component
             }
             fclose($f);
         }, $filename);
+    }
+
+    public function formatCurrency($value)
+    {
+        return $this->currencyService->format($value);
     }
 }

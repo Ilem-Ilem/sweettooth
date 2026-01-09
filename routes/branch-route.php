@@ -6,11 +6,19 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
     // Dashboard Router - Redirects to appropriate dashboard based on role
     Route::get('/dashboard/router', App\Livewire\BranchDashboard\Dashboards\Router::class)->name('dashboards.router');
 
-    // New Role-Based Dashboards (Phase 3)
-    Route::get('/dashboards/super-admin', App\Livewire\BranchDashboard\Dashboards\SuperAdminDashboard::class)->name('dashboards.super-admin');
-    Route::get('/dashboards/admin', App\Livewire\BranchDashboard\Dashboards\AdminDashboard::class)->name('dashboards.admin');
-    Route::get('/dashboards/manager', App\Livewire\BranchDashboard\Dashboards\ManagerDashboard::class)->name('dashboards.manager');
-    Route::get('/dashboards/supervisor', App\Livewire\BranchDashboard\Dashboards\SupervisorDashboard::class)->name('dashboards.supervisor');
+    // New Role-Based Dashboards (Phase 3) - Protected by role.level middleware
+    Route::get('/dashboards/super-admin', App\Livewire\BranchDashboard\Dashboards\SuperAdminDashboard::class)
+        ->middleware('role.level:5')
+        ->name('dashboards.super-admin');
+    Route::get('/dashboards/admin', App\Livewire\BranchDashboard\Dashboards\AdminDashboard::class)
+        ->middleware('role.level:4')
+        ->name('dashboards.admin');
+    Route::get('/dashboards/manager', App\Livewire\BranchDashboard\Dashboards\ManagerDashboard::class)
+        ->middleware('role.level:3')
+        ->name('dashboards.manager');
+    Route::get('/dashboards/supervisor', App\Livewire\BranchDashboard\Dashboards\SupervisorDashboard::class)
+        ->middleware('role.level:2')
+        ->name('dashboards.supervisor');
 
     // Legacy Role-Specific Dashboards (kept for backward compatibility)
     Route::middleware('role_or_permission:view_inventory_dashboard')->get('/dashboard/inventory', App\Livewire\Dashboards\InventoryDashboard::class)->name('dashboard.inventory');
@@ -89,15 +97,21 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
         Route::get('/role-permisssion', \App\Livewire\BranchDashboard\EmployeeModule\RolePermission\Index::class)->name('role-permission');
     });
     
-    // ROLE MANAGEMENT (Super Admin Only)
-    Route::middleware('role_or_permission:manage_roles')->get('roles', \App\Livewire\BranchDashboard\Roles\Index::class)->name('roles.index');
-    
-    // BRANCH MANAGEMENT (Super Admin Only)
-    Route::middleware('role_or_permission:manage_branches')->get('branches', \App\Livewire\BranchDashboard\Branches\Index::class)->name('branches.index');
-    Route::middleware('role_or_permission:manage_branches')->get('deleted-branches', \App\Livewire\BranchDashboard\Branches\DeleteBranch::class)->name('branches.deleted');
+    // ROLE MANAGEMENT (Super Admin Only - Level 5)
+    Route::middleware(['role_or_permission:manage_roles', 'role.level:5'])
+        ->get('roles', \App\Livewire\BranchDashboard\Roles\Index::class)
+        ->name('roles.index');
 
-    // SETTINGS (Super Admin Only)
-    Route::middleware('role_or_permission:manage_settings')->get('settings', \App\Livewire\BranchDashboard\Settings\Index::class)->name('settings.index');
+    // BRANCH MANAGEMENT (Super Admin Only - Level 5)
+    Route::middleware(['role_or_permission:manage_branches', 'role.level:5'])->group(function () {
+        Route::get('branches', \App\Livewire\BranchDashboard\Branches\Index::class)->name('branches.index');
+        Route::get('deleted-branches', \App\Livewire\BranchDashboard\Branches\DeleteBranch::class)->name('branches.deleted');
+    });
+
+    // SETTINGS (Super Admin Only - Level 5)
+    Route::middleware(['role_or_permission:manage_settings', 'role.level:5'])
+        ->get('settings', \App\Livewire\BranchDashboard\Settings\Index::class)
+        ->name('settings.index');
 
     // MD REPORTS (Super Admin Only)
     Route::middleware('role_or_permission:view_reports')->prefix('md-reports')->name('md-reports.')->group(function () {
@@ -159,7 +173,8 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
     });
 
     // Production routes - Modular System
-    Route::prefix('production')->name('production.')->group(function () {
+    // Protected by department.scope middleware for department-based access control
+    Route::prefix('production')->name('production.')->middleware(['department.scope'])->group(function () {
 
         // Helper function to register department routes
         $registerProductionDepartmentRoutes = function () {
@@ -306,8 +321,9 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
     });
 
     // Sales Dashboard routes - Modular System
-    // Protected by workflow middleware for proper step validation
+    // Protected by department.scope + workflow middleware for proper step validation
     Route::prefix('sales-dashboard')->name('sales-dashboard.')->middleware([
+        'department.scope',
         'validate-sales-department-context'
     ])->group(function () {
 

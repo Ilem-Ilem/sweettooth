@@ -6,10 +6,17 @@ use App\Models\GlEntry;
 use App\Models\GlAccount;
 use App\Models\AccountingPeriod;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class TrialBalanceService
 {
     protected GeneralLedgerService $glService;
+
+    /**
+     * Cache TTL in seconds (5 minutes)
+     */
+    protected const CACHE_TTL = 300;
 
     public function __construct(GeneralLedgerService $glService)
     {
@@ -17,43 +24,80 @@ class TrialBalanceService
     }
 
     /**
-     * Get trial balance for a period
+     * Get trial balance for a period - OPTIMIZED
+     *
+     * Uses a single aggregated query instead of N+1 queries
      */
     public function getTrialBalance(?int $periodId = null): array
     {
-        $accounts = GlAccount::where('is_active', true)
-            ->where('account_type', '!=', 'header')
-            ->orderBy('account_number')
-            ->get();
+        $cacheKey = "trial_balance_" . ($periodId ?? 'all');
+
+        return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($periodId) {
+            return $this->calculateTrialBalance($periodId);
+        });
+    }
+
+    /**
+     * Calculate trial balance using optimized single query
+     */
+    protected function calculateTrialBalance(?int $periodId = null): array
+    {
+        // Use a single aggregated query to avoid N+1
+        $query = DB::table('gl_accounts')
+            ->leftJoin('gl_entries', function ($join) use ($periodId) {
+                $join->on('gl_accounts.id', '=', 'gl_entries.gl_account_id')
+                    ->where('gl_entries.status', '=', 'posted')
+                    ->whereNull('gl_entries.deleted_at');
+
+                if ($periodId) {
+                    $join->where('gl_entries.accounting_period_id', '=', $periodId);
+                }
+            })
+            ->select(
+                'gl_accounts.id as account_id',
+                'gl_accounts.account_number',
+                'gl_accounts.account_name',
+                'gl_accounts.account_type',
+                'gl_accounts.account_category',
+                DB::raw('COALESCE(SUM(gl_entries.debit), 0) as total_debit'),
+                DB::raw('COALESCE(SUM(gl_entries.credit), 0) as total_credit')
+            )
+            ->where('gl_accounts.is_active', true)
+            ->where('gl_accounts.account_type', '!=', 'header')
+            ->whereNull('gl_accounts.deleted_at')
+            ->groupBy(
+                'gl_accounts.id',
+                'gl_accounts.account_number',
+                'gl_accounts.account_name',
+                'gl_accounts.account_type',
+                'gl_accounts.account_category'
+            )
+            ->orderBy('gl_accounts.account_number');
+
+        $results = $query->get();
 
         $balances = [];
         $totalDebits = 0;
         $totalCredits = 0;
 
-        foreach ($accounts as $account) {
-            $query = GlEntry::where('gl_account_id', $account->id)
-                ->where('status', 'posted');
-
-            if ($periodId) {
-                $query->where('accounting_period_id', $periodId);
-            }
-
-            $debits = (float) $query->sum('debit');
-            $credits = (float) $query->sum('credit');
+        foreach ($results as $result) {
+            $debit = (float) $result->total_debit;
+            $credit = (float) $result->total_credit;
 
             // Only include accounts with activity
-            if ($debits > 0 || $credits > 0) {
+            if ($debit > 0 || $credit > 0) {
                 $balances[] = [
-                    'account_number' => $account->account_number,
-                    'account_name' => $account->account_name,
-                    'account_type' => $account->account_type,
-                    'account_id' => $account->id,
-                    'debit' => $debits,
-                    'credit' => $credits,
+                    'account_number' => $result->account_number,
+                    'account_name' => $result->account_name,
+                    'account_type' => $result->account_type,
+                    'account_category' => $result->account_category,
+                    'account_id' => $result->account_id,
+                    'debit' => $debit,
+                    'credit' => $credit,
                 ];
 
-                $totalDebits += $debits;
-                $totalCredits += $credits;
+                $totalDebits += $debit;
+                $totalCredits += $credit;
             }
         }
 
@@ -64,7 +108,29 @@ class TrialBalanceService
             'balanced' => abs($totalDebits - $totalCredits) < 0.01,
             'difference' => $totalDebits - $totalCredits,
             'period_id' => $periodId,
+            'generated_at' => now()->toIso8601String(),
         ];
+    }
+
+    /**
+     * Clear trial balance cache
+     */
+    public function clearCache(?int $periodId = null): void
+    {
+        if ($periodId) {
+            Cache::forget("trial_balance_{$periodId}");
+        } else {
+            Cache::forget('trial_balance_all');
+        }
+    }
+
+    /**
+     * Get trial balance without cache (for fresh data)
+     */
+    public function getTrialBalanceFresh(?int $periodId = null): array
+    {
+        $this->clearCache($periodId);
+        return $this->getTrialBalance($periodId);
     }
 
     /**

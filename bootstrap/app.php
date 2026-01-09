@@ -16,6 +16,8 @@ use App\Http\Middleware\ValidateSalesWorkflow;
 use App\Http\Middleware\ValidateSalesDepartmentContext;
 use App\Http\Middleware\RecoverAuthUser;
 use App\Http\Middleware\RequireActiveShift;
+use App\Http\Middleware\DepartmentScopeMiddleware;
+use App\Http\Middleware\RoleLevelMiddleware;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -38,6 +40,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'validate-sales-department-context' => ValidateSalesDepartmentContext::class,
             'recover-auth' => RecoverAuthUser::class,
             'require_active_shift' => RequireActiveShift::class,
+            'department.scope' => DepartmentScopeMiddleware::class,
+            'role.level' => RoleLevelMiddleware::class,
         ]);
 
         // Apply SetBranchContext to web middleware group

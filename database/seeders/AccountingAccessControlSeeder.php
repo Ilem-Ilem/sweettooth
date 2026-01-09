@@ -108,8 +108,17 @@ class AccountingAccessControlSeeder extends Seeder
                 'access_accounting',
                 'view_financial_reports',
                 'view_gl_accounts',
+                'manage_accounts',
+                'manage_periods',
+                'create_journal_entries',
+                'reconcile_bank_accounts',
                 'view_accounting_dashboard',
                 'view_financial_summary',
+                'view_general_ledger',
+                'view_trial_balance',
+                'view_balance_sheet',
+                'view_income_statement',
+                'view_cash_flow_statement',
             ])
             ->get();
 

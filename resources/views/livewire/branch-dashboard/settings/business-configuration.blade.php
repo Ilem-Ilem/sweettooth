@@ -2,7 +2,7 @@
     use Illuminate\Support\Facades\Storage;
 @endphp
 
-<div>
+<div class="w-full">
     <h2 class="text-2xl font-bold mb-6 text-zinc-900 dark:text-zinc-100">Business Configuration</h2>
 
     @if (session()->has('message'))

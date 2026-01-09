@@ -276,8 +276,9 @@ class Index extends Component
     {
         $branchId = $this->getBranchId();
         $employee = Auth::guard('web')->user();
+        $deptSlug = $employee->department?->slug ?? 'kitchen';
 
-        $data = [];
+        $data = ['deptSlug' => $deptSlug];
 
         if ($this->activeTab === 'dashboard') {
             // Dashboard data
@@ -317,8 +318,9 @@ class Index extends Component
 
                 // Get items to collect from inventory
                 $itemRequests = ItemRequest::with(['requestDetails.item'])
-                    ->where('shift_id', $this->currentShift->id)
-                    ->whereHas('productionRequest')
+                    ->whereHas('productionRequests', function ($q) {
+                        $q->where('shift_id', $this->currentShift->id);
+                    })
                     ->get();
 
                 foreach ($itemRequests as $itemRequest) {
@@ -367,7 +369,7 @@ class Index extends Component
                 ];
             }
 
-            $data = [
+            $data += [
                 'productionRequests' => $productionRequests,
                 'itemsToCollect' => $itemsToCollect,
                 'dailyProduces' => $dailyProduces,
@@ -382,7 +384,7 @@ class Index extends Component
                 ->limit(30)
                 ->get();
 
-            $data = [
+            $data += [
                 'rows' => $this->stockMonitorRows,
                 'availableShifts' => $availableShifts,
             ];

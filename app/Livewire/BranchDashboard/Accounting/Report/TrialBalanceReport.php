@@ -4,6 +4,7 @@ namespace App\Livewire\BranchDashboard\Accounting\Report;
 
 use App\Models\AccountingPeriod;
 use App\Services\TrialBalanceService;
+use App\Services\CurrencyFormattingService;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -11,6 +12,7 @@ use Livewire\Component;
 class TrialBalanceReport extends Component
 {
     protected TrialBalanceService $tbService;
+    protected CurrencyFormattingService $currencyService;
 
     public ?int $periodId = null;
 
@@ -21,6 +23,7 @@ class TrialBalanceReport extends Component
     public function boot()
     {
         $this->tbService = app(TrialBalanceService::class);
+        $this->currencyService = app(CurrencyFormattingService::class);
     }
 
     public function render()
@@ -59,5 +62,10 @@ class TrialBalanceReport extends Component
             }
             fclose($f);
         }, $filename);
+    }
+
+    public function formatCurrency($value)
+    {
+        return $this->currencyService->format($value);
     }
 }

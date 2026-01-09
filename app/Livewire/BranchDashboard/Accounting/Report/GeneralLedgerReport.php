@@ -5,6 +5,7 @@ namespace App\Livewire\BranchDashboard\Accounting\Report;
 use App\Models\AccountingPeriod;
 use App\Models\GlAccount;
 use App\Services\GeneralLedgerService;
+use App\Services\CurrencyFormattingService;
 use Carbon\Carbon;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -16,6 +17,7 @@ class GeneralLedgerReport extends Component
     use WithPagination;
 
     protected GeneralLedgerService $glService;
+    protected CurrencyFormattingService $currencyService;
 
     public ?string $startDate = null;
 
@@ -32,6 +34,7 @@ class GeneralLedgerReport extends Component
     public function boot()
     {
         $this->glService = app(GeneralLedgerService::class);
+        $this->currencyService = app(CurrencyFormattingService::class);
 
         // Default to current month
         if (! $this->startDate) {
@@ -98,5 +101,10 @@ class GeneralLedgerReport extends Component
             }
             fclose($f);
         }, $filename);
+    }
+
+    public function formatCurrency($value)
+    {
+        return $this->currencyService->format($value);
     }
 }

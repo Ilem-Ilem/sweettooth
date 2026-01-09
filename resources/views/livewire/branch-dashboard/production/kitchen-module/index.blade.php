@@ -47,9 +47,7 @@
                 <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Current Shift</h3>
     @endif
 
-    @if($activeTab === 'stock-monitor')
-        @include('livewire.branch-dashboard.production.kitchen-module.stock-monitor-content')
-    @endif
+
 
     @if($activeTab === 'dashboard')
     @if($currentShift)
@@ -196,7 +194,7 @@
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700">
             <div class="px-4 py-3 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
                 <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Production Status</h3>
-                <a href="{{ branch_route('branch-dashboard.production.daily-produce.index', ['b_id' => $b_id]) }}"
+                <a href="{{ branch_route('branch-dashboard.production.daily-produce.index', ['deptSlug' => $deptSlug, 'b_id' => $b_id]) }}"
                    class="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium">
                     View Full Dashboard →
                 </a>
@@ -264,12 +262,50 @@
     @endif
 
     @if($activeTab === 'stock-monitor')
-        <!-- Stock Monitor Content -->
-                    </select>
-                </div>
-            </div>
+         <!-- Stock Monitor Content -->
+         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700">
+             <div class="px-4 py-3 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
+                 <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Stock Monitor</h3>
+                 <div class="flex items-center gap-4">
+                     <input type="date" wire:model.live="monitorDate" 
+                            class="px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-sm">
+                     
+                     @if(isset($availableShifts) && $availableShifts->count() > 1)
+                     <select wire:model.live="monitorSelectedShiftId"
+                             class="px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-sm">
+                         @foreach($availableShifts as $shift)
+                             <option value="{{ $shift->id }}">{{ ucfirst($shift->shift_type) }} - {{ $shift->shift_date->format('M d') }}</option>
+                         @endforeach
+                     </select>
+                     @endif
+                 </div>
+             </div>
 
-            @if(isset($rows) && $rows->count() > 0)
+             <!-- Filters -->
+             <div class="px-4 py-3 border-b border-zinc-200 dark:border-zinc-700">
+                 <div class="flex gap-2">
+                     <button wire:click="$set('filterStatus', 'all')" 
+                             class="px-3 py-1 text-sm rounded {{ $filterStatus === 'all' ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200' }}">
+                         All
+                     </button>
+                     <button wire:click="$set('filterStatus', 'not_sent')" 
+                             class="px-3 py-1 text-sm rounded {{ $filterStatus === 'not_sent' ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200' }}">
+                         Not Sent
+                     </button>
+                     <button wire:click="$set('filterStatus', 'partially_sent')" 
+                             class="px-3 py-1 text-sm rounded {{ $filterStatus === 'partially_sent' ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200' }}">
+                         Partially Sent
+                     </button>
+                     <button wire:click="$set('filterStatus', 'sent')" 
+                             class="px-3 py-1 text-sm rounded {{ $filterStatus === 'sent' ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200' }}">
+                         Sent
+                     </button>
+                     <input type="text" wire:model.live="search" placeholder="Search products..."
+                            class="ml-auto px-3 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200">
+                 </div>
+             </div>
+
+             @if(isset($rows) && $rows->count() > 0)
                 <div class="overflow-x-auto">
                     <table class="w-full">
                         <thead class="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-700">

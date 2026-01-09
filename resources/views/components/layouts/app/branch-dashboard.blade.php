@@ -288,7 +288,7 @@
                     {{ __('Overview') }}
                 </flux:navlist.item>
                 
-                @if ($currentUser->hasAnyRole(['Super Admin', 'MD', 'Managing Director', 'Admin']) || $sidebarService::isSuperAdmin())
+                @if ($currentUser->hasAnyRole(['Super Admin', 'MD', 'Managing Director', 'Admin', 'Accounting Manager']) || $sidebarService::isSuperAdmin())
                 <flux:navlist.item icon="book-open" :href="branch_route('branch-dashboard.accounting.accounts')"
                     :current="request()->routeIs('branch-dashboard.accounting.accounts')" wire:navigate>
                     {{ __('Chart of Accounts') }}
@@ -300,7 +300,7 @@
                 </flux:navlist.item>
                 @endif
                 
-                @if ($currentUser->hasAnyRole(['Super Admin', 'MD', 'Managing Director', 'Admin', 'Accountant'])  || $sidebarService::isSuperAdmin())
+                @if ($currentUser->hasAnyRole(['Super Admin', 'MD', 'Managing Director', 'Admin', 'Accountant', 'Accounting Manager'])  || $sidebarService::isSuperAdmin())
                 <flux:navlist.item icon="document-plus" :href="branch_route('branch-dashboard.accounting.journal-entry')"
                     :current="request()->routeIs('branch-dashboard.accounting.journal-entry')" wire:navigate>
                     {{ __('Journal Entries') }}
@@ -921,7 +921,7 @@
 
     <flux:main>
         {{-- Branch Selector for Super Admins --}}
-        @if (auth()->user() != null)
+        @if (auth()->user() && auth()->user()->hasRole('Super Admin'))
             <livewire:components.branch-selector />
         @endif
 
