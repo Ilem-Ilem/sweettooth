@@ -119,11 +119,6 @@ class Index extends BaseComponent
         ]);
     }
 
-    public function exportPdf()
-    {
-        $this->toast()->success('PDF export feature coming soon!')->send();
-    }
-
     // Modal methods
     public function viewPermissions($roleId)
     {
@@ -365,15 +360,18 @@ class Index extends BaseComponent
     {
         $rows = $this->getFilteredQuery()->paginate($this->quantity ?? 10);
 
-        // Filter permissions by the selected guard
-        $allPermissionsQuery = Permission::where('guard_name', $this->roleGuard);
+        // Only load permissions when role modal is open to avoid loading on every render
+        $allPermissions = collect();
+        if ($this->showRoleModal) {
+            $allPermissionsQuery = Permission::where('guard_name', $this->roleGuard)
+                ->select('id', 'name', 'guard_name');
 
-        // Apply search filter if provided
-        if ($this->permissionSearch) {
-            $allPermissionsQuery->where('name', 'like', '%' . $this->permissionSearch . '%');
+            if ($this->permissionSearch) {
+                $allPermissionsQuery->where('name', 'like', '%' . $this->permissionSearch . '%');
+            }
+
+            $allPermissions = $allPermissionsQuery->get();
         }
-
-        $allPermissions = $allPermissionsQuery->get();
 
         return view('livewire.branch-dashboard.roles.index', [
             'headers' => [

@@ -462,31 +462,6 @@ class OverallSummaryDashboard extends Component
         ];
     }
 
-    public function exportPDF()
-    {
-        try {
-            $data = $this->prepareExportData();
-
-            if (empty($data['stock_health']) && empty($data['department_breakdown'])) {
-                $this->toast()->warning('No data available to export for the selected period.')->send();
-                return;
-            }
-
-            // Queue PDF export to avoid serialization issues
-            return $this->export(
-                'inventory-analytics-' . now()->format('Y-m-d'),
-                collect($data),
-                'exports.analytics.overall-summary',
-                'pdf',
-                true, // Queue it
-                ['orientation' => 'landscape', 'paper' => 'A4']
-            );
-        } catch (\Exception $e) {
-            $this->toast()->error('Export failed: ' . $e->getMessage())->send();
-            return;
-        }
-    }
-
     public function exportExcel()
     {
         try {

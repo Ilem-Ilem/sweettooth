@@ -218,11 +218,6 @@ class Index extends BaseComponent
         ]);
     }
 
-    public function exportPdf()
-    {
-        $this->toast()->success('PDF export feature coming soon!')->send();
-    }
-
     // Delete methods
     public function deleteEmployee($employeeId): void
     {

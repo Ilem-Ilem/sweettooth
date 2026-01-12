@@ -427,55 +427,6 @@ class Stocks extends BaseComponent
     }
 
     /**
-     * Export stock records as PDF
-     */
-    public function exportPDF()
-    {
-        try {
-            $stocks = $this->getFilteredStocks();
-
-            if ($stocks->isEmpty()) {
-                $this->toast()->warning('No stocks to export.')->send();
-
-                return;
-            }
-
-            $data = $stocks->map(function ($stock) {
-                return [
-                    'sku' => $stock->item->sku ?? 'N/A',
-                    'item_name' => $stock->item->name ?? 'N/A',
-                    'category' => $stock->item->category ?? 'N/A',
-                    'quantity_available' => $stock->quantity_available ?? 0,
-                    'quantity_reserved' => $stock->quantity_reserved ?? 0,
-                    'quantity_damaged' => $stock->quantity_damaged ?? 0,
-                    'quantity_total' => ($stock->quantity_available ?? 0) + ($stock->quantity_reserved ?? 0) + ($stock->quantity_damaged ?? 0),
-                    'uom' => $stock->item->uom ?? 'units',
-                    'average_cost' => $stock->average_cost ?? 0,
-                    'total_value' => ($stock->quantity_available ?? 0) * ($stock->average_cost ?? 0),
-                    'reorder_level' => $stock->reorder_level ?? 0,
-                    'max_stock_level' => $stock->max_stock_level ?? 0,
-                    'health_status' => ucfirst($stock->health_status ?? 'good'),
-                    'expiry_date' => $stock->expiry_date ? \Carbon\Carbon::parse($stock->expiry_date)->format('Y-m-d') : 'N/A',
-                    'last_stock_date' => $stock->updated_at ? \Carbon\Carbon::parse($stock->updated_at)->format('Y-m-d H:i') : 'N/A',
-                ];
-            });
-
-            return $this->export(
-                'inventory-stocks-'.now()->format('Y-m-d'),
-                $data,
-                'exports.inventory.stocks',
-                'pdf',
-                false,
-                ['orientation' => 'landscape', 'paper' => 'A4']
-            );
-        } catch (\Exception $e) {
-            $this->toast()->error('Export failed: '.$e->getMessage())->send();
-
-            return;
-        }
-    }
-
-    /**
      * Export stock records as Excel
      */
     public function exportExcel()

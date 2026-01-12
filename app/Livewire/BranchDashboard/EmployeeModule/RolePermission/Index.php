@@ -133,11 +133,6 @@ class Index extends BaseComponent
         ]);
     }
 
-    public function exportPdf()
-    {
-        $this->toast()->success('PDF export feature coming soon!')->send();
-    }
-
     // Modal methods
     public function viewPermissions($roleId)
     {

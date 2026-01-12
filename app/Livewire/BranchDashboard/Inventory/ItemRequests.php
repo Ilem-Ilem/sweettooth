@@ -302,32 +302,6 @@ class ItemRequests extends Component
     }
 
     /**
-     * Export item requests as PDF
-     */
-    public function exportPDF()
-    {
-        try {
-            $requests = $this->getFilteredRequests();
-
-            if ($requests->isEmpty()) {
-                session()->flash('warning', 'No requests to export.');
-
-                return;
-            }
-
-            $response = $this->export(
-                'item-requests-'.now()->format('Y-m-d'),
-                $requests,
-                'exports.inventory.item-requests',
-                'pdf'
-            );
-            $response->send();
-        } catch (\Exception $e) {
-            session()->flash('error', 'Export failed: '.$e->getMessage());
-        }
-    }
-
-    /**
      * Export item requests as Excel
      */
     public function exportExcel()

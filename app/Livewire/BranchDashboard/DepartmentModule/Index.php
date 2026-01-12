@@ -291,19 +291,6 @@ class Index extends BaseComponent
     }
 
     /**
-     * Export filtered departments to PDF (stub)
-     * 
-     * Currently shows a "coming soon" message.
-     * Can be implemented in future using a PDF library like DomPDF.
-     * 
-     * @return void
-     */
-    public function exportPdf()
-    {
-        $this->toast()->success('PDF export feature coming soon!')->send();
-    }
-
-    /**
      * Initiate department deletion
      * 
      * Different flows for super admin vs regular employees:

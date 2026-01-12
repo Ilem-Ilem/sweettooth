@@ -3,30 +3,27 @@
 namespace App\Traits;
 
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Queue;
 use Maatwebsite\Excel\Facades\Excel;
-use Barryvdh\DomPDF\Facade\Pdf;
 use App\Jobs\ExportExcelJob;
-use App\Jobs\ExportPdfJob;
 
 trait Exportable
 {
     /**
-     * Universal export method for PDF & Excel with advanced formatting
+     * Universal export method for Excel with advanced formatting
      *
      * @param string $filename          Base filename (without extension)
      * @param Collection|array $data    Data to export
-     * @param string|array $views       Blade view path(s) - can be ['pdf' => 'path', 'excel' => 'path']
-     * @param string $format            'pdf', 'excel', or 'both' (default: 'both')
+     * @param string|array $views       Blade view path(s)
+     * @param string $format            'excel' (default)
      * @param bool $queue               Set true for large datasets (>500 rows)
-     * @param array $exportOptions      Configure: format, paper, orientation, margins, styles, etc.
+     * @param array $exportOptions      Configure: format, styles, etc.
      * @return mixed
      */
     public function export(
         string $filename,
         $data,
         $views,
-        string $format = 'both',
+        string $format = 'excel',
         bool $queue = false,
         array $exportOptions = []
     ) {
@@ -39,7 +36,7 @@ trait Exportable
 
         // Normalize views to array format
         $viewsArray = $this->normalizeViews($views);
-        
+
         // Merge default options with custom options
         $options = array_merge($this->getDefaultExportOptions(), $exportOptions);
 
@@ -47,10 +44,10 @@ trait Exportable
         $shouldQueue = $queue && ($data->count() > ($options['queue_threshold'] ?? 500));
 
         if ($shouldQueue) {
-            return $this->queueExports($filename, $data, $viewsArray, $format, $options);
+            return $this->queueExports($filename, $data, $viewsArray, $options);
         }
 
-        return $this->performImmediateExport($filename, $data, $viewsArray, $format, $options);
+        return $this->performImmediateExport($filename, $data, $viewsArray, $options);
     }
 
     /**
@@ -60,15 +57,13 @@ trait Exportable
     {
         if (is_string($views)) {
             return [
-                'pdf' => $views,
                 'excel' => $views,
             ];
         }
 
         if (is_array($views)) {
             return [
-                'pdf' => $views['pdf'] ?? $views[0] ?? null,
-                'excel' => $views['excel'] ?? $views[1] ?? null,
+                'excel' => $views['excel'] ?? $views[0] ?? null,
             ];
         }
 
@@ -81,24 +76,12 @@ trait Exportable
     private function getDefaultExportOptions(): array
     {
         return [
-            // PDF Options
-            'paper' => 'A4',
-            'orientation' => 'portrait',
-            'margins' => [
-                'top' => 10,
-                'right' => 10,
-                'bottom' => 10,
-                'left' => 10,
-            ],
-            'font_family' => 'DejaVu Sans',
-            'font_size' => 9,
-            
             // Excel Options
             'excel_columns_width' => 'auto',
             'excel_freeze_panes' => true,
             'excel_autofilter' => true,
             'excel_sheet_name' => 'Export',
-            
+
             // General Options
             'queue_threshold' => 500,
             'use_memory_limit' => true,
@@ -115,20 +98,9 @@ trait Exportable
         string $filename,
         Collection $data,
         array $views,
-        string $format,
         array $options
     ) {
-        if (in_array($format, ['pdf', 'both']) && $views['pdf']) {
-            ExportPdfJob::dispatch(
-                auth()->user()?->id,
-                $filename,
-                $data->toArray(),
-                $views['pdf'],
-                $options
-            );
-        }
-
-        if (in_array($format, ['excel', 'both']) && $views['excel']) {
+        if ($views['excel']) {
             ExportExcelJob::dispatch(
                 auth()->user()?->id,
                 $filename,
@@ -149,18 +121,12 @@ trait Exportable
         string $filename,
         Collection $data,
         array $views,
-        string $format,
         array $options
     ) {
         // Prepare filename with optional timestamp
         $finalFilename = $this->formatFilename($filename, $options['include_timestamp'] ?? false);
 
-        // PDF takes priority if both requested (browsers handle one download)
-        if (in_array($format, ['pdf', 'both']) && $views['pdf']) {
-            return $this->generatePdf($finalFilename, $data, $views['pdf'], $options);
-        }
-
-        if (in_array($format, ['excel', 'both']) && $views['excel']) {
+        if ($views['excel']) {
             return $this->generateExcel($finalFilename, $data, $views['excel'], $options);
         }
 
@@ -177,113 +143,87 @@ trait Exportable
         string $view,
         array $options
     ) {
-        $excelClass = new class($data, $view, $options) 
-            implements \Maatwebsite\Excel\Concerns\FromView,
-                       \Maatwebsite\Excel\Concerns\WithStyles,
-                       \Maatwebsite\Excel\Concerns\WithColumnWidths,
-                       \Maatwebsite\Excel\Concerns\WithHeadings,
-                       \Maatwebsite\Excel\Concerns\ShouldAutoSize
-        {
-            protected $data;
-            protected $view;
-            protected $options;
-
-            public function __construct($data, $view, $options)
-            {
-                $this->data = $data;
-                $this->view = $view;
-                $this->options = $options;
+        try {
+            // Validate view exists
+            if (!view()->exists($view)) {
+                throw new \InvalidArgumentException("Export view '{$view}' not found.");
             }
 
-            public function view(): \Illuminate\Contracts\View\View
+            $excelClass = new class($data, $view, $options)
+                implements \Maatwebsite\Excel\Concerns\FromView,
+                           \Maatwebsite\Excel\Concerns\WithStyles,
+                           \Maatwebsite\Excel\Concerns\WithColumnWidths,
+                           \Maatwebsite\Excel\Concerns\WithHeadings,
+                           \Maatwebsite\Excel\Concerns\ShouldAutoSize
             {
-                return view($this->view, [
-                    'data' => $this->data,
-                    'forExcel' => true,
-                    'options' => $this->options,
-                ]);
-            }
+                protected $data;
+                protected $view;
+                protected $options;
 
-            public function styles($sheet)
-            {
-                // Freeze panes at row 2
-                if ($this->options['excel_freeze_panes'] ?? true) {
-                    $sheet->freezePane('A2');
+                public function __construct($data, $view, $options)
+                {
+                    $this->data = $data;
+                    $this->view = $view;
+                    $this->options = $options;
                 }
 
-                return [
-                    // Header row styling
-                    1 => [
-                        'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
-                        'fill' => ['fillType' => 'solid', 'startColor' => ['rgb' => '2C3E50']],
-                        'alignment' => ['horizontal' => 'center', 'vertical' => 'center'],
-                    ],
-                    // Alternate row colors
-                    'A2:Z1000' => [
-                        'alignment' => ['vertical' => 'center', 'wrapText' => true],
-                    ],
-                ];
-            }
-
-            public function columnWidths(): array
-            {
-                // Auto-calculate widths based on content
-                if ($this->options['excel_columns_width'] === 'auto') {
-                    return [];  // Let Excel calculate
+                public function view(): \Illuminate\Contracts\View\View
+                {
+                    return view($this->view, [
+                        'data' => $this->data,
+                        'forExcel' => true,
+                        'options' => $this->options,
+                    ]);
                 }
 
-                return $this->options['excel_columns_width'] ?? [];
-            }
+                public function styles($sheet)
+                {
+                    // Freeze panes at row 2
+                    if ($this->options['excel_freeze_panes'] ?? true) {
+                        $sheet->freezePane('A2');
+                    }
 
-            public function headings(): array
-            {
-                // This works with data that has headers
-                return [];
-            }
-        };
+                    return [
+                        // Header row styling
+                        1 => [
+                            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+                            'fill' => ['fillType' => 'solid', 'startColor' => ['rgb' => '2C3E50']],
+                            'alignment' => ['horizontal' => 'center', 'vertical' => 'center'],
+                        ],
+                        // Alternate row colors
+                        'A2:Z1000' => [
+                            'alignment' => ['vertical' => 'center', 'wrapText' => true],
+                        ],
+                    ];
+                }
 
-        return Excel::download($excelClass, $filename . '.xlsx');
-    }
+                public function columnWidths(): array
+                {
+                    // Auto-calculate widths based on content
+                    if ($this->options['excel_columns_width'] === 'auto') {
+                        return [];  // Let Excel calculate
+                    }
 
-    /**
-     * Generate professional PDF export with advanced formatting
-     */
-    private function generatePdf(
-        string $filename,
-        Collection $data,
-        string $view,
-        array $options
-    ) {
-        $pdf = Pdf::loadView($view, [
-            'data' => $data,
-            'forPdf' => true,
-            'options' => $options,
-        ]);
+                    return $this->options['excel_columns_width'] ?? [];
+                }
 
-        // Set paper size
-        $paper = $options['paper'] ?? 'A4';
-        $orientation = $options['orientation'] ?? 'portrait';
-        $pdf->setPaper($paper, $orientation);
+                public function headings(): array
+                {
+                    // This works with data that has headers
+                    return [];
+                }
+            };
 
-        // Set margins (in millimeters)
-        $margins = $options['margins'] ?? [];
-        if (!empty($margins)) {
-            $pdf->setOption('margin-top', $margins['top'] ?? 10)
-                ->setOption('margin-right', $margins['right'] ?? 10)
-                ->setOption('margin-bottom', $margins['bottom'] ?? 10)
-                ->setOption('margin-left', $margins['left'] ?? 10);
+            return Excel::download($excelClass, $filename . '.xlsx');
+        } catch (\Exception $e) {
+            \Log::error('Excel export failed: ' . $e->getMessage(), [
+                'filename' => $filename,
+                'view' => $view,
+                'trace' => $e->getTraceAsString(),
+            ]);
+            session()->flash('error', 'Excel export failed: ' . $e->getMessage());
+            return redirect()->back();
         }
-
-        // Additional PDF options
-        if (!empty($options['dpi'])) {
-            $pdf->setOption('dpi', $options['dpi']);
-        }
-
-        if ($options['enable_remote'] ?? false) {
-            $pdf->setOption('enable_remote', true);
-        }
-
-        return $pdf->download($filename . '.pdf');
     }
 
     /**
@@ -292,7 +232,7 @@ trait Exportable
     private function formatFilename(string $filename, bool $includeTimestamp = false): string
     {
         $filename = str_replace([' ', '/'], '_', $filename);
-        
+
         if ($includeTimestamp) {
             $timestamp = now()->format('Y_m_d_H_i_s');
             return "{$filename}_{$timestamp}";
@@ -310,7 +250,7 @@ trait Exportable
         string $filename,
         $data,
         string $view,
-        string $format = 'both'
+        string $format = 'excel'
     ) {
         return $this->export($filename, $data, $view, $format);
     }
@@ -319,9 +259,7 @@ trait Exportable
      * Export with custom styling for professional output
      *
      * Usage: $model->styledExport('report', $data, [
-     *     'views' => ['pdf' => 'exports.pdf.report', 'excel' => 'exports.excel.report'],
-     *     'paper' => 'A4',
-     *     'orientation' => 'landscape',
+     *     'view' => 'exports.excel.report',
      * ])
      */
     public function styledExport(
@@ -330,7 +268,7 @@ trait Exportable
         array $config = []
     ) {
         $views = $config['views'] ?? $config['view'] ?? null;
-        $format = $config['format'] ?? 'both';
+        $format = 'excel';
         $queue = $config['queue'] ?? false;
         $options = array_diff_key($config, ['views' => null, 'view' => null, 'format' => null, 'queue' => null]);
 
@@ -349,7 +287,7 @@ trait Exportable
      *     ['filename' => 'products', 'data' => $products, 'view' => 'exports.products'],
      * ])
      */
-    public function batchExport(array $exports, string $format = 'both', array $options = [])
+    public function batchExport(array $exports, array $options = [])
     {
         $results = [];
 
@@ -358,7 +296,7 @@ trait Exportable
                 $export['filename'],
                 $export['data'],
                 $export['view'],
-                $format,
+                'excel',
                 $export['queue'] ?? false,
                 array_merge($options, $export['options'] ?? [])
             );
@@ -379,19 +317,18 @@ trait Exportable
         string $filename,
         $data,
         string $view,
-        array $mapping,
-        string $format = 'both'
+        array $mapping
     ) {
         $mappedData = collect($data)->map(function ($item) use ($mapping) {
             $row = [];
             foreach ($mapping as $key => $transformer) {
-                $row[$key] = is_callable($transformer) 
+                $row[$key] = is_callable($transformer)
                     ? $transformer($item)
                     : $item[$transformer] ?? $item->{$transformer} ?? null;
             }
             return $row;
         });
 
-        return $this->export($filename, $mappedData, $view, $format);
+        return $this->export($filename, $mappedData, $view, 'excel');
     }
 }

@@ -331,15 +331,6 @@ class Index extends BaseComponent
     }
 
     /**
-     * Export callbacks as PDF
-     * Note: PDF/Excel exports cannot be returned directly from Livewire.
-     */
-    public function exportPDF()
-    {
-        session()->flash('info', 'PDF export coming soon. Please use CSV export instead.');
-    }
-
-    /**
      * Export callbacks as Excel
      * Note: PDF/Excel exports cannot be returned directly from Livewire.
      */

@@ -6,6 +6,52 @@
 </head>
 
 <body class="min-h-screen bg-white dark:bg-zinc-800">
+    <!-- Universal Loading Indicator -->
+    <div x-data="{
+            loading: false,
+            timeout: null,
+            activeRequests: 0
+         }"
+         x-init="
+            Livewire.hook('commit', ({ succeed, fail }) => {
+                activeRequests++;
+                clearTimeout(timeout);
+                timeout = setTimeout(() => { if (activeRequests > 0) loading = true; }, 150);
+
+                succeed(() => {
+                    activeRequests--;
+                    if (activeRequests <= 0) {
+                        activeRequests = 0;
+                        clearTimeout(timeout);
+                        loading = false;
+                    }
+                });
+
+                fail(() => {
+                    activeRequests--;
+                    if (activeRequests <= 0) {
+                        activeRequests = 0;
+                        clearTimeout(timeout);
+                        loading = false;
+                    }
+                });
+            });
+         "
+         x-show="loading"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 translate-y-[-10px]"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 translate-y-[-10px]"
+         x-cloak
+         class="fixed top-4 right-4 z-[9999] flex items-center gap-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-full px-3 py-1.5 shadow-lg">
+        <svg class="animate-spin h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span class="text-xs font-medium text-zinc-600 dark:text-zinc-300">Loading...</span>
+    </div>
     <flux:sidebar sticky stashable class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
         <flux:sidebar.toggle class="lg:hidden" icon="x-mark" />
 
@@ -187,6 +233,7 @@
 
             @if ($sidebarService::canSeeInventoryDashboard($currentUser) || $sidebarService::isSuperAdmin())
             <flux:navlist.group :heading="__('Inventory')" icon='cube'>
+                @if(is_super_admin() || auth()->user()?->can('view-inventory-management'))
                 <flux:navlist.group :heading="__('Inventory Management')" expandable
                     :expanded="request()->routeIs('branch-dashboard.inventory.*')" class="grid" icon='cube'>
                     <flux:navlist.item icon="squares-2x2" :href="branch_route('branch-dashboard.inventory.items')"
@@ -225,15 +272,18 @@
                      </flux:navlist.item>
 
                  </flux:navlist.group>
+                @endif
 
-                 <flux:navlist.group :heading="__('Callbacks')" class="grid" expandable
-                     :expanded="request()->routeIs('branch-dashboard.inventory.callbacks.*')">
+                @if(is_super_admin() || auth()->user()?->can('view-inventory-management'))
+                <flux:navlist.group :heading="__('Callbacks')" class="grid" expandable
+                    :expanded="request()->routeIs('branch-dashboard.inventory.callbacks.*')">
                     <flux:navlist.item icon="arrow-uturn-left"
                         :href="branch_route('branch-dashboard.inventory.callbacks.index')"
                         :current="request()->routeIs('branch-dashboard.inventory.callbacks.index')" wire:navigate>
                         {{ __('Production Callbacks') }}
                     </flux:navlist.item>
                 </flux:navlist.group>
+                @endif
             </flux:navlist.group>
             @endif
 

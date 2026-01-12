@@ -283,15 +283,6 @@ class StockTakes extends Component
     }
 
     /**
-     * Export stock takes as PDF
-     * Note: PDF/Excel exports cannot be returned directly from Livewire.
-     */
-    public function exportPDF()
-    {
-        session()->flash('info', 'PDF export coming soon. Please use Excel export instead.');
-    }
-
-    /**
      * Export stock takes as Excel
      * Note: PDF/Excel exports cannot be returned directly from Livewire.
      */

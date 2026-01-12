@@ -586,26 +586,6 @@ class Analytics extends BaseComponent
         ];
     }
 
-    public function exportPDF()
-    {
-        $data = $this->prepareExportData();
-
-        if (empty($data['stock_health_data']) && empty($data['department_breakdown'])) {
-            $this->toast()->warning('No data available to export.')->send();
-
-            return;
-        }
-
-        return $this->export(
-            'inventory-analytics-'.now()->format('Y-m-d'),
-            collect($data),
-            'exports.inventory.analytics',
-            'pdf',
-            false,
-            ['orientation' => 'landscape', 'paper' => 'A4']
-        );
-    }
-
     public function exportExcel()
     {
         $data = $this->prepareExportData();

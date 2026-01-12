@@ -237,9 +237,6 @@
             <x-button wire:click="exportCsv" color="secondary" icon="document-arrow-down">
                 Export CSV
             </x-button>
-            <x-button wire:click="exportPdf" color="secondary" icon="document-text">
-                Export PDF
-            </x-button>
         </div>
     @else
         {{-- Empty State --}}

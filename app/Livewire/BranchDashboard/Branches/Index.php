@@ -137,11 +137,6 @@ class Index extends BaseComponent
         ]);
     }
 
-    public function exportPdf()
-    {
-        $this->toast()->success('PDF export feature coming soon!')->send();
-    }
-
     // Modal methods
     public function openBranchModal()
     {
@@ -316,7 +311,9 @@ class Index extends BaseComponent
     public function render()
     {
         $rows = $this->getFilteredQuery()->paginate($this->quantity ?? 10);
-        $users = User::all();
+
+        // Only load users when modal is open to avoid loading on every render
+        $users = $this->showBranchModal ? User::select('id', 'name')->get() : collect();
 
         return view('livewire.branch-dashboard.branches.index', [
             'headers' => [

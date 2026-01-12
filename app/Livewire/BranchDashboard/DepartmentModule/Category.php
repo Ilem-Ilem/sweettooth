@@ -139,11 +139,6 @@ class Category extends BaseComponent
         $this->toast()->info('Excel export coming soon!')->send();
     }
 
-    public function exportPdf()
-    {
-        $this->toast()->info('PDF export coming soon!')->send();
-    }
-
     public function updated($property, $value)
     {
         if (Str::contains($property, ['search', 'advancedSearch', 'dateFrom', 'dateTo', 'quantity'])) {

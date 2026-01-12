@@ -721,6 +721,19 @@ class Items extends BaseComponent
     {
         $rows = $this->getFilteredQuery()->paginate($this->quantity ?? 10);
 
+        // Get low stock items efficiently (cached in component, with limit)
+        $lowStockItems = Item::query()
+            ->with(['stocks', 'unitOfMeasure'])
+            ->where('branch_id', $this->getBranchId())
+            ->where('status', 'active')
+            ->where('reorder_level', '>', 0)
+            ->whereHas('stocks', function ($q) {
+                $q->where('branch_id', $this->getBranchId())
+                    ->whereColumn('quantity_available', '<=', 'items.reorder_level');
+            })
+            ->limit(10)
+            ->get();
+
         return view('livewire.branch-dashboard.inventory.items', [
             'headers' => [
                 ['index' => 'id', 'label' => '#'],
@@ -734,13 +747,14 @@ class Items extends BaseComponent
                 ['index' => 'action', 'label' => 'Actions', 'display' => true],
             ],
             'rows' => $rows,
+            'lowStockItems' => $lowStockItems,
         ]);
     }
 
     protected function getFilteredQuery()
     {
         return Item::query()
-            ->with(['branch', 'stocks' => fn ($q) => $q->where('branch_id', $this->getBranchId())])
+            ->with(['branch', 'unitOfMeasure', 'stocks' => fn ($q) => $q->where('branch_id', $this->getBranchId())])
             ->where('branch_id', $this->getBranchId())
             ->when($this->search, fn ($q) => $q->where('name', 'like', "%{$this->search}%")->orWhere('sku', 'like', "%{$this->search}%"))
             ->when($this->filterCategory, fn ($q) => $q->where('category', $this->filterCategory))
@@ -786,45 +800,6 @@ class Items extends BaseComponent
                 'exports.inventory.items',
                 'excel',
                 true
-            );
-        } catch (\Exception $e) {
-            $this->toast()->error('Export failed: '.$e->getMessage())->send();
-
-            return;
-        }
-    }
-
-    public function exportPDF()
-    {
-        try {
-            // Export ALL items without pagination or search filters
-            $items = Item::query()
-                ->where('branch_id', $this->getBranchId())
-                ->orderBy('sku')
-                ->get();
-
-            $data = $items->map(fn ($item) => [
-                'sku' => $item->sku,
-                'name' => $item->name,
-                'category' => $item->category,
-                'reorder_level' => $item->reorder_level,
-                'status' => $item->status,
-                'uom' => $item->uom,
-            ])->toArray();
-
-            if (empty($data)) {
-                $this->toast()->warning('No items to export.')->send();
-
-                return;
-            }
-
-            return $this->export(
-                'inventory-items-'.now()->format('Y-m-d'),
-                collect($data),
-                'exports.inventory.items',
-                'pdf',
-                true,
-                ['orientation' => 'landscape']
             );
         } catch (\Exception $e) {
             $this->toast()->error('Export failed: '.$e->getMessage())->send();

@@ -364,15 +364,6 @@ class StockMovementAnalytics extends Component
     }
 
     /**
-     * Export stock movements as PDF
-     * Note: PDF/Excel exports cannot be returned directly from Livewire.
-     */
-    public function exportPDF()
-    {
-        session()->flash('info', 'PDF export coming soon. Please use Excel export instead.');
-    }
-
-    /**
      * Export stock movements as Excel
      * Note: PDF/Excel exports cannot be returned directly from Livewire.
      */

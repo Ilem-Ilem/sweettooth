@@ -55,7 +55,6 @@ class ExportExcelJob implements ShouldQueue
         $url = Storage::url($path);
 
         if ($this->userId) {
-            {
             $user = User::find($this->userId);
             $user?->notify(new ExportReadyNotification($url, 'Excel'));
         }

@@ -381,18 +381,6 @@ class StockLevelAnalytics extends Component
         ]));
     }
 
-    public function exportPDF()
-    {
-        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
-        return redirect(branch_route('branch-dashboard.exports.stock-level-analytics', [
-            'format' => 'pdf',
-            'search' => $this->searchTerm,
-            'category' => $this->selectedCategory,
-            'health' => $this->healthFilter,
-            'b_id' => $branchId,
-        ]));
-    }
-
     public function exportExcel()
     {
         $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');

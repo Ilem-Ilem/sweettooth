@@ -55,10 +55,7 @@
                         <input type="checkbox" wire:model="exportCsv" class="h-4 w-4 text-blue-600 border-zinc-300 rounded focus:ring-blue-500">
                         <span class="ml-2 text-sm text-zinc-700 dark:text-zinc-300">Export to CSV</span>
                     </div>
-                    <div class="flex items-center">
-                        <input type="checkbox" wire:model="exportPdf" class="h-4 w-4 text-blue-600 border-zinc-300 rounded focus:ring-blue-500">
-                        <span class="ml-2 text-sm text-zinc-700 dark:text-zinc-300">Export to PDF</span>
-                    </div>
+
                 </div>
             </div>
 

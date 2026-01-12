@@ -186,17 +186,6 @@ class AlertsDashboard extends Component
         }, $filename);
     }
 
-    public function exportPDF()
-    {
-        $alerts = $this->getAllAlerts();
-        return $this->export(
-            'alerts-dashboard',
-            $alerts,
-            'exports.analytics.alerts-dashboard',
-            'pdf'
-        );
-    }
-
     public function exportExcel()
     {
         $alerts = $this->getAllAlerts();
