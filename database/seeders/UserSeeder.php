@@ -91,6 +91,20 @@ class UserSeeder extends Seeder
         );
         $hrMgr->syncRoles(['HR Manager']);
 
+        // Create Accounting Manager
+        $accountingMgr = User::firstOrCreate(
+            ['email' => 'accounting.manager@sweettooth.local'],
+            [
+                'name' => 'Frank Accounting',
+                'password' => bcrypt('password'),
+                'branch_id' => $defaultBranch->id,
+                'is_active' => true,
+                'user_type' => 'employee',
+                'email_verified_at' => now(),
+            ]
+        );
+        $accountingMgr->syncRoles(['Accounting Manager']);
+
         // Create Inventory Manager
         $invMgr = User::firstOrCreate(
             ['email' => 'inventory.manager@sweettooth.local'],

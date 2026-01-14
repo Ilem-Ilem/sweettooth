@@ -183,20 +183,31 @@ class Index extends BaseComponent
 
         $this->showTableManagement = $department->enable_table_management;
 
-        // If enabling for the first time and no tables exist, create 8 default tables
-        if ($department->enable_table_management && $department->tables()->count() === 0) {
+        // If enabling for the first time and no tables exist for this branch+department, create 8 default tables
+        $existingTablesCount = Table::where('branch_id', $this->branchId)
+            ->where('department_id', $this->departmentId)
+            ->count();
+
+        if ($department->enable_table_management && $existingTablesCount === 0) {
             for ($i = 1; $i <= 8; $i++) {
-                Table::create([
-                    'branch_id' => $this->branchId,
-                    'department_id' => $this->departmentId,
-                    'table_number' => (string) $i,
-                    'table_name' => 'Table ' . $i,
-                    'status' => 'available',
-                    'capacity' => 4,
-                    'is_active' => true,
-                ]);
+                // Double-check this specific table doesn't exist before creating
+                $tableExists = Table::where('branch_id', $this->branchId)
+                    ->where('table_number', (string) $i)
+                    ->exists();
+
+                if (!$tableExists) {
+                    Table::create([
+                        'branch_id' => $this->branchId,
+                        'department_id' => $this->departmentId,
+                        'table_number' => (string) $i,
+                        'table_name' => 'Table ' . $i,
+                        'status' => 'available',
+                        'capacity' => 4,
+                        'is_active' => true,
+                    ]);
+                }
             }
-            $this->toast()->success('Table management enabled! 8 default tables created for ' . $department->name . '.')->send();
+            $this->toast()->success('Table management enabled! Default tables created for ' . $department->name . '.')->send();
         } else {
             $message = $department->enable_table_management
                 ? 'Table management enabled for ' . $department->name . '.'

@@ -676,10 +676,16 @@ class Index extends Component
             // Skip department filter for approvals for now
         }
 
-        // Apply action filter
+        // Apply action filter (match base action or exact match)
         if ($this->filterAction) {
-            $logsQuery->where('action', $this->filterAction);
-            $approvalsQuery->where('action', $this->filterAction);
+            $logsQuery->where(function ($q) {
+                $q->where('action', $this->filterAction)
+                    ->orWhere('action', 'like', $this->filterAction . ':%');
+            });
+            $approvalsQuery->where(function ($q) {
+                $q->where('action', $this->filterAction)
+                    ->orWhere('action', 'like', $this->filterAction . ':%');
+            });
         }
 
         // Apply status filter
@@ -710,7 +716,18 @@ class Index extends Component
                 ->orderBy($this->sortBy, $this->sortDirection)
                 ->paginate(15);
 
-            $actions = AuditLog::distinct('action')->pluck('action')->sort();
+            // Get unique base actions (without IDs) for the filter dropdown
+            $rawActions = AuditLog::distinct('action')->pluck('action');
+            $actions = $rawActions->map(function ($action) {
+                // Extract base action: "delete_item:6" -> "delete_item", "update_item:123" -> "update_item"
+                $parts = explode(':', $action);
+                // If second part is numeric, it's an ID - return just the first part
+                if (count($parts) > 1 && is_numeric($parts[1])) {
+                    return $parts[0];
+                }
+                return $action;
+            })->unique()->sort()->values();
+
             $statuses = AuditLog::distinct('status')->pluck('status')->sort();
 
             return view('livewire.branch-dashboard.audit-management.index', [
@@ -727,7 +744,18 @@ class Index extends Component
                 ->orderBy('created_at', 'desc')
                 ->paginate(15);
 
-            $actions = ApprovalAuditRequest::distinct('action')->pluck('action')->sort();
+            // Get unique base actions (without IDs) for the filter dropdown
+            $rawActions = ApprovalAuditRequest::distinct('action')->pluck('action');
+            $actions = $rawActions->map(function ($action) {
+                // Extract base action: "delete_item:6" -> "delete_item", "update_item:123" -> "update_item"
+                $parts = explode(':', $action);
+                // If second part is numeric, it's an ID - return just the first part
+                if (count($parts) > 1 && is_numeric($parts[1])) {
+                    return $parts[0];
+                }
+                return $action;
+            })->unique()->sort()->values();
+
             $statuses = ApprovalAuditRequest::distinct('status')->pluck('status')->sort();
 
             return view('livewire.branch-dashboard.audit-management.index', [

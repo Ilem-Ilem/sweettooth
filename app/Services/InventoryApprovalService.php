@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\ApprovalAuditRequest;
 use App\Models\Employee;
+use App\Models\User;
 use App\Models\Stock;
 use App\Models\StockMovement;
 use App\Models\Item;
@@ -15,7 +16,7 @@ class InventoryApprovalService
     /**
      * Create a pending stock adjustment request
      */
-    public static function requestStockAdjustment(Employee $requester, int $stockId, array $adjustments, string $reason): ApprovalAuditRequest
+    public static function requestStockAdjustment(Employee|User $requester, int $stockId, array $adjustments, string $reason): ApprovalAuditRequest
     {
         // Validate stock exists
         if (!$stockId) {
@@ -25,9 +26,9 @@ class InventoryApprovalService
         $stock = Stock::with('item')->findOrFail($stockId);
 
         $request = ApprovalAuditRequest::create([
-            'branch_id' => $requester->branch_id,
+            'branch_id' => $requester instanceof User ? current_branch_id() : $requester->branch_id,
             'requester_id' => $requester->id,
-            'requester_type' => Employee::class,
+            'requester_type' => get_class($requester),
             'action' => 'stock_adjustment:' . $stockId,
             'description' => $reason,
             'payload' => [
@@ -127,11 +128,11 @@ class InventoryApprovalService
     /**
      * Reject a pending stock adjustment request
      */
-    public static function rejectStockAdjustment(ApprovalAuditRequest $request, Employee $approver, string $comment): void
+    public static function rejectStockAdjustment(ApprovalAuditRequest $request, Employee|User $approver, string $comment): void
     {
         $request->update([
             'approver_id' => $approver->id,
-            'approver_type' => Employee::class,
+            'approver_type' => get_class($approver),
             'status' => 'rejected',
             'comment' => $comment,
             'denied_at' => now(),
@@ -141,7 +142,7 @@ class InventoryApprovalService
     /**
      * Create a pending item creation request
      */
-    public static function requestItemCreation(Employee $requester, array $itemData, string $reason): ApprovalAuditRequest
+    public static function requestItemCreation(Employee|User $requester, array $itemData, string $reason): ApprovalAuditRequest
     {
         // Validate required fields
         if (empty($itemData['name']) || empty($itemData['sku'])) {
@@ -149,16 +150,16 @@ class InventoryApprovalService
         }
 
         $request = ApprovalAuditRequest::create([
-            'branch_id' => $requester->branch_id,
+            'branch_id' => $requester instanceof User ? current_branch_id() : $requester->branch_id,
             'requester_id' => $requester->id,
-            'requester_type' => Employee::class,
+            'requester_type' => get_class($requester),
             'action' => 'create_item',
             'description' => $reason,
             'payload' => [
                 'name' => $itemData['name'],
                 'sku' => $itemData['sku'],
                 'category' => $itemData['category'] ?? '',
-                'uom' => $itemData['uom'] ?? '',
+                'uom_id' => $itemData['uom_id'] ?? null,
                 'reorder_level' => (float) ($itemData['reorder_level'] ?? 0),
                 'max_stock_level' => (float) ($itemData['max_stock_level'] ?? 0),
                 'status' => $itemData['status'] ?? 'active',
@@ -197,10 +198,22 @@ class InventoryApprovalService
                 'name' => $payload['name'],
                 'sku' => $payload['sku'],
                 'category' => $payload['category'],
-                'uom' => $payload['uom'],
+                'uom_id' => $payload['uom_id'],
                 'reorder_level' => (float) $payload['reorder_level'],
                 'max_stock_level' => (float) $payload['max_stock_level'],
                 'status' => $payload['status'],
+            ]);
+
+            // Create initial stock record
+            Stock::create([
+                'branch_id' => $item->branch_id,
+                'item_id' => $item->id,
+                'quantity_available' => 0,
+                'quantity_reserved' => 0,
+                'quantity_damaged' => 0,
+                'average_cost' => 0,
+                'last_stock_take_date' => now(),
+                'health_status' => 'good',
             ]);
 
             return $item;
@@ -210,7 +223,7 @@ class InventoryApprovalService
     /**
      * Create a pending item update request
      */
-    public static function requestItemUpdate(Employee $requester, int $itemId, array $changes, string $reason): ApprovalAuditRequest
+    public static function requestItemUpdate(Employee|User $requester, int $itemId, array $changes, string $reason): ApprovalAuditRequest
     {
         // Validate item exists
         if (!$itemId) {
@@ -220,9 +233,9 @@ class InventoryApprovalService
         $item = Item::findOrFail($itemId);
 
         $request = ApprovalAuditRequest::create([
-            'branch_id' => $requester->branch_id,
+            'branch_id' => $requester instanceof User ? current_branch_id() : $requester->branch_id,
             'requester_id' => $requester->id,
-            'requester_type' => Employee::class,
+            'requester_type' => get_class($requester),
             'action' => 'update_item:' . $itemId,
             'description' => $reason,
             'payload' => array_merge(['item_id' => $itemId], $changes),
@@ -280,19 +293,19 @@ class InventoryApprovalService
     /**
      * Create a pending item deletion request
      */
-    public static function requestItemDeletion(Employee $requester, int $itemId, string $reason, array $deletionData = []): ApprovalAuditRequest
+    public static function requestItemDeletion(Employee|User $requester, int $itemId, string $reason, array $deletionData = []): ApprovalAuditRequest
     {
         $payload = ['item_id' => $itemId];
-        
+
         // Include related data if provided
         if (!empty($deletionData['related_data'])) {
             $payload['related_data'] = $deletionData['related_data'];
         }
-        
+
         $request = ApprovalAuditRequest::create([
-            'branch_id' => $requester->branch_id,
+            'branch_id' => $requester instanceof User ? current_branch_id() : $requester->branch_id,
             'requester_id' => $requester->id,
-            'requester_type' => Employee::class,
+            'requester_type' => get_class($requester),
             'action' => 'delete_item:' . $itemId,
             'description' => $reason,
             'payload' => $payload,
@@ -338,14 +351,15 @@ class InventoryApprovalService
 
     /**
      * Execute a pending item deletion after approval
-     * 
+     *
      * This intelligently handles the deletion cascade:
      * - RecipeIngredients using this item are deleted
      * - Recipes that lose all ingredients can be marked as incomplete/disabled
      * - Products are NOT deleted, only their recipes are affected
      * - Stock and purchase data are cascaded as configured in models
+     * - Item request details are also deleted
      */
-    public static function executeItemDeletion(ApprovalAuditRequest $request, Employee $approver): void
+    public static function executeItemDeletion(ApprovalAuditRequest $request, Employee|User $approver): void
     {
         DB::transaction(function () use ($request, $approver) {
             $payload = $request->payload;
@@ -365,16 +379,12 @@ class InventoryApprovalService
                 ->toArray();
 
             // Step 2: Delete all recipe ingredients using this item
-            // This will cascade delete recipe ingredients
             \App\Models\RecipeIngredient::where('item_id', $itemId)->delete();
 
             // Step 3: Check affected recipes for integrity
-            // Mark recipes with no ingredients as disabled if needed
             foreach ($affectedRecipeIds as $recipeId) {
                 $recipe = \App\Models\Recipe::find($recipeId);
                 if ($recipe && $recipe->ingredients()->count() === 0) {
-                    // Recipe has no ingredients left - optionally disable it
-                    // Or log this for manual review
                     AuditService::log(
                         $approver,
                         'update',
@@ -385,7 +395,20 @@ class InventoryApprovalService
                 }
             }
 
-            // Step 4: Delete the item itself
+            // Step 4: Delete item request details referencing this item
+            \App\Models\ItemRequestDetail::where('item_id', $itemId)->delete();
+
+            // Step 5: Delete item dispatches referencing this item
+            if (class_exists(\App\Models\ItemDispatch::class)) {
+                \App\Models\ItemDispatch::where('item_id', $itemId)->delete();
+            }
+
+            // Step 6: Delete stock take details referencing this item
+            if (class_exists(\App\Models\StockTakeDetail::class)) {
+                \App\Models\StockTakeDetail::where('item_id', $itemId)->delete();
+            }
+
+            // Step 7: Delete the item itself
             // This will cascade delete stocks, stock movements, purchase items, etc.
             $item->delete();
 
@@ -413,12 +436,12 @@ class InventoryApprovalService
     /**
      * Create a pending purchase creation request
      */
-    public static function requestPurchaseCreation(Employee $requester, array $purchaseData, string $reason): ApprovalAuditRequest
+    public static function requestPurchaseCreation(Employee|User $requester, array $purchaseData, string $reason): ApprovalAuditRequest
     {
         $request = ApprovalAuditRequest::create([
-            'branch_id' => $requester->branch_id,
+            'branch_id' => $requester instanceof User ? current_branch_id() : $requester->branch_id,
             'requester_id' => $requester->id,
-            'requester_type' => Employee::class,
+            'requester_type' => get_class($requester),
             'action' => 'create_purchase',
             'description' => $reason,
             'payload' => $purchaseData,
@@ -442,16 +465,16 @@ class InventoryApprovalService
     /**
      * Execute a pending purchase creation after approval
      */
-    public static function executePurchaseCreation(ApprovalAuditRequest $request, Employee $approver)
+    public static function executePurchaseCreation(ApprovalAuditRequest $request, Employee|User $approver)
     {
         // Implementation will be similar to purchase creation in Purchases.php
         // This is a placeholder - the actual logic should be in the service
-        $request->update([
-            'approver_id' => $approver->id,
-            'approver_type' => Employee::class,
-            'status' => 'approved',
-            'approved_at' => now(),
-        ]);
+            $request->update([
+                'approver_id' => $approver->id,
+                'approver_type' => get_class($approver),
+                'status' => 'approved',
+                'approved_at' => now(),
+            ]);
 
         return $request;
     }
@@ -459,12 +482,12 @@ class InventoryApprovalService
     /**
      * Create a pending purchase deletion request
      */
-    public static function requestPurchaseDeletion(Employee $requester, int $purchaseId, string $reason): ApprovalAuditRequest
+    public static function requestPurchaseDeletion(Employee|User $requester, int $purchaseId, string $reason): ApprovalAuditRequest
     {
         $request = ApprovalAuditRequest::create([
-            'branch_id' => $requester->branch_id,
+            'branch_id' => $requester instanceof User ? current_branch_id() : $requester->branch_id,
             'requester_id' => $requester->id,
-            'requester_type' => Employee::class,
+            'requester_type' => get_class($requester),
             'action' => 'delete_purchase:' . $purchaseId,
             'description' => $reason,
             'payload' => ['purchase_id' => $purchaseId],
@@ -488,7 +511,7 @@ class InventoryApprovalService
     /**
      * Execute a pending purchase deletion after approval
      */
-    public static function executePurchaseDeletion(ApprovalAuditRequest $request, Employee $approver): void
+    public static function executePurchaseDeletion(ApprovalAuditRequest $request, Employee|User $approver): void
     {
         DB::transaction(function () use ($request, $approver) {
             $payload = $request->payload;

@@ -309,7 +309,7 @@
                                 <span class="px-2 py-0.5 text-xs font-semibold rounded {{ $urgencyColors[$item['urgency']] ?? '' }}">{{ $item['urgency'] }}</span>
                             </div>
                             <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ $item['request']->department->name }} • {{ ucfirst($item['request']->shift) }}</p>
-                            <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-1">By {{ $item['request']->requestedBy->name }}</p>
+                            <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-1">By {{ $item['request']->requestedBy?->name ?? 'Unknown User' }}</p>
                         </div>
                         <div class="text-right ml-3">
                             <p class="text-xs text-zinc-500 dark:text-zinc-400">Waiting</p>
@@ -451,6 +451,7 @@
         <div class="overflow-x-auto" wire:loading.class="opacity-50" wire:target="updatedSearchTerm, updatedSelectedStatus, updatedDateFrom, updatedDateTo">
             <table class="w-full text-sm text-left">
                 <thead class="text-xs uppercase bg-zinc-100 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300">
+    dark:text-zinc-300">
                     <tr>
                         <th class="px-4 py-3">Request #</th>
                         <th class="px-4 py-3">Department</th>

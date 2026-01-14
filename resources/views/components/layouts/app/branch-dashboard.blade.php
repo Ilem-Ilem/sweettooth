@@ -233,9 +233,9 @@
 
             @if ($sidebarService::canSeeInventoryDashboard($currentUser) || $sidebarService::isSuperAdmin())
             <flux:navlist.group :heading="__('Inventory')" icon='cube'>
-                @if(is_super_admin() || auth()->user()?->can('view-inventory-management'))
-                <flux:navlist.group :heading="__('Inventory Management')" expandable
-                    :expanded="request()->routeIs('branch-dashboard.inventory.*')" class="grid" icon='cube'>
+                @if($sidebarService::canSeeInventory($currentUser))
+                 <flux:navlist.group :heading="__('Inventory Management')" expandable
+                     :expanded="request()->routeIs('branch-dashboard.inventory.*')" class="grid" icon='cube'>
                     <flux:navlist.item icon="squares-2x2" :href="branch_route('branch-dashboard.inventory.items')"
                         :current="request()->routeIs('branch-dashboard.inventory.items')" wire:navigate>
                         {{ __('Items') }}
@@ -274,9 +274,9 @@
                  </flux:navlist.group>
                 @endif
 
-                @if(is_super_admin() || auth()->user()?->can('view-inventory-management'))
-                <flux:navlist.group :heading="__('Callbacks')" class="grid" expandable
-                    :expanded="request()->routeIs('branch-dashboard.inventory.callbacks.*')">
+                @if($sidebarService::canSeeInventory($currentUser))
+                 <flux:navlist.group :heading="__('Callbacks')" class="grid" expandable
+                     :expanded="request()->routeIs('branch-dashboard.inventory.callbacks.*')">
                     <flux:navlist.item icon="arrow-uturn-left"
                         :href="branch_route('branch-dashboard.inventory.callbacks.index')"
                         :current="request()->routeIs('branch-dashboard.inventory.callbacks.index')" wire:navigate>
@@ -287,9 +287,9 @@
             </flux:navlist.group>
             @endif
 
-            @if ($sidebarService::canSeeAnalytics($currentUser))
-            <flux:navlist.group :heading="__('Analytics')" expandable
-                :expanded="request()->routeIs('branch-dashboard.analytics.*')" class="grid" icon='chart-bar-square'>
+            @if ($sidebarService::canSeeAnalytics($currentUser) || $sidebarService::canSeeInventory($currentUser))
+             <flux:navlist.group :heading="__('Analytics')" expandable
+                 :expanded="request()->routeIs('branch-dashboard.analytics.*')" class="grid" icon='chart-bar-square'>
                 <flux:navlist.item icon="squares-plus" :href="branch_route('branch-dashboard.analytics.overview')"
                     :current="request()->routeIs('branch-dashboard.analytics.overview')">
                     {{ __('Overview Dashboard') }}

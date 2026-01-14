@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\ApprovalAuditRequest;
 use App\Models\Employee;
+use App\Models\User;
 use App\Models\Purchase;
 use App\Models\Stock;
 use App\Models\StockMovement;
@@ -14,12 +15,12 @@ class PurchaseAuditApprovalService
     /**
      * Create a pending purchase creation request via the audit approval system
      */
-    public static function requestPurchaseCreation(Employee $requester, array $purchaseData, string $reason): ApprovalAuditRequest
+    public static function requestPurchaseCreation(Employee|User $requester, array $purchaseData, string $reason): ApprovalAuditRequest
     {
         $request = ApprovalAuditRequest::create([
-            'branch_id' => $requester->branch_id,
+            'branch_id' => $requester instanceof User ? current_branch_id() : $requester->branch_id,
             'requester_id' => $requester->id,
-            'requester_type' => Employee::class,
+            'requester_type' => get_class($requester),
             'action' => 'create_purchase',
             'description' => $reason,
             'payload' => $purchaseData,
@@ -43,7 +44,7 @@ class PurchaseAuditApprovalService
     /**
      * Execute a pending purchase creation after approval
      */
-    public static function executePurchaseCreation(ApprovalAuditRequest $request, Employee $approver): Purchase
+    public static function executePurchaseCreation(ApprovalAuditRequest $request, Employee|User $approver): Purchase
     {
         return DB::transaction(function () use ($request, $approver) {
             $payload = $request->payload;
@@ -127,7 +128,7 @@ class PurchaseAuditApprovalService
             // Mark request as approved
             $request->update([
                 'approver_id' => $approver->id,
-                'approver_type' => Employee::class,
+                'approver_type' => get_class($approver),
                 'status' => 'approved',
                 'approved_at' => now(),
             ]);
@@ -149,14 +150,14 @@ class PurchaseAuditApprovalService
     /**
      * Create a pending purchase deletion request via the audit approval system
      */
-    public static function requestPurchaseDeletion(Employee $requester, int $purchaseId, string $reason): ApprovalAuditRequest
+    public static function requestPurchaseDeletion(Employee|User $requester, int $purchaseId, string $reason): ApprovalAuditRequest
     {
         $purchase = Purchase::findOrFail($purchaseId);
 
         $request = ApprovalAuditRequest::create([
-            'branch_id' => $requester->branch_id,
+            'branch_id' => $requester instanceof User ? current_branch_id() : $requester->branch_id,
             'requester_id' => $requester->id,
-            'requester_type' => Employee::class,
+            'requester_type' => get_class($requester),
             'action' => 'delete_purchase:' . $purchaseId,
             'description' => $reason,
             'payload' => ['purchase_id' => $purchaseId],
@@ -179,7 +180,7 @@ class PurchaseAuditApprovalService
     /**
      * Execute a pending purchase deletion after approval
      */
-    public static function executePurchaseDeletion(ApprovalAuditRequest $request, Employee $approver): void
+    public static function executePurchaseDeletion(ApprovalAuditRequest $request, Employee|User $approver): void
     {
         DB::transaction(function () use ($request, $approver) {
             $payload = $request->payload;
@@ -197,7 +198,7 @@ class PurchaseAuditApprovalService
             // Mark request as approved
             $request->update([
                 'approver_id' => $approver->id,
-                'approver_type' => Employee::class,
+                'approver_type' => get_class($approver),
                 'status' => 'approved',
                 'approved_at' => now(),
             ]);
@@ -216,7 +217,7 @@ class PurchaseAuditApprovalService
     /**
      * Create a pending purchase approval request from draft
      */
-    public static function requestPurchaseApproval(Employee $requester, int $purchaseId, string $reason): ApprovalAuditRequest
+    public static function requestPurchaseApproval(Employee|User $requester, int $purchaseId, string $reason): ApprovalAuditRequest
     {
         $purchase = Purchase::findOrFail($purchaseId);
 
@@ -225,9 +226,9 @@ class PurchaseAuditApprovalService
         }
 
         $request = ApprovalAuditRequest::create([
-            'branch_id' => $requester->branch_id,
+            'branch_id' => $requester instanceof User ? current_branch_id() : $requester->branch_id,
             'requester_id' => $requester->id,
-            'requester_type' => Employee::class,
+            'requester_type' => get_class($requester),
             'action' => 'approve_purchase:' . $purchaseId,
             'description' => $reason,
             'payload' => ['purchase_id' => $purchaseId],
@@ -253,7 +254,7 @@ class PurchaseAuditApprovalService
     /**
      * Execute a pending purchase approval request
      */
-    public static function approvePurchase(ApprovalAuditRequest $request, Employee $approver): Purchase
+    public static function approvePurchase(ApprovalAuditRequest $request, Employee|User $approver): Purchase
     {
         return DB::transaction(function () use ($request, $approver) {
             $payload = $request->payload;
@@ -336,7 +337,7 @@ class PurchaseAuditApprovalService
     /**
      * Reject a pending purchase approval request
      */
-    public static function rejectPurchase(ApprovalAuditRequest $request, Employee $approver, string $comment): Purchase
+    public static function rejectPurchase(ApprovalAuditRequest $request, Employee|User $approver, string $comment): Purchase
     {
         return DB::transaction(function () use ($request, $approver, $comment) {
             $payload = $request->payload;
@@ -352,7 +353,7 @@ class PurchaseAuditApprovalService
             // Mark request as rejected
             $request->update([
                 'approver_id' => $approver->id,
-                'approver_type' => Employee::class,
+                'approver_type' => get_class($approver),
                 'status' => 'rejected',
                 'comment' => $comment,
                 'denied_at' => now(),

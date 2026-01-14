@@ -210,7 +210,7 @@ class ItemRequests extends Component
                     'quantity_requested' => $item['quantity_requested'] ?? 0,
                     'quantity_approved' => 0,
                     'quantity_dispatched' => 0,
-                    'uom' => $selectedItem->uom,
+                    'uom_id' => $selectedItem->uom_id,
                 ]);
             }
 

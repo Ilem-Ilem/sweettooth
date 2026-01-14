@@ -122,8 +122,7 @@ class Index extends BaseComponent
                 $query->where(function ($q) {
                     $q->where('name', 'like', '%'.$this->search.'%')
                         ->orWhere('email', 'like', '%'.$this->search.'%')
-                        ->orWhere('employee_number', 'like', '%'.$this->search.'%')
-                        ->orWhere('position', 'like', '%'.$this->search.'%');
+                        ->orWhere('employee_number', 'like', '%'.$this->search.'%');
                 });
             })
             ->when($this->advancedSearch, function ($query) {
@@ -131,7 +130,6 @@ class Index extends BaseComponent
                     $q->where('name', 'like', '%'.$this->advancedSearch.'%')
                         ->orWhere('email', 'like', '%'.$this->advancedSearch.'%')
                         ->orWhere('employee_number', 'like', '%'.$this->advancedSearch.'%')
-                        ->orWhere('position', 'like', '%'.$this->advancedSearch.'%')
                         ->orWhere('phone', 'like', '%'.$this->advancedSearch.'%')
                         ->orWhereHas('branch', function ($branchQuery) {
                             $branchQuery->where('name', 'like', '%'.$this->advancedSearch.'%');

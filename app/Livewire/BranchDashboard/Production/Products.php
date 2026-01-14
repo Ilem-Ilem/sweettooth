@@ -143,6 +143,11 @@ class Products extends BaseComponent
             ->when($this->filterProductType, function ($query) {
                 $query->where('product_type_id', $this->filterProductType);
             })
+            ->when($this->filterDepartment, function ($query) {
+                $query->whereHas('productType', function ($q) {
+                    $q->where('department_id', $this->filterDepartment);
+                });
+            })
             ->when(!is_super_admin(), function ($query) use ($departmentId) {
                 $query->whereHas('productType', function ($q) use ($departmentId) {
                     $q->where('department_id', $departmentId);

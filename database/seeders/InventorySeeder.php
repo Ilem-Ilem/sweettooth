@@ -301,7 +301,7 @@ class InventorySeeder extends Seeder
                     'quantity_requested' => $quantityRequested,
                     'quantity_approved' => $quantityApproved,
                     'quantity_dispatched' => $quantityDispatched,
-                    'uom' => $item->uom,
+                    'uom_id' => $item->uom_id,
                     'notes' => 'Request for '.$item->name,
                 ]);
             }
@@ -337,7 +337,7 @@ class InventorySeeder extends Seeder
                         'branch_id' => $request->branch_id,
                         'received_by' => $employee->id,
                         'quantity' => $detail->quantity_dispatched,
-                        'uom' => $detail->uom,
+                        'uom' => $detail->unitOfMeasure?->symbol ?? 'units',
                         'dispatch_time' => $dispatchTime,
                         'received_time' => $receivedTime,
                         'shift' => collect($shifts)->random(),

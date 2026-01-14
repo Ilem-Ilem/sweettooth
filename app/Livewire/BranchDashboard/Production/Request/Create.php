@@ -109,13 +109,13 @@ class Create extends Component
                         'name'           => $product->name,
                         'recipe_name'    => $recipe->product_name,
                         'yield_quantity' => $recipe->yield_quantity,
-                        'uom'            => $recipe->uom,
+                        'uom'            => $recipe->unitOfMeasure?->symbol ?? 'N/A',
                         'ingredients'    => $recipe->ingredients->map(function ($ing) {
                             return [
                                 'item_id'            => $ing->item_id,
                                 'item_name'          => $ing->item->name ?? 'N/A',
                                 'quantity_per_batch' => $ing->quantity,
-                                'uom'                => $ing->uom,
+                                'uom'                => $ing->unitOfMeasure?->symbol ?? 'N/A',
                                 'waste_percentage'   => $ing->waste_percentage,
                             ];
                         })->toArray(),
@@ -209,7 +209,7 @@ class Create extends Component
                         'quantity_requested'  => $totalQuantity,
                         'quantity_approved'   => 0,
                         'quantity_dispatched' => 0,
-                        'uom'                 => $ingredient->uom,
+                        'uom_id'              => $ingredient->uom_id,
                         'notes'               => "For {$recipe->product_name} production ({$batchesRequested} batches × {$recipeYield} {$recipe->unitOfMeasure?->symbol} = {$actualUnitsRequested} {$recipe->unitOfMeasure?->symbol})",
                     ]);
                 }

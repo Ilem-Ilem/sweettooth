@@ -36,7 +36,7 @@
             </div>
             <div class="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
                 <p class="text-sm text-green-600 dark:text-green-400 font-medium">Base Yield</p>
-                <p class="text-lg font-bold text-green-900 dark:text-green-100">{{ number_format($recipe->yield_quantity, 2) }} {{ $recipe->uom }}</p>
+                <p class="text-lg font-bold text-green-900 dark:text-green-100">{{ number_format($recipe->yield_quantity, 2) }} {{ $recipe->unitOfMeasure?->symbol ?? 'N/A' }}</p>
             </div>
             <div class="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg">
                 <p class="text-sm text-purple-600 dark:text-purple-400 font-medium">Cost per Unit</p>
@@ -68,7 +68,7 @@
 
             <div class="bg-white dark:bg-zinc-800 p-4 rounded-lg border border-zinc-200 dark:border-zinc-700">
                 <p class="text-sm text-zinc-600 dark:text-zinc-400 font-medium">Total Yield</p>
-                <p class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{{ number_format($this->totalYield, 2) }} {{ $recipe->uom }}</p>
+                <p class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{{ number_format($this->totalYield, 2) }} {{ $recipe->unitOfMeasure?->symbol ?? 'N/A' }}</p>
             </div>
 
             <div class="bg-white dark:bg-zinc-800 p-4 rounded-lg border border-zinc-200 dark:border-zinc-700">
@@ -77,7 +77,7 @@
             </div>
 
             <div class="bg-white dark:bg-zinc-800 p-4 rounded-lg border border-zinc-200 dark:border-zinc-700">
-                <p class="text-sm text-zinc-600 dark:text-zinc-400 font-medium">Cost per {{ $recipe->uom }}</p>
+                <p class="text-sm text-zinc-600 dark:text-zinc-400 font-medium">Cost per {{ $recipe->unitOfMeasure?->symbol ?? 'N/A' }}</p>
                 <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($this->totalCost / max($this->totalYield, 1), 2) }}</p>
             </div>
         </div>

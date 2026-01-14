@@ -86,6 +86,19 @@ class Index extends BaseComponent
             ->with(['product', 'salesShift', 'recordedBy', 'approvedBy', 'receivedBy'])
             ->whereHas('salesShift', function ($q) {
                 $q->where('branch_id', $this->getBranchId());
+            })
+            ->when($this->search, function ($q) {
+                $q->whereHas('product', function ($pq) {
+                    $pq->where('name', 'like', '%' . $this->search . '%');
+                });
+            })
+            ->when($this->filterStatus, function ($q) {
+                $q->where('status', $this->filterStatus);
+            })
+            ->when($this->startDate && $this->endDate, function ($q) {
+                $q->whereHas('salesShift', function ($sq) {
+                    $sq->whereBetween('shift_date', [$this->startDate, $this->endDate]);
+                });
             });
 
         return $query;

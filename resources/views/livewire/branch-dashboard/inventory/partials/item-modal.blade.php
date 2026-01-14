@@ -98,7 +98,7 @@
                 <!-- Reorder Level -->
                 <div>
                     <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Reorder Level</label>
-                    <input type="number" step="1.0" wire:model.live="reorder_level"
+                    <input type="number" step="1.0" wire:model="reorder_level"
                         class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500"
                         placeholder="Enter reorder level">
                     @error('reorder_level')
@@ -109,7 +109,7 @@
                 <!-- Max Stock Level -->
                 <div>
                     <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Max Stock Level</label>
-                    <input type="number" step="1.0" wire:model.live="max_stock_level"
+                    <input type="number" step="1.0" wire:model="max_stock_level"
                         class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500"
                         placeholder="Enter max stock level">
                     @error('max_stock_level')

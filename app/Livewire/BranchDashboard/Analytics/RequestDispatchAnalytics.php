@@ -161,6 +161,7 @@ class RequestDispatchAnalytics extends Component
         return DB::table('item_request_details')
             ->join('item_requests', 'item_request_details.request_id', '=', 'item_requests.id')
             ->join('items', 'item_request_details.item_id', '=', 'items.id')
+            ->leftJoin('units_of_measure', 'items.uom_id', '=', 'units_of_measure.id')
             ->where('item_requests.branch_id', $branchId)
             ->whereBetween('item_requests.request_date', [$dateFrom, $dateTo])
             ->when($this->departmentFilter, fn($q) => $q->where('item_requests.department_id', $this->departmentFilter))
@@ -169,12 +170,12 @@ class RequestDispatchAnalytics extends Component
                 'items.id',
                 'items.name',
                 'items.sku',
-                'items.uom',
+                'units_of_measure.name as uom',
                 DB::raw('COUNT(DISTINCT item_requests.id) as request_count'),
                 DB::raw('SUM(item_request_details.quantity_requested) as total_quantity'),
                 DB::raw('AVG(item_request_details.quantity_requested) as avg_quantity')
             )
-            ->groupBy('items.id', 'items.name', 'items.sku', 'items.uom')
+            ->groupBy('items.id', 'items.name', 'items.sku', 'units_of_measure.name')
             ->orderByDesc('request_count')
             ->limit(10)
             ->get();

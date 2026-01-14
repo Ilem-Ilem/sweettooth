@@ -10,6 +10,7 @@ use App\Models\StockMovement;
 use App\Models\UnitOfMeasure;
 use App\Services\AuditService;
 use App\Services\InventoryApprovalService;
+use App\Services\SidebarVisibilityService;
 use App\Traits\Exportable;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
@@ -65,9 +66,9 @@ class Items extends BaseComponent
 
     public ?int $uom_id = null;
 
-    public float|int|null $reorder_level = null;
+    public ?float $reorder_level = null;
 
-    public float|int|null $max_stock_level = null;
+    public ?float $max_stock_level = null;
 
     public string $status = 'active';
 
@@ -144,9 +145,12 @@ class Items extends BaseComponent
             'status' => $this->status,
         ];
 
-        if (is_super_admin()) {
-            $this->executeImmediateSave($data);
+        // Only Super Admin level users can create items directly without approval
+        $user = Auth::user();
+        $roleLevel = SidebarVisibilityService::getRoleLevel($user);
 
+        if ($roleLevel >= \App\Services\SidebarVisibilityService::LEVEL_SUPER_ADMIN) {
+            $this->executeImmediateSave($data);
             return;
         }
 
@@ -266,7 +270,7 @@ class Items extends BaseComponent
         ]);
 
         try {
-            $user = Auth::guard('web')->user();
+            $user = current_actor();
             $request = null;
             $msg = '';
 
@@ -375,7 +379,11 @@ class Items extends BaseComponent
             'stockDamaged' => 'required|numeric|min:0',
         ]);
 
-        if (is_super_admin()) {
+        // Only Super Admin level users can update stock directly without approval
+        $user = Auth::user();
+        $roleLevel = SidebarVisibilityService::getRoleLevel($user);
+
+        if ($roleLevel >= SidebarVisibilityService::LEVEL_SUPER_ADMIN) {
             $this->performStockUpdate();
         } else {
             $this->pendingItemId = $this->stockItemId;
@@ -409,6 +417,8 @@ class Items extends BaseComponent
             'last_stock_take_date' => now(),
         ]);
 
+        $actor = current_actor();
+
         StockMovement::create([
             'stock_id' => $stock->id,
             'type' => 'adjustment',
@@ -417,8 +427,8 @@ class Items extends BaseComponent
             'quantity_after' => $this->stockQuantity,
             'reference_type' => null,
             'reference_id' => null,
-            'moved_by_id' => Auth::guard('web')->id(),
-            'moved_by_type' => \App\Models\Employee::class,
+            'moved_by_id' => $actor->id,
+            'moved_by_type' => get_class($actor),
             'notes' => $this->stockNotes ?: 'Manual adjustment',
             'movement_date' => now(),
         ]);
@@ -640,7 +650,7 @@ class Items extends BaseComponent
             ];
 
             $request = InventoryApprovalService::requestItemDeletion(
-                Auth::guard('web')->user(),
+                current_actor(),
                 $this->pendingItemId,
                 $this->auditReason,
                 $deletionData
@@ -678,6 +688,22 @@ class Items extends BaseComponent
         $this->showAuditModal = false;
         $this->auditReason = '';
         $this->auditAction = null;
+
+        // If there was pending item data, reopen the item modal
+        if (!empty($this->pendingItemData)) {
+            // Repopulate the form with the pending data
+            $this->itemId = $this->pendingItemData['item_id'] ?? null;
+            $this->name = $this->pendingItemData['name'] ?? '';
+            $this->sku = $this->pendingItemData['sku'] ?? '';
+            $this->category = $this->pendingItemData['category'] ?? '';
+            $this->uom_id = $this->pendingItemData['uom_id'] ?? null;
+            $this->reorder_level = $this->pendingItemData['reorder_level'] ?? null;
+            $this->max_stock_level = $this->pendingItemData['max_stock_level'] ?? null;
+            $this->status = $this->pendingItemData['status'] ?? 'active';
+            $this->isEditing = $this->itemId ? true : false;
+            $this->showModal = true;
+        }
+
         $this->pendingItemId = null;
         $this->pendingItemData = [];
         $this->pendingStockData = [];

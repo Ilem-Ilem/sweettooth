@@ -46,7 +46,7 @@ class RecipeDetail extends Component
 
     public function loadRecipe()
     {
-        $this->recipe = Recipe::with(['ingredients.item', 'department', 'createdBy'])
+        $this->recipe = Recipe::with(['ingredients.item', 'department', 'createdBy', 'productType'])
             ->where('department_id', $this->department->id)
             ->findOrFail($this->recipeId);
     }

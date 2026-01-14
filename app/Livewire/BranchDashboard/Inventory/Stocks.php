@@ -315,7 +315,7 @@ class Stocks extends BaseComponent
                 ->where('branch_id', $branchId)
                 ->firstOrFail();
 
-            $actor = Auth::guard('web')->user();
+            $actor = current_actor();
 
             // Create approval request with adjustment data
             // NOTE: InventoryApprovalService::requestStockAdjustment() already logs this request

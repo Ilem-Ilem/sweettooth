@@ -274,7 +274,7 @@ class Index extends Component
                         'requested' => (float) $detail->quantity_requested,
                         'approved' => (float) $detail->quantity_approved,
                         'dispatched' => (float) $detail->quantity_dispatched,
-                        'uom' => $detail->uom ?? $detail->item->unitOfMeasure?->symbol ?? '',
+                        'uom' => $detail->unitOfMeasure?->symbol ?? $detail->item->unitOfMeasure?->symbol ?? '',
                     ];
                 }
             }
@@ -1118,7 +1118,7 @@ class Index extends Component
             'dispatched_by_id' => Auth::guard('web')->id(),
             'dispatched_by_type' => 'user',
             'quantity' => $quantity,
-            'uom' => $product->uom ?? $produce->recipe->unitOfMeasure?->symbol ?? 'units',
+            'uom' => $product->unitOfMeasure?->symbol ?? $produce->recipe->unitOfMeasure?->symbol ?? 'units',
             'dispatch_time' => now(),
             'shift_type' => $produce->shift_type,
             'dispatch_date' => $produce->produce_date,

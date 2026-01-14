@@ -162,7 +162,7 @@ class Add extends Component
             $product = Product::with('productType')->find($this->product_id);
             if ($product) {
                 $this->yield_quantity = $product->recipe_yield ?? 1;
-                $this->uom = $product->uom ?? 'grams';
+                $this->uom = $product->unitOfMeasure?->symbol ?? 'grams';
                 
                 // Auto-generate SKU
                 $this->generateSku();
@@ -271,6 +271,22 @@ class Add extends Component
                 'cost_per_unit' => $costPerUnit,
             ]);
 
+            // Convert UOM symbol to ID
+            $uomId = UnitOfMeasure::where('symbol', $this->uom)->first()?->id;
+            if (!$uomId) {
+                throw new \Exception("Invalid unit of measure: {$this->uom}");
+            }
+
+            // Convert ingredient UOM strings to IDs
+            $ingredientsWithUomIds = array_map(function ($ingredient) {
+                $ingredientUomId = UnitOfMeasure::where('symbol', $ingredient['uom'])->first()?->id;
+                if (!$ingredientUomId) {
+                    throw new \Exception("Invalid unit of measure for ingredient: {$ingredient['uom']}");
+                }
+                $ingredient['uom_id'] = $ingredientUomId;
+                return $ingredient;
+            }, $this->ingredients);
+
             $recipeData = [
                 'product_id' => $this->product_id,
                 'product_name' => $productName,
@@ -278,12 +294,12 @@ class Add extends Component
                 'department_id' => $this->department_id,
                 'product_type_id' => $this->product_type,  // Store the ID
                 'cost_per_unit' => $costPerUnit,
-                'uom' => $this->uom,
+                'uom_id' => $uomId,
                 'yield_quantity' => $this->yield_quantity,
                 'preparation_time' => $this->preparation_time,
                 'instructions' => !empty($this->instructions) ? json_encode(array_values($this->instructions)) : null,
                 'status' => $this->status,
-                'ingredients' => $this->ingredients,
+                'ingredients' => $ingredientsWithUomIds,
             ];
 
             \Log::info('🔵 [RECIPE ADD] Checking admin status...');
@@ -358,7 +374,7 @@ class Add extends Component
                         'recipe_id' => $recipe->id,
                         'item_id' => $ingredient['item_id'],
                         'quantity' => $ingredient['quantity'],
-                        'uom' => $ingredient['uom'],
+                        'uom_id' => $ingredient['uom_id'],
                         'cost_per_unit' => $ingredient['cost_per_unit'],
                         'waste_percentage' => $ingredient['waste_percentage'] ?? 0,
                         'notes' => $ingredient['notes'] ?? null,
