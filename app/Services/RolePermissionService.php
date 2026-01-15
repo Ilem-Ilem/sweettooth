@@ -587,6 +587,62 @@ class RolePermissionService
     }
 
     /**
+     * Get role-to-department mappings
+     * IMPORTANT: Role names must match database exactly (case-sensitive)
+     * but validation is case-insensitive for flexibility
+     */
+    public static function getRoleDepartmentMappings(): array
+    {
+        return [
+            // Base roles (can be assigned to any department)
+            'Employee' => ['*'],
+            'Staff' => ['*'],
+            'Viewer' => ['*'],
+
+            // Production roles
+            'Kitchen Staff' => ['Kitchen'],
+            'Chef' => ['Kitchen'],
+            'Gelato Production Staff' => ['Gelato Production'],
+            'Head of Gelato' => ['Gelato Production'],
+            'Confectioneries Production Staff' => ['Confectioneries Production'],
+            'Confectioneries Manager' => ['Confectioneries Production'],
+            'Production Helper' => ['Kitchen', 'Gelato Production', 'Confectioneries Production'],
+
+            // Sales roles
+            'Cashier' => ['Till'],
+            'Junior Cashier' => ['Till'],
+            'Till Supervisor' => ['Till'],
+            'Corner Store Staff' => ['Corner Store'],
+            'Corner Store Manager' => ['Corner Store'],
+            'Confectioneries Sales Staff' => ['Confectioneries Sales'],
+            'Sales Manager' => ['Till', 'Corner Store', 'Confectioneries Sales'],
+            'Sales Associate' => ['Till', 'Corner Store', 'Confectioneries Sales'],
+            'Sales Supervisor' => ['Till', 'Corner Store', 'Confectioneries Sales'],
+
+            // Support roles
+            'Stock Controller' => ['Inventory/Store'],
+            'Store Keeper' => ['Inventory/Store'],
+            'Warehouse Manager' => ['Inventory/Store'],
+            'Inventory Clerk' => ['Inventory/Store'],
+            'Inventory Manager' => ['Inventory/Store'],
+            'Store Manager' => ['Corner Store', 'Confectioneries Sales', 'Inventory/Store'],
+            'Store Supervisor' => ['Corner Store', 'Confectioneries Sales'],
+            'HR Officer' => ['HR'],
+            'HR Manager' => ['HR'],
+            'Accounting Manager' => ['Accounting'],
+            'Manager' => ['*'],
+
+            // Admin roles (can be assigned to any department)
+            'Admin' => ['*'],
+            'Super Admin' => ['*'],
+            'Managing Director' => ['*'],
+            'MD' => ['*'],
+            'Head of Production' => ['*'],
+            'Supervisor' => ['*'],
+        ];
+    }
+
+    /**
      * Validate that a role is compatible with user's department
      *
      * @throws \Exception
@@ -603,52 +659,23 @@ class RolePermissionService
             throw new \Exception('User department not found');
         }
 
-        // Define role-to-department mappings
-        $roleToDepartments = [
-            // Base roles (can be assigned to any department)
-            'employee' => ['*'],
+        // Get role-to-department mappings
+        $roleToDepartments = self::getRoleDepartmentMappings();
 
-            // Production roles
-            'Kitchen Staff' => ['Kitchen'],
-            'Chef' => ['Kitchen'],
-            'Gelato Production Staff' => ['Gelato Production'],
-            'Head of Gelato' => ['Gelato Production'],
-            'Confectionaries Production Staff' => ['Confectionaries Production'],
-            'Confectionaries Manager' => ['Confectionaries Production'],
+        // Check if role exists in mapping (case-insensitive)
+        $foundRole = null;
+        foreach ($roleToDepartments as $mappedRole => $depts) {
+            if (strcasecmp($mappedRole, $roleName) === 0) {
+                $foundRole = $mappedRole;
+                break;
+            }
+        }
 
-            // Sales roles
-            'Cashier' => ['Till'],
-            'Till Supervisor' => ['Till'],
-            'Corner Store Staff' => ['Corner Store'],
-            'Corner Store Manager' => ['Corner Store'],
-            'Confectionaries Sales Staff' => ['Confectionaries Sales'],
-            'Sales Manager' => ['Till', 'Corner Store', 'Confectionaries Sales'],
-
-            // Support roles
-            'Stock Controller' => ['Inventory/Store'],
-            'Store Keeper' => ['Inventory/Store'],
-            'Warehouse Manager' => ['Inventory/Store'],
-            'Inventory Clerk' => ['Inventory/Store'],
-            'Store Manager' => ['Corner Store', 'Confectionaries Sales', 'Inventory/Store'],
-            'Store Supervisor' => ['Corner Store', 'Confectionaries Sales'],
-            'HR Officer' => ['HR'],
-            'HR Manager' => ['HR'],
-
-            // Admin roles (can be assigned to any department)
-            'Admin' => ['*'],
-            'Super Admin' => ['*'],
-            'Managing Director' => ['*'],
-            'MD' => ['*'],
-            'Head of Production' => ['*'],
-            'Supervisor' => ['*'],
-        ];
-
-        // Check if role exists in mapping
-        if (! isset($roleToDepartments[$roleName])) {
+        if ($foundRole === null) {
             throw new \Exception("Role '{$roleName}' is not defined for department assignment");
         }
 
-        $allowedDepts = $roleToDepartments[$roleName];
+        $allowedDepts = $roleToDepartments[$foundRole];
 
         // Check if role is allowed in all departments
         if (in_array('*', $allowedDepts)) {

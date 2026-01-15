@@ -66,7 +66,7 @@
                 @endif
 
                 <div class="mt-6 text-center">
-                    <a href="{{ route('logout') }}" onclick="event.preventDefault(); document.getElementById('logout-form').submit();" class="text-sm text-amber-600 hover:text-amber-500">
+                    <a href="{{ route('logout') }}" id="logout-link" onclick="event.preventDefault(); document.getElementById('logout-form').submit();" class="text-sm text-amber-600 hover:text-amber-500">
                         Sign out
                     </a>
                     <form id="logout-form" action="{{ route('logout') }}" method="POST" style="display: none;">
@@ -76,5 +76,35 @@
             </div>
         </div>
     </div>
+
+    <script>
+        // Handle 419 CSRF errors on logout forms
+        document.getElementById('logout-link').addEventListener('click', function(e) {
+            e.preventDefault();
+            const form = document.getElementById('logout-form');
+            const formData = new FormData(form);
+
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            }).then(response => {
+                if (response.status === 419) {
+                    // CSRF token expired, redirect to login
+                    window.location.href = '{{ route("login") }}';
+                } else if (response.ok) {
+                    window.location.href = '/';
+                } else {
+                    // Other error, still redirect to login
+                    window.location.href = '{{ route("login") }}';
+                }
+            }).catch(error => {
+                console.error('Logout failed:', error);
+                window.location.href = '{{ route("login") }}';
+            });
+        });
+    </script>
 </body>
 </html>

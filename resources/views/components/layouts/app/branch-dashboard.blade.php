@@ -762,7 +762,7 @@
 
                 <flux:menu.separator />
 
-                <form method="POST" action="{{ branch_route('logout') }}" class="w-full">
+                <form method="POST" action="{{ branch_route('logout') }}" class="w-full" id="logout-form-sidebar">
                     @csrf
                     <flux:menu.item as="button" type="submit" icon="arrow-right-start-on-rectangle" class="w-full">
                         {{ __('Log Out') }}
@@ -808,7 +808,7 @@
 
                 <flux:menu.separator />
 
-                <form method="POST" action="{{ branch_route('logout') }}" class="w-full">
+                <form method="POST" action="{{ route('logout') }}" class="w-full">
                     @csrf
                     <flux:menu.item as="button" type="submit" icon="arrow-right-start-on-rectangle"
                         class="w-full">
@@ -983,6 +983,38 @@
     @fluxScripts
     @livewireScripts
     @stack('scripts')
+
+    <script>
+        // Handle 419 CSRF errors on logout forms
+        document.addEventListener('DOMContentLoaded', function() {
+            const logoutForms = document.querySelectorAll('form[action*="/logout"]');
+            logoutForms.forEach(form => {
+                form.addEventListener('submit', function(e) {
+                    // Let the form submit normally first
+                    // If it fails with 419, we'll handle it in the fetch override
+                });
+            });
+        });
+
+        // Override fetch to handle 419 errors on logout requests
+        const originalFetch = window.fetch;
+        window.fetch = function(...args) {
+            return originalFetch.apply(this, args).then(response => {
+                if (response.status === 419 && args[0].includes('/logout')) {
+                    // CSRF token expired on logout, redirect to login
+                    window.location.href = '{{ route("login") }}';
+                    return response;
+                }
+                return response;
+            }).catch(error => {
+                // Handle network errors
+                console.error('Logout request failed:', error);
+                // Still redirect to login on error
+                window.location.href = '{{ route("login") }}';
+                throw error;
+            });
+        };
+    </script>
 </body>
 
 </html>

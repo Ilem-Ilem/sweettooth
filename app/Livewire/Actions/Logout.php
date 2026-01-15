@@ -12,13 +12,12 @@ class Logout
      */
     public function __invoke()
     {
-        // Logout from both guards
-        Auth::guard('web')->logout();
+        // Logout from web guard
         Auth::guard('web')->logout();
 
         // Destroy all session data
         Session::flush();
-        
+
         // Regenerate token to prevent CSRF attacks
         Session::regenerateToken();
 
