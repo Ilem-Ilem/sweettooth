@@ -210,7 +210,12 @@ class SidebarVisibilityService
 
     public static function canSeeOrganization($user = null): bool
     {
-        return self::getRoleLevel($user) >= self::LEVEL_ADMIN;
+        $user = $user ?? auth()->user();
+        $level = self::getRoleLevel($user);
+
+        // Admin+ OR HR roles can see organization
+        return $level >= self::LEVEL_ADMIN
+            || ($user && $user->hasAnyRole(['HR Manager', 'HR Officer']));
     }
 
     public static function canSeeEmployeeManagement($user = null): bool
@@ -219,8 +224,10 @@ class SidebarVisibilityService
         $level = self::getRoleLevel($user);
         $category = self::getDepartmentCategory($user);
 
-        // HR department or Admin+
-        return ($category === 'Support' && $user?->department?->name === 'HR') || $level >= self::LEVEL_ADMIN;
+        // HR department, HR roles, or Admin+
+        return ($category === 'Support' && $user?->department?->name === 'HR')
+            || ($user && $user->hasAnyRole(['HR Manager', 'HR Officer']))
+            || $level >= self::LEVEL_ADMIN;
     }
 
     public static function canSeeDepartments($user = null): bool

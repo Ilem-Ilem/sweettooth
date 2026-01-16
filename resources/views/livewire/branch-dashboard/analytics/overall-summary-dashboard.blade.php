@@ -56,29 +56,29 @@
     {{-- Quick Navigation Links --}}
     <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
         <h3 class="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3">Quick Access</h3>
-        <div class="flex gap-2 flex-wrap">
+        <div class="flex flex-wrap gap-2">
             <a href="{{ branch_route('branch-dashboard.analytics.stock-level') }}"
-                class="px-3 py-1.5 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-800 dark:text-blue-200 rounded-lg text-sm font-medium transition-colors">
+                class="px-3 py-1.5 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-800 dark:text-blue-200 rounded-lg text-sm font-medium transition-colors min-w-[120px] text-center">
                 📊 Stock Level
             </a>
             <a href="{{ branch_route('branch-dashboard.analytics.stock-movement') }}"
-                class="px-3 py-1.5 bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-800 dark:text-green-200 rounded-lg text-sm font-medium transition-colors">
+                class="px-3 py-1.5 bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-800 dark:text-green-200 rounded-lg text-sm font-medium transition-colors min-w-[120px] text-center">
                 🔄 Stock Movement
             </a>
             <a href="{{ branch_route('branch-dashboard.analytics.purchase') }}"
-                class="px-3 py-1.5 bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-800 dark:text-purple-200 rounded-lg text-sm font-medium transition-colors">
+                class="px-3 py-1.5 bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-800 dark:text-purple-200 rounded-lg text-sm font-medium transition-colors min-w-[120px] text-center">
                 🛒 Purchases
             </a>
             <a href="{{ branch_route('branch-dashboard.analytics.request-dispatch') }}"
-                class="px-3 py-1.5 bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:hover:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200 rounded-lg text-sm font-medium transition-colors">
+                class="px-3 py-1.5 bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:hover:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200 rounded-lg text-sm font-medium transition-colors min-w-[120px] text-center">
                 📋 Requests
             </a>
             <a href="{{ branch_route('branch-dashboard.analytics.stock-valuation') }}"
-                class="px-3 py-1.5 bg-pink-100 hover:bg-pink-200 dark:bg-pink-900/30 dark:hover:bg-pink-900/50 text-pink-800 dark:text-pink-200 rounded-lg text-sm font-medium transition-colors">
+                class="px-3 py-1.5 bg-pink-100 hover:bg-pink-200 dark:bg-pink-900/30 dark:hover:bg-pink-900/50 text-pink-800 dark:text-pink-200 rounded-lg text-sm font-medium transition-colors min-w-[120px] text-center">
                 💰 Valuation
             </a>
             <a href="{{ branch_route('branch-dashboard.analytics.alerts') }}"
-                class="px-3 py-1.5 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-800 dark:text-red-200 rounded-lg text-sm font-medium transition-colors">
+                class="px-3 py-1.5 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-800 dark:text-red-200 rounded-lg text-sm font-medium transition-colors min-w-[120px] text-center">
                 🚨 Alerts
             </a>
         </div>
@@ -89,12 +89,12 @@
         {{-- Total Stock Value --}}
         <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg shadow-lg p-5">
             <div class="flex items-start justify-between">
-                <div class="flex-1">
-                    <p class="text-sm opacity-90 font-medium">Total Stock Value</p>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm opacity-90 font-medium truncate">Total Stock Value</p>
                     <p class="text-3xl font-bold mt-2">₦{{ number_format($summary['total_stock_value'], 2) }}</p>
-                    <p class="text-xs opacity-75 mt-2">{{ $summary['total_items'] }} items in inventory</p>
+                    <p class="text-xs opacity-75 mt-2 truncate">{{ $summary['total_items'] }} items in inventory</p>
                 </div>
-                <div class="bg-white/20 p-3 rounded-lg">
+                <div class="bg-white/20 p-3 rounded-lg flex-shrink-0">
                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                     </svg>
@@ -107,12 +107,12 @@
                             <svg class="w-4 h-4 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                             </svg>
-                            <span class="text-sm font-medium text-green-300">{{ abs($summary['stock_value_change_percentage']) }}% increase</span>
+                            <span class="text-sm font-medium text-green-300 truncate">{{ abs($summary['stock_value_change_percentage']) }}% increase</span>
                         @else
                             <svg class="w-4 h-4 text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
                             </svg>
-                            <span class="text-sm font-medium text-red-300">{{ abs($summary['stock_value_change_percentage']) }}% decrease</span>
+                            <span class="text-sm font-medium text-red-300 truncate">{{ abs($summary['stock_value_change_percentage']) }}% decrease</span>
                         @endif
                     </div>
                 </div>
@@ -122,12 +122,12 @@
         {{-- Purchase Value --}}
         <div class="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg shadow-lg p-5">
             <div class="flex items-start justify-between">
-                <div class="flex-1">
-                    <p class="text-sm opacity-90 font-medium">Purchase Value</p>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm opacity-90 font-medium truncate">Purchase Value</p>
                     <p class="text-3xl font-bold mt-2">₦{{ number_format($summary['total_purchase_value'], 2) }}</p>
-                    <p class="text-xs opacity-75 mt-2">{{ $summary['total_purchases'] }} purchases</p>
+                    <p class="text-xs opacity-75 mt-2 truncate">{{ $summary['total_purchases'] }} purchases</p>
                 </div>
-                <div class="bg-white/20 p-3 rounded-lg">
+                <div class="bg-white/20 p-3 rounded-lg flex-shrink-0">
                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
@@ -138,19 +138,19 @@
         {{-- Stock Movements --}}
         <div class="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg shadow-lg p-5">
             <div class="flex items-start justify-between">
-                <div class="flex-1">
-                    <p class="text-sm opacity-90 font-medium">Stock Movements</p>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm opacity-90 font-medium truncate">Stock Movements</p>
                     <p class="text-3xl font-bold mt-2">{{ number_format($summary['total_movements']) }}</p>
-                    <div class="flex items-center gap-4 mt-2 text-xs opacity-75">
-                        <span class="flex items-center gap-1">
+                    <div class="flex flex-wrap items-center gap-4 mt-2 text-xs opacity-75">
+                        <span class="flex items-center gap-1 truncate max-w-[60px]">
                             <span class="text-green-300">↑</span> {{ number_format($summary['stock_in'], 0) }} In
                         </span>
-                        <span class="flex items-center gap-1">
+                        <span class="flex items-center gap-1 truncate max-w-[60px]">
                             <span class="text-red-300">↓</span> {{ number_format($summary['stock_out'], 0) }} Out
                         </span>
                     </div>
                 </div>
-                <div class="bg-white/20 p-3 rounded-lg">
+                <div class="bg-white/20 p-3 rounded-lg flex-shrink-0">
                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                     </svg>
@@ -161,15 +161,15 @@
         {{-- Requests --}}
         <div class="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white rounded-lg shadow-lg p-5">
             <div class="flex items-start justify-between">
-                <div class="flex-1">
-                    <p class="text-sm opacity-90 font-medium">Requests</p>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm opacity-90 font-medium truncate">Requests</p>
                     <p class="text-3xl font-bold mt-2">{{ $summary['total_requests'] }}</p>
-                    <div class="flex items-center gap-4 mt-2 text-xs opacity-75">
-                        <span>🕐 {{ $summary['pending_requests'] }} Pending</span>
-                        <span>✓ {{ $summary['completed_requests'] }} Done</span>
+                    <div class="flex flex-wrap items-center gap-4 mt-2 text-xs opacity-75">
+                        <span class="truncate max-w-[60px]">🕐 {{ $summary['pending_requests'] }} Pending</span>
+                        <span class="truncate max-w-[60px]">✓ {{ $summary['completed_requests'] }} Done</span>
                     </div>
                 </div>
-                <div class="bg-white/20 p-3 rounded-lg">
+                <div class="bg-white/20 p-3 rounded-lg flex-shrink-0">
                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                     </svg>
@@ -183,15 +183,15 @@
         {{-- Low Stock Items --}}
         <div class="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-500 rounded-lg shadow-sm p-4">
             <div class="flex items-center gap-3">
-                <div class="bg-yellow-100 dark:bg-yellow-900/40 p-3 rounded-lg">
+                <div class="bg-yellow-100 dark:bg-yellow-900/40 p-3 rounded-lg flex-shrink-0">
                     <svg class="w-8 h-8 text-yellow-600 dark:text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
                 </div>
-                <div class="flex-1">
-                    <p class="text-sm text-zinc-600 dark:text-zinc-400 font-medium">Low Stock Items</p>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm text-zinc-600 dark:text-zinc-400 font-medium truncate">Low Stock Items</p>
                     <p class="text-3xl font-bold text-yellow-600 dark:text-yellow-500">{{ $summary['low_stock_items'] }}</p>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Below reorder level</p>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1 truncate">Below reorder level</p>
                 </div>
             </div>
         </div>
@@ -199,15 +199,15 @@
         {{-- Critical Items --}}
         <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 rounded-lg shadow-sm p-4">
             <div class="flex items-center gap-3">
-                <div class="bg-red-100 dark:bg-red-900/40 p-3 rounded-lg">
+                <div class="bg-red-100 dark:bg-red-900/40 p-3 rounded-lg flex-shrink-0">
                     <svg class="w-8 h-8 text-red-600 dark:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                 </div>
-                <div class="flex-1">
-                    <p class="text-sm text-zinc-600 dark:text-zinc-400 font-medium">Critical/Expired</p>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm text-zinc-600 dark:text-zinc-400 font-medium truncate">Critical/Expired</p>
                     <p class="text-3xl font-bold text-red-600 dark:text-red-500">{{ $summary['critical_items'] + $summary['expired_items'] }}</p>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Immediate attention needed</p>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1 truncate">Immediate attention needed</p>
                 </div>
             </div>
         </div>
@@ -215,15 +215,15 @@
         {{-- Pending Requests --}}
         <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 rounded-lg shadow-sm p-4">
             <div class="flex items-center gap-3">
-                <div class="bg-blue-100 dark:bg-blue-900/40 p-3 rounded-lg">
+                <div class="bg-blue-100 dark:bg-blue-900/40 p-3 rounded-lg flex-shrink-0">
                     <svg class="w-8 h-8 text-blue-600 dark:text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                 </div>
-                <div class="flex-1">
-                    <p class="text-sm text-zinc-600 dark:text-zinc-400 font-medium">Pending Requests</p>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm text-zinc-600 dark:text-zinc-400 font-medium truncate">Pending Requests</p>
                     <p class="text-3xl font-bold text-blue-600 dark:text-blue-500">{{ $summary['pending_requests'] }}</p>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Awaiting processing</p>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1 truncate">Awaiting processing</p>
                 </div>
             </div>
         </div>
