@@ -610,7 +610,7 @@ class Purchases extends Component
 
         $item = Item::find($itemId);
         if ($item) {
-            $this->purchaseItems[$index]['uom'] = $item->uom;
+            $this->purchaseItems[$index]['uom'] = $item->uomSymbol;
         }
     }
 

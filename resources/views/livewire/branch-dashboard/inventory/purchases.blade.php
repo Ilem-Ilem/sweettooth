@@ -507,9 +507,9 @@
                                                 wire:change="updateItemUom({{ $index }}, $event.target.value)"
                                                 class="w-full px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500">
                                                 <option value="">Select Item</option>
-                                                @foreach($items as $availableItem)
-                                                    <option value="{{ $availableItem->id }}">{{ $availableItem->name }} ({{ $availableItem->uom }})</option>
-                                                @endforeach
+                                                 @foreach($items as $availableItem)
+                                                     <option value="{{ $availableItem->id }}">{{ $availableItem->name }} ({{ $availableItem->uomSymbol }})</option>
+                                                 @endforeach
                                             </select>
                                             @error('purchaseItems.'.$index.'.item_id')
                                                 <span class="text-red-500 text-xs">{{ $message }}</span>

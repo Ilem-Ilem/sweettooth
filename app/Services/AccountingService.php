@@ -27,10 +27,33 @@ class AccountingService
                 throw new Exception('No open accounting period found');
             }
 
-            // Get GL accounts
-            $revenueAccount = $this->getRevenueAccount($sale);
-            $arAccount = GlAccount::where('account_number', '1200')->firstOrFail();
-            $cashAccount = GlAccount::where('account_number', '1110')->firstOrFail();
+            // Get department and validate GL accounts
+            $department = $sale->department ?? $sale->branch->departments()->first();
+
+            if ($department) {
+                $glIssues = $this->validateDepartmentGlAccounts($department);
+                if (!empty($glIssues)) {
+                    Log::warning('GL account configuration issues for department', [
+                        'department_id' => $department->id,
+                        'department_name' => $department->name,
+                        'issues' => $glIssues,
+                        'sale_id' => $sale->id
+                    ]);
+
+                    // Try to setup defaults if no accounts configured
+                    if (count($glIssues) >= 4) { // All accounts missing
+                        Log::info('Setting up default GL accounts for department', [
+                            'department_id' => $department->id
+                        ]);
+                        $this->setupDefaultDepartmentGlAccounts($department);
+                    }
+                }
+            }
+
+            // Get GL accounts - department-specific or fallback to defaults
+            $revenueAccount = $this->getRevenueAccount($sale, $department);
+            $arAccount = $this->getReceivableAccount($department);
+            $cashAccount = $this->getCashAccount($department);
 
             $amount = (float) $sale->total;
 
@@ -294,10 +317,108 @@ class AccountingService
     /**
      * Get revenue GL account based on sale attributes
      */
-    private function getRevenueAccount(Sale $sale): GlAccount
+    private function getRevenueAccount(Sale $sale, $department = null): GlAccount
     {
-        // Default to 4110 - Product Sales Main
+        // Try department-specific revenue account first
+        if ($department && $department->revenueAccount) {
+            return $department->revenueAccount;
+        }
+
+        // Fallback to default revenue account
         return GlAccount::where('account_number', '4110')->firstOrFail();
+    }
+
+    private function getReceivableAccount($department = null): GlAccount
+    {
+        // Try department-specific receivable account first
+        if ($department && $department->receivableAccount) {
+            return $department->receivableAccount;
+        }
+
+        // Fallback to default AR account
+        return GlAccount::where('account_number', '1200')->firstOrFail();
+    }
+
+    private function getCashAccount($department = null): GlAccount
+    {
+        // Try department-specific cash account first
+        if ($department && $department->cashAccount) {
+            return $department->cashAccount;
+        }
+
+        // Fallback to default cash account
+        return GlAccount::where('account_number', '1110')->firstOrFail();
+    }
+
+    private function getTaxAccount($department = null): GlAccount
+    {
+        // Try department-specific tax account first
+        if ($department && $department->taxAccount) {
+            return $department->taxAccount;
+        }
+
+        // Fallback to default tax account
+        return GlAccount::where('account_number', '2100')->firstOrFail();
+    }
+
+    /**
+     * Validate that required GL accounts are configured for a department
+     */
+    public function validateDepartmentGlAccounts($department): array
+    {
+        $issues = [];
+
+        if (!$department) {
+            $issues[] = 'No department specified';
+            return $issues;
+        }
+
+        $requiredAccounts = [
+            'revenue_account_id' => 'Revenue Account',
+            'receivable_account_id' => 'Accounts Receivable',
+            'cash_account_id' => 'Cash Account',
+            'tax_account_id' => 'Tax Account',
+        ];
+
+        foreach ($requiredAccounts as $field => $name) {
+            if (!$department->$field) {
+                $issues[] = "{$name} not configured for department '{$department->name}'";
+            } else {
+                $account = GlAccount::find($department->$field);
+                if (!$account) {
+                    $issues[] = "{$name} (ID: {$department->$field}) not found in GL accounts";
+                } elseif (!$account->is_active) {
+                    $issues[] = "{$name} '{$account->account_name}' is inactive";
+                }
+            }
+        }
+
+        return $issues;
+    }
+
+    /**
+     * Setup default GL accounts for a department
+     */
+    public function setupDefaultDepartmentGlAccounts($department): bool
+    {
+        try {
+            // Get default accounts
+            $defaults = [
+                'revenue_account_id' => GlAccount::where('account_number', '4110')->value('id'),
+                'receivable_account_id' => GlAccount::where('account_number', '1200')->value('id'),
+                'cash_account_id' => GlAccount::where('account_number', '1110')->value('id'),
+                'tax_account_id' => GlAccount::where('account_number', '2100')->value('id'),
+            ];
+
+            $department->update($defaults);
+            return true;
+        } catch (\Exception $e) {
+            Log::error('Failed to setup default GL accounts for department', [
+                'department_id' => $department->id,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
     }
 
     /**

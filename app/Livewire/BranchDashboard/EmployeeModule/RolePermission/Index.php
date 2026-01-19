@@ -5,6 +5,7 @@ namespace App\Livewire\BranchDashboard\EmployeeModule\RolePermission;
 use App\Livewire\BaseComponent;
 use App\Models\ApprovalAuditRequest;
 use App\Services\AuditService;
+use App\Traits\Exportable;
 use Livewire\Attributes\Layout;
 use Livewire\WithPagination;
 use Spatie\Permission\Models\Permission;
@@ -120,17 +121,12 @@ class Index extends BaseComponent
     {
         $roles = $this->getFilteredQuery()->get();
 
-        // Create CSV content
-        $csv = "ID,Name,Guard,Created At\n";
-        foreach ($roles as $role) {
-            $csv .= "{$role->id},{$role->name},{$role->guard_name},{$role->created_at}\n";
-        }
-
-        return response()->streamDownload(function () use ($csv) {
-            echo $csv;
-        }, 'roles-'.date('Y-m-d').'.csv', [
-            'Content-Type' => 'text/csv',
-        ]);
+        return $this->export(
+            'role_permissions_' . date('Y-m-d'),
+            $roles,
+            'exports.role_permissions',
+            'excel'
+        );
     }
 
     // Modal methods

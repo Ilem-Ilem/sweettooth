@@ -20,6 +20,10 @@ class Department extends Model
         'description',
         'enable_table_management',
         'table_management_settings',
+        'revenue_account_id',
+        'tax_account_id',
+        'receivable_account_id',
+        'cash_account_id',
     ];
 
     /**
@@ -46,6 +50,38 @@ class Department extends Model
     public function category()
     {
         return $this->belongsTo(DepartmentCategory::class, 'category_id');
+    }
+
+    /**
+     * Get the revenue GL account for this department.
+     */
+    public function revenueAccount()
+    {
+        return $this->belongsTo(GlAccount::class, 'revenue_account_id');
+    }
+
+    /**
+     * Get the tax GL account for this department.
+     */
+    public function taxAccount()
+    {
+        return $this->belongsTo(GlAccount::class, 'tax_account_id');
+    }
+
+    /**
+     * Get the receivable GL account for this department.
+     */
+    public function receivableAccount()
+    {
+        return $this->belongsTo(GlAccount::class, 'receivable_account_id');
+    }
+
+    /**
+     * Get the cash GL account for this department.
+     */
+    public function cashAccount()
+    {
+        return $this->belongsTo(GlAccount::class, 'cash_account_id');
     }
 
     /**

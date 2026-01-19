@@ -8,10 +8,11 @@ use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
 use TallStackUi\Traits\Interactions;
 use App\Services\RolePermissionService;
+use App\Traits\Exportable;
 
 class Index extends BaseComponent
 {
-    use Interactions, WithPagination;
+    use Interactions, WithPagination, Exportable;
     
     public ?int $quantity = 10;
     public ?string $search = null;
@@ -106,17 +107,12 @@ class Index extends BaseComponent
     {
         $roles = $this->getFilteredQuery()->get();
 
-        // Create CSV content
-        $csv = "ID,Name,Guard,Created At\n";
-        foreach ($roles as $role) {
-            $csv .= "{$role->id},{$role->name},{$role->guard_name},{$role->created_at}\n";
-        }
-
-        return response()->streamDownload(function() use ($csv) {
-            echo $csv;
-        }, 'roles-' . date('Y-m-d') . '.csv', [
-            'Content-Type' => 'text/csv',
-        ]);
+        return $this->export(
+            'roles_' . date('Y-m-d'),
+            $roles,
+            'exports.roles',
+            'excel'
+        );
     }
 
     // Modal methods

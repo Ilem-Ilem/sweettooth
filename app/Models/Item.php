@@ -63,6 +63,16 @@ class Item extends Model
     }
 
     /**
+     * Alias accessor for UOM (for backward compatibility)
+     */
+    protected function uom(): Attribute
+    {
+        return Attribute::make(
+            get: fn() => $this->uomSymbol,
+        );
+    }
+
+    /**
      * Get the stocks for this item
      */
     public function stocks(): HasMany
