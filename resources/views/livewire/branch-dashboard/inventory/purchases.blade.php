@@ -523,23 +523,18 @@
                                                 <span class="text-red-500 text-xs">{{ $message }}</span>
                                             @enderror
                                         </td>
-                                        <td class="px-4 py-2">
-                                            <select wire:model="purchaseItems.{{ $index }}.uom"
-                                                class="w-24 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500">
-                                                <option value="">Select unit</option>
-                                                <option value="grams">grams</option>
-                                                <option value="kg">kg</option>
-                                                <option value="liters">liters</option>
-                                                <option value="ml">ml</option>
-                                                <option value="pcs">pcs</option>
-                                                <option value="units">units</option>
-                                                <option value="bags">bags</option>
-                                                <option value="cartons">cartons</option>
-                                            </select>
-                                            @error('purchaseItems.'.$index.'.uom')
-                                                <span class="text-red-500 text-xs">{{ $message }}</span>
-                                            @enderror
-                                            </td>
+                                         <td class="px-4 py-2">
+                                             <select wire:model="purchaseItems.{{ $index }}.uom"
+                                                 class="w-24 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500">
+                                                 <option value="">Select unit</option>
+                                                 @foreach($uoms as $uom)
+                                                     <option value="{{ $uom->symbol }}">{{ $uom->symbol }}</option>
+                                                 @endforeach
+                                             </select>
+                                             @error('purchaseItems.'.$index.'.uom')
+                                                 <span class="text-red-500 text-xs">{{ $message }}</span>
+                                             @enderror
+                                             </td>
                                         <td class="px-4 py-2">
                                             <input type="number" step="0.01" wire:model.live="purchaseItems.{{ $index }}.unit_price"
                                                 @input="price = parseFloat($event.target.value) || 0"

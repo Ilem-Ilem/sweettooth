@@ -22,7 +22,7 @@
                         <option value="{{ $year }}">{{ $year }}</option>
                     @endforeach
                 </select>
-                <a href="{{ branch_route('branch-dashboard.leave.apply', ['b_id' => $b_id]) }}"
+                <a href="{{ branch_route('leave.apply') }}"
                     class="px-4 py-2 bg-white text-teal-600 rounded-lg font-medium hover:bg-teal-50 transition-colors flex items-center gap-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />

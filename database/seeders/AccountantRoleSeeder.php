@@ -18,6 +18,10 @@ class AccountantRoleSeeder extends Seeder
 
         // Accounting Permissions
         $permissions = [
+            // Basic Accounting Access
+            'access_accounting' => 'Access accounting module',
+            'view_financial_reports' => 'View financial reports',
+
             // GL Account Management
             'view_gl_accounts' => 'View GL accounts',
             'create_gl_accounts' => 'Create GL accounts',

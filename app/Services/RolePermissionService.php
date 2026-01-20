@@ -629,6 +629,7 @@ class RolePermissionService
             'Store Supervisor' => ['Corner Store', 'Confectioneries Sales'],
             'HR Officer' => ['HR'],
             'HR Manager' => ['HR'],
+            'Accountant' => ['Accounting'],
             'Accounting Manager' => ['Accounting'],
             'Manager' => ['*'],
 
@@ -690,7 +691,7 @@ class RolePermissionService
 
             throw new \Exception(
                 "The \"{$roleName}\" role is only available for {$deptList} department staff. ".
-                "Please choose a different role for this employee."
+                'Please choose a different role for this employee.'
             );
         }
     }

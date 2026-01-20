@@ -8,6 +8,7 @@ use App\Models\Item;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\Stock;
+use App\Models\UnitOfMeasure;
 use App\Models\StockMovement;
 use App\Services\AuditService;
 use App\Services\CurrencyFormattingService;
@@ -127,14 +128,18 @@ class Purchases extends Component
             ->orderBy($this->sortColumn, $this->sortDirection);
 
         $purchases = $query->paginate(15);
-        $items = Item::where('branch_id', $branchId)
+        $items = Item::with('unitOfMeasure')
+            ->where('branch_id', $branchId)
             ->where('status', 'active')
             ->orderBy('name')
             ->get();
 
+        $uoms = UnitOfMeasure::orderBy('symbol')->get();
+
         return view('livewire.branch-dashboard.inventory.purchases', [
             'purchases' => $purchases,
             'items' => $items,
+            'uoms' => $uoms,
             'summary' => $this->getPurchaseSummary(),
             'purchasesByStatus' => $this->getPurchasesByStatus(),
         ]);
@@ -220,6 +225,7 @@ class Purchases extends Component
             $totalCost = $landingCost; // Set total_cost equal to landing_cost
 
             // For NGN currency (branch dashboard only uses NGN)
+            $totalFobFc = 0;
             $totalFobNgn = $landingCost - ($this->other_costs ?? 0);
 
             $purchase = Purchase::create([
@@ -609,7 +615,7 @@ class Purchases extends Component
         }
 
         $item = Item::find($itemId);
-        if ($item) {
+        if ($item && $item->uomSymbol !== 'N/A') {
             $this->purchaseItems[$index]['uom'] = $item->uomSymbol;
         }
     }

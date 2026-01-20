@@ -515,13 +515,14 @@ class Index extends BaseComponent
 
         $roles = $query->get();
 
-        // Group by category (Admin, Production, Sales, HR, Inventory)
+        // Group by category (Admin, Production, Sales, HR, Inventory, Accounting)
         $grouped = [
             'Admin Roles' => [],
             'Production Roles' => [],
             'Sales Roles' => [],
             'HR Roles' => [],
             'Inventory Roles' => [],
+            'Accounting Roles' => [],
             'Other Roles' => [],
         ];
 
@@ -551,6 +552,8 @@ class Index extends BaseComponent
             return 'HR Roles';
         } elseif (str_contains($roleName, 'inventory') || str_contains($roleName, 'stock') || str_contains($roleName, 'store keeper')) {
             return 'Inventory Roles';
+        } elseif (str_contains($roleName, 'account')) {
+            return 'Accounting Roles';
         }
 
         return 'Other Roles';

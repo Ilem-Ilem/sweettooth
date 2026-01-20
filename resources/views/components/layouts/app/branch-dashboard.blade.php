@@ -183,52 +183,49 @@
 
 
                     {{-- //role-assignments.index --}}
-                </flux:navlist.group>
-                @endif
-
-                <flux:navlist.group :heading="__('Leave Management')" expandable
-                    :expanded="request()->routeIs('branch-dashboard.leave.*')" class="grid">
-                    @if (!$sidebarService::canSeeAdministration($currentUser))
-                        <flux:navlist.item icon="calendar-days" :href="branch_route('branch-dashboard.leave.apply')"
-                            :current="request()->routeIs('branch-dashboard.leave.apply')" wire:navigate>
-                            {{ __('Apply Leave') }}
-                        </flux:navlist.item>
-                        <flux:navlist.item icon="clipboard-document-list"
-                            :href="branch_route('branch-dashboard.leave.my-leaves')"
-                            :current="request()->routeIs('branch-dashboard.leave.my-leaves')" wire:navigate>
-                            {{ __('My Leaves') }}
-                        </flux:navlist.item>
-                        <flux:navlist.item icon="chart-pie" :href="branch_route('branch-dashboard.leave.balance')"
-                            :current="request()->routeIs('branch-dashboard.leave.balance')" wire:navigate>
-                            {{ __('Leave Balance') }}
-                        </flux:navlist.item>
-                    @endif
-                    @if ($sidebarService::canSeeLeaveManagement($currentUser))
-                        <flux:navlist.item icon="clipboard-document-check"
-                            :href="branch_route('branch-dashboard.leave.approve')"
-                            :current="request()->routeIs('branch-dashboard.leave.approve')" wire:navigate>
-                            {{ __('Approve Leaves') }}
-                        </flux:navlist.item>
-                    @endif
-                    @if ($sidebarService::canSeeEmployeeManagement($currentUser))
-                        <flux:navlist.item icon="cog-6-tooth" :href="branch_route('branch-dashboard.leave.types')"
-                            :current="request()->routeIs('branch-dashboard.leave.types')" wire:navigate>
-                            {{ __('Leave Types') }}
-                        </flux:navlist.item>
-                    @endif
-
-
-                </flux:navlist.group>
-
-
-
-                 <flux:navlist.item icon="question-mark-circle" :href="branch_route('branch-dashboard.organization.helper')"
-                     :current="request()->routeIs('branch-dashboard.organization.helper')" wire:navigate>
-                     {{ __('Helper') }}
-                 </flux:navlist.item>
-
-             </flux:navlist.group>
+              </flux:navlist.group>
             @endif
+
+            {{-- ==================== ORGANIZATION HELPER ==================== --}}
+              <flux:navlist.item icon="question-mark-circle" :href="branch_route('branch-dashboard.organization.helper')"
+                  :current="request()->routeIs('branch-dashboard.organization.helper')" wire:navigate>
+                  {{ __('Helper') }}
+              </flux:navlist.item>
+            </flux:navlist.group>
+            @endif
+            {{-- ==================== END ORGANIZATION ==================== --}}
+
+            {{-- ==================== LEAVE MANAGEMENT (ALL USERS) ==================== --}}
+            {{-- This section is outside all conditional blocks - visible to ALL authenticated users --}}
+            <flux:navlist.group :heading="__('Leave Management')" class="grid" icon="calendar">
+                <flux:navlist.item icon="calendar-days" :href="branch_route('leave.apply')"
+                    :current="request()->routeIs('leave.apply')" wire:navigate>
+                    {{ __('Apply Leave') }}
+                </flux:navlist.item>
+                <flux:navlist.item icon="clipboard-document-list"
+                    :href="branch_route('leave.my-leaves')"
+                    :current="request()->routeIs('leave.my-leaves')" wire:navigate>
+                    {{ __('My Leaves') }}
+                </flux:navlist.item>
+                <flux:navlist.item icon="chart-pie" :href="branch_route('leave.balance')"
+                    :current="request()->routeIs('leave.balance')" wire:navigate>
+                    {{ __('Leave Balance') }}
+                </flux:navlist.item>
+                @if ($sidebarService::canSeeLeaveManagement($currentUser))
+                    <flux:navlist.item icon="clipboard-document-check"
+                        :href="branch_route('branch-dashboard.leave.approve')"
+                        :current="request()->routeIs('branch-dashboard.leave.approve')" wire:navigate>
+                        {{ __('Approve Leaves') }}
+                    </flux:navlist.item>
+                @endif
+                @if ($sidebarService::canSeeEmployeeManagement($currentUser))
+                    <flux:navlist.item icon="cog-6-tooth" :href="branch_route('branch-dashboard.leave.types')"
+                        :current="request()->routeIs('branch-dashboard.leave.types')" wire:navigate>
+                        {{ __('Leave Types') }}
+                    </flux:navlist.item>
+                @endif
+            </flux:navlist.group>
+            {{-- ==================== END LEAVE MANAGEMENT ==================== --}}
 
 
             @if ($sidebarService::canSeeInventoryDashboard($currentUser) || $sidebarService::isSuperAdmin())

@@ -14,7 +14,7 @@
                     View and manage your leave requests
                 </p>
             </div>
-            <a href="{{ branch_route('branch-dashboard.leave.apply', ['b_id' => $b_id]) }}"
+            <a href="{{ branch_route('leave.apply') }}"
                 class="px-4 py-2 bg-white text-purple-600 rounded-lg font-medium hover:bg-purple-50 transition-colors flex items-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -136,7 +136,7 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                     </svg>
                                     <p class="text-zinc-500 dark:text-zinc-400">No leave applications found</p>
-                                    <a href="{{ branch_route('branch-dashboard.leave.apply', ['b_id' => $b_id]) }}"
+                                    <a href="{{ branch_route('leave.apply') }}"
                                         class="mt-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors">
                                         Apply for Leave
                                     </a>

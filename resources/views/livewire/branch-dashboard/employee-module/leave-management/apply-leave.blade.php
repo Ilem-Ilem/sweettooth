@@ -14,7 +14,7 @@
                     Submit your leave application with all required details
                 </p>
             </div>
-            <a href="{{ branch_route('branch-dashboard.leave.my-leaves') }}"
+            <a href="{{ branch_route('leave.my-leaves') }}"
                 class="px-4 py-2 bg-white text-blue-600 rounded-lg font-medium hover:bg-blue-50 transition-colors flex items-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -150,7 +150,7 @@
 
                     <!-- Submit Button -->
                     <div class="flex justify-end gap-3 pt-4 border-t border-zinc-200 dark:border-zinc-700">
-                        <a href="{{ branch_route('branch-dashboard.leave.my-leaves') }}"
+                        <a href="{{ branch_route('leave.my-leaves') }}"
                             class="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors">
                             Cancel
                         </a>
@@ -209,7 +209,7 @@
                     @endforelse
                 </div>
 
-                <a href="{{ branch_route('branch-dashboard.leave.balance') }}"
+                <a href="{{ branch_route('leave.balance') }}"
                     class="mt-4 block w-full text-center px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg text-sm font-medium transition-colors">
                     View Detailed Balance
                 </a>
