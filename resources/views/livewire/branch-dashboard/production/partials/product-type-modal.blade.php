@@ -119,9 +119,19 @@
                 class="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors">
                 Cancel
             </button>
-            <button wire:click="save"
-                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors">
-                {{ $isEditing ? 'Update' : 'Create' }}
+            <button wire:click="save" wire:loading.attr="disabled"
+                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center"
+                :class="{ 'opacity-75 cursor-not-allowed': $wire.loading }">
+                <span wire:loading.remove wire:target="save" class="flex items-center">
+                    {{ $isEditing ? 'Update' : 'Create' }}
+                </span>
+                <span wire:loading wire:target="save" class="flex items-center">
+                    <svg class="w-5 h-5 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Saving...
+                </span>
             </button>
         </div>
     </div>

@@ -176,7 +176,7 @@
                     <div id="ingredient-{{ $index }}" class="bg-white dark:bg-zinc-800 p-4 rounded-lg border border-zinc-200 dark:border-zinc-700">
                         <div class="flex justify-between items-center mb-3">
                             <span class="font-semibold text-zinc-900 dark:text-zinc-100">Ingredient #{{ $index + 1 }}</span>
-                            <button type="button" wire:click="removeIngredient({{ $index }})"
+                            <button type="button" wire:click="removeIngredient({{ $loop->index }})"
                                     class="text-red-600 hover:text-red-800 dark:text-red-400">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -325,7 +325,7 @@
         document.addEventListener('livewire:init', () => {
             Livewire.on('added-ingredient', () => {
                 // Scroll to the first ingredient element after it's added
-                const firstIngredient = document.querySelector('#ingredients-container div:first-child');
+                const firstIngredient = document.querySelector('#ingredient-0');
                 if (firstIngredient) {
                     firstIngredient.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }
@@ -333,7 +333,7 @@
 
             Livewire.on('added-instruction', () => {
                 // Scroll to the first instruction element after it's added
-                const firstInstruction = document.querySelector('#instructions-container div:first-child');
+                const firstInstruction = document.querySelector('#instruction-0');
                 if (firstInstruction) {
                     firstInstruction.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }

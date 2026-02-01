@@ -203,10 +203,6 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
                 Route::get('recipes/{deptSlug}/{id}/edit', App\Livewire\BranchDashboard\Production\Recipes\Edit::class)->name('recipes.edit');
                 Route::get('recipes/{deptSlug}/{id}', App\Livewire\BranchDashboard\Production\RecipeDetail::class)->name('recipes.detail');
 
-                // Module
-                Route::prefix('module')->name('module.')->group(function () {
-                    Route::get('/', \App\Livewire\BranchDashboard\Production\KitchenModule\Index::class)->name('index');
-                });
 
                 // Raw Material Tracking
                 Route::get('raw-material-tracking', \App\Livewire\BranchDashboard\Production\RawMaterialTracking::class)->name('raw-material-tracking');

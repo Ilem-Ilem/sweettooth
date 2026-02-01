@@ -78,8 +78,15 @@ class Edit extends Component
             abort(404, 'Department not found');
         }
 
-        // Load recipe data
-        $recipe = Recipe::with('ingredients.item')->findOrFail($id);
+        // Load recipe data with department check
+        $recipe = Recipe::with('ingredients.item')
+            ->where('id', $id)
+            ->where('department_id', $this->department->id)
+            ->first();
+
+        if (!$recipe) {
+            abort(403, 'Unauthorized access to recipe or recipe not found in this department');
+        }
 
         // Set department_id based on dept_slug
         $this->department_id = $this->department->id;
@@ -179,14 +186,14 @@ class Edit extends Component
             'department_id' => 'required|exists:departments,id',
             'product_type_id' => 'required|exists:product_types,id',
             'cost_per_unit' => 'required|numeric|min:0.0001',
-            'uom' => 'required|in:grams,kg,liters,ml,pcs,units',
+            'uom' => 'required|exists:units_of_measure,symbol',
             'yield_quantity' => 'required|numeric|min:0.01',
             'preparation_time' => 'nullable|integer|min:0',
             'status' => 'required|in:active,inactive,testing',
             'ingredients' => 'required|array|min:1',
             'ingredients.*.item_id' => 'required|exists:items,id',
             'ingredients.*.quantity' => 'required|numeric|min:0.01',
-            'ingredients.*.uom' => 'required|string',
+            'ingredients.*.uom' => 'required|exists:units_of_measure,symbol',
             'ingredients.*.cost_per_unit' => 'required|numeric|min:0.0001',
             'ingredients.*.waste_percentage' => 'nullable|numeric|min:0|max:100',
         ];

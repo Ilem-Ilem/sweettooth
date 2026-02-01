@@ -218,14 +218,14 @@ class Add extends Component
                 'sku' => 'required|string|max:255',
                 'department_id' => 'required|integer',
                 'product_type' => 'required', // Validate dynamically below
-                'uom' => 'required|in:grams,kg,liters,ml,pcs,units',
+                'uom' => 'required|exists:units_of_measure,symbol',
                 'yield_quantity' => 'required|numeric|min:0.01',
                 'preparation_time' => 'nullable|integer|min:0',
                 'status' => 'required|in:active,inactive,testing',
                 'ingredients' => 'required|array|min:1',
                 'ingredients.*.item_id' => 'required|string', // UUID format
                 'ingredients.*.quantity' => 'required|numeric|min:0.01',
-                'ingredients.*.uom' => 'required|string',
+                'ingredients.*.uom' => 'required|exists:units_of_measure,symbol',
                 'ingredients.*.cost_per_unit' => 'required|numeric|min:0',
                 'ingredients.*.waste_percentage' => 'nullable|numeric|min:0|max:100',
             ];

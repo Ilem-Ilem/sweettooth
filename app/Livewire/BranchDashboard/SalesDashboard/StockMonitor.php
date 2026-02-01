@@ -95,6 +95,11 @@ class StockMonitor extends BaseComponent
     public function calculateStats()
     {
         if (!$this->currentShiftId) {
+            // Reset stats when no active shift
+            $this->totalProducts = 0;
+            $this->lowStockCount = 0;
+            $this->expiredCount = 0;
+            $this->criticalCount = 0;
             return;
         }
 
@@ -116,7 +121,7 @@ class StockMonitor extends BaseComponent
     public function getRowsProperty()
     {
         if (!$this->currentShiftId) {
-            return collect([]);
+            return collect([])->paginate($this->quantity);
         }
 
         $query = ProductStock::with(['product', 'salesShift'])

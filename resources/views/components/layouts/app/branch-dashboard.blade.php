@@ -482,7 +482,6 @@
                         'branch-dashboard.production.callbacks.index',
                         'branch-dashboard.production.callbacks.create-inventory',
                         'branch-dashboard.production.callbacks.approve-sales-callbacks',
-                        'branch-dashboard.production.module.index',
                     ];
                     
                     $isProductionRoute = in_array($currentRoute, $nonDepartmentRoutes);

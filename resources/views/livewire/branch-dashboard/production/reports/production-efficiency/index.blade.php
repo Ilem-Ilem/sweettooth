@@ -8,8 +8,15 @@
             </p>
         </div>
         <div class="flex gap-2">
-            <x-button wire:click="refresh" color="secondary" icon="arrow-path">
-                Refresh
+            <x-button wire:click="refresh" wire:loading.attr="disabled" wire:target="refresh" color="secondary">
+                <span wire:loading.remove wire:target="refresh" class="flex items-center">
+                    <x-icon name="arrow-path" class="w-5 h-5 mr-2" />
+                    Refresh
+                </span>
+                <span wire:loading wire:target="refresh" class="flex items-center">
+                    <x-icon name="arrow-path" class="animate-spin w-5 h-5 mr-2" />
+                    Refreshing...
+                </span>
             </x-button>
             <x-button wire:click="generateReport" color="primary" icon="document-plus">
                 Generate & Save Report

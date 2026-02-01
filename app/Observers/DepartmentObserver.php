@@ -142,14 +142,6 @@ class DepartmentObserver
                 'order' => 9,
             ],
 
-            // Kitchen Module (Merged: Dashboard + Stock Monitor tabs)
-            [
-                'name' => 'Kitchen Module',
-                'slug' => 'kitchen-module',
-                'route_name' => "branch-dashboard.production.module.index",
-                'icon' => 'home',
-                'order' => 10,
-            ],
 
             // Production Reports Section - Grouped
             [
@@ -157,21 +149,21 @@ class DepartmentObserver
                 'slug' => 'reports-operations',
                 'route_name' => "branch-dashboard.production.reports.operations",
                 'icon' => 'chart-bar',
-                'order' => 11,
+                'order' => 10,
             ],
             [
                 'name' => 'Performance Reports',
                 'slug' => 'reports-performance',
                 'route_name' => "branch-dashboard.production.reports.performance",
                 'icon' => 'star',
-                'order' => 12,
+                'order' => 11,
             ],
             [
                 'name' => 'Planning Reports',
                 'slug' => 'reports-planning',
                 'route_name' => "branch-dashboard.production.reports.planning",
                 'icon' => 'server',
-                'order' => 13,
+                'order' => 12,
             ],
         ];
     }

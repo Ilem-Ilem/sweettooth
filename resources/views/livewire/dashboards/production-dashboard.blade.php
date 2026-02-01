@@ -193,22 +193,6 @@
                     </div>
                 </a>
 
-                <!-- Kitchen Module (if applicable) -->
-                @if(in_array(strtolower(str_replace(' ', '-', $deptSlug ?? ($userDepartment?->slug ?? ''))), ['kitchen', '']))
-                <a href="{{ route('branch-dashboard.production.module.index') }}" 
-                   class="p-4 border border-gray-200 rounded-lg hover:shadow-md hover:border-blue-300 transition flex items-center gap-3">
-                    <div class="p-2 bg-teal-100 rounded-lg">
-                        <svg class="w-5 h-5 text-teal-600" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"></path>
-                            <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 1 1 0 000 2H6a6 6 0 1100-12h-.006a1 1 0 000 2H6a4 4 0 110 8h-2.707l.293-.293a1 1 0 00-1.414-1.414l-2 2a1 1 0 000 1.414l2 2a1 1 0 001.414-1.414L6.414 9H4z" clip-rule="evenodd"></path>
-                        </svg>
-                    </div>
-                    <div>
-                        <p class="font-medium text-gray-900">Kitchen Module</p>
-                        <p class="text-sm text-gray-600">Kitchen operations</p>
-                    </div>
-                </a>
-                @endif
 
                 <!-- Planning Reports -->
                 <a href="{{ route('branch-dashboard.production.reports.planning') }}" 

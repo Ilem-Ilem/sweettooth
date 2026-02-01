@@ -177,38 +177,84 @@ class Create extends Component
 
             // Process each selected product
             foreach ($this->selectedProducts as $selectedProduct) {
-                // Get the recipe for this product
-                $recipe = Recipe::with('ingredients')->find($selectedProduct['recipe_id']);
-
-                if (! $recipe) {
-                    continue; // Skip if no recipe found
-                }
-
                 $batchesRequested = (float) $selectedProduct['quantity']; // Number of batches
-                $recipeYield = (float) $recipe->yield_quantity; // Units per batch
-                $actualUnitsRequested = $batchesRequested * $recipeYield; // Total units to produce
 
-                // Create Production Request (store actual units, not batches)
-                ProductionRequest::create([
-                    'shift_id'                    => $shift->id, // Use shift even for super admin
-                    'item_request_id'             => $itemRequest->id,
-                    'recipe_id'                   => $recipe->id,
-                    'planned_production_quantity' => $actualUnitsRequested, // Actual units (batches × yield)
-                ]);
+                // Check if there's a recipe for this product
+                if ($selectedProduct['recipe_id']) {
+                    // Get the recipe for this product
+                    $recipe = Recipe::with('ingredients')->find($selectedProduct['recipe_id']);
 
-                // Create Item Request Details for each ingredient
-                foreach ($recipe->ingredients as $ingredient) {
-                    $actualQuantity = $ingredient->getActualQuantityNeeded();
-                    $totalQuantity  = $actualQuantity * $batchesRequested; // Ingredients based on batches
+                    if ($recipe) {
+                        $recipeYield = (float) $recipe->yield_quantity; // Units per batch
+                        $actualUnitsRequested = $batchesRequested * $recipeYield; // Total units to produce
 
+                        // Create Production Request (store actual units, not batches)
+                        ProductionRequest::create([
+                            'shift_id'                    => $shift->id, // Use shift even for super admin
+                            'item_request_id'             => $itemRequest->id,
+                            'recipe_id'                   => $recipe->id,
+                            'planned_production_quantity' => $actualUnitsRequested, // Actual units (batches × yield)
+                        ]);
+
+                        // Create Item Request Details for each ingredient
+                        foreach ($recipe->ingredients as $ingredient) {
+                            $actualQuantity = $ingredient->getActualQuantityNeeded();
+                            $totalQuantity  = $actualQuantity * $batchesRequested; // Ingredients based on batches
+
+                            ItemRequestDetail::create([
+                                'request_id'          => $itemRequest->id,
+                                'item_id'             => $ingredient->item_id,
+                                'quantity_requested'  => $totalQuantity,
+                                'quantity_approved'   => 0,
+                                'quantity_dispatched' => 0,
+                                'uom_id'              => $ingredient->uom_id,
+                                'notes'               => "For {$recipe->product_name} production ({$batchesRequested} batches × {$recipeYield} {$recipe->unitOfMeasure?->symbol} = {$actualUnitsRequested} {$recipe->unitOfMeasure?->symbol})",
+                            ]);
+                        }
+                    } else {
+                        // Recipe not found, handle as product without recipe
+                        $product = Product::find($selectedProduct['product_id']);
+
+                        ProductionRequest::create([
+                            'shift_id'                    => $shift->id,
+                            'item_request_id'             => $itemRequest->id,
+                            'recipe_id'                   => null, // No recipe
+                            'planned_production_quantity' => $batchesRequested, // Use quantity as units
+                        ]);
+
+                        // For products without recipes, we can't create ingredient requests
+                        // So we just create a note about the request
+                        ItemRequestDetail::create([
+                            'request_id'          => $itemRequest->id,
+                            'item_id'             => null, // No specific item
+                            'quantity_requested'  => $batchesRequested,
+                            'quantity_approved'   => 0,
+                            'quantity_dispatched' => 0,
+                            'uom_id'              => null, // No specific UOM
+                            'notes'               => "Request for {$product->name} without recipe ({$batchesRequested} units)",
+                        ]);
+                    }
+                } else {
+                    // No recipe_id means this product doesn't have a recipe
+                    $product = Product::find($selectedProduct['product_id']);
+
+                    ProductionRequest::create([
+                        'shift_id'                    => $shift->id,
+                        'item_request_id'             => $itemRequest->id,
+                        'recipe_id'                   => null, // No recipe
+                        'planned_production_quantity' => $batchesRequested, // Use quantity as units
+                    ]);
+
+                    // For products without recipes, we can't create ingredient requests
+                    // So we just create a note about the request
                     ItemRequestDetail::create([
                         'request_id'          => $itemRequest->id,
-                        'item_id'             => $ingredient->item_id,
-                        'quantity_requested'  => $totalQuantity,
+                        'item_id'             => null, // No specific item
+                        'quantity_requested'  => $batchesRequested,
                         'quantity_approved'   => 0,
                         'quantity_dispatched' => 0,
-                        'uom_id'              => $ingredient->uom_id,
-                        'notes'               => "For {$recipe->product_name} production ({$batchesRequested} batches × {$recipeYield} {$recipe->unitOfMeasure?->symbol} = {$actualUnitsRequested} {$recipe->unitOfMeasure?->symbol})",
+                        'uom_id'              => null, // No specific UOM
+                        'notes'               => "Request for {$product->name} without recipe ({$batchesRequested} units)",
                     ]);
                 }
             }
