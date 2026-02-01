@@ -212,7 +212,7 @@
             <button
                 type="submit"
                 @disabled(count($selectedProducts) === 0)
-                class="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-400 text-white rounded-lg font-medium transition"
+                class="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-400 text-white rounded-lg font-medium transition cursor-pointer"
             >
                 Request from Kitchen
             </button>

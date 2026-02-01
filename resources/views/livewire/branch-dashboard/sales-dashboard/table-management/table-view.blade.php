@@ -34,7 +34,7 @@
     @if($table->hasActiveSale())
         <div class="mt-2 rounded bg-white bg-opacity-50 p-2 text-xs">
             <div class="font-medium text-gray-700">Active Order</div>
-            <div class="text-gray-600">GHS {{ number_format($table->getTotalAmount(), 2) }}</div>
+            <div class="text-gray-600">{{ $this->formatCurrency($table->getTotalAmount()) }}</div>
         </div>
     @endif
 

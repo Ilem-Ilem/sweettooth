@@ -51,7 +51,7 @@
                 <div class="flex items-center justify-between">
                     <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Select Products to Produce</h3>
                     <button type="button" wire:click="addProduct" wire:loading.attr="disabled" wire:target="addProduct"
-                            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                             :class="{ 'opacity-75 cursor-not-allowed': $wire.loading }">
                         <span wire:loading.remove wire:target="addProduct" class="flex items-center gap-2">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -210,11 +210,12 @@
             <!-- Form Actions -->
             <div class="flex justify-end gap-3 pt-4 border-t border-zinc-200 dark:border-zinc-700">
                 <a href="{{ branch_route('branch-dashboard.production.request.index', ['deptSlug' => $dept_slug]) }}"
-                   class="px-6 py-2 border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors">
+                   class="px-6 py-2 border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors cursor-pointer">
                     Cancel
                 </a>
                 <button type="submit" wire:loading.attr="disabled" wire:target="save"
-                        class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        @disabled(count($selectedProducts) === 0)
+                        class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         :class="{ 'opacity-75 cursor-not-allowed': $wire.loading }">
                     <span wire:loading.remove wire:target="save" class="flex items-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

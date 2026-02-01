@@ -48,7 +48,12 @@ class RecipeDetail extends Component
     {
         $this->recipe = Recipe::with(['ingredients.item', 'department', 'createdBy', 'productType'])
             ->where('department_id', $this->department->id)
-            ->findOrFail($this->recipeId);
+            ->where('id', $this->recipeId)
+            ->first();
+
+        if (!$this->recipe) {
+            abort(404, 'Recipe not found or does not belong to this department');
+        }
     }
 
     public function getBranchId()

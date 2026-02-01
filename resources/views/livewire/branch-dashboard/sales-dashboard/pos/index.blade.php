@@ -489,18 +489,18 @@
                         <div class="mt-2 space-y-1">
                             <div class="flex items-center justify-between text-xs text-zinc-700 dark:text-zinc-300">
                                 <span>Total Paid</span>
-                                <span class="font-semibold">GHS {{ number_format($paymentTotal, 2) }}</span>
+                                <span class="font-semibold">{{ $this->formatCurrency($paymentTotal) }}</span>
                             </div>
                             @if($paymentRemaining > 0)
                                 <div class="flex items-center justify-between text-xs text-orange-700 dark:text-orange-400">
                                     <span>Remaining</span>
-                                    <span class="font-semibold">GHS {{ number_format($paymentRemaining, 2) }}</span>
+                                    <span class="font-semibold">{{ $this->formatCurrency($paymentRemaining) }}</span>
                                 </div>
                             @endif
                             @if($changeDue > 0)
                                 <div class="flex items-center justify-between text-xs text-emerald-700 dark:text-emerald-400">
                                     <span>Change Due</span>
-                                    <span class="font-semibold">GHS {{ number_format($changeDue, 2) }}</span>
+                                    <span class="font-semibold">{{ $this->formatCurrency($changeDue) }}</span>
                                 </div>
                             @endif
                         </div>
@@ -583,12 +583,12 @@
                     </div>
                     <div class="flex justify-between">
                         <span class="text-zinc-600 dark:text-zinc-400">Total Revenue:</span>
-                        <span class="font-semibold text-emerald-600 dark:text-emerald-400">GHS {{ number_format($todayTotal, 2) }}</span>
+                        <span class="font-semibold text-emerald-600 dark:text-emerald-400">{{ $this->formatCurrency($todayTotal) }}</span>
                     </div>
                     @if($todayCount > 0)
                         <div class="flex justify-between">
                             <span class="text-zinc-600 dark:text-zinc-400">Avg Sale:</span>
-                            <span class="font-semibold text-zinc-900 dark:text-zinc-100">GHS {{ number_format($todayTotal / $todayCount, 2) }}</span>
+                            <span class="font-semibold text-zinc-900 dark:text-zinc-100">{{ $this->formatCurrency($todayTotal / $todayCount) }}</span>
                         </div>
                     @endif
                 </div>
@@ -643,23 +643,23 @@
                         <div class="space-y-1 text-sm mb-3">
                             <div class="flex justify-between">
                                 <span>Subtotal:</span>
-                                <span>GHS {{ number_format($sale->subtotal, 2) }}</span>
+                                <span>{{ $this->formatCurrency($sale->subtotal) }}</span>
                             </div>
                             @if($sale->discount > 0)
                                 <div class="flex justify-between text-orange-600">
                                     <span>Discount:</span>
-                                    <span>-GHS {{ number_format($sale->discount, 2) }}</span>
+                                    <span>-{{ $this->formatCurrency($sale->discount) }}</span>
                                 </div>
                             @endif
                             @if($sale->tax > 0)
                                 <div class="flex justify-between">
                                     <span>Tax:</span>
-                                    <span>GHS {{ number_format($sale->tax, 2) }}</span>
+                                    <span>{{ $this->formatCurrency($sale->tax) }}</span>
                                 </div>
                             @endif
                             <div class="flex justify-between text-lg font-bold border-t border-zinc-300 pt-1 mt-2">
                                 <span>TOTAL:</span>
-                                <span>GHS {{ number_format($sale->total, 2) }}</span>
+                                <span>{{ $this->formatCurrency($sale->total) }}</span>
                             </div>
                         </div>
 
@@ -669,13 +669,13 @@
                                 @foreach($receipt->payments as $payment)
                                     <div class="flex justify-between text-sm">
                                         <span class="capitalize">{{ $payment['method'] ?? 'Cash' }}:</span>
-                                        <span>GHS {{ number_format($payment['amount'] ?? 0, 2) }}</span>
+                                        <span>{{ $this->formatCurrency($payment['amount'] ?? 0) }}</span>
                                     </div>
                                 @endforeach
                                 @if($receipt->change_due > 0)
                                     <div class="flex justify-between text-sm font-semibold mt-1 text-emerald-600">
                                         <span>Change:</span>
-                                        <span>GHS {{ number_format($receipt->change_due, 2) }}</span>
+                                        <span>{{ $this->formatCurrency($receipt->change_due) }}</span>
                                     </div>
                                 @endif
                             </div>

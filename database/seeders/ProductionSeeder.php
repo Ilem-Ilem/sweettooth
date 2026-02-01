@@ -29,18 +29,9 @@ class ProductionSeeder extends Seeder
         $itemIds = \App\Models\Item::all()->pluck('id')->toArray();
         $itemRequestIds = \App\Models\ItemRequest::all()->pluck('id')->toArray();
 
-        // dd(
-        //     [
-        //         'branch_id'=>$branchIds,
-        //         'departments'=>$departmentIds,
-        //         'employees'=>$employeeIds,
-        //         'items'=>$itemIds,
-        //         'itemRequestIds'=>$itemRequestIds
-        //     ]
-        // );
         // Ensure related tables have data
         if (empty($branchIds) || empty($departmentIds) || empty($employeeIds) || empty($itemIds)) {
-            throw new \Exception('Related tables (branches, departments, employees, categories, items, item_requests) must be seeded first.');
+            throw new \Exception('Related tables (branches, departments, employees, items) must be seeded first.');
         }
 
         // Build ProductType lookup
@@ -145,7 +136,8 @@ class ProductionSeeder extends Seeder
                 ProductionRecord::create([
                     'daily_produce_id' => $dailyProduce->id,
                     'recipe_id' => $dailyProduce->recipe_id,
-                    'produced_by' => $faker->randomElement($employeeIds),
+                    'produced_by_id' => $faker->randomElement($employeeIds),
+                    'produced_by_type' => Employee::class,
                     'quantity_produced' => $faker->randomFloat(2, 1, 50),
                     'quantity_approved' => $faker->randomFloat(2, 0, 50),
                     'quantity_rejected' => $faker->randomFloat(2, 0, 10),
@@ -162,7 +154,7 @@ class ProductionSeeder extends Seeder
             for ($i = 0; $i < 20; $i++) {
                 ProductionRequest::create([
                     'shift_id' => $shift->id,
-                    'item_request_id' => $faker->randomElement($itemRequestIds),
+                    'item_request_id' => !empty($itemRequestIds) ? $faker->randomElement($itemRequestIds) : null,
                     'recipe_id' => $faker->optional()->randomElement($recipes)->id ?? null,
                     'planned_production_quantity' => $faker->optional()->randomFloat(2, 1, 100),
                     'notes' => $faker->optional()->sentence,

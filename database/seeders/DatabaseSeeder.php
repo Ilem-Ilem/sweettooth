@@ -30,7 +30,7 @@ class DatabaseSeeder extends Seeder
 
             // 3. Super Admin & Users (Before branch setup)
             SuperAdminUserSeeder::class,
-            
+
             // 4. Branch & Department Setup
             BranchSeeder::class,
             BranchUserSeeder::class,
@@ -58,7 +58,10 @@ class DatabaseSeeder extends Seeder
             // 10. Additional Roles
             InventoryStoreRolesSeeder::class, // Additional inventory and store management roles
 
-            // 11. UI Pages
+            // 11. Currency Localization (should come after basic setup)
+            CurrencyLocalizationSeeder::class,
+
+            // 12. UI Pages
             DepartmentPageSeeder::class,
             SalesPagesSeeder::class,
         ]);

@@ -40,6 +40,8 @@ class AccountingMiddleware
     {
         // Check if user has any accounting role
         $accountingRoles = [
+            'Accountant',
+            'Accounting Manager',
             'accountant',
             'accounting_manager',
             'finance_director',

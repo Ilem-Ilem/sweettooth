@@ -113,7 +113,7 @@ class Add extends Component
 
     public function addIngredient()
     {
-        $this->ingredients[] = [
+        array_unshift($this->ingredients, [
             'item_id' => null,
             'quantity' => null,
             'uom' => null,
@@ -121,7 +121,9 @@ class Add extends Component
             'waste_percentage' => 0,
             'notes' => '',
             'preparation_notes' => '',
-        ];
+        ]);
+
+        $this->dispatch('added-ingredient');
     }
 
     /**
@@ -184,7 +186,8 @@ class Add extends Component
 
     public function addInstruction()
     {
-        $this->instructions[] = '';
+        array_unshift($this->instructions, '');
+        $this->dispatch('added-instruction');
     }
 
     public function removeInstruction($index)

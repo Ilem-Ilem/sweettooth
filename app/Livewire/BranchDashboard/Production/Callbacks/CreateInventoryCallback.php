@@ -65,7 +65,7 @@ class CreateInventoryCallback extends BaseComponent
 
     // Callback form
     public $showCallbackModal = false;
-    public $callbackType = 'raw_material'; // raw_material or finished_product
+    public $callbackType; // raw_material or finished_product - initialized in mount to preserve state
     public $selectedItemId = null;
     public $selectedProductId = null;
     public $callbackQuantity = 0;
@@ -291,7 +291,7 @@ class CreateInventoryCallback extends BaseComponent
     public function closeCallbackModal()
     {
         $this->showCallbackModal = false;
-        $this->callbackType = 'raw_material';
+        // Don't reset callbackType - preserve the user's selection
         $this->selectedItemId = null;
         $this->selectedProductId = null;
         $this->callbackQuantity = 0;

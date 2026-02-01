@@ -114,7 +114,7 @@ class Products extends BaseComponent
 
     protected function getAllSelectableIds(): array
     {
-        return $this->getFilteredQuery()->pluck('id')->toArray();
+        return $this->getFilteredQuery()->select('id')->pluck('id')->toArray();
     }
 
     public function getBranchId()
@@ -122,19 +122,23 @@ class Products extends BaseComponent
         return $this->b_id ? $this->b_id : request()->query('b_id');
     }
 
-    protected function getFilteredQuery()
+protected function getFilteredQuery()
     {
         $departmentId = null;
         if ($this->dept_slug) {
-            $departmentId = Department::where('slug', $this->dept_slug)->firstOrFail()->id;
+            // Cache department lookup to avoid repeated queries
+            $department = cache()->remember("department_by_slug_{$this->dept_slug}", 3600, function() {
+                return Department::where('slug', $this->dept_slug)->first();
+            });
+
+            if ($department) {
+                $departmentId = $department->id;
+            }
         }
 
         return Product::query()
-            ->with(['productType.department', 'unitOfMeasure', 'recipes' => function ($query) use ($departmentId) {
-                if (!is_super_admin() && $departmentId) {
-                    $query->where('department_id', $departmentId);
-                }
-            }])
+            ->select('products.*') // Explicitly select products table to avoid ambiguity
+            ->with(['productType.department', 'unitOfMeasure', 'recipes'])
             ->when($this->search, function ($query) {
                 $query->where('name', 'like', '%'.$this->search.'%')
                     ->orWhere('sku', 'like', '%'.$this->search.'%')
@@ -149,18 +153,26 @@ class Products extends BaseComponent
                 });
             })
             ->when(!is_super_admin(), function ($query) use ($departmentId) {
+                // Always filter by department for non-super-admins
                 $query->whereHas('productType', function ($q) use ($departmentId) {
                     $q->where('department_id', $departmentId);
                 });
             })
             ->when($this->filterStatus !== null, function ($query) {
-                match ($this->filterStatus) {
-                    'active' => $query->where('is_active', true),
-                    'inactive' => $query->where('is_active', false),
-                    'available' => $query->where('is_available', true),
-                    'unavailable' => $query->where('is_available', false),
-                    default => null,
-                };
+                switch ($this->filterStatus) {
+                    case 'active':
+                        $query->where('is_active', true);
+                        break;
+                    case 'inactive':
+                        $query->where('is_active', false);
+                        break;
+                    case 'available':
+                        $query->where('is_available', true);
+                        break;
+                    case 'unavailable':
+                        $query->where('is_available', false);
+                        break;
+                }
             })
             ->where(function ($query) {
                 $query->whereNull('branch_id')
@@ -257,6 +269,7 @@ class Products extends BaseComponent
                 ['index' => 'price', 'label' => 'Price'],
                 ['index' => 'shelf_life', 'label' => 'Shelf Life'],
                 ['index' => 'uom', 'label' => 'UOM'],
+                ['index' => 'recipe_status', 'label' => 'Recipe'],
                 ['index' => 'status', 'label' => 'Status'],
                 ['index' => 'action', 'label' => 'Actions', 'display' => true],
             ],
@@ -397,17 +410,22 @@ class Products extends BaseComponent
         // Super admin bypass - delete directly with audit log
         if (is_super_admin()) {
             try {
-                $product = Product::findOrFail($this->productId);
-                $product->delete();
-                // Log the delete action
-                \App\Services\AuditService::log(
-                    auth()->user(),
-                    'delete',
-                    $product,
-                    'Super admin direct delete of product'
-                );
+                $product = Product::withTrashed()->find($this->productId); // Use find() instead of findOrFail to avoid exception
+                if ($product) {
+                    $product->delete();
+                    // Log the delete action
+                    \App\Services\AuditService::log(
+                        auth()->user(),
+                        'delete',
+                        $product,
+                        'Super admin direct delete of product'
+                    );
+                }
                 $this->dialog()->success('Success', 'Product deleted successfully!')->send();
                 $this->productId = null;
+
+                // Clear selection after successful deletion
+                $this->resetBulkSelection();
             } catch (\Exception $e) {
                 $this->dialog()->error('Error', 'Failed to delete product: '.$e->getMessage())->send();
             }
@@ -453,8 +471,11 @@ class Products extends BaseComponent
             return;
         }
 
-        $products = Product::whereIn('id', $this->selectedIds)->get();
+        $products = Product::withTrashed()->whereIn('id', $this->selectedIds)->get();
+
+        // Perform soft delete for all selected products
         Product::whereIn('id', $this->selectedIds)->delete();
+
         // Log the bulk delete
         foreach ($products as $product) {
             \App\Services\AuditService::log(
@@ -465,7 +486,9 @@ class Products extends BaseComponent
             );
         }
         $this->dialog()->success('Success', 'Products deleted successfully!')->send();
-        $this->selectedIds = [];
+
+        // Clear selection after successful deletion
+        $this->resetBulkSelection();
     }
 
     public function cancelledBulkDelete(string $message): void

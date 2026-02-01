@@ -171,9 +171,9 @@
                 </div>
 
                 @if(count($ingredients) > 0)
-                <div class="space-y-4 bg-zinc-50 dark:bg-zinc-900/50 p-4 rounded-lg">
+                <div id="ingredients-container" class="space-y-4 bg-zinc-50 dark:bg-zinc-900/50 p-4 rounded-lg">
                     @foreach($ingredients as $index => $ingredient)
-                    <div class="bg-white dark:bg-zinc-800 p-4 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                    <div id="ingredient-{{ $index }}" class="bg-white dark:bg-zinc-800 p-4 rounded-lg border border-zinc-200 dark:border-zinc-700">
                         <div class="flex justify-between items-center mb-3">
                             <span class="font-semibold text-zinc-900 dark:text-zinc-100">Ingredient #{{ $index + 1 }}</span>
                             <button type="button" wire:click="removeIngredient({{ $index }})"
@@ -269,9 +269,9 @@
                 </div>
 
                 @if(count($instructions) > 0)
-                <div class="space-y-3 bg-zinc-50 dark:bg-zinc-900/50 p-4 rounded-lg">
+                <div id="instructions-container" class="space-y-3 bg-zinc-50 dark:bg-zinc-900/50 p-4 rounded-lg">
                     @foreach($instructions as $index => $instruction)
-                    <div class="flex items-start gap-3">
+                    <div id="instruction-{{ $index }}" class="flex items-start gap-3">
                         <span class="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 rounded-full font-bold text-sm">
                             {{ $index + 1 }}
                         </span>
@@ -320,4 +320,24 @@
     <!-- Audit Request Modal -->
     @include('livewire.branch-dashboard.production.partials.audit-modal')
 
+    <!-- Auto-scroll script for new ingredients and instructions -->
+    <script>
+        document.addEventListener('livewire:init', () => {
+            Livewire.on('added-ingredient', () => {
+                // Scroll to the first ingredient element after it's added
+                const firstIngredient = document.querySelector('#ingredients-container div:first-child');
+                if (firstIngredient) {
+                    firstIngredient.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            });
+
+            Livewire.on('added-instruction', () => {
+                // Scroll to the first instruction element after it's added
+                const firstInstruction = document.querySelector('#instructions-container div:first-child');
+                if (firstInstruction) {
+                    firstInstruction.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            });
+        });
+    </script>
 </div>

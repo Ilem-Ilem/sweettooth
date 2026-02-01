@@ -96,10 +96,10 @@ class Index extends Component
     {
         $branchId = $this->getBranchId();
 
-        // Get shifts from last 30 days for this department
+        // Get shifts from last 90 days for this department (increased from 30)
         $this->availableShifts = Shift::where('branch_id', $branchId)
             ->where('department_id', $this->department->id)
-            ->where('shift_date', '>=', now()->subDays(30))
+            ->where('shift_date', '>=', now()->subDays(90))
             ->orderBy('shift_date', 'desc')
             ->orderBy('shift_type', 'desc')
             ->get();
@@ -161,8 +161,39 @@ class Index extends Component
                 if ($this->currentShift) {
                     $this->selectedShiftId = $this->currentShift->id;
                     $this->loadDailyProduces();
+                } else {
+                    // If no shifts exist at all, try to create a shift for today
+                    $this->createTodaysShift($branchId);
                 }
             }
+        }
+    }
+
+    /**
+     * Create a shift for today if none exists
+     */
+    private function createTodaysShift($branchId)
+    {
+        // Check if shift creation is needed - only for production departments
+        $existingRequests = ProductionRequest::forBranch($branchId)
+            ->where('production_department_id', $this->department->id)
+            ->whereDate('created_at', today())
+            ->exists();
+
+        if ($existingRequests) {
+            // Create a default shift for today if production requests exist
+            $shift = Shift::create([
+                'branch_id' => $branchId,
+                'department_id' => $this->department->id,
+                'shift_date' => today(),
+                'shift_type' => 'regular', // Default shift type
+                'status' => 'active',
+                'shift_number' => 1,
+            ]);
+
+            $this->currentShift = $shift;
+            $this->selectedShiftId = $shift->id;
+            $this->loadDailyProduces();
         }
     }
 
@@ -239,9 +270,11 @@ class Index extends Component
 
         // Load all daily produces for this shift with all related data
         $produces = DailyProduce::with([
-            'recipe',
-            'shift',
-            'productionRecords.producedBy'
+            'recipe:id,product_name,unit_of_measure_id,yield_quantity,sku',
+            'recipe.unitOfMeasure:id,symbol,name',
+            'shift:id,shift_date,shift_type',
+            'productionRecords:id,daily_produce_id,recipe_id,batch_number,quantity_produced,quantity_approved,quantity_rejected,quantity_sent_out,quantity_for_order,quantity_remaining,dispatch_status,quality_status,production_time,produced_by_id,produced_by_type,rejection_reason,notes',
+            'productionRecords.producedBy:id,name,email'
         ])
         ->where('shift_id', $this->selectedShiftId)
         ->orderBy('recipe_id')
@@ -1199,15 +1232,18 @@ class Index extends Component
     {
         $branchId = $this->getBranchId();
 
-        // Get available shifts for this department
-        $availableShifts = Shift::where('branch_id', $branchId)
-            ->where('department_id', $this->department->id)
-            ->orderBy('shift_date', 'desc')
-            ->orderBy('shift_type')
-            ->limit(30) // Show more shifts
-            ->get();
-    
-        
+        // Get available shifts for this department - cache for performance
+        $cacheKey = "available_shifts_{$branchId}_{$this->department->id}";
+        $availableShifts = cache()->remember($cacheKey, 300, function() use ($branchId) { // Cache for 5 minutes
+            return Shift::where('branch_id', $branchId)
+                ->where('department_id', $this->department->id)
+                ->orderBy('shift_date', 'desc')
+                ->orderBy('shift_type')
+                ->limit(30) // Show more shifts
+                ->get();
+        });
+
+
         // Debug info: count production requests for current shift
         $productionRequestsCount = 0;
         if ($this->selectedShiftId) {

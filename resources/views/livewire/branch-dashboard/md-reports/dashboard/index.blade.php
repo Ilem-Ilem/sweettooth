@@ -1,11 +1,19 @@
 <div class="w-full">
     <x-slot name="header">
         <div class="flex justify-between items-center">
-            <h2 class="text-2xl font-bold">MD Reports</h2>
+            <h2 class="text-2xl font-bold">Managing Director Reports</h2>
         </div>
     </x-slot>
 
     <div class="p-6">
+        <!-- Description -->
+        <div class="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <p class="text-blue-800 dark:text-blue-200">
+                <strong>Managing Director Reports:</strong> This section contains compiled reports from various departments across all branches.
+                These reports are reviewed by the Managing Director to make strategic decisions for the organization.
+            </p>
+        </div>
+
         <!-- Stats Cards -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div class="bg-white dark:bg-zinc-800 rounded-lg p-4 shadow">
@@ -53,9 +61,9 @@
             <table class="w-full">
                 <thead class="bg-gray-100 dark:bg-zinc-700">
                     <tr>
-                        <th class="px-6 py-3 text-left text-sm font-semibold">Branch</th>
+                        <th class="px-6 py-3 text-left text-sm font-semibold">Branch Name</th>
                         <th class="px-6 py-3 text-left text-sm font-semibold">Compiled By</th>
-                        <th class="px-6 py-3 text-left text-sm font-semibold">Date</th>
+                        <th class="px-6 py-3 text-left text-sm font-semibold">Compilation Date</th>
                         <th class="px-6 py-3 text-left text-sm font-semibold">Status</th>
                         <th class="px-6 py-3 text-left text-sm font-semibold">Actions</th>
                     </tr>
@@ -73,7 +81,7 @@
                             </td>
                             <td class="px-6 py-4">
                                 <a href="{{ route('branch-dashboard.md-reports.view', $report->id) }}" wire:navigate class="text-blue-600 hover:text-blue-800">
-                                    View
+                                    View Report
                                 </a>
                                 @if($report->status === 'sent_to_md')
                                     <button wire:click="markAsReviewed({{ $report->id }})" class="ml-3 text-green-600 hover:text-green-800">

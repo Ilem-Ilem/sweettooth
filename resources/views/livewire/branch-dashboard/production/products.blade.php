@@ -223,6 +223,18 @@
                 </span>
             @endinteract
 
+            @interact('column_recipe_status', $row)
+                @if($row->recipes && $row->recipes->count() > 0)
+                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                        Recipe Ready
+                    </span>
+                @else
+                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                        No Recipe
+                    </span>
+                @endif
+            @endinteract
+
             @interact('column_status', $row)
                 <div class="flex flex-col gap-1">
                     <span

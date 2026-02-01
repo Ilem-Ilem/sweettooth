@@ -5,74 +5,35 @@ namespace App\Services\Reports;
 use App\Models\DailyProduce;
 use App\Models\ProductionRecord;
 use App\Models\ItemRequestDetail;
+use Carbon\Carbon;
 
 class ProductionEfficiencyReportService extends ReportService
 {
     protected string $reportCategory = 'production';
-
     protected string $reportType = 'production_efficiency';
 
-    /**
-     * Get report name.
-     */
     protected function getReportName(): string
     {
         return 'Production Efficiency Report';
     }
 
-    /**
-     * Get summary metrics for report data.
-     */
-    public function getSummaryMetrics(array $reportData): array
-    {
-        return $this->generateSummaryMetrics($reportData);
-    }
-
-    /**
-     * Get charts data for report data.
-     */
-    public function getChartsData(array $reportData): array
-    {
-        return $this->generateChartsData($reportData);
-    }
-
-    /**
-     * Generate cache key for report.
-     */
-    protected function getCacheKey(): string
-    {
-        return sprintf(
-            'report:%s:%s:%s:%s:%s:%s',
-            $this->reportCategory,
-            $this->reportType,
-            $this->branchId,
-            $this->departmentId,
-            $this->periodFrom,
-            $this->periodTo
-        );
-    }
-
-    /**
-     * Generate the production efficiency report data.
-     */
     protected function generateReportData(): array
     {
         $this->validateParameters();
 
-        $dailyProduces = DailyProduce::query()
-            ->with(['recipe', 'shift'])
+        // Get daily production records for the period
+        $dailyProduces = DailyProduce::with(['recipe', 'shift', 'producedBy'])
             ->whereHas('shift', function ($q) {
                 $q->where('branch_id', $this->branchId);
                 if ($this->departmentId) {
                     $q->where('department_id', $this->departmentId);
                 }
             })
-            ->whereBetween('produce_date', [$this->periodFrom, $this->periodTo])
-            ->orderBy('produce_date', 'desc')
+            ->whereBetween('production_date', [$this->periodFrom, $this->periodTo])
             ->get();
 
-        $productionRecords = ProductionRecord::query()
-            ->with(['recipe', 'producedBy', 'dailyProduce.shift'])
+        // Get production records for efficiency analysis
+        $productionRecords = ProductionRecord::with(['recipe', 'producedBy', 'dailyProduce.shift'])
             ->whereHas('dailyProduce.shift', function ($q) {
                 $q->where('branch_id', $this->branchId);
                 if ($this->departmentId) {
@@ -92,8 +53,8 @@ class ProductionEfficiencyReportService extends ReportService
             'period_info' => [
                 'from' => $this->periodFrom,
                 'to' => $this->periodTo,
-                'total_days' => \Carbon\Carbon::parse($this->periodFrom)
-                    ->diffInDays(\Carbon\Carbon::parse($this->periodTo)) + 1,
+                'total_days' => Carbon::parse($this->periodFrom)
+                    ->diffInDays(Carbon::parse($this->periodTo)) + 1,
             ],
         ];
 
@@ -318,5 +279,13 @@ class ProductionEfficiencyReportService extends ReportService
                 'colors' => ['#3b82f6', '#ef4444', '#10b981'],
             ],
         ];
+    }
+
+    /**
+     * Calculate percentage helper.
+     */
+    private function calculatePercentage($part, $total): float
+    {
+        return $total > 0 ? round(($part / $total) * 100, 2) : 0;
     }
 }

@@ -256,6 +256,11 @@ class SidebarVisibilityService
         $category = self::getDepartmentCategory($user);
         $deptName = $user?->department?->name ?? '';
 
+        // Super admins can see inventory regardless of department
+        if (self::isSuperAdmin($user)) {
+            return true;
+        }
+
         return (str_contains($deptName, 'Inventory') || str_contains($deptName, 'Store'))
             || $level >= self::LEVEL_ADMIN;
     }
@@ -267,6 +272,11 @@ class SidebarVisibilityService
 
     public static function canSeeInventoryCallbacks($user = null): bool
     {
+        // Super admins can see inventory callbacks regardless of role level
+        if (self::isSuperAdmin($user)) {
+            return true;
+        }
+
         return self::canSeeInventory($user) && self::getRoleLevel($user) >= self::LEVEL_MANAGER;
     }
 
@@ -286,6 +296,11 @@ class SidebarVisibilityService
 
     public static function canSeeProductionCallbacks($user = null): bool
     {
+        // Super admins can see all production callbacks regardless of department
+        if (self::isSuperAdmin($user)) {
+            return true;
+        }
+
         return self::canSeeProduction($user) && self::getRoleLevel($user) >= self::LEVEL_MANAGER;
     }
 
@@ -294,6 +309,11 @@ class SidebarVisibilityService
         $user = $user ?? auth()->user();
         $level = self::getRoleLevel($user);
         $category = self::getDepartmentCategory($user);
+
+        // Super admins can see sales management regardless of department
+        if (self::isSuperAdmin($user)) {
+            return true;
+        }
 
         return $category === 'Sales' || $level >= self::LEVEL_ADMIN;
     }

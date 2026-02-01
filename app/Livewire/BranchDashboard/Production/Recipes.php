@@ -66,11 +66,26 @@ class Recipes extends BaseComponent
 
         if ($deptSlug) {
             $this->dept_slug = $deptSlug;
-            $this->department = Department::where('slug', $deptSlug)->first();
+            $this->setDepartmentFromSlug($deptSlug);
+        }
+    }
 
-            if (!$this->department) {
-                abort(404, 'Department not found');
-            }
+    public function updatedDeptSlug($newDeptSlug)
+    {
+        // When dept_slug changes, update the department
+        if ($newDeptSlug !== $this->dept_slug) {
+            $this->dept_slug = $newDeptSlug;
+            $this->setDepartmentFromSlug($newDeptSlug);
+            $this->resetPage(); // Reset pagination when department changes
+        }
+    }
+
+    private function setDepartmentFromSlug($deptSlug)
+    {
+        $this->department = Department::where('slug', $deptSlug)->first();
+
+        if (!$this->department) {
+            abort(404, 'Department not found');
         }
     }
 
@@ -85,7 +100,7 @@ class Recipes extends BaseComponent
 
     protected function getAllSelectableIds(): array
     {
-        return $this->getFilteredQuery()->pluck('id')->toArray();
+        return $this->getFilteredQuery()->select('id')->pluck('id')->toArray();
     }
 
     public function getBranchId()
@@ -102,11 +117,18 @@ class Recipes extends BaseComponent
             ->when(!is_super_admin(), function ($query) {
                 $query->where('department_id', $this->department->id);
             })
-            ->with(['department', 'createdBy', 'ingredients.item'])
+            ->with(['department:id,name,slug', 'createdBy:id,name,email', 'ingredients.item', 'productType:id,name']) // Select only needed columns
             ->when($this->search, function ($query) {
-                $query->where('product_name', 'like', '%'.$this->search.'%')
-                    ->orWhere('sku', 'like', '%'.$this->search.'%')
-                    ->orWhere('product_type', 'like', '%'.$this->search.'%');
+                $searchTerm = trim($this->search);
+                if (!empty($searchTerm)) {
+                    $query->where(function($q) use ($searchTerm) {
+                        $q->where('product_name', 'like', '%'.$searchTerm.'%')
+                          ->orWhere('sku', 'like', '%'.$searchTerm.'%')
+                          ->orWhereHas('productType', function($subQuery) use ($searchTerm) {
+                              $subQuery->where('name', 'like', '%'.$searchTerm.'%');
+                          });
+                    });
+                }
             })
             ->when($this->filterStatus, function ($query) {
                 $query->where('status', $this->filterStatus);

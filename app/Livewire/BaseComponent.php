@@ -116,7 +116,22 @@ abstract class BaseComponent extends Component
      */
     public function updatedSelectAll($value): void
     {
-        $this->selectedIds = $value ? $this->getAllSelectableIds() : [];
+        if ($value) {
+            // Limit the number of selectable IDs to prevent performance issues
+            $allIds = $this->getAllSelectableIds();
+            if (count($allIds) > 1000) { // Limit to 1000 items to prevent performance issues
+                $this->selectedIds = array_slice($allIds, 0, 1000);
+                $this->selectAll = false; // Don't set selectAll to true if we had to limit
+                $this->dispatch('toast', [
+                    'type' => 'warning',
+                    'message' => 'Only first 1000 items selected due to performance limits.'
+                ]);
+            } else {
+                $this->selectedIds = $allIds;
+            }
+        } else {
+            $this->selectedIds = [];
+        }
     }
 
     /**

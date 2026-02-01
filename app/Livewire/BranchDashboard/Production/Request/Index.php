@@ -621,7 +621,10 @@ class Index extends Component
                     $subQ->where('product_name', 'like', '%' . $this->search . '%');
                 })->orWhereHas('itemRequest', function ($subQ) {
                     $subQ->where('request_number', 'like', '%' . $this->search . '%');
-                });
+                })->orWhere('notes', 'like', '%' . $this->search . '%')  // Search in notes field
+                  ->orWhereHas('createdBy', function ($subQ) {
+                      $subQ->where('name', 'like', '%' . $this->search . '%');
+                  }); // Search in creator name
             });
         }
 

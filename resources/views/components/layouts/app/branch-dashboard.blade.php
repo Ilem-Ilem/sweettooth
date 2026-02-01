@@ -100,7 +100,7 @@
 
                 <flux:navlist.item icon="document-text" :href="branch_route('branch-dashboard.md-reports.dashboard')"
                     :current="request()->routeIs('branch-dashboard.md-reports.*')" wire:navigate>
-                    {{ __('MD Reports') }}
+                    {{ __('Managing Director Reports') }}
                 </flux:navlist.item>
 
                 <flux:navlist.item icon="cog" :href="branch_route('branch-dashboard.settings.index')"
@@ -713,7 +713,7 @@
                 </flux:navlist.item>
                 <flux:navlist.item icon="paper-airplane" :href="branch_route('branch-dashboard.reporting.send-to-md')"
                     :current="request()->routeIs('branch-dashboard.reporting.send-to-md')" wire:navigate>
-                    {{ __('Send to MD') }}
+                    {{ __('Send to Managing Director') }}
                 </flux:navlist.item>
             </flux:navlist.group>
             @endif

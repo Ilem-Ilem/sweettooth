@@ -20,15 +20,46 @@ class ProductionRequestBoard extends Component
     public function mount()
     {
         $user = auth()->user();
-        if ($user && $user->department) {
-            $this->userDepartmentId = $user->department->id;
+        if ($user) {
+            // Check if user is super admin
+            if (function_exists('is_super_admin') && is_super_admin()) {
+                // Super admin can view all requests, but if they have a department, use that
+                if ($user->department) {
+                    $this->userDepartmentId = $user->department->id;
+                } else {
+                    // Super admin without department - can see all, but default to first production department
+                    $firstProductionDept = \App\Models\Department::whereHas('category', function($q) {
+                        $q->where('name', 'Production');
+                    })->first();
+
+                    if ($firstProductionDept) {
+                        $this->userDepartmentId = $firstProductionDept->id;
+                    } else {
+                        $this->userDepartmentId = null; // Allow viewing all
+                    }
+                }
+            } else {
+                // Regular user - use their department
+                if ($user->department) {
+                    $this->userDepartmentId = $user->department->id;
+                } else {
+                    // User has no department assigned
+                    $this->userDepartmentId = null;
+                }
+            }
         }
     }
 
     public function getRequestsProperty()
     {
-        $query = ProductionRequest::where('production_department_id', $this->userDepartmentId)
-            ->with(['salesDepartment', 'createdBy', 'progressFeedback']);
+        $query = ProductionRequest::query();
+
+        // If user has a department, filter by it; otherwise, super admin can see all
+        if ($this->userDepartmentId) {
+            $query->where('production_department_id', $this->userDepartmentId);
+        }
+
+        $query->with(['salesDepartment', 'createdBy', 'progressFeedback']);
 
         if ($this->statusFilter) {
             $query->where('status', $this->statusFilter);

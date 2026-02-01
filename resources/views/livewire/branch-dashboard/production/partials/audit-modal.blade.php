@@ -107,7 +107,7 @@
                     x-data="{ loading: false }"
                     @click="loading = true; $wire.submitAuditRequest().finally(() => loading = false)"
                     :disabled="loading"
-                    class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg font-medium transition flex items-center gap-2">
+                    class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg font-medium transition flex items-center gap-2 cursor-pointer">
                     
                     <template x-if="!loading">
                         <span>Submit Request</span>

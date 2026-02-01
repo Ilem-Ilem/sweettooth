@@ -2,7 +2,9 @@
 
 namespace App\Livewire\BranchDashboard\SalesDashboard\TableManagement;
 
+use App\Helpers\Settings;
 use App\Models\Table;
+use App\Services\CurrencyFormattingService;
 use Livewire\Component;
 use Livewire\Attributes\{Reactive, On};
 
@@ -37,6 +39,15 @@ class TableView extends Component
             'reserved' => 'bg-yellow-500',
             default => 'bg-gray-500',
         };
+    }
+
+    /**
+     * Format currency
+     */
+    protected function formatCurrency(float $amount): string
+    {
+        $service = new CurrencyFormattingService();
+        return $service->format($amount);
     }
 
     public function render()

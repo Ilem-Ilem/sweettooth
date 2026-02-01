@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
@@ -12,7 +11,7 @@ use App\Traits\RequiresApproval;
 
 class Employee extends Authenticatable
 {
-    use HasRoles, HasUuids, Notifiable, SoftDeletes, TwoFactorAuthenticatable;
+    use HasRoles, HasUuids, Notifiable, TwoFactorAuthenticatable;
 
     use RequiresApproval;
     protected $guard_name = 'web';

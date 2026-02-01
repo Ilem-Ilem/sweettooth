@@ -107,100 +107,147 @@
 
         <!-- Raw Materials Table -->
         @if ($callbackType === 'raw_material')
-            <x-table :headers="$rawMaterialHeaders" :rows="$rawMaterials" striped paginate persist
-                :filter="['quantity' => 'quantity', 'search' => 'search']" :quantity="[10, 20, 50, 100]">
+            @if($rawMaterials->count() > 0)
+                <x-table :headers="$rawMaterialHeaders" :rows="$rawMaterials" striped paginate persist
+                    :filter="['quantity' => 'quantity', 'search' => 'search']" :quantity="[10, 20, 50, 100]">
 
-                @interact('column_item', $row)
-                    <div>
-                        <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $row->item->name ?? 'N/A' }}</div>
-                        <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $row->item->description ?? '' }}</div>
+                    @interact('column_item', $row)
+                        <div>
+                            <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $row->item->name ?? 'N/A' }}</div>
+                            <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $row->item->description ?? '' }}</div>
+                        </div>
+                    @endinteract
+
+                    @interact('column_sku', $row)
+                        <div class="text-center">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-zinc-100 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200">
+                                {{ $row->item->sku ?? 'N/A' }}
+                            </span>
+                        </div>
+                    @endinteract
+
+                    @interact('column_dispatched_qty', $row)
+                        <div class="text-center">
+                            <span class="font-semibold text-zinc-900 dark:text-zinc-100">
+                                {{ number_format($row->quantity, 2) }}
+                            </span>
+                        </div>
+                    @endinteract
+
+                    @interact('column_uom', $row)
+                        <div class="text-center text-sm text-zinc-600 dark:text-zinc-400">
+                            {{ $row->uom ?? $row->item->unit ?? 'N/A' }}
+                        </div>
+                    @endinteract
+
+                    @interact('column_dispatch_time', $row)
+                        <div class="text-center text-sm text-zinc-600 dark:text-zinc-400">
+                            {{ $row->dispatch_time ? $row->dispatch_time->format('M d, H:i') : 'N/A' }}
+                        </div>
+                    @endinteract
+
+                    @interact('column_action', $row)
+                        <div class="flex justify-center">
+                            <button wire:click="openRawMaterialCallbackModal({{ $row->id }})"
+                                class="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-medium transition-colors cursor-pointer">
+                                Return
+                            </button>
+                        </div>
+                    @endinteract
+
+                </x-table>
+            @else
+                <div class="bg-zinc-50 dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-700 rounded-lg p-8 text-center">
+                    <svg class="w-12 h-12 mx-auto text-zinc-400 dark:text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                    <h3 class="mt-4 text-lg font-medium text-zinc-900 dark:text-zinc-100">No Raw Materials Available</h3>
+                    <p class="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+                        No raw materials have been dispatched to this shift yet.
+                        Raw materials become available after they are dispatched from inventory to production.
+                    </p>
+                    <div class="mt-6">
+                        <p class="text-sm text-zinc-500 dark:text-zinc-400">To create a raw material callback:</p>
+                        <ul class="mt-2 space-y-1 text-sm text-zinc-500 dark:text-zinc-400">
+                            <li>• Ensure items have been dispatched to this shift</li>
+                            <li>• Check that the shift is correct</li>
+                            <li>• Verify inventory dispatches have been completed</li>
+                        </ul>
                     </div>
-                @endinteract
-
-                @interact('column_sku', $row)
-                    <div class="text-center">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-zinc-100 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200">
-                            {{ $row->item->sku ?? 'N/A' }}
-                        </span>
-                    </div>
-                @endinteract
-
-                @interact('column_dispatched_qty', $row)
-                    <div class="text-center">
-                        <span class="font-semibold text-zinc-900 dark:text-zinc-100">
-                            {{ number_format($row->quantity, 2) }}
-                        </span>
-                    </div>
-                @endinteract
-
-                @interact('column_uom', $row)
-                    <div class="text-center text-sm text-zinc-600 dark:text-zinc-400">
-                        {{ $row->uom ?? $row->item->unit ?? 'N/A' }}
-                    </div>
-                @endinteract
-
-                @interact('column_dispatch_time', $row)
-                    <div class="text-center text-sm text-zinc-600 dark:text-zinc-400">
-                        {{ $row->dispatch_time ? $row->dispatch_time->format('M d, H:i') : 'N/A' }}
-                    </div>
-                @endinteract
-
-                @interact('column_action', $row)
-                    <div class="flex justify-center">
-                        <button wire:click="openRawMaterialCallbackModal({{ $row->id }})"
-                            class="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-medium transition-colors">
-                            Return
-                        </button>
-                    </div>
-                @endinteract
-
-            </x-table>
+                </div>
+            @endif
         @endif
 
         <!-- Finished Products Table -->
         @if ($callbackType === 'finished_product')
-            <x-table :headers="$finishedProductHeaders" :rows="$finishedProducts" striped paginate persist
-                :filter="['quantity' => 'quantity', 'search' => 'search']" :quantity="[10, 20, 50, 100]">
+            @if($finishedProducts->count() > 0)
+                <x-table :headers="$finishedProductHeaders" :rows="$finishedProducts" striped paginate persist
+                    :filter="['quantity' => 'quantity', 'search' => 'search']" :quantity="[10, 20, 50, 100]">
 
-                @interact('column_product', $row)
-                    <div>
-                        <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $row->recipe->product->name ?? 'N/A' }}</div>
-                        <div class="text-xs text-zinc-500 dark:text-zinc-400">Recipe: {{ $row->recipe->name ?? 'N/A' }}</div>
+                    @interact('column_product', $row)
+                        <div>
+                            <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $row->recipe->product->name ?? 'N/A' }}</div>
+                            <div class="text-xs text-zinc-500 dark:text-zinc-400">Recipe: {{ $row->recipe->name ?? 'N/A' }}</div>
+                        </div>
+                    @endinteract
+
+                    @interact('column_sku', $row)
+                        <div class="text-center">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-zinc-100 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200">
+                                {{ $row->recipe->product->sku ?? 'N/A' }}
+                            </span>
+                        </div>
+                    @endinteract
+
+                    @interact('column_produced_qty', $row)
+                        <div class="text-center">
+                            <span class="font-semibold text-zinc-900 dark:text-zinc-100">
+                                {{ number_format($row->produced_quantity, 2) }}
+                            </span>
+                        </div>
+                    @endinteract
+
+                    @interact('column_uom', $row)
+                        <div class="text-center text-sm text-zinc-600 dark:text-zinc-400">
+                            {{ $row->recipe->product->unit ?? 'N/A' }}
+                        </div>
+                    @endinteract
+
+                    @interact('column_action', $row)
+                        <div class="flex justify-center">
+                            <button wire:click="openFinishedProductCallbackModal({{ $row->id }})"
+                                class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-medium transition-colors cursor-pointer shadow-sm hover:shadow-md">
+                                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                Report Issue
+                            </button>
+                        </div>
+                    @endinteract
+
+                </x-table>
+            @else
+                <div class="bg-zinc-50 dark:bg-zinc-900/30 border border-zinc-200 dark:border-zinc-700 rounded-lg p-8 text-center">
+                    <svg class="w-12 h-12 mx-auto text-zinc-400 dark:text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                    </svg>
+                    <h3 class="mt-4 text-lg font-medium text-zinc-900 dark:text-zinc-100">No Finished Products Available</h3>
+                    <p class="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+                        No finished products have been recorded for this shift yet.
+                        Products become available after they are produced and recorded in the system.
+                    </p>
+                    <div class="mt-6">
+                        <p class="text-sm text-zinc-500 dark:text-zinc-400">To create a finished product callback:</p>
+                        <ul class="mt-2 space-y-1 text-sm text-zinc-500 dark:text-zinc-400">
+                            <li>• Ensure products have been produced during this shift</li>
+                            <li>• Check that the shift is correct</li>
+                            <li>• Verify production records have been created</li>
+                        </ul>
                     </div>
-                @endinteract
-
-                @interact('column_sku', $row)
-                    <div class="text-center">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-zinc-100 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200">
-                            {{ $row->recipe->product->sku ?? 'N/A' }}
-                        </span>
-                    </div>
-                @endinteract
-
-                @interact('column_produced_qty', $row)
-                    <div class="text-center">
-                        <span class="font-semibold text-zinc-900 dark:text-zinc-100">
-                            {{ number_format($row->produced_quantity, 2) }}
-                        </span>
-                    </div>
-                @endinteract
-
-                @interact('column_uom', $row)
-                    <div class="text-center text-sm text-zinc-600 dark:text-zinc-400">
-                        {{ $row->recipe->product->unit ?? 'N/A' }}
-                    </div>
-                @endinteract
-
-                @interact('column_action', $row)
-                    <div class="flex justify-center">
-                        <button wire:click="openFinishedProductCallbackModal({{ $row->id }})"
-                            class="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-medium transition-colors">
-                            Report Issue
-                        </button>
-                    </div>
-                @endinteract
-
-            </x-table>
+                </div>
+            @endif
         @endif
 
         <!-- Help Panel -->
@@ -306,22 +353,19 @@
                                 Cancel
                             </button>
                             <button type="submit"
-                                x-data="{ loading: false }"
-                                @click="loading = true"
-                                :disabled="loading"
+                                wire:loading.attr="disabled"
+                                wire:target="submitCallback"
                                 class="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white rounded-lg font-medium transition-colors flex items-center">
-                                <template x-if="!loading">
-                                    <span>Submit Callback</span>
-                                </template>
-                                <template x-if="loading">
-                                    <span class="flex items-center gap-2">
-                                        <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        Submitting...
-                                    </span>
-                                </template>
+                                <span wire:loading.remove wire:target="submitCallback">
+                                    Submit Callback
+                                </span>
+                                <span wire:loading wire:target="submitCallback" class="flex items-center gap-2">
+                                    <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Submitting...
+                                </span>
                             </button>
                         </div>
                     </form>

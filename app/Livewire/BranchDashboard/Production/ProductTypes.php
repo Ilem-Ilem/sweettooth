@@ -79,7 +79,7 @@ class ProductTypes extends BaseComponent
 
     protected function getAllSelectableIds(): array
     {
-        return $this->getFilteredQuery()->pluck('id')->toArray();
+        return $this->getFilteredQuery()->select('id')->pluck('id')->toArray();
     }
 
     public function getBranchId()
@@ -89,13 +89,12 @@ class ProductTypes extends BaseComponent
 
     protected function getFilteredQuery()
     {
-
         return ProductType::query()
             ->when(!is_super_admin(), function ($query) {
                 $query->where('department_id', $this->department->id);
             })
-            ->with(['department', 'department.category'])
-            ->withCount('products')
+            ->with(['department:id,name,slug', 'department.category:id,name']) // Select only needed columns
+            ->withCount('products') // Use withCount instead of with and counting separately
             ->when($this->search, function ($query) {
                 $query->where('name', 'like', '%'.$this->search.'%')
                     ->orWhere('code', 'like', '%'.$this->search.'%')
@@ -232,27 +231,32 @@ class ProductTypes extends BaseComponent
     public function confirmedDelete(string $message): void
     {
         if ($this->productTypeId) {
-            $productType = ProductType::findOrFail($this->productTypeId);
+            $productType = ProductType::withTrashed()->find($this->productTypeId);
 
-            // Check if it has products
-            if ($productType->products()->count() > 0) {
-                $this->dialog()->error('Error', 'Cannot delete product type with associated products!')->send();
+            if ($productType) {
+                // Check if it has products
+                if ($productType->products()->count() > 0) {
+                    $this->dialog()->error('Error', 'Cannot delete product type with associated products!')->send();
 
-                return;
-            }
+                    return;
+                }
 
-            $productType->delete();
-            // Log the delete for super admin
-            if (is_super_admin()) {
-                \App\Services\AuditService::log(
-                    auth()->user(),
-                    'delete',
-                    $productType,
-                    'Super admin direct delete of product type'
-                );
+                $productType->delete();
+                // Log the delete for super admin
+                if (is_super_admin()) {
+                    \App\Services\AuditService::log(
+                        auth()->user(),
+                        'delete',
+                        $productType,
+                        'Super admin direct delete of product type'
+                    );
+                }
             }
             $this->dialog()->success('Success', 'Product type deleted successfully!')->send();
             $this->productTypeId = null;
+
+            // Clear selection after successful deletion
+            $this->resetBulkSelection();
         }
     }
 
@@ -273,7 +277,7 @@ class ProductTypes extends BaseComponent
 
     public function confirmedBulkDelete(string $message): void
     {
-        $productTypes = ProductType::whereIn('id', $this->selectedIds)
+        $productTypes = ProductType::withTrashed()->whereIn('id', $this->selectedIds)
             ->whereDoesntHave('products')
             ->get();
         ProductType::whereIn('id', $this->selectedIds)
@@ -293,7 +297,9 @@ class ProductTypes extends BaseComponent
         }
 
         $this->dialog()->success('Success', 'Product types deleted successfully!')->send();
-        $this->selectedIds = [];
+
+        // Clear selection after successful deletion
+        $this->resetBulkSelection();
     }
 
     public function cancelledBulkDelete(string $message): void

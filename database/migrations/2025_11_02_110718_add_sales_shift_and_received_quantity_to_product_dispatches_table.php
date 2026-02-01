@@ -13,11 +13,15 @@ return new class extends Migration
     {
         Schema::table('product_dispatches', function (Blueprint $table) {
             // Sales shift that received the dispatch
-            $table->unsignedBigInteger('sales_shift_id')->nullable()->after('production_shift_id');
-            $table->foreign('sales_shift_id')->references('id')->on('sales_shifts')->onDelete('set null');
+            if (!Schema::hasColumn('product_dispatches', 'sales_shift_id')) {
+                $table->unsignedBigInteger('sales_shift_id')->nullable()->after('production_shift_id');
+                $table->foreign('sales_shift_id')->references('id')->on('sales_shifts')->onDelete('set null');
+            }
 
             // Received quantity (may differ from dispatched quantity)
-            $table->decimal('received_quantity', 12, 2)->nullable()->after('quantity');
+            if (!Schema::hasColumn('product_dispatches', 'received_quantity')) {
+                $table->decimal('received_quantity', 12, 2)->nullable()->after('quantity');
+            }
         });
     }
 

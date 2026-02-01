@@ -233,9 +233,9 @@ class ApplyLeave extends BaseComponent
                 $balance->updateBalance();
             }
 
-            $this->toast()->success("Leave application {$leaveApplication->application_number} submitted successfully!")->send();
             $this->resetForm();
-            $this->redirect(branch_route('leave.my-leaves'));
+            $this->redirect(branch_route('leave.my-leaves', ['b_id' => $this->getBranchId()]), navigate: true);
+            $this->dispatch('leave-application-success', message: "Leave application {$leaveApplication->application_number} submitted successfully!");
         } catch (\Exception $e) {
             $this->toast()->error('Error submitting leave application: '.$e->getMessage())->send();
         }

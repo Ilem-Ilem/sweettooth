@@ -145,8 +145,7 @@ class Create extends Component
 
         DB::transaction(function () use ($employee, $branchId) {
             // Get or create shift for today
-            if(!is_super_admin()){
-                  $shift = Shift::firstOrCreate([
+            $shift = Shift::firstOrCreate([
                 'branch_id'     => $branchId,
                 'department_id' => $this->department->id,
                 'shift_date'    => today(),
@@ -156,7 +155,6 @@ class Create extends Component
                 'shift_number' => Shift::where('shift_date', today())->count() + 1,
                 'status'       => 'active',
             ]);
-            }
           
             // Create Item Request
             $deptCode      = strtoupper(substr($this->department->name ?? 'DEPT', 0, 4));
@@ -172,7 +170,7 @@ class Create extends Component
                 'requested_by_type' => get_class($employee),
                 'request_number'    => $requestNumber,
                 'request_date'      => today(),
-                'shift'             => is_super_admin() ? null : $this->currentShift,
+                'shift'             => $this->currentShift,
                 'status'            => 'pending',
                 'notes'             => $this->notes,
             ]);
@@ -192,7 +190,7 @@ class Create extends Component
 
                 // Create Production Request (store actual units, not batches)
                 ProductionRequest::create([
-                    'shift_id'                    => is_super_admin() ? null : $shift->id,
+                    'shift_id'                    => $shift->id, // Use shift even for super admin
                     'item_request_id'             => $itemRequest->id,
                     'recipe_id'                   => $recipe->id,
                     'planned_production_quantity' => $actualUnitsRequested, // Actual units (batches × yield)
