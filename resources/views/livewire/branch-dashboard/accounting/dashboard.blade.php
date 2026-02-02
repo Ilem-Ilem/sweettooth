@@ -22,7 +22,7 @@
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <a href="{{ route('branch-dashboard.accounting.accounts') }}" class="bg-white dark:bg-zinc-800 rounded-lg shadow-md p-4 hover:shadow-lg transition border-l-4 border-indigo-500 hover:border-indigo-600">
             <p class="text-sm font-semibold text-zinc-600 dark:text-zinc-400 mb-1">Chart of Accounts</p>
-            <p class="text-lg text-indigo-600 dark:text-indigo-400 font-medium">Manage GL Accounts</p>
+            <p class="text-lg text-indigo-600 dark:text-indigo-400 font-medium">Manage General Ledger Accounts</p>
         </a>
 
         <a href="{{ route('branch-dashboard.accounting.periods') }}" class="bg-white dark:bg-zinc-800 rounded-lg shadow-md p-4 hover:shadow-lg transition border-l-4 border-cyan-500 hover:border-cyan-600">
@@ -137,7 +137,7 @@
 
     <!-- Recent GL Entries -->
     <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-md p-6">
-        <h3 class="text-lg font-semibold text-zinc-900 dark:text-white mb-4">Recent GL Entries</h3>
+        <h3 class="text-lg font-semibold text-zinc-900 dark:text-white mb-4">Recent General Ledger Entries</h3>
         
         @if ($recentEntries->count() > 0)
             <div class="overflow-x-auto">
@@ -168,7 +168,7 @@
             </div>
         @else
             <div class="p-4 bg-zinc-50 dark:bg-zinc-700/30 border border-zinc-200 dark:border-zinc-700 rounded text-center text-zinc-500 dark:text-zinc-400">
-                No GL entries posted yet
+                No General Ledger entries posted yet
             </div>
         @endif
     </div>

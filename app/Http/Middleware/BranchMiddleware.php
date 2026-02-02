@@ -1,6 +1,7 @@
 <?php
 namespace App\Http\Middleware;
 
+use App\Services\AuthService;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -26,14 +27,9 @@ class BranchMiddleware
         $b_id = $request->query('b_id');
         $user = Auth::user();
 
-        // Super admins can specify branch or get default
-        // Check for all super admin equivalent roles (MD, Super Admin, Admin, etc)
-        $isSuperAdmin = $user && $user->hasAnyRole([
-            'Super Admin', 'super-admin', 'super_admin',
-            'MD', 'Managing Director',
-            'Admin', 'admin'
-        ]);
-        
+        // Use the unified AuthService to check for super admin status
+        $isSuperAdmin = AuthService::isSuperAdmin();
+
         if ($isSuperAdmin) {
             // MD and other super admins can access all branches
             if (empty($b_id)) {

@@ -2,8 +2,12 @@
     <h2 class="text-2xl font-bold mb-6 text-zinc-900 dark:text-zinc-100">Currency & Localization</h2>
     
     @if (session()->has('message'))
-        <div class="mb-4 p-4 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-100 rounded-lg">
-            {{ session('message') }}
+        <div x-data="{ show: true }" x-show="show" x-init="setTimeout(() => show = false, 5000)"
+             class="mb-4 p-4 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-100 rounded-lg transition-opacity duration-300">
+            <div class="flex justify-between items-center">
+                <span>{{ session('message') }}</span>
+                <button @click="show = false" class="text-green-700 dark:text-green-100">&times;</button>
+            </div>
         </div>
     @endif
 
@@ -71,7 +75,7 @@
                 <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors duration-200">
                     Save Changes
                 </button>
-                <button type="button" class="bg-zinc-500 hover:bg-zinc-700 text-white font-bold py-2 px-4 rounded transition-colors duration-200">
+                <button type="button" wire:click="cancel" class="bg-zinc-500 hover:bg-zinc-700 text-white font-bold py-2 px-4 rounded transition-colors duration-200">
                     Cancel
                 </button>
             </div>

@@ -2,7 +2,7 @@
     <div class="flex justify-between items-center">
         <div>
             <h1 class="text-3xl font-bold text-gray-900">Bank Reconciliation</h1>
-            <p class="mt-2 text-gray-600">Match GL entries with bank transactions</p>
+            <p class="mt-2 text-gray-600">Match General Ledger entries with bank transactions</p>
         </div>
     </div>
 
@@ -116,10 +116,10 @@
 
         <!-- Unmatched Items -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- GL Entries -->
+            <!-- General Ledger Entries -->
             <div class="bg-white rounded-lg shadow overflow-hidden">
                 <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
-                    <h3 class="font-semibold text-gray-900">GL Entries (Not Reconciled)</h3>
+                    <h3 class="font-semibold text-gray-900">General Ledger Entries (Not Reconciled)</h3>
                 </div>
 
                 @if (count($unmatchedGlItems) > 0)
@@ -148,7 +148,7 @@
                     </div>
                 @else
                     <div class="px-6 py-8 text-center">
-                        <p class="text-gray-500">No unmatched GL entries for this period.</p>
+                        <p class="text-gray-500">No unmatched General Ledger entries for this period.</p>
                     </div>
                 @endif
             </div>
@@ -193,7 +193,7 @@
             <h3 class="font-semibold text-blue-900 mb-2">How to Reconcile</h3>
             <ol class="list-decimal list-inside space-y-2 text-sm text-blue-800">
                 <li>Enter the statement date and closing balance from your bank statement</li>
-                <li>Review GL entries and bank transactions in the lists above</li>
+                <li>Review General Ledger entries and bank transactions in the lists above</li>
                 <li>Click "Auto-Match" to automatically match items by amount and date</li>
                 <li>Manually match any remaining items by selecting them from both lists</li>
                 <li>When the difference becomes zero, reconciliation is complete</li>

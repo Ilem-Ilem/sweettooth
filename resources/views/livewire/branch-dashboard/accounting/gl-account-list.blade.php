@@ -2,7 +2,7 @@
     <!-- Header -->
     <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-md p-6">
         <h1 class="text-3xl font-bold text-zinc-900 dark:text-white mb-2">Chart of Accounts</h1>
-        <p class="text-zinc-600 dark:text-zinc-400">Manage GL accounts and their statuses</p>
+        <p class="text-zinc-600 dark:text-zinc-400">Manage General Ledger accounts and their statuses</p>
     </div>
 
     <!-- Filters & Search -->

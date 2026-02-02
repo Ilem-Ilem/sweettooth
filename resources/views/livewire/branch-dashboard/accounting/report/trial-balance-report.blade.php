@@ -110,7 +110,7 @@
                     </svg>
                 </div>
                 <h3 class="text-lg font-semibold text-zinc-700 dark:text-zinc-300 mb-2">No Data Available</h3>
-                <p class="text-zinc-500 dark:text-zinc-400">No GL entries have been posted for this period. Post transactions from Sales, Purchases, or create manual journal entries.</p>
+                <p class="text-zinc-500 dark:text-zinc-400">No General Ledger entries have been posted for this period. Post transactions from Sales, Purchases, or create manual journal entries.</p>
                 <div class="mt-4 flex justify-center gap-3">
                     <a href="{{ route('branch-dashboard.accounting.journal-entry') }}" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
                         Create Journal Entry

@@ -6,6 +6,7 @@ use App\Livewire\BaseComponent;
 use App\Models\ProductStock;
 use App\Models\Product;
 use App\Models\Shift;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\{Layout, On, Url};
 use Livewire\WithPagination;
@@ -121,7 +122,15 @@ class StockMonitor extends BaseComponent
     public function getRowsProperty()
     {
         if (!$this->currentShiftId) {
-            return collect([])->paginate($this->quantity);
+            $page = request()->get('page', 1);
+            $paginated = new LengthAwarePaginator(
+                collect([]),
+                0,
+                $this->quantity,
+                $page,
+                ['path' => request()->url(), 'query' => request()->query()]
+            );
+            return $paginated;
         }
 
         $query = ProductStock::with(['product', 'salesShift'])
@@ -138,11 +147,27 @@ class StockMonitor extends BaseComponent
 
         // Status filter (shelf life)
         if ($this->filterStatus) {
-            $allRecords = $query->get()->filter(function ($stock) {
-                return $stock->getShelfLifeStatus() === $this->filterStatus;
-            });
+            $filteredStocks = [];
+            $stocks = $query->get();
 
-            return $allRecords->paginate($this->quantity);
+            foreach ($stocks as $stock) {
+                if ($stock->getShelfLifeStatus() === $this->filterStatus) {
+                    $filteredStocks[] = $stock;
+                }
+            }
+
+            // Convert back to a collection and paginate manually
+            $collection = collect($filteredStocks);
+            $page = request()->get('page', 1);
+
+            $paginated = new LengthAwarePaginator(
+                $collection->forPage($page, $this->quantity),
+                $collection->count(),
+                $this->quantity,
+                $page,
+                ['path' => request()->url(), 'query' => request()->query()]
+            );
+            return $paginated;
         }
 
         return $query->paginate($this->quantity);

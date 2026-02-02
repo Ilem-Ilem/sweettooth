@@ -64,6 +64,23 @@ class DatabaseSeeder extends Seeder
             // 12. UI Pages
             DepartmentPageSeeder::class,
             SalesPagesSeeder::class,
+
+            // 13. Accounting Setup (after basic business entities)
+            AccountingPeriodSeeder::class,
+            ChartOfAccountsSeeder::class,
+            GlAccountSeeder::class,
+
+            // 14. Banking Setup (after General Ledger accounts are created)
+            BankAccountSeeder::class,
+
+            // 15. Sample General Ledger Entries (after periods and accounts are created)
+            GlEntrySeeder::class,  // Note: Still refers to GlEntry but represents General Ledger entries
+
+            // 16. Global Business Configuration
+            GlobalBusinessConfigurationSeeder::class,
+
+            // 17. Comprehensive Dummy Data
+            AdditionalDummyDataSeeder::class,
         ]);
     }
 }

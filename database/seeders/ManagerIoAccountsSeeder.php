@@ -9,7 +9,7 @@ class ManagerIoAccountsSeeder extends Seeder
 {
     /**
      * Run the database seeds.
-     * Adds GL accounts required by the Manager.io-inspired accounting features.
+     * Adds General Ledger accounts required by the Manager.io-inspired accounting features.
      * These accounts supplement the existing chart of accounts.
      */
     public function run(): void
@@ -23,7 +23,7 @@ class ManagerIoAccountsSeeder extends Seeder
             );
         }
 
-        $this->command->info('Manager.io GL accounts seeded successfully.');
+        $this->command->info('Manager.io General Ledger accounts seeded successfully.');
     }
 
     /**
@@ -34,7 +34,7 @@ class ManagerIoAccountsSeeder extends Seeder
         return [
             // ==================== ASSET ACCOUNTS ====================
 
-            // Cash accounts used by GlPostingService
+            // Cash accounts used by General Ledger Posting Service
             [
                 'account_number' => '1010',
                 'account_name' => 'Cash - Head Office',

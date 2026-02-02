@@ -41,5 +41,5 @@ Thank you for your purchase! Please find your invoice details below.
 Thank you for your business!
 
 Best regards,<br>
-{{ config('app.name') }}
+{{ \App\Helpers\Settings::businessConfiguration('business_name', config('app.name')) }}
 </x-mail::message>

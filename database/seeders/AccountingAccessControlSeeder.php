@@ -21,15 +21,15 @@ class AccountingAccessControlSeeder extends Seeder
             'access_accounting' => 'Access accounting module',
             'view_financial_reports' => 'View financial reports',
 
-            // GL Account Management
-            'manage_accounts' => 'Manage GL accounts',
-            'view_gl_accounts' => 'View GL accounts',
-            'create_gl_accounts' => 'Create GL accounts',
-            'edit_gl_accounts' => 'Edit GL accounts',
-            'delete_gl_accounts' => 'Delete GL accounts',
+            // General Ledger Account Management
+            'manage_accounts' => 'Manage General Ledger accounts',
+            'view_gl_accounts' => 'View General Ledger accounts',
+            'create_gl_accounts' => 'Create General Ledger accounts',
+            'edit_gl_accounts' => 'Edit General Ledger accounts',
+            'delete_gl_accounts' => 'Delete General Ledger accounts',
 
-            // GL Entries & Journal
-            'view_gl_entries' => 'View GL entries',
+            // General Ledger Entries & Journal
+            'view_gl_entries' => 'View General Ledger entries',
             'create_journal_entries' => 'Create manual journal entries',
             'approve_gl_entries' => 'Approve pending journal entries',
             'reverse_gl_entries' => 'Reverse posted journal entries',
@@ -74,9 +74,9 @@ class AccountingAccessControlSeeder extends Seeder
             'view_aging_reports' => 'View aging reports (AR/AP)',
 
             // Transaction Linking
-            'link_sales_to_gl' => 'Link sales transactions to GL',
-            'link_purchases_to_gl' => 'Link purchases to GL',
-            'link_payments_to_gl' => 'Link payments to GL',
+            'link_sales_to_gl' => 'Link sales transactions to General Ledger',
+            'link_purchases_to_gl' => 'Link purchases to General Ledger',
+            'link_payments_to_gl' => 'Link payments to General Ledger',
         ];
 
         // Create all permissions for unified web guard system

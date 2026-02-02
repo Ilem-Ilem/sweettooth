@@ -1,8 +1,8 @@
 <div class="space-y-6">
     <!-- Header -->
     <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-md p-6">
-        <h1 class="text-3xl font-bold text-zinc-900 dark:text-white mb-2">Manual Journal Entry</h1>
-        <p class="text-zinc-600 dark:text-zinc-400">Create and post manual journal entries</p>
+        <h1 class="text-3xl font-bold text-zinc-900 dark:text-white mb-2">Manual General Ledger Entry</h1>
+        <p class="text-zinc-600 dark:text-zinc-400">Create and post manual general ledger entries</p>
     </div>
 
     @if (session()->has('success'))

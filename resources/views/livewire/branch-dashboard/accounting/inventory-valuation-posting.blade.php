@@ -105,7 +105,7 @@
                                 <div>
                                     <h4 class="font-semibold text-zinc-900 dark:text-white">{{ $category['name'] }}</h4>
                                     <p class="text-sm text-zinc-500 dark:text-zinc-400">
-                                        GL Account: {{ $category['gl_account'] }} | Items: {{ count($category['items']) }} | Qty: {{ number_format($category['total_qty'], 2) }}
+                                        General Ledger Account: {{ $category['gl_account'] }} | Items: {{ count($category['items']) }} | Qty: {{ number_format($category['total_qty'], 2) }}
                                     </p>
                                 </div>
                             </div>

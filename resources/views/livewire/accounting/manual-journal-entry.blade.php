@@ -65,7 +65,7 @@
                         <table class="w-full">
                             <thead class="bg-gray-200">
                                 <tr>
-                                    <th class="px-4 py-2 text-left">GL Account</th>
+                                    <th class="px-4 py-2 text-left">General Ledger Account</th>
                                     <th class="px-4 py-2 text-right">Debit</th>
                                     <th class="px-4 py-2 text-right">Credit</th>
                                     <th class="px-4 py-2 text-center">Action</th>

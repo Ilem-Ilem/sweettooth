@@ -34,7 +34,7 @@
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <a href="{{ route('branch-dashboard.accounting.accounts') }}" class="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition border-l-4 border-indigo-500">
             <p class="text-sm font-semibold text-gray-600 mb-1">Chart of Accounts</p>
-            <p class="text-lg text-indigo-600">Manage GL Accounts</p>
+            <p class="text-lg text-indigo-600">Manage General Ledger Accounts</p>
         </a>
 
         <a href="{{ route('branch-dashboard.accounting.periods') }}" class="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition border-l-4 border-cyan-500">
@@ -140,7 +140,7 @@
 
     <!-- Recent Entries -->
     <div class="bg-white rounded-lg shadow-md p-6">
-        <h3 class="text-lg font-bold mb-4">Recent GL Entries</h3>
+        <h3 class="text-lg font-bold mb-4">Recent General Ledger Entries</h3>
         
         @if (!empty($recentEntries))
             <div class="overflow-x-auto">
@@ -171,7 +171,7 @@
             </div>
         @else
             <div class="p-4 bg-gray-50 border border-gray-200 rounded text-center text-gray-500">
-                No GL entries yet
+                No General Ledger entries yet
             </div>
         @endif
     </div>

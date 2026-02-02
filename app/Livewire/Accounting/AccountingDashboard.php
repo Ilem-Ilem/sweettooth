@@ -9,7 +9,9 @@ use App\Services\AccountingReportService;
 use App\Services\CurrencyFormattingService;
 use Livewire\Component;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Layout;
 
+#[Layout('components.layouts.app.branch-dashboard')]
 class AccountingDashboard extends Component
 {
     public ?AccountingPeriod $selectedPeriod = null;
@@ -21,10 +23,13 @@ class AccountingDashboard extends Component
     public function mount()
     {
         $this->reportService = app(AccountingReportService::class);
-        $this->selectedPeriod = AccountingPeriod::where('status', 'open')
+
+        // Get current period with branch context if needed
+        $query = AccountingPeriod::where('status', 'open')
             ->where('period_start', '<=', now())
-            ->where('period_end', '>=', now())
-            ->first();
+            ->where('period_end', '>=', now());
+
+        $this->selectedPeriod = $query->first();
 
         if ($this->selectedPeriod) {
             $this->loadReport();

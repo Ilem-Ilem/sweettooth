@@ -216,20 +216,89 @@ abstract class Settings
 
     /**
      * Get value from model with priority logic
+     * Priority: Branch settings (when available and set) > Global settings (fallback)
+     * Special handling for BranchBusinessConfiguration model which stores some settings in nested arrays
      */
     private static function getKeyFromModel(?Model $branchModel, ?Model $globalModel, string $key, $default = null)
     {
-        // If authenticated as employee, prioritize branch settings
-        if (auth()->id() != null) {
-            if ($branchModel == null && $globalModel != null) {
-                return $globalModel->$key ?? $default;
-            } else if ($branchModel != null) {
-                return $branchModel->$key ?? $default;
+        // Special handling for BranchBusinessConfiguration model
+        if ($branchModel !== null) {
+            if ($branchModel instanceof BranchBusinessConfiguration) {
+                // Handle keys that are stored in nested arrays in BranchBusinessConfiguration
+                switch ($key) {
+                    case 'auto_backup':
+                    case 'backup_interval':
+                    case 'backup_period':
+                        $storageSettings = $branchModel->storage_settings ?? [];
+                        $value = $storageSettings[$key] ?? null;
+                        if ($value !== null && $value !== '') {
+                            return $value;
+                        }
+                        break;
+                    case 'phone':
+                    case 'email':
+                    case 'vat_number':
+                        $contactDetails = $branchModel->contact_details ?? [];
+                        $value = $contactDetails[$key] ?? null;
+                        if ($value !== null && $value !== '') {
+                            return $value;
+                        }
+                        break;
+                    case 'business_name': // Alias for company_name
+                        $branchValue = data_get($branchModel, 'company_name');
+                        if ($branchValue !== null && $branchValue !== '') {
+                            return $branchValue;
+                        }
+                        break;
+                    default:
+                        $branchValue = data_get($branchModel, $key);
+                        if ($branchValue !== null && $branchValue !== '') {
+                            return $branchValue;
+                        }
+                }
+            } else {
+                // For other models, use standard data_get
+                $branchValue = data_get($branchModel, $key);
+                if ($branchValue !== null && $branchValue !== '') {
+                    return $branchValue;
+                }
             }
         }
 
         // Fallback to global settings
-        return $globalModel->$key ?? $default;
+        if ($globalModel !== null) {
+            if ($globalModel instanceof GlobalBusinessConfiguration) {
+                // Handle keys that are stored in nested arrays in GlobalBusinessConfiguration
+                switch ($key) {
+                    case 'phone':
+                    case 'email':
+                    case 'vat_number':
+                        $contactDetails = $globalModel->contact_details ?? [];
+                        $value = $contactDetails[$key] ?? null;
+                        if ($value !== null && $value !== '') {
+                            return $value;
+                        }
+                        break;
+                    case 'auto_backup':
+                    case 'backup_interval':
+                    case 'backup_period':
+                        // These are direct properties in GlobalBusinessConfiguration
+                        $globalValue = data_get($globalModel, $key);
+                        return $globalValue ?? $default;
+                    case 'business_name': // Alias for company_name
+                        $globalValue = data_get($globalModel, 'company_name');
+                        return $globalValue ?? $default;
+                    default:
+                        $globalValue = data_get($globalModel, $key);
+                        return $globalValue ?? $default;
+                }
+            } else {
+                $globalValue = data_get($globalModel, $key);
+                return $globalValue ?? $default;
+            }
+        }
+
+        return $default;
     }
 
     /**

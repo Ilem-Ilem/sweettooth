@@ -5,7 +5,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#10b981">
 
-<title>{{ $title ?? config('app.name') }}</title>
+<title>{{ $title ?? \App\Helpers\Settings::businessConfiguration('business_name', config('app.name')) }}</title>
 <meta name="description" content="Sweet Tooth Point of Sale and Management System">
 
 <!-- PWA Manifest -->

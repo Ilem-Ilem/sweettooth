@@ -7,7 +7,7 @@
             </svg>
             <div>
                 <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Bank Reconciliation</h1>
-                <p class="text-sm text-zinc-600 dark:text-zinc-400">Match GL entries with bank transactions</p>
+                <p class="text-sm text-zinc-600 dark:text-zinc-400">Match General Ledger entries with bank transactions</p>
             </div>
         </div>
     </div>
@@ -229,7 +229,7 @@
 
     <!-- Three Column Layout -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <!-- GL Entries Column -->
+        <!-- General Ledger Entries Column -->
         <div class="lg:col-span-5">
             <div class="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm">
                 <div class="px-4 py-3 border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50">
@@ -237,7 +237,7 @@
                         <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
                         </svg>
-                        GL Entries ({{ count($glEntries) }})
+                        General Ledger Entries ({{ count($glEntries) }})
                     </h4>
                 </div>
                 <div class="max-h-96 overflow-y-auto">
@@ -266,7 +266,7 @@
                             <svg class="w-12 h-12 text-zinc-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                             </svg>
-                            <p class="text-sm text-zinc-500 dark:text-zinc-400">All GL entries have been reconciled!</p>
+                            <p class="text-sm text-zinc-500 dark:text-zinc-400">All General Ledger entries have been reconciled!</p>
                         </div>
                     @endif
                 </div>

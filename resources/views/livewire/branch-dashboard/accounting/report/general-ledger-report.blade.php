@@ -26,7 +26,7 @@
                 <input type="date" wire:model.live="endDate" class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white">
             </div>
             <div>
-                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">GL Account</label>
+                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">General Ledger Account</label>
                 <select wire:model.live="glAccountId" class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white">
                     <option value="">All Accounts</option>
                     @foreach ($glAccounts as $account)

@@ -81,6 +81,7 @@ class BusinessConfiguration extends Component
                 'vat_number' => $this->vatNumber,
             ];
 
+            // Store backup settings in the same format as BranchBusinessConfiguration for consistency
             $settings->auto_backup = $this->auto_backup;
             $settings->backup_interval = $this->backup_interval;
             $settings->backup_period = $this->backup_period;

@@ -5,7 +5,7 @@
         <!-- Filters -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">GL Account</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1">General Ledger Account</label>
                 <select wire:model="selectedAccountId" class="w-full px-3 py-2 border border-gray-300 rounded-md">
                     <option value="">All Accounts</option>
                     @foreach ($accounts as $account)
