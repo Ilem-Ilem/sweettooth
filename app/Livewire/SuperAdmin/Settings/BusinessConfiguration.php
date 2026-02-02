@@ -29,7 +29,7 @@ class BusinessConfiguration extends Component
         'email' => 'nullable|email|max:255',
         'vatNumber' => 'nullable|string|max:50',
         'auto_backup' => 'boolean',
-        'backup_interval' => 'nullable|string|max:50',
+        'backup_interval' => 'nullable|integer|min:1|max:999',
         'backup_period' => 'nullable|string|max:50',
     ];
 
@@ -87,6 +87,11 @@ class BusinessConfiguration extends Component
             $settings->backup_period = $this->backup_period;
 
             $settings->save();
+
+            // Update existingLogo to reflect the new logo that was just saved
+            if ($this->logo) {
+                $this->existingLogo = $settings->logo_upload;
+            }
 
             // Reset the file input
             $this->logo = null;

@@ -39,6 +39,11 @@ Route::middleware(['auth'])->group(function () {
     });
 });
 
+// Dynamic favicon routes
+Route::get('/favicon.ico', [App\Http\Controllers\FaviconController::class, 'getFavicon']);
+Route::get('/favicon.svg', [App\Http\Controllers\FaviconController::class, 'getSvgFavicon']);
+Route::get('/apple-touch-icon.png', [App\Http\Controllers\FaviconController::class, 'getAppleTouchIcon']);
+
 require __DIR__.'/auth.php';
 require __DIR__.'/super-admin.php';
 require __DIR__.'/branch-route.php';

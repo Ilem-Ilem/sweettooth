@@ -108,9 +108,11 @@
                             </div>
 
                              <div class="mt-6 flex gap-2">
+                                 @can('manage_organization')
                                  <a href="{{ route('branch-dashboard.appraise-employee', ['employee' => $employee->id, 'b_id' => request()->query('b_id')]) }}" class="flex-1 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition text-center">
                                      Appraise
                                  </a>
+                                 @endcan
                                  <a href="{{ route('branch-dashboard.employee-appraisal-history', ['employee' => $employee->id, 'b_id' => request()->query('b_id')]) }}" class="flex-1 px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition text-center">
                                      History
                                  </a>
