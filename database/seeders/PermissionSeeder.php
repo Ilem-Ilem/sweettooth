@@ -161,6 +161,13 @@ class PermissionSeeder extends Seeder
             ['name' => 'manage_periods', 'description' => 'Manage accounting periods', 'category' => 'accounting'],
             ['name' => 'create_journal_entries', 'description' => 'Create journal entries', 'category' => 'accounting'],
             ['name' => 'reconcile_bank_accounts', 'description' => 'Reconcile bank accounts', 'category' => 'accounting'],
+
+            // ===== SHIFT MANAGEMENT PERMISSIONS =====
+            ['name' => 'manage_shifts', 'description' => 'Manage shift configurations and assignments', 'category' => 'hr'],
+            ['name' => 'configure_shifts', 'description' => 'Configure shift types and schedules', 'category' => 'hr'],
+            ['name' => 'assign_shifts', 'description' => 'Assign employees to shifts', 'category' => 'hr'],
+            ['name' => 'view_shift_analytics', 'description' => 'View shift analytics and reports', 'category' => 'hr'],
+            ['name' => 'override_shifts', 'description' => 'Override shift assignments and times', 'category' => 'hr'],
         ];
 
         // Create all permissions

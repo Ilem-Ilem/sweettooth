@@ -66,24 +66,24 @@ class EmployeeHistory extends BaseComponent
         $branchId = $this->b_id ?: current_branch_id();
 
         $query = Shift::query()
-            ->where('branch_id', $branchId)
-            ->where('employee_id', $this->employee)
+            ->where('shifts.branch_id', $branchId)
+            ->where('shifts.employee_id', $this->employee)
             ->with(['employee', 'department'])
             ->whereNotNull('clock_in')
-            ->orderByDesc('shift_date')
-            ->orderByDesc('clock_in');
+            ->orderByDesc('shifts.shift_date')
+            ->orderByDesc('shifts.clock_in');
 
         // Date range filter
         if ($this->dateFrom) {
-            $query->whereDate('shift_date', '>=', $this->dateFrom);
+            $query->whereDate('shifts.shift_date', '>=', $this->dateFrom);
         }
         if ($this->dateTo) {
-            $query->whereDate('shift_date', '<=', $this->dateTo);
+            $query->whereDate('shifts.shift_date', '<=', $this->dateTo);
         }
 
         // Department filter
         if ($this->selectedDepartment) {
-            $query->where('department_id', $this->selectedDepartment);
+            $query->where('shifts.department_id', $this->selectedDepartment);
         }
 
         return $query;

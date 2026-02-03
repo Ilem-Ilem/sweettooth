@@ -60,21 +60,21 @@ class GeneralClockInBoard extends BaseComponent
         $branchId = $this->b_id ?: current_branch_id();
 
         $query = Shift::query()
-            ->where('branch_id', $branchId)
+            ->where('shifts.branch_id', $branchId)
             ->with(['employee', 'department'])
             ->whereNotNull('clock_in'); // Only those who clocked in
 
         // Date range filter
         if ($this->dateFrom) {
-            $query->whereDate('shift_date', '>=', $this->dateFrom);
+            $query->whereDate('shifts.shift_date', '>=', $this->dateFrom);
         }
         if ($this->dateTo) {
-            $query->whereDate('shift_date', '<=', $this->dateTo);
+            $query->whereDate('shifts.shift_date', '<=', $this->dateTo);
         }
 
         // Filter by department
         if ($this->selectedDepartment) {
-            $query->where('department_id', $this->selectedDepartment);
+            $query->where('shifts.department_id', $this->selectedDepartment);
         }
 
         // Search by employee name or email
@@ -96,8 +96,8 @@ class GeneralClockInBoard extends BaseComponent
                 ->orderBy('departments.name', $this->sortDirection)
                 ->select('shifts.*');
         } else {
-            $query->orderBy('shift_date', $this->sortDirection)
-                ->orderBy('clock_in', $this->sortDirection);
+            $query->orderBy('shifts.shift_date', $this->sortDirection)
+                ->orderBy('shifts.clock_in', $this->sortDirection);
         }
 
         return $query;

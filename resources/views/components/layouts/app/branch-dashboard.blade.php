@@ -86,6 +86,30 @@
                     {{ __('Roles & Permissions') }}
                 </flux:navlist.item>
 
+                <flux:navlist.group :heading="__('Shift Management')" expandable
+                    :expanded="request()->routeIs('branch-dashboard.shift-management.*')" class="grid">
+                    <flux:navlist.item icon="clock" :href="branch_route('branch-dashboard.shift-management.index')"
+                        :current="request()->routeIs('branch-dashboard.shift-management.index')" wire:navigate>
+                        {{ __('Shift Dashboard') }}
+                    </flux:navlist.item>
+                    <flux:navlist.item icon="cog" :href="branch_route('branch-dashboard.shift-management.configuration')"
+                        :current="request()->routeIs('branch-dashboard.shift-management.configuration')" wire:navigate>
+                        {{ __('Shift Configuration') }}
+                    </flux:navlist.item>
+                    <flux:navlist.item icon="user-group" :href="branch_route('branch-dashboard.shift-management.assignment')"
+                        :current="request()->routeIs('branch-dashboard.shift-management.assignment')" wire:navigate>
+                        {{ __('Shift Assignment') }}
+                    </flux:navlist.item>
+                    <flux:navlist.item icon="calendar" :href="branch_route('branch-dashboard.shift-management.calendar')"
+                        :current="request()->routeIs('branch-dashboard.shift-management.calendar')" wire:navigate>
+                        {{ __('Shift Calendar') }}
+                    </flux:navlist.item>
+                    <flux:navlist.item icon="exclamation-triangle" :href="branch_route('branch-dashboard.shift-management.overrides')"
+                        :current="request()->routeIs('branch-dashboard.shift-management.overrides')" wire:navigate>
+                        {{ __('Shift Overrides') }}
+                    </flux:navlist.item>
+                </flux:navlist.group>
+
                 <flux:navlist.group :heading="__('Branch Management')" expandable
                     :expanded="request()->routeIs('branch-dashboard.branches.*')" class="grid">
                     <flux:navlist.item icon="building-office-2" :href="branch_route('branch-dashboard.branches.index')"

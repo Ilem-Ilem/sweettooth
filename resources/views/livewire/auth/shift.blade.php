@@ -150,35 +150,25 @@
                 x-transition:leave-end="opacity-0 transform scale-95"
                 x-cloak
             >
-                <div
-                    @click="selectedShift = 'Morning Shift (6 AM - 12 PM)';
-                            isOpen = false;
-                            $wire.set('shift_type', 'morning');"
-                    class="shift-option px-6 py-4 cursor-pointer text-gray-900 dark:text-gray-200 rounded-t-xl border-b border-gray-200 dark:border-zinc-700 transition duration-200"
-                >
-                    <div class="font-semibold">Morning Shift</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">6:00 AM - 12:00 PM (Strict)</div>
-                </div>
-
-                <div
-                    @click="selectedShift = 'Afternoon Shift (12 PM - 8 PM)';
-                            isOpen = false;
-                            $wire.set('shift_type', 'afternoon');"
-                    class="shift-option px-6 py-4 cursor-pointer text-gray-900 dark:text-gray-200 border-b border-gray-200 dark:border-zinc-700 transition duration-200"
-                >
-                    <div class="font-semibold">Afternoon Shift</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">12:00 PM - 8:00 PM (Strict)</div>
-                </div>
-
-                <div
-                    @click="selectedShift = 'Full Time (No Shift)';
-                            $wire.set('shift_type', 'full_time');
-                            isOpen = false;"
-                    class="shift-option px-6 py-4 cursor-pointer text-gray-900 dark:text-gray-200 rounded-b-xl transition duration-200"
-                >
-                    <div class="font-semibold">Full Time</div>
-                    <div class="text-sm text-gray-600 dark:text-gray-400">No time restrictions</div>
-                </div>
+                @forelse($availableShifts as $index => $shiftConfig)
+                    <div
+                        @click="selectedShift = '{{ addslashes($shiftConfig->name) }} ({{ $shiftConfig->start_time }} - {{ $shiftConfig->end_time }})';
+                                isOpen = false;
+                                $wire.set('shift_config_id', {{ $shiftConfig->id }});"
+                        class="shift-option px-6 py-4 cursor-pointer text-gray-900 dark:text-gray-200 {{ $index === 0 ? 'rounded-t-xl' : '' }} {{ $loop->last ? 'rounded-b-xl' : 'border-b border-gray-200 dark:border-zinc-700' }} transition duration-200"
+                    >
+                        <div class="font-semibold">{{ $shiftConfig->name }}</div>
+                        <div class="text-sm text-gray-600 dark:text-gray-400">{{ $shiftConfig->start_time }} - {{ $shiftConfig->end_time }}
+                            @if($shiftConfig->auto_clock_out_minutes > 0)
+                                (Auto-clock-out after {{ $shiftConfig->auto_clock_out_minutes }} mins)
+                            @endif
+                        </div>
+                    </div>
+                @empty
+                    <div class="px-6 py-4 text-gray-500 dark:text-gray-400 text-center">
+                        No shift configurations available for this branch
+                    </div>
+                @endforelse
             </div>
         </div>
 

@@ -133,6 +133,15 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
     // Shift Selection functionality
     Route::get('auth/shift', \App\Livewire\Auth\Shift::class)->name('select_shift');
 
+    // SHIFT MANAGEMENT (Admin and Super Admin Only)
+    Route::middleware(['role_or_permission:manage_shifts'])->prefix('shift-management')->name('shift-management.')->group(function () {
+        Route::get('/', \App\Livewire\BranchDashboard\ShiftManagement\Index::class)->name('index');
+        Route::get('/configuration', \App\Livewire\BranchDashboard\ShiftManagement\ShiftConfiguration::class)->name('configuration');
+        Route::get('/assignment', \App\Livewire\BranchDashboard\ShiftManagement\ShiftAssignment::class)->name('assignment');
+        Route::get('/calendar', \App\Livewire\BranchDashboard\ShiftManagement\ShiftCalendar::class)->name('calendar');
+        Route::get('/overrides', \App\Livewire\BranchDashboard\ShiftManagement\ShiftOverrides::class)->name('overrides');
+    });
+
     // Routes requiring active shift (all work functions)
     Route::middleware(['require_active_shift'])->group(function () {
         // Inventory routes

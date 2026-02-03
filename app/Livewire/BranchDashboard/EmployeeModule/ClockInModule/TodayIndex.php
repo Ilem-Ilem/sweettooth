@@ -50,14 +50,14 @@ class TodayIndex extends BaseComponent
         $branchId = $this->b_id ?: current_branch_id();
 
         $query = Shift::query()
-            ->where('branch_id', $branchId)
-            ->whereDate('shift_date', today())
+            ->where('shifts.branch_id', $branchId)
+            ->whereDate('shifts.shift_date', today())
             ->with(['employee', 'department'])
             ->whereNotNull('clock_in'); // Only those who clocked in
 
         // Filter by department
         if ($this->selectedDepartment) {
-            $query->where('department_id', $this->selectedDepartment);
+            $query->where('shifts.department_id', $this->selectedDepartment);
         }
 
         // Search by employee name or email
@@ -79,7 +79,7 @@ class TodayIndex extends BaseComponent
                 ->orderBy('departments.name', $this->sortDirection)
                 ->select('shifts.*');
         } else {
-            $query->orderBy('clock_in', $this->sortDirection);
+            $query->orderBy('shifts.clock_in', $this->sortDirection);
         }
 
         return $query->get();
@@ -133,8 +133,8 @@ class TodayIndex extends BaseComponent
     {
         $branchId = $this->b_id ?: current_branch_id();
 
-        $todayShifts = Shift::where('branch_id', $branchId)
-            ->whereDate('shift_date', today())
+        $todayShifts = Shift::where('shifts.branch_id', $branchId)
+            ->whereDate('shifts.shift_date', today())
             ->whereNotNull('clock_in')
             ->get();
 

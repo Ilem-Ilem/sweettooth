@@ -25,6 +25,8 @@ class Shift extends Component
 
     public $shift_type;
 
+    public $shift_config_id;
+
     public $notes;
 
     // Current shift status
@@ -63,10 +65,10 @@ class Shift extends Component
     {
         // Validate the inputs
         $this->validate([
-            'shift_type' => 'required|string|in:morning,afternoon,full_time',
+            'shift_config_id' => 'required|exists:shift_configurations,id',
         ], [
-            'shift_type.required' => 'Please select a shift type',
-            'shift_type.in' => 'Invalid shift type selected',
+            'shift_config_id.required' => 'Please select a shift configuration',
+            'shift_config_id.exists' => 'Invalid shift configuration selected',
         ]);
 
         // Get the authenticated user
@@ -78,8 +80,24 @@ class Shift extends Component
 
                 return;
             }
+
             // Get the Branch
             $branch = Branch::findOrFail($this->b_id);
+
+            // Get the selected shift configuration
+            $shiftConfig = ShiftConfiguration::findOrFail($this->shift_config_id);
+
+            // Map the shift configuration's shift_type to a compatible enum value
+            // This ensures compatibility with the database enum while using dynamic configurations
+            $enumCompatibleShiftType = $this->getEnumCompatibleShiftType($shiftConfig->shift_type);
+
+            if ($enumCompatibleShiftType === null) {
+                $this->toast()->error('Invalid shift type selected. Please contact administrator.')->send();
+                return;
+            }
+
+            // Set the shift type that's compatible with the database enum
+            $this->shift_type = $enumCompatibleShiftType;
 
             // STEP 1: STRICT TIME WINDOW VALIDATION - DISABLED FOR NOW
             $timingValidator = app(ShiftTimingValidator::class);
@@ -96,6 +114,7 @@ class Shift extends Component
                 \Log::warning('Clock-in time violation attempt', [
                     'employee_id' => $user->id,
                     'shift_type' => $this->shift_type,
+                    'shift_config_id' => $this->shift_config_id,
                     'branch_id' => $this->b_id,
                     'requested_time' => now()->toDateTimeString(),
                     'violation_message' => $timeValidation->getMessage()
@@ -119,7 +138,7 @@ class Shift extends Component
             }
 
             // Create a new shift
-            $shift = $this->createShift($branch, $user);
+            $shift = $this->createShift($branch, $user, $shiftConfig);
 
             // Create SalesShift if user is in sales department
             $salesShift = null;
@@ -143,12 +162,36 @@ class Shift extends Component
             \Log::error('Clock-in error', [
                 'employee_id' => $user->id ?? null,
                 'branch_id' => $this->b_id,
-                'shift_type' => $this->shift_type,
+                'shift_config_id' => $this->shift_config_id,
                 'error_message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
             $this->toast()->error('Error clocking in: '.$e->getMessage())->send();
         }
+    }
+
+    /**
+     * Map the shift configuration's shift_type to a compatible enum value
+     * This maintains compatibility with the database enum while allowing dynamic configurations
+     */
+    private function getEnumCompatibleShiftType(string $configShiftType): ?string
+    {
+        // Define mapping from configuration shift types to database enum values
+        $mapping = [
+            'morning' => 'morning',
+            'afternoon' => 'afternoon',
+            'night' => 'night',
+            'full_time' => 'morning', // Map full_time to morning as fallback
+            'evening' => 'afternoon', // Map evening to afternoon as fallback
+            'midnight' => 'night', // Map midnight to night as fallback
+            'custom' => 'morning', // Map custom to morning as fallback
+        ];
+
+        // Normalize the input to lowercase
+        $normalizedType = strtolower($configShiftType);
+
+        // Return mapped value or default to 'morning' if not found
+        return $mapping[$normalizedType] ?? 'morning';
     }
 
     public function clockOut()
@@ -160,8 +203,26 @@ class Shift extends Component
                 return;
             }
 
-            // Update shift with clock out time
-            $this->currentShift->clock_out = Carbon::now();
+            // Check if auto-clock-out is configured and apply it
+            $autoClockOutMinutes = data_get($this->currentShift->metadata, 'auto_clock_out_minutes', 0);
+
+            if ($autoClockOutMinutes > 0) {
+                // Calculate expected end time from shift configuration
+                $expectedEndTime = Carbon::parse($this->currentShift->shift_date . ' ' . data_get($this->currentShift->metadata, 'end_time', '23:59:59'));
+
+                // Calculate auto-clock-out time (end time + auto-clock-out minutes)
+                $autoClockOutTime = $expectedEndTime->copy()->addMinutes($autoClockOutMinutes);
+
+                // Use the later of current time or auto-clock-out time
+                $actualClockOutTime = Carbon::now()->max($autoClockOutTime);
+
+                // Update shift with calculated clock out time
+                $this->currentShift->clock_out = $actualClockOutTime;
+            } else {
+                // Use current time for clock out
+                $this->currentShift->clock_out = Carbon::now();
+            }
+
             $this->currentShift->status = 'closed';
             $this->currentShift->save();
 
@@ -188,7 +249,7 @@ class Shift extends Component
         }
     }
 
-    private function createShift(Branch $branch, $user)
+    private function createShift(Branch $branch, $user, $shiftConfig)
     {
         // Generate meaningful shift number: SHFT-YYYYMMDD-XXXX
         $date = Carbon::today()->format('Ymd');
@@ -197,9 +258,6 @@ class Shift extends Component
             ->count() + 1;
         $shiftNumber = sprintf('SHFT-%s-%04d', $date, $count);
 
-        // Get shift configuration for reference
-        $config = ShiftConfiguration::forBranchAndType($branch->id, $this->shift_type)->first();
-
         $shift = new ShiftModel;
         $shift->branch_id = $branch->id;
         $shift->employee_id = $user->id;
@@ -207,20 +265,25 @@ class Shift extends Component
         $shift->department_id = $user->department_id ?? null;
         $shift->shift_number = $shiftNumber;
         $shift->shift_date = Carbon::today();
-        $shift->shift_type = $this->shift_type;
+        $shift->shift_type = $this->shift_type; // Use enum-compatible type for DB
         $shift->clock_in = Carbon::now();
         $shift->clock_out = null;
         $shift->status = 'active';
         $shift->notes = $this->notes;
 
         // Store configuration reference for later use
-        if ($config) {
-            $shift->metadata = [
-                'config_id' => $config->id,
-                'expected_end' => $config->end_time,
-                'auto_clock_out_minutes' => $config->auto_clock_out_minutes,
-            ];
-        }
+        $shift->metadata = [
+            'config_id' => $shiftConfig->id,
+            'config_name' => $shiftConfig->name,
+            'original_shift_type' => $shiftConfig->shift_type, // Store original type
+            'mapped_shift_type' => $this->shift_type, // Store mapped type
+            'start_time' => $shiftConfig->start_time,
+            'end_time' => $shiftConfig->end_time,
+            'expected_end' => $shiftConfig->end_time,
+            'auto_clock_out_minutes' => $shiftConfig->auto_clock_out_minutes,
+            'max_overtime_hours' => $shiftConfig->max_overtime_hours,
+            'break_duration_minutes' => $shiftConfig->break_duration_minutes,
+        ];
 
         $shift->save();
 
@@ -340,8 +403,23 @@ class Shift extends Component
         return null;
     }
 
+    public function getAvailableShiftsProperty()
+    {
+        if (!$this->b_id) {
+            return collect([]);
+        }
+
+        return ShiftConfiguration::where('branch_id', $this->b_id)
+            ->orWhereNull('branch_id') // Include global configurations
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+    }
+
     public function render()
     {
-        return view('livewire.auth.shift');
+        return view('livewire.auth.shift', [
+            'availableShifts' => $this->availableShifts
+        ]);
     }
 }
