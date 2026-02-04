@@ -13,12 +13,16 @@
 
 <!-- Favicons -->
 @php
+    use Illuminate\Support\Facades\Storage;
+
     $logoPath = \App\Helpers\Settings::businessConfiguration('logo_upload');
-    $cacheBuster = $logoPath ? md5($logoPath) : 'default';
+    $hasLogo = $logoPath && Storage::disk('public')->exists($logoPath);
+    $cacheBuster = $hasLogo ? Storage::disk('public')->lastModified($logoPath) : 'default';
+    $faviconUrl = $hasLogo ? Storage::disk('public')->url($logoPath) : '/favicon.ico';
 @endphp
-<link rel="icon" href="/favicon.ico?v={{ $cacheBuster }}" sizes="any">
-<link rel="icon" href="/favicon.svg?v={{ $cacheBuster }}" type="image/svg+xml">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png?v={{ $cacheBuster }}">
+<link rel="icon" href="{{ $faviconUrl }}?v={{ $cacheBuster }}" sizes="any">
+<link rel="icon" href="{{ $faviconUrl }}?v={{ $cacheBuster }}" type="image/svg+xml">
+<link rel="apple-touch-icon" href="{{ $faviconUrl }}?v={{ $cacheBuster }}">
 
 <link rel="preconnect" href="https://fonts.bunny.net">
 <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />

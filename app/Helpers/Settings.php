@@ -54,9 +54,8 @@ abstract class Settings
      */
     public static function businessConfiguration(string $key, $default = null)
     {
-        return self::getSetting(
+        return self::getSettingGlobalOnly(
             GlobalBusinessConfiguration::class,
-            BranchBusinessConfiguration::class,
             $key,
             $default
         );
@@ -188,6 +187,16 @@ abstract class Settings
         $branchModel = self::getModel($branchModelClass);
 
         return self::getKeyFromModel($branchModel, $globalModel, $key, $default);
+    }
+
+    /**
+     * Get setting using only the global model (ignores branch overrides)
+     */
+    private static function getSettingGlobalOnly(string $globalModelClass, string $key, $default = null)
+    {
+        $globalModel = self::getModel($globalModelClass);
+
+        return self::getKeyFromModel(null, $globalModel, $key, $default);
     }
 
     /**

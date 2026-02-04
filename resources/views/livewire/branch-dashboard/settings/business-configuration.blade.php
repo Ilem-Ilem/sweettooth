@@ -50,7 +50,6 @@
                                 <img src="{{ Storage::disk('public')->url($existingLogo) }}"
                                      alt="Current Logo"
                                      class="w-full h-full object-cover"
-                                     wire:ignore
                                      onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                 <div class="w-full h-full items-center justify-center bg-zinc-200 dark:bg-zinc-600 hidden" style="display: none;">
                                     <svg class="w-8 h-8 text-zinc-500 dark:text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -62,8 +61,7 @@
                             <div class="w-24 h-24 bg-zinc-100 dark:bg-zinc-600 rounded-lg overflow-hidden border-2 border-zinc-300 dark:border-zinc-500">
                                 <img src="{{ $logo->temporaryUrl() }}"
                                      alt="Logo Preview"
-                                     class="w-full h-full object-cover"
-                                     wire:ignore>
+                                     class="w-full h-full object-cover">
                             </div>
                         @else
                             <div class="w-24 h-24 bg-zinc-200 dark:bg-zinc-600 rounded-lg flex items-center justify-center border-2 border-dashed border-zinc-400 dark:border-zinc-500">

@@ -7,6 +7,7 @@ use App\Models\ItemRequest;
 use App\Models\ItemRequestDetail;
 use App\Models\Stock;
 use App\Models\StockMovement;
+use App\Models\UnitOfMeasure; // Add this import
 use App\Services\AuditService;
 use App\Traits\Exportable;
 use Illuminate\Support\Facades\Auth;
@@ -146,6 +147,7 @@ class ItemDispatches extends Component
                 'approve_quantity' => 0,
                 'stock_available' => $stockAvailable,
                 'uom' => $detail->item->unitOfMeasure?->symbol,
+                'uom_full_name' => $detail->item->unitOfMeasure?->name, // Add full name for mapping
                 'is_fully_approved' => $remainingToApprove <= 0,
                 'is_fully_dispatched' => $remainingToDispatch <= 0,
                 'is_partially_approved' => $detail->quantity_approved > 0 && $remainingToApprove > 0,
@@ -265,6 +267,66 @@ class ItemDispatches extends Component
         }
     }
 
+    /**
+     * Get the database-compatible UOM value from the unit symbol
+     */
+    private function getDatabaseUom($uomSymbol)
+    {
+        // Fetch all UOM records to create a dynamic mapping
+        $uomMap = UnitOfMeasure::all()->pluck('name', 'symbol')->toArray();
+        
+        // Specific mapping for the enum values in the database
+        $enumMappings = [
+            'g' => 'grams',
+            'gram' => 'grams',
+            'grams' => 'grams',
+            'kg' => 'kg',
+            'kilogram' => 'kg',
+            'kilograms' => 'kg',
+            'L' => 'liters',
+            'liter' => 'liters',
+            'liters' => 'liters',
+            'ml' => 'ml',
+            'milliliter' => 'ml',
+            'milliliters' => 'ml',
+            'pcs' => 'pcs',
+            'piece' => 'pcs',
+            'pieces' => 'pcs',
+            'unit' => 'units',
+            'units' => 'units',
+            'bag' => 'bags',
+            'bags' => 'bags',
+            'carton' => 'cartons',
+            'cartons' => 'cartons',
+        ];
+        
+        // First try the specific enum mapping
+        if (isset($enumMappings[strtolower($uomSymbol)])) {
+            return $enumMappings[strtolower($uomSymbol)];
+        }
+        
+        // Then try the dynamic mapping from the database
+        $lowerSymbol = strtolower($uomSymbol);
+        foreach ($uomMap as $symbol => $name) {
+            if (strtolower($symbol) === $lowerSymbol) {
+                // Map to the closest enum value
+                $enumKeys = array_keys($enumMappings);
+                foreach ($enumKeys as $enumKey) {
+                    if (strtolower($name) === strtolower($enumKey) || 
+                        str_contains(strtolower($name), strtolower($enumKey)) ||
+                        str_contains(strtolower($enumKey), strtolower($name))) {
+                        return $enumMappings[$enumKey];
+                    }
+                }
+                // Default fallback to the symbol itself if no match found
+                return $uomSymbol;
+            }
+        }
+        
+        // If no match found, return the original symbol (which might cause an error)
+        return $uomSymbol;
+    }
+
     public function dispatchItems()
     {
         // $this->authorize('dispatch-items');
@@ -346,62 +408,8 @@ class ItemDispatches extends Component
                         $lowStockWarnings[] = "{$item['item_name']}: Stock level is now {$quantityAfter} {$item['uom']}, which is at or below the reorder level of {$stock->item->reorder_level} {$item['uom']}. Please restock!";
                     }
 
-                    // Get the item's unit of measure to determine the proper mapping
-                    $itemUom = \App\Models\UnitOfMeasure::where('symbol', $item['uom'])->first();
-
-                    // Default mapping based on the item's UOM name or fall back to the symbol
-                    if ($itemUom) {
-                        // Map common UOM names to the database enum values
-                        $name = strtolower($itemUom->name);
-
-                        if (str_contains($name, 'gram') || $name === 'g') {
-                            $mappedUom = 'grams';
-                        } elseif (str_contains($name, 'kilogram')) {
-                            $mappedUom = 'kg';
-                        } elseif (str_contains($name, 'liter') || $name === 'l') {
-                            $mappedUom = 'liters';
-                        } elseif (str_contains($name, 'milliliter')) {
-                            $mappedUom = 'ml';
-                        } elseif (str_contains($name, 'piece') || str_contains($name, 'pc')) {
-                            $mappedUom = 'pcs';
-                        } elseif (str_contains($name, 'unit')) {
-                            $mappedUom = 'units';
-                        } elseif (str_contains($name, 'bag')) {
-                            $mappedUom = 'bags';
-                        } elseif (str_contains($name, 'carton')) {
-                            $mappedUom = 'cartons';
-                        } else {
-                            // If no specific mapping found, use the original symbol
-                            $mappedUom = $item['uom'];
-                        }
-                    } else {
-                        // Fallback mapping for common symbols if UOM record not found
-                        $fallbackMapping = [
-                            'g' => 'grams',
-                            'gram' => 'grams',
-                            'grams' => 'grams',
-                            'kg' => 'kg',
-                            'kilogram' => 'kg',
-                            'kilograms' => 'kg',
-                            'L' => 'liters',
-                            'liter' => 'liters',
-                            'liters' => 'liters',
-                            'ml' => 'ml',
-                            'milliliter' => 'ml',
-                            'milliliters' => 'ml',
-                            'pcs' => 'pcs',
-                            'piece' => 'pcs',
-                            'pieces' => 'pcs',
-                            'unit' => 'units',
-                            'units' => 'units',
-                            'bag' => 'bags',
-                            'bags' => 'bags',
-                            'carton' => 'cartons',
-                            'cartons' => 'cartons',
-                        ];
-
-                        $mappedUom = $fallbackMapping[strtolower($item['uom'])] ?? $item['uom'];
-                    }
+                    // Map uom to database enum values using the dynamic method
+                    $mappedUom = $this->getDatabaseUom($item['uom']);
 
                     // Create dispatch record
                     ItemDispatch::create([

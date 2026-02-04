@@ -110,13 +110,14 @@ class ProductDispatch extends Model
 
     public function isPending(): bool
     {
-        return $this->status === 'dispatched';
+        return $this->status === 'pending_verification';
     }
 
     public function getStatusLabel(): string
     {
         return match ($this->status) {
-            'dispatched' => 'Pending Receipt',
+            'pending_verification' => 'Pending Verification',
+            'accepted' => 'Accepted',
             'received' => 'Received',
             'rejected' => 'Rejected',
             default => ucfirst($this->status),
@@ -126,7 +127,8 @@ class ProductDispatch extends Model
     public function getStatusBadgeColor(): string
     {
         return match ($this->status) {
-            'dispatched' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+            'pending_verification' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+            'accepted' => 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
             'received' => 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
             'rejected' => 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
             default => 'bg-zinc-100 text-zinc-800 dark:bg-zinc-900/30 dark:text-zinc-400',
@@ -151,7 +153,7 @@ class ProductDispatch extends Model
 
     public function scopePending($query)
     {
-        return $query->where('status', 'dispatched');
+        return $query->where('status', 'pending_verification');
     }
 
     public function scopeReceived($query)

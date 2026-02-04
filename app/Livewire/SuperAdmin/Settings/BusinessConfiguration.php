@@ -88,6 +88,9 @@ class BusinessConfiguration extends Component
 
             $settings->save();
 
+            // Clear settings cache to ensure changes take effect immediately
+            \App\Helpers\Settings::clearCache();
+
             // Update existingLogo to reflect the new logo that was just saved
             if ($this->logo) {
                 $this->existingLogo = $settings->logo_upload;
@@ -116,6 +119,9 @@ class BusinessConfiguration extends Component
                 $settings->logo_upload = null;
                 $settings->save();
             }
+
+            // Clear settings cache
+            \App\Helpers\Settings::clearCache();
 
             $this->existingLogo = null;
             session()->flash('message', 'Logo removed successfully!');

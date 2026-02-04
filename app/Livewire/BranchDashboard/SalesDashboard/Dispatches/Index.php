@@ -34,7 +34,7 @@ class Index extends BaseComponent
 
     // Filter options
     public ?string $search = null;
-    public ?string $filterStatus = 'dispatched'; // Default to pending dispatches
+    public ?string $filterStatus = 'pending_verification'; // Default to pending dispatches
     public ?string $filterDate = null;
 
     // Receiving modal data
@@ -158,7 +158,7 @@ class Index extends BaseComponent
             return;
         }
 
-        if ($this->selectedDispatch->status !== 'dispatched') {
+        if (!in_array($this->selectedDispatch->status, ['pending_verification', 'accepted'], true)) {
             $this->toast()->warning('This dispatch has already been processed.')->send();
             return;
         }
@@ -289,7 +289,7 @@ class Index extends BaseComponent
                 return;
             }
 
-            if ($dispatch->status !== 'dispatched') {
+            if (!in_array($dispatch->status, ['pending_verification', 'accepted'], true)) {
                 $this->toast()->warning('This dispatch has already been processed.')->send();
                 return;
             }

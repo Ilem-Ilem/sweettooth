@@ -55,6 +55,7 @@ class Index extends Component
     public $batchRejectionReason = '';
     public $batchNotes = '';
     public $recordingProduce = null;
+    public $isSavingBatch = [];
 
     public function mount($deptSlug)
     {
@@ -270,7 +271,7 @@ class Index extends Component
 
         // Load all daily produces for this shift with all related data
         $produces = DailyProduce::with([
-            'recipe:id,product_name,unit_of_measure_id,yield_quantity,sku',
+            'recipe:id,product_name,uom_id,yield_quantity,sku',
             'recipe.unitOfMeasure:id,symbol,name',
             'shift:id,shift_date,shift_type',
             'productionRecords:id,daily_produce_id,recipe_id,batch_number,quantity_produced,quantity_approved,quantity_rejected,quantity_sent_out,quantity_for_order,quantity_remaining,dispatch_status,quality_status,production_time,produced_by_id,produced_by_type,rejection_reason,notes',
@@ -892,6 +893,14 @@ class Index extends Component
         if (!$batch) return;
 
         $approvedQuantity = (float) $batch->quantity_approved;
+        $forOrder = 0;
+        if (isset($this->batchQuantities[$batchId])) {
+            $forOrder = (float) ($this->batchQuantities[$batchId]['quantity_for_order'] ?? 0);
+        } else {
+            $forOrder = (float) $batch->quantity_for_order;
+        }
+
+        $availableForDispatch = max(0, $approvedQuantity - $forOrder);
         $totalDispatched = 0;
 
         if (isset($this->batchDispatches[$batchId])) {
@@ -899,7 +908,7 @@ class Index extends Component
                 $quantity = (float) ($dispatch['quantity'] ?? 0);
 
                 // Validate individual dispatch doesn't exceed remaining
-                $remainingForBatch = $approvedQuantity - ($totalDispatched - $quantity);
+                $remainingForBatch = $availableForDispatch - ($totalDispatched - $quantity);
                 if ($quantity > $remainingForBatch) {
                     // Reset to maximum allowed
                     $this->batchDispatches[$batchId][$index]['quantity'] = $remainingForBatch;
@@ -911,8 +920,8 @@ class Index extends Component
         }
 
         // Check total doesn't exceed approved
-        if ($totalDispatched > $approvedQuantity) {
-            $this->toast()->error("Total dispatch allocations ({$totalDispatched}) cannot exceed approved batch quantity ({$approvedQuantity})!")->send();
+        if ($totalDispatched > $availableForDispatch) {
+            $this->toast()->error("Total dispatch allocations ({$totalDispatched}) cannot exceed available batch quantity ({$availableForDispatch})!")->send();
 
             // Reset all dispatches to zero to prevent invalid state
             foreach ($this->batchDispatches[$batchId] as $index => $dispatch) {
@@ -959,15 +968,11 @@ class Index extends Component
 
             $newValue = (float) ($this->batchQuantities[$batchId][$field] ?? 0);
 
-            // CRITICAL: Validate sales department is selected when sending out
-            if ($field === 'quantity_sent_out' && $newValue > 0) {
-                $salesDeptId = $this->batchSalesDepartments[$batchId] ?? null;
-                if (!$salesDeptId) {
-                    $this->toast()->error('Please select a sales department before dispatching!')->send();
-                    // Reset to old value
-                    $this->batchQuantities[$batchId][$field] = (float) $batch->$field;
-                    return;
-                }
+            // Skip sales department validation for quantity_sent_out since dispatch allocations are now handled separately
+            // through the batchDispatches array which supports multiple allocations per batch
+            if ($field === 'quantity_sent_out') {
+                // The quantity_sent_out is now calculated based on all dispatch allocations in batchDispatches
+                // Validation happens in the dispatch allocation UI, not here
             }
 
             // Validate: sent_out + for_order cannot exceed approved quantity
@@ -982,6 +987,10 @@ class Index extends Component
                 // Reset to old value
                 $this->batchQuantities[$batchId][$field] = (float) $batch->$field;
                 return;
+            }
+
+            if ($field === 'quantity_for_order') {
+                $this->validateBatchDispatches($batchId);
             }
 
             // Update the field
@@ -1018,14 +1027,7 @@ class Index extends Component
             }
 
             // Create dispatch record if sending out
-            if ($field === 'quantity_sent_out' && $newValue > $batch->quantity_sent_out) {
-                $quantityToDispatch = $newValue - $batch->quantity_sent_out;
-                $salesDeptId = $this->batchSalesDepartments[$batchId] ?? null;
-
-                if ($dailyProduce && $salesDeptId) {
-                    $this->createProductDispatch($dailyProduce, $quantityToDispatch, $salesDeptId);
-                }
-            }
+            // Dispatch records are created in saveBatchQuantities to prevent duplicates.
 
             $this->toast()->success("Batch updated: {$batch->quantity_remaining} remaining")->send();
             $this->loadDailyProduces();
@@ -1040,6 +1042,12 @@ class Index extends Component
      */
     public function saveBatchQuantities($produceId)
     {
+        if (!empty($this->isSavingBatch[$produceId])) {
+            return;
+        }
+
+        $this->isSavingBatch[$produceId] = true;
+
         try {
             $produce = DailyProduce::with('productionRecords')->find($produceId);
 
@@ -1059,6 +1067,19 @@ class Index extends Component
 
                     // Create/update product dispatches from batchDispatches
                     if (isset($this->batchDispatches[$batch->id])) {
+                        $approvedQuantity = (float) $batch->quantity_approved;
+                        $forOrder = (float) ($this->batchQuantities[$batch->id]['quantity_for_order'] ?? $batch->quantity_for_order);
+                        $availableForDispatch = max(0, $approvedQuantity - $forOrder);
+
+                        $totalDispatched = 0;
+                        foreach ($this->batchDispatches[$batch->id] as $dispatchData) {
+                            $totalDispatched += (float) ($dispatchData['quantity'] ?? 0);
+                        }
+
+                        if ($totalDispatched > $availableForDispatch) {
+                            throw new \RuntimeException("Total dispatch allocations ({$totalDispatched}) cannot exceed available batch quantity ({$availableForDispatch}).");
+                        }
+
                         // Delete existing dispatches for this batch
                         \App\Models\ProductDispatch::where('production_record_id', $batch->id)->delete();
 
@@ -1079,7 +1100,7 @@ class Index extends Component
                                     'dispatch_time' => now(),
                                     'shift_type' => $produce->shift_type,
                                     'dispatch_date' => $produce->produce_date,
-                                    'status' => 'dispatched',
+                                    'status' => 'pending_verification',
                                     'notes' => "Dispatched from batch {$batch->batch_number}",
                                 ]);
                             }
@@ -1111,6 +1132,8 @@ class Index extends Component
 
         } catch (\Exception $e) {
             $this->toast()->error('Error saving batch quantities: ' . $e->getMessage())->send();
+        } finally {
+            $this->isSavingBatch[$produceId] = false;
         }
     }
 
@@ -1155,7 +1178,7 @@ class Index extends Component
             'dispatch_time' => now(),
             'shift_type' => $produce->shift_type,
             'dispatch_date' => $produce->produce_date,
-            'status' => 'dispatched',
+            'status' => 'pending_verification',
             'notes' => "Dispatched from kitchen to {$salesDeptName} - {$produce->recipe->product_name}",
         ]);
     }

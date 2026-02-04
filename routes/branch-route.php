@@ -138,7 +138,6 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
         Route::get('/', \App\Livewire\BranchDashboard\ShiftManagement\Index::class)->name('index');
         Route::get('/configuration', \App\Livewire\BranchDashboard\ShiftManagement\ShiftConfiguration::class)->name('configuration');
         Route::get('/assignment', \App\Livewire\BranchDashboard\ShiftManagement\ShiftAssignment::class)->name('assignment');
-        Route::get('/calendar', \App\Livewire\BranchDashboard\ShiftManagement\ShiftCalendar::class)->name('calendar');
         Route::get('/overrides', \App\Livewire\BranchDashboard\ShiftManagement\ShiftOverrides::class)->name('overrides');
     });
 

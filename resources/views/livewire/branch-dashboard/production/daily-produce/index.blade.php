@@ -494,19 +494,31 @@
 
                                          <!-- Dispatch Allocations (MULTIPLE) -->
                                          <td class="px-3 py-2 bg-green-50 dark:bg-green-900/10">
+                                             @php
+                                                 $forOrderValue = (float) ($batchQuantities[$batch['id']]['quantity_for_order'] ?? $batch['quantity_for_order'] ?? 0);
+                                                 $totalAllocated = 0;
+                                                 if (isset($batchDispatches[$batch['id']])) {
+                                                     foreach ($batchDispatches[$batch['id']] as $dispatchRow) {
+                                                         $totalAllocated += (float) ($dispatchRow['quantity'] ?? 0);
+                                                     }
+                                                 }
+                                                 $availableForDispatch = max(0, $batch['quantity_approved'] - $forOrderValue);
+                                             @endphp
                                              <div class="space-y-1">
                                                  @if(isset($batchDispatches[$batch['id']]) && count($batchDispatches[$batch['id']]) > 0)
                                                      @php
-                                                         $totalAllocated = 0;
+                                                         $runningAllocated = 0;
                                                      @endphp
                                                      @foreach($batchDispatches[$batch['id']] as $index => $dispatch)
                                                          @php
                                                              $currentQuantity = (float) ($dispatch['quantity'] ?? 0);
-                                                             $remainingForThisDispatch = $batch['quantity_approved'] - ($totalAllocated - $currentQuantity);
-                                                             $totalAllocated += $currentQuantity;
+                                                             $remainingForThisDispatch = $availableForDispatch - ($runningAllocated - $currentQuantity);
+                                                             $runningAllocated += $currentQuantity;
+                                                             $dispatchDisabled = $availableForDispatch <= 0 || $remainingForThisDispatch <= 0;
                                                          @endphp
                                                          <div class="flex items-center gap-1 text-xs">
                                                              <select wire:model.live="batchDispatches.{{ $batch['id'] }}.{{ $index }}.sales_department_id"
+                                                                     @disabled($availableForDispatch <= 0)
                                                                      class="flex-1 px-1 py-0.5 text-xs border border-green-300 dark:border-green-600 rounded bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100">
                                                                  @foreach($salesDepartments as $dept)
                                                                      <option value="{{ $dept['id'] }}">{{ $dept['name'] }}</option>
@@ -514,7 +526,8 @@
                                                              </select>
                                                              <input type="number" step="0.01" min="0" max="{{ $remainingForThisDispatch }}"
                                                                     wire:model.live="batchDispatches.{{ $batch['id'] }}.{{ $index }}.quantity"
-                                                                    class="w-16 px-1 py-0.5 text-center border border-green-300 dark:border-green-600 rounded bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100">
+                                                                    @disabled($dispatchDisabled)
+                                                                    class="w-16 px-1 py-0.5 text-center border border-green-300 dark:border-green-600 rounded bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 {{ $dispatchDisabled ? 'opacity-50 cursor-not-allowed' : '' }}">
                                                              <button type="button" wire:click="removeBatchDispatch({{ $batch['id'] }}, {{ $index }})"
                                                                      class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
                                                                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -525,7 +538,8 @@
                                                      @endforeach
                                                  @endif
                                                  <button type="button" wire:click="addBatchDispatch({{ $batch['id'] }})"
-                                                         class="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1">
+                                                         @disabled($availableForDispatch <= 0)
+                                                         class="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1 {{ $availableForDispatch <= 0 ? 'opacity-50 cursor-not-allowed' : '' }}">
                                                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                                                      </svg>
@@ -536,9 +550,13 @@
 
                                         <!-- For Order (EDITABLE) -->
                                         <td class="px-3 py-2 bg-purple-50 dark:bg-purple-900/10">
-                                            <input type="number" step="0.01" min="0" max="{{ $batch['quantity_approved'] }}"
+                                            @php
+                                                $maxForOrder = max(0, $batch['quantity_approved'] - $totalAllocated);
+                                            @endphp
+                                            <input type="number" step="0.01" min="0" max="{{ $maxForOrder }}"
                                                    wire:model.live="batchQuantities.{{ $batch['id'] }}.quantity_for_order"
                                                    wire:change="updateBatchQuantity({{ $batch['id'] }}, 'quantity_for_order')"
+                                                   @disabled($batch['quantity_approved'] <= 0)
                                                    class="w-20 px-2 py-1 text-center border border-purple-300 dark:border-purple-600 rounded bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-purple-500">
                                         </td>
 
@@ -604,7 +622,10 @@
                                         </td>
                                         <td colspan="2" class="px-3 py-2">
                                             <button wire:click="saveBatchQuantities({{ $produce['id'] }})"
-                                                    class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium">
+                                                    wire:loading.attr="disabled"
+                                                    wire:target="saveBatchQuantities({{ $produce['id'] }})"
+                                                    @disabled(!empty($isSavingBatch[$produce['id']] ?? false))
+                                                    class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed">
                                                 💾 Save All Batches
                                             </button>
                                         </td>

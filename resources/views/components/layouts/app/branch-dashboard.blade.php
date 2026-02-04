@@ -100,10 +100,6 @@
                         :current="request()->routeIs('branch-dashboard.shift-management.assignment')" wire:navigate>
                         {{ __('Shift Assignment') }}
                     </flux:navlist.item>
-                    <flux:navlist.item icon="calendar" :href="branch_route('branch-dashboard.shift-management.calendar')"
-                        :current="request()->routeIs('branch-dashboard.shift-management.calendar')" wire:navigate>
-                        {{ __('Shift Calendar') }}
-                    </flux:navlist.item>
                     <flux:navlist.item icon="exclamation-triangle" :href="branch_route('branch-dashboard.shift-management.overrides')"
                         :current="request()->routeIs('branch-dashboard.shift-management.overrides')" wire:navigate>
                         {{ __('Shift Overrides') }}

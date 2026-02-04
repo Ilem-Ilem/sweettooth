@@ -42,7 +42,7 @@
     </div>
 
     <!-- Quick Actions -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         <a href="{{ route('branch-dashboard.shift-management.configuration', ['b_id' => $b_id]) }}" class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4 block hover:shadow-md transition-shadow">
             <h3 class="text-lg font-semibold text-zinc-900 dark:text-white mb-2">Configure Shifts</h3>
             <p class="text-sm text-zinc-600 dark:text-zinc-400 mb-3">Define shift types, times, and rules</p>
@@ -66,16 +66,6 @@
             </button>
         </a>
 
-        <a href="{{ route('branch-dashboard.shift-management.calendar', ['b_id' => $b_id]) }}" class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4 block hover:shadow-md transition-shadow">
-            <h3 class="text-lg font-semibold text-zinc-900 dark:text-white mb-2">View Calendar</h3>
-            <p class="text-sm text-zinc-600 dark:text-zinc-400 mb-3">Visual calendar of shift assignments</p>
-            <button class="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition duration-200 font-medium">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                </svg>
-                Calendar
-            </button>
-        </a>
 
         <a href="{{ route('branch-dashboard.shift-management.overrides', ['b_id' => $b_id]) }}" class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4 block hover:shadow-md transition-shadow">
             <h3 class="text-lg font-semibold text-zinc-900 dark:text-white mb-2">Shift Overrides</h3>

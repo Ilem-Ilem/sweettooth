@@ -59,7 +59,8 @@
                     <select wire:model.live="filterStatus"
                         class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
                         <option value="">All Statuses</option>
-                        <option value="dispatched">Pending Receipt</option>
+                        <option value="pending_verification">Pending Verification</option>
+                        <option value="accepted">Accepted</option>
                         <option value="received">Received</option>
                         <option value="rejected">Rejected</option>
                     </select>
@@ -143,7 +144,7 @@
                                     </span>
                                 </td>
                                 <td class="px-4 py-3 text-center">
-                                    @if($dispatch->status === 'dispatched')
+                                    @if(in_array($dispatch->status, ['pending_verification', 'accepted'], true))
                                         <div class="flex items-center justify-center gap-2">
                                             <button wire:click="openReceivingModal({{ $dispatch->id }})"
                                                 class="inline-flex items-center px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors">
