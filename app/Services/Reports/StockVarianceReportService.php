@@ -36,7 +36,7 @@ class StockVarianceReportService extends ReportService
                 $q->where('department_id', $this->departmentId);
             })
             ->whereBetween('stock_take_date', [$this->periodFrom, $this->periodTo])
-            ->with(['stockTakeItems.item.category', 'performedBy'])
+            ->with(['stockTakeItems.item', 'performedBy'])
             ->get();
 
         $varianceData = [];
@@ -61,7 +61,7 @@ class StockVarianceReportService extends ReportService
                     'item_id' => $item->id,
                     'item_name' => $item->name,
                     'sku' => $item->sku,
-                    'category' => $item->category->name ?? 'Uncategorized',
+                    'category' => $item->category ?? 'Uncategorized',
                     'system_quantity' => $systemStock,
                     'actual_quantity' => $actualStock,
                     'variance' => $variance,

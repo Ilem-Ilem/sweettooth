@@ -35,46 +35,132 @@
                     </div>
                 </div>
 
-                <!-- Report Summary -->
+                @php
+                    $formatValue = function ($value) {
+                        if (is_null($value) || $value === '') {
+                            return '—';
+                        }
+                        if (is_numeric($value)) {
+                            return number_format($value, 2);
+                        }
+                        if (is_array($value)) {
+                            if (empty($value)) {
+                                return '—';
+                            }
+                            $isAssoc = \Illuminate\Support\Arr::isAssoc($value);
+                            if (!$isAssoc && collect($value)->every(fn($item) => is_scalar($item))) {
+                                return implode(', ', $value);
+                            }
+                            return 'Items: '.count($value);
+                        }
+                        if (is_object($value)) {
+                            return method_exists($value, '__toString') ? (string) $value : '—';
+                        }
+                        return (string) $value;
+                    };
+                @endphp
+
+                <!-- Executive summary removed in favor of full report detail blocks -->
+
+                <!-- Compiled Report Annotations -->
                 <div class="mb-6">
-                    <h3 class="text-xl font-semibold mb-3">Report Summary</h3>
-                    <div class="prose dark:prose-invert max-w-none">
-                        @if($report->executive_summary)
-                            <p><strong>Executive Summary:</strong> {{ $report->executive_summary }}</p>
-                        @endif
-
-                        @if($report->recommendations)
-                            <p><strong>Recommendations:</strong> {{ $report->recommendations }}</p>
-                        @endif
-
-                        @if($report->key_metrics)
-                            <p><strong>Key Metrics:</strong> {{ $report->key_metrics }}</p>
-                        @endif
+                    <div class="flex items-center justify-between mb-2">
+                        <h4 class="text-lg font-semibold">Compiled Report Annotations</h4>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">Read-only</span>
+                    </div>
+                    <div class="space-y-3">
+                        @forelse($report->annotations as $annotation)
+                            <div class="rounded-lg border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900/30 p-4">
+                                <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-2">
+                                    <span>{{ $annotation->author?->name ?? 'Unknown' }}</span>
+                                    <span>{{ $annotation->created_at?->format('Y-m-d H:i') }}</span>
+                                </div>
+                                <p class="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap">{{ $annotation->body }}</p>
+                            </div>
+                        @empty
+                            <p class="text-sm text-gray-500 dark:text-gray-400">No annotations yet.</p>
+                        @endforelse
                     </div>
                 </div>
 
-                <!-- Report Items -->
-                @if($report->items && count($report->items) > 0)
-                    <div class="mt-6">
-                        <h3 class="text-lg font-semibold mb-4">Detailed Report Items</h3>
-                        <div class="overflow-x-auto">
-                            <table class="w-full">
-                                <thead class="bg-gray-100 dark:bg-zinc-700">
-                                    <tr>
-                                        <th class="px-4 py-2 text-left text-sm font-semibold">Item Name</th>
-                                        <th class="px-4 py-2 text-left text-sm font-semibold">Value</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-gray-200 dark:divide-zinc-700">
-                                    @foreach($report->items as $item)
-                                        <tr class="hover:bg-gray-50 dark:hover:bg-zinc-700">
-                                            <td class="px-4 py-2 font-medium">{{ $item->name ?? 'N/A' }}</td>
-                                            <td class="px-4 py-2">{{ $item->value ?? 'N/A' }}</td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
+                @php
+                    $mdIntegrityIssues = $report->departmentReports->contains(function ($departmentReport) {
+                        return !$departmentReport->systemDataHashIsValid();
+                    });
+                @endphp
+                @if($mdIntegrityIssues)
+                    <div class="mb-6 rounded-lg border border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
+                        Warning: One or more included reports failed the system data integrity check.
+                    </div>
+                @endif
+
+                <!-- Department Report Details -->
+                @if($report->departmentReports && count($report->departmentReports) > 0)
+                    <div class="mt-8 space-y-8">
+                        <h3 class="text-lg font-semibold">Department Report Details</h3>
+                        @foreach($report->departmentReports as $departmentReport)
+                            @php
+                                $reportPayload = $departmentReport->report_data ?? [];
+                                if (isset($reportPayload['report_data']) && is_array($reportPayload['report_data'])) {
+                                    $reportPayload = $reportPayload['report_data'];
+                                }
+                                $reportPeriodInfo = $reportPayload['period_info'] ?? [
+                                    'from' => $departmentReport->period_from,
+                                    'to' => $departmentReport->period_to,
+                                ];
+                            @endphp
+
+                            <div class="border border-gray-200 dark:border-zinc-700 rounded-lg overflow-hidden">
+                                <div class="px-4 py-3 bg-gray-50 dark:bg-zinc-800 border-b border-gray-200 dark:border-zinc-700">
+                                    <div class="flex flex-col gap-2">
+                                        <p class="text-base font-semibold text-gray-900 dark:text-white">
+                                            {{ $departmentReport->report_name ?? 'Department Report' }}
+                                        </p>
+                                        <div class="flex flex-wrap gap-3 text-sm text-gray-600 dark:text-gray-300">
+                                            <span>Department: {{ $departmentReport->department?->name ?? 'N/A' }}</span>
+                                            <span>Category: {{ ucfirst($departmentReport->report_category ?? 'N/A') }}</span>
+                                            <span>Type: {{ str_replace('_', ' ', $departmentReport->report_type ?? 'N/A') }}</span>
+                                            <span>Status: {{ str_replace('_', ' ', $departmentReport->status ?? 'N/A') }}</span>
+                                            <span>Generated By: {{ $departmentReport->generatedBy?->name ?? 'System' }}</span>
+                                        </div>
+                                        @if(!$departmentReport->systemDataHashIsValid())
+                                            <div class="text-xs text-red-600 dark:text-red-300">Integrity check failed</div>
+                                        @endif
+                                        <div class="flex flex-wrap gap-3 text-xs text-gray-500 dark:text-gray-400">
+                                            <span>Report Date: {{ optional($departmentReport->report_date)->format('M d, Y') ?? 'N/A' }}</span>
+                                            <span>Period: {{ $reportPeriodInfo['from'] ?? '-' }} to {{ $reportPeriodInfo['to'] ?? '-' }}</span>
+                                            <a href="{{ branch_route('branch-dashboard.reporting.report.view', ['id' => $departmentReport->id, 'b_id' => $report->branch_id]) }}"
+                                               class="px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700">
+                                                View Full
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="p-4 space-y-6">
+                                    @include('livewire.branch-dashboard.reporting-department.view-compiled.report-details', ['report' => $departmentReport, 'formatValue' => $formatValue])
+
+                                    @if($departmentReport->annotations?->count())
+                                        <div class="border border-gray-200 dark:border-zinc-700 rounded-lg">
+                                            <div class="px-3 py-2 border-b border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800">
+                                                <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Annotations</p>
+                                            </div>
+                                            <div class="p-3 space-y-3">
+                                                @foreach($departmentReport->annotations as $annotation)
+                                                    <div class="rounded-md border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900/30 p-3">
+                                                        <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                                            <span>{{ $annotation->author?->name ?? 'Unknown' }}</span>
+                                                            <span>{{ $annotation->created_at?->format('Y-m-d H:i') }}</span>
+                                                        </div>
+                                                        <p class="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap">{{ $annotation->body }}</p>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
                     </div>
                 @endif
             </div>

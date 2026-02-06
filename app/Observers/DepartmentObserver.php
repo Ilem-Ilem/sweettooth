@@ -143,28 +143,7 @@ class DepartmentObserver
             ],
 
 
-            // Production Reports Section - Grouped
-            [
-                'name' => 'Operations Reports',
-                'slug' => 'reports-operations',
-                'route_name' => "branch-dashboard.production.reports.operations",
-                'icon' => 'chart-bar',
-                'order' => 10,
-            ],
-            [
-                'name' => 'Performance Reports',
-                'slug' => 'reports-performance',
-                'route_name' => "branch-dashboard.production.reports.performance",
-                'icon' => 'star',
-                'order' => 11,
-            ],
-            [
-                'name' => 'Planning Reports',
-                'slug' => 'reports-planning',
-                'route_name' => "branch-dashboard.production.reports.planning",
-                'icon' => 'server',
-                'order' => 12,
-            ],
+            // Production Reports removed (centralized reporting)
         ];
     }
 }

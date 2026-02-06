@@ -21,7 +21,15 @@ class Index extends Component
         }
 
         $this->reportId = $id;
-        $this->report = CompiledReport::with(['branch', 'compiledBy', 'mdUser', 'items'])->findOrFail($id);
+        $this->report = CompiledReport::with([
+            'branch',
+            'compiledBy',
+            'mdUser',
+            'departmentReports.department',
+            'departmentReports.generatedBy',
+            'annotations.author',
+            'departmentReports.annotations.author',
+        ])->findOrFail($id);
     }
 
     public function render()

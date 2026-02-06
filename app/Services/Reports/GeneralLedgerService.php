@@ -19,7 +19,7 @@ class GeneralLedgerService
      * @param null|Carbon $endDate
      * @return Collection
      */
-    public function getAccountLedger($account, ?AccountingPeriod $period = null, ?Carbon $startDate = null, ?Carbon $endDate = null): Collection
+    public function getAccountLedger($account, ?AccountingPeriod $period = null, ?Carbon $startDate = null, ?Carbon $endDate = null, ?string $branchId = null): Collection
     {
         $accountId = $account instanceof GlAccount ? $account->id : $account;
 
@@ -40,13 +40,17 @@ class GeneralLedgerService
             $query->whereDate('entry_date', '<=', $endDate);
         }
 
+        if ($branchId) {
+            $query->where('branch_id', $branchId);
+        }
+
         return $query->get();
     }
 
     /**
      * Get full GL report with running balances
      */
-    public function getFullLedger(?AccountingPeriod $period = null, ?Carbon $startDate = null, ?Carbon $endDate = null): array
+    public function getFullLedger(?AccountingPeriod $period = null, ?Carbon $startDate = null, ?Carbon $endDate = null, ?string $branchId = null): array
     {
         $accounts = GlAccount::where('is_active', true)
             ->orderBy('account_number')
@@ -55,7 +59,7 @@ class GeneralLedgerService
         $report = [];
 
         foreach ($accounts as $account) {
-            $entries = $this->getAccountLedger($account, $period, $startDate, $endDate);
+            $entries = $this->getAccountLedger($account, $period, $startDate, $endDate, $branchId);
 
             if ($entries->isEmpty()) {
                 continue;
@@ -97,7 +101,7 @@ class GeneralLedgerService
     /**
      * Get GL summary by account
      */
-    public function getSummary(?AccountingPeriod $period = null, ?Carbon $startDate = null, ?Carbon $endDate = null): Collection
+    public function getSummary(?AccountingPeriod $period = null, ?Carbon $startDate = null, ?Carbon $endDate = null, ?string $branchId = null): Collection
     {
         $query = GlEntry::where('status', 'posted')
             ->selectRaw('gl_account_id, SUM(debit) as total_debit, SUM(credit) as total_credit')
@@ -115,6 +119,10 @@ class GeneralLedgerService
             $query->whereDate('entry_date', '<=', $endDate);
         }
 
+        if ($branchId) {
+            $query->where('branch_id', $branchId);
+        }
+
         return $query->with('glAccount')
             ->get()
             ->map(function ($entry) {
@@ -130,14 +138,14 @@ class GeneralLedgerService
     /**
      * Export GL entries to array format
      */
-    public function export(?AccountingPeriod $period = null, ?Carbon $startDate = null, ?Carbon $endDate = null): array
+    public function export(?AccountingPeriod $period = null, ?Carbon $startDate = null, ?Carbon $endDate = null, ?string $branchId = null): array
     {
         return [
             'generated_at' => now(),
             'period' => $period ? $period->period_name : 'Custom Range',
             'start_date' => $startDate,
             'end_date' => $endDate,
-            'ledger' => $this->getFullLedger($period, $startDate, $endDate),
+            'ledger' => $this->getFullLedger($period, $startDate, $endDate, $branchId),
         ];
     }
 }

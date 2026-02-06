@@ -17,7 +17,6 @@ class BusinessConfiguration extends Component
     public $existingLogo; // Current logo path
     public $phone;
     public $email;
-    public $vatNumber;
     public $auto_backup;
     public $backup_interval;
     public $backup_period;
@@ -27,7 +26,6 @@ class BusinessConfiguration extends Component
         'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         'phone' => 'nullable|string|max:20',
         'email' => 'nullable|email|max:255',
-        'vatNumber' => 'nullable|string|max:50',
         'auto_backup' => 'boolean',
         'backup_interval' => 'nullable|integer|min:1|max:999',
         'backup_period' => 'nullable|string|max:50',
@@ -47,7 +45,6 @@ class BusinessConfiguration extends Component
                 $contactDetails = $settings->contact_details ?? [];
                 $this->phone = $contactDetails['phone'] ?? '';
                 $this->email = $contactDetails['email'] ?? '';
-                $this->vatNumber = $contactDetails['vat_number'] ?? '';
                 $this->auto_backup = $settings->auto_backup ?? false;
                 $this->backup_interval = $settings->backup_interval ?? '';
                 $this->backup_period = $settings->backup_period ?? '';
@@ -62,7 +59,6 @@ class BusinessConfiguration extends Component
                 $contactDetails = $settings->contact_details ?? [];
                 $this->phone = $contactDetails['phone'] ?? '';
                 $this->email = $contactDetails['email'] ?? '';
-                $this->vatNumber = $contactDetails['vat_number'] ?? '';
                 $storageSettings = $settings->storage_settings ?? [];
                 $this->auto_backup = $storageSettings['auto_backup'] ?? false;
                 $this->backup_interval = $storageSettings['backup_interval'] ?? '';
@@ -101,7 +97,6 @@ class BusinessConfiguration extends Component
                 $settings->contact_details = [
                     'phone' => $this->phone,
                     'email' => $this->email,
-                    'vat_number' => $this->vatNumber,
                 ];
 
                 // Save backup settings as direct properties for global config
@@ -150,7 +145,6 @@ class BusinessConfiguration extends Component
                 $settings->contact_details = [
                     'phone' => $this->phone,
                     'email' => $this->email,
-                    'vat_number' => $this->vatNumber,
                 ];
 
                 $settings->storage_settings = [

@@ -44,7 +44,13 @@
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                                    {{ $report->compiledBy?->name ?? 'N/A' }}
+                                    @php
+                                        $compiledByName = $report->compiledBy?->name;
+                                        if (! $compiledByName && $report->compiled_by_type && $report->compiled_by_id) {
+                                            $compiledByName = class_basename($report->compiled_by_type) . ' #' . $report->compiled_by_id;
+                                        }
+                                    @endphp
+                                    {{ $compiledByName ?? 'System' }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
@@ -57,16 +63,10 @@
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm">
                                     <div class="flex gap-2">
-                                        @if($report->canBeApproved())
-                                            <button wire:click="approveReport('{{ $report->id }}')"
-                                                    class="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700">
-                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 mr-1">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                </svg>
-                                                Approve
-                                            </button>
-                                        @endif
-
+                                        <a href="{{ branch_route('branch-dashboard.reporting.compiled.view', ['id' => $report->id]) }}"
+                                           class="inline-flex items-center px-3 py-1.5 bg-gray-600 text-white text-xs rounded hover:bg-gray-700">
+                                            View
+                                        </a>
                                         @if($report->canBeSentToMD())
                                             <button wire:click="sendToMD('{{ $report->id }}')"
                                                     class="inline-flex items-center px-3 py-1.5 bg-purple-600 text-white text-xs rounded hover:bg-purple-700">

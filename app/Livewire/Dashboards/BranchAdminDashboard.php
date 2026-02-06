@@ -51,7 +51,7 @@ class BranchAdminDashboard extends BaseDashboard
             return DB::table('stocks')
                 ->join('items', 'stocks.item_id', '=', 'items.id')
                 ->where('stocks.branch_id', $this->getBranchId())
-                ->selectRaw('SUM(stocks.quantity * items.last_unit_price) as total')
+                ->selectRaw('SUM((stocks.quantity_available + stocks.quantity_reserved + stocks.quantity_damaged) * items.last_unit_price) as total')
                 ->value('total') ?? 0;
         });
     }
@@ -72,7 +72,7 @@ class BranchAdminDashboard extends BaseDashboard
             $lowStock = DB::table('stocks')
                 ->join('items', 'stocks.item_id', '=', 'items.id')
                 ->where('stocks.branch_id', $this->getBranchId())
-                ->whereRaw('stocks.quantity <= items.reorder_point')
+                ->whereRaw('(stocks.quantity_available + stocks.quantity_reserved + stocks.quantity_damaged) <= items.reorder_point')
                 ->count();
 
             $pendingApprovals = ApprovalAuditRequest::where('branch_id', $this->getBranchId())
@@ -122,7 +122,7 @@ class BranchAdminDashboard extends BaseDashboard
                 'pending' => DB::table('stocks')
                     ->join('items', 'stocks.item_id', '=', 'items.id')
                     ->where('stocks.branch_id', $this->getBranchId())
-                    ->whereRaw('stocks.quantity <= items.reorder_point')
+                    ->whereRaw('(stocks.quantity_available + stocks.quantity_reserved + stocks.quantity_damaged) <= items.reorder_point')
                     ->count(),
             ],
             'sales' => [

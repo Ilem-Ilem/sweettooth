@@ -23,7 +23,6 @@ class DatabaseSeeder extends Seeder
             // 1. Permissions & Roles (Critical - must be first)
             PermissionSeeder::class,
             RoleSeeder::class,
-            FixRolePermissionsSeeder::class, // Ensure all roles have complete permissions
 
             // 2. Leave Types
             LeaveTypeSeeder::class,
@@ -57,6 +56,7 @@ class DatabaseSeeder extends Seeder
 
             // 10. Additional Roles
             InventoryStoreRolesSeeder::class, // Additional inventory and store management roles
+            FixRolePermissionsSeeder::class, // Ensure all roles have complete permissions
 
             // 11. Currency Localization (should come after basic setup)
             CurrencyLocalizationSeeder::class,
@@ -81,6 +81,18 @@ class DatabaseSeeder extends Seeder
 
             // 17. Comprehensive Dummy Data
             AdditionalDummyDataSeeder::class,
+
+            // 18. Product Stock Data for POS Testing
+            ProductStockSeeder::class,
+
+            // 19. Link all products to Till for POS availability
+            LinkAllProductsToTillSeeder::class,
+
+            // 20. Assign POS access roles to users
+            AssignPosAccessRoleSeeder::class,
+
+            // 21. Ensure Super Admin has all permissions
+            EnsureSuperAdminPermissionsSeeder::class,
         ]);
     }
 }

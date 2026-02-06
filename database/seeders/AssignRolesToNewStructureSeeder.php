@@ -28,7 +28,7 @@ class AssignRolesToNewStructureSeeder extends Seeder
             'HR Manager' => 'Manager',
             'Kitchen Staff' => 'Production Staff',
             'Gelato Operator' => 'Specialist',
-            'Confectioneries Operator' => 'Specialist',
+            'Confectionaries Operator' => 'Specialist',
             'Cashier' => 'Sales Staff',
             'Store Clerk' => 'Inventory Staff',
             'Corner Store Staff' => 'Sales Staff',

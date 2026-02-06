@@ -19,7 +19,7 @@
 
     {{-- Filters Section --}}
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
             {{-- Period Filter --}}
             <div>
                 <x-select.native
@@ -56,6 +56,16 @@
                     :disabled="$periodFilter !== 'custom'"
                 />
             </div>
+            @if(count($availableDepartments ?? []) > 0)
+                <div>
+                    <x-select.native label="Department" wire:model.live="selectedDepartmentId">
+                        <option value="">Select Department</option>
+                        @foreach($availableDepartments as $dept)
+                            <option value="{{ $dept->id }}">{{ $dept->name }}</option>
+                        @endforeach
+                    </x-select.native>
+                </div>
+            @endif
 
             {{-- Generate Button --}}
             <div class="flex items-end">
@@ -253,7 +263,9 @@
                 </p>
             </div>
         </div>
-    @endif
+@endif
+
+@include('livewire.partials.department-select-modal')
 
     {{-- Reports History --}}
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow mt-6">

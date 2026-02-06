@@ -99,6 +99,14 @@ class CompiledReport extends Model
     }
 
     /**
+     * Get the annotations for this compiled report.
+     */
+    public function annotations()
+    {
+        return $this->morphMany(ReportAnnotation::class, 'reportable');
+    }
+
+    /**
      * Scope a query to only include reports for a specific branch.
      */
     public function scopeForBranch($query, $branchId)
@@ -198,11 +206,19 @@ class CompiledReport extends Model
     }
 
     /**
+     * Check if report can be submitted for approval.
+     */
+    public function canBeSubmittedForApproval(): bool
+    {
+        return $this->status === 'draft';
+    }
+
+    /**
      * Check if report can be sent to MD.
      */
     public function canBeSentToMD(): bool
     {
-        return in_array($this->status, ['approved', 'sent_to_md']);
+        return $this->status !== 'sent_to_md';
     }
 
     /**
@@ -232,6 +248,16 @@ class CompiledReport extends Model
     {
         return $this->departmentReports()
             ->where('report_category', 'inventory')
+            ->get();
+    }
+
+    /**
+     * Get accounting reports included.
+     */
+    public function getAccountingReports()
+    {
+        return $this->departmentReports()
+            ->where('report_category', 'accounting')
             ->get();
     }
 }

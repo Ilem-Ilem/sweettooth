@@ -34,13 +34,13 @@ class StockMovementReportService extends ReportService
                 $q->where('department_id', $this->departmentId);
             })
             ->whereBetween('movement_date', [$this->periodFrom, $this->periodTo])
-            ->with(['item.category', 'createdBy'])
+            ->with(['stock.item', 'mover'])
             ->orderBy('movement_date', 'desc')
             ->orderBy('created_at', 'desc')
             ->get();
 
-        $movementsIn = $movements->where('movement_type', 'in');
-        $movementsOut = $movements->where('movement_type', 'out');
+        $movementsIn = $movements->where('type', 'in');
+        $movementsOut = $movements->where('type', 'out');
 
         return [
             'movement_overview' => $this->generateMovementOverview($movements),
@@ -69,17 +69,17 @@ class StockMovementReportService extends ReportService
                 'id' => $movement->id,
                 'date' => Carbon::parse($movement->movement_date)->format('Y-m-d'),
                 'time' => $movement->created_at->format('H:i'),
-                'item_name' => $movement->item->name ?? 'Unknown',
-                'sku' => $movement->item->sku ?? 'N/A',
-                'category' => $movement->item->category->name ?? 'Uncategorized',
-                'movement_type' => $movement->movement_type,
+                'item_name' => $movement->stock?->item?->name ?? 'Unknown',
+                'sku' => $movement->stock?->item?->sku ?? 'N/A',
+                'category' => $movement->stock?->item?->category ?? 'Uncategorized',
+                'movement_type' => $movement->type,
                 'quantity' => $movement->quantity,
                 'uom' => $movement->uom,
                 'source' => $movement->source ?? 'N/A',
                 'reference' => $movement->reference ?? 'N/A',
-                'unit_cost' => $movement->item->unit_cost ?? 0,
-                'total_value' => $movement->quantity * ($movement->item->unit_cost ?? 0),
-                'created_by' => $movement->createdBy->name ?? 'System',
+                'unit_cost' => $movement->stock?->item?->unit_cost ?? 0,
+                'total_value' => $movement->quantity * ($movement->stock?->item?->unit_cost ?? 0),
+                'created_by' => $movement->mover?->name ?? 'System',
                 'notes' => $movement->notes ?? '',
             ];
         })->toArray();
@@ -90,8 +90,8 @@ class StockMovementReportService extends ReportService
      */
     private function generateMovementOverview($movements): array
     {
-        $movementsIn = $movements->where('movement_type', 'in');
-        $movementsOut = $movements->where('movement_type', 'out');
+        $movementsIn = $movements->where('type', 'in');
+        $movementsOut = $movements->where('type', 'out');
 
         $totalInQuantity = $movementsIn->sum('quantity');
         $totalOutQuantity = $movementsOut->sum('quantity');
@@ -155,7 +155,7 @@ class StockMovementReportService extends ReportService
 
             $sources[$source]['movements_count']++;
 
-            if ($movement->movement_type === 'in') {
+            if ($movement->type === 'in') {
                 $sources[$source]['in_count']++;
             } else {
                 $sources[$source]['out_count']++;
@@ -181,7 +181,7 @@ class StockMovementReportService extends ReportService
         $categories = [];
 
         foreach ($movements as $movement) {
-            $category = $movement->item->category->name ?? 'Uncategorized';
+            $category = $movement->stock?->item?->category ?? 'Uncategorized';
 
             if (!isset($categories[$category])) {
                 $categories[$category] = [
@@ -196,9 +196,9 @@ class StockMovementReportService extends ReportService
 
             $categories[$category]['movements_count']++;
             $quantity = $movement->quantity;
-            $value = $quantity * ($movement->item->unit_cost ?? 0);
+            $value = $quantity * ($movement->stock?->item?->unit_cost ?? 0);
 
-            if ($movement->movement_type === 'in') {
+            if ($movement->type === 'in') {
                 $categories[$category]['in_quantity'] += $quantity;
                 $categories[$category]['total_value'] += $value;
             } else {
@@ -226,15 +226,15 @@ class StockMovementReportService extends ReportService
         $items = [];
 
         foreach ($movements as $movement) {
-            $itemId = $movement->item_id;
-            $itemName = $movement->item->name ?? 'Unknown';
+            $itemId = $movement->stock?->item?->id;
+            $itemName = $movement->stock?->item?->name ?? 'Unknown';
 
             if (!isset($items[$itemId])) {
                 $items[$itemId] = [
                     'item_id' => $itemId,
                     'item_name' => $itemName,
-                    'sku' => $movement->item->sku ?? 'N/A',
-                    'category' => $movement->item->category->name ?? 'Uncategorized',
+                    'sku' => $movement->stock?->item?->sku ?? 'N/A',
+                    'category' => $movement->stock?->item?->category ?? 'Uncategorized',
                     'movements_count' => 0,
                     'in_quantity' => 0,
                     'out_quantity' => 0,
@@ -245,9 +245,9 @@ class StockMovementReportService extends ReportService
 
             $items[$itemId]['movements_count']++;
             $quantity = $movement->quantity;
-            $value = $quantity * ($movement->item->unit_cost ?? 0);
+            $value = $quantity * ($movement->stock?->item?->unit_cost ?? 0);
 
-            if ($movement->movement_type === 'in') {
+            if ($movement->type === 'in') {
                 $items[$itemId]['in_quantity'] += $quantity;
                 $items[$itemId]['total_value'] += $value;
             } else {
@@ -294,7 +294,7 @@ class StockMovementReportService extends ReportService
             $quantity = $movement->quantity;
             $value = $quantity * ($movement->item->unit_cost ?? 0);
 
-            if ($movement->movement_type === 'in') {
+            if ($movement->type === 'in') {
                 $dailyData[$date]['in_count']++;
                 $dailyData[$date]['in_quantity'] += $quantity;
                 $dailyData[$date]['in_value'] += $value;

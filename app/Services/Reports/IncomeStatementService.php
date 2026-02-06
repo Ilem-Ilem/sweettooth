@@ -22,13 +22,13 @@ class IncomeStatementService
      * +/- Other Income/Expenses
      * = Net Income
      */
-    public function generate(?AccountingPeriod $period = null, ?Carbon $startDate = null, ?Carbon $endDate = null): array
+    public function generate(?AccountingPeriod $period = null, ?Carbon $startDate = null, ?Carbon $endDate = null, ?string $branchId = null): array
     {
-        $revenues = $this->getAccountBalances('revenue', $period, $startDate, $endDate);
-        $cogs = $this->getAccountBalances('cost_of_goods_sold', $period, $startDate, $endDate);
-        $expenses = $this->getAccountBalances('expense', $period, $startDate, $endDate);
-        $otherIncome = $this->getAccountBalances('other_income', $period, $startDate, $endDate);
-        $otherExpenses = $this->getAccountBalances('other_expense', $period, $startDate, $endDate);
+        $revenues = $this->getAccountBalances('revenue', $period, $startDate, $endDate, $branchId);
+        $cogs = $this->getAccountBalances('cost_of_goods_sold', $period, $startDate, $endDate, $branchId);
+        $expenses = $this->getAccountBalances('expense', $period, $startDate, $endDate, $branchId);
+        $otherIncome = $this->getAccountBalances('other_income', $period, $startDate, $endDate, $branchId);
+        $otherExpenses = $this->getAccountBalances('other_expense', $period, $startDate, $endDate, $branchId);
 
         // Calculate totals
         $totalRevenue = abs($revenues['balance']);
@@ -84,7 +84,7 @@ class IncomeStatementService
     /**
      * Get account balances by type
      */
-    private function getAccountBalances(string $type, ?AccountingPeriod $period = null, ?Carbon $startDate = null, ?Carbon $endDate = null): array
+    private function getAccountBalances(string $type, ?AccountingPeriod $period = null, ?Carbon $startDate = null, ?Carbon $endDate = null, ?string $branchId = null): array
     {
         $query = GlAccount::where('account_type', $type)
             ->where('is_active', true);
@@ -108,6 +108,10 @@ class IncomeStatementService
 
             if ($endDate) {
                 $entryQuery->whereDate('entry_date', '<=', $endDate);
+            }
+
+            if ($branchId) {
+                $entryQuery->where('branch_id', $branchId);
             }
 
             $debit = $entryQuery->sum('debit');

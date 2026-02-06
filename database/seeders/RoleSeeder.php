@@ -116,6 +116,39 @@ class RoleSeeder extends Seeder
             'view-analytics', 'view-dashboard', 'view-department-reports',
         ]);
 
+        $accountingManager = Role::create([
+            'name' => 'Accounting Manager',
+            'guard_name' => $guard,
+            'description' => 'Accounting and financial management',
+            'display_order' => 14,
+        ]);
+        $accountingManager->givePermissionTo([
+            'access_accounting', 'view_financial_reports',
+            'manage_accounts', 'manage_periods', 'create_journal_entries', 'reconcile_bank_accounts',
+            'view-chart-accounts', 'create-accounts', 'edit-accounts',
+            'view-gl-entries', 'create-gl-entries', 'post-gl-entries', 'reverse-gl-entries',
+            'view-accounting-reports', 'reconcile-accounts', 'manage-bank-accounts',
+            'view-trial-balance', 'view-financial-statements',
+            'manage-accounting-period', 'view-account-reconciliation',
+            'view-dashboard', 'view-analytics',
+        ]);
+
+        $accountant = Role::create([
+            'name' => 'Accountant',
+            'guard_name' => $guard,
+            'description' => 'Accounting operations and reporting',
+            'display_order' => 15,
+        ]);
+        $accountant->givePermissionTo([
+            'access_accounting', 'view_financial_reports',
+            'create_journal_entries', 'reconcile_bank_accounts',
+            'view-chart-accounts', 'view-gl-entries',
+            'view-accounting-reports', 'reconcile-accounts', 'manage-bank-accounts',
+            'view-trial-balance', 'view-financial-statements',
+            'view-account-reconciliation',
+            'view-dashboard',
+        ]);
+
         // ===== SUPERVISOR/TEAM LEAD ROLES =====
         $supervisor = Role::create([
             'name' => 'Supervisor',
@@ -169,9 +202,9 @@ class RoleSeeder extends Seeder
         ]);
 
         $confectionariesManager = Role::create([
-            'name' => 'Confectioneries Manager',
+            'name' => 'Confectionaries Manager',
             'guard_name' => $guard,
-            'description' => 'Confectioneries Production Manager',
+            'description' => 'Confectionaries Production Manager',
             'display_order' => 32,
         ]);
         $confectionariesManager->givePermissionTo([
@@ -205,14 +238,25 @@ class RoleSeeder extends Seeder
         ]);
 
         $confectionariesStaff = Role::create([
-            'name' => 'Confectioneries Production Staff',
+            'name' => 'Confectionaries Production Staff',
             'guard_name' => $guard,
-            'description' => 'Confectioneries Production Staff',
+            'description' => 'Confectionaries Production Staff',
             'display_order' => 42,
         ]);
         $confectionariesStaff->givePermissionTo([
             'view-production-queue', 'start-production', 'complete-production',
             'view-recipes',
+        ]);
+
+        $confectionariesSalesStaff = Role::create([
+            'name' => 'Confectionaries Sales Staff',
+            'guard_name' => $guard,
+            'description' => 'Confectionaries Sales Staff',
+            'display_order' => 43,
+        ]);
+        $confectionariesSalesStaff->givePermissionTo([
+            'view-sales-dashboard', 'process-sale', 'view-daily-sales',
+            'view-sales-transactions', 'view-till-records', 'view-stock-levels',
         ]);
 
         $cashier = Role::create([

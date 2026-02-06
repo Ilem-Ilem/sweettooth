@@ -26,6 +26,9 @@ class DepartmentReport extends Model
         'report_data',
         'summary_metrics',
         'charts_data',
+        'system_data_hash',
+        'system_data_version',
+        'system_data_locked_at',
         'status',
         'reviewed_by_id',
         'reviewed_by_type',
@@ -42,8 +45,19 @@ class DepartmentReport extends Model
         'report_data' => 'array',
         'summary_metrics' => 'array',
         'charts_data' => 'array',
+        'system_data_locked_at' => 'datetime',
         'reviewed_at' => 'datetime',
     ];
+
+    protected static function booted()
+    {
+        static::updating(function (self $report) {
+            if ($report->system_data_locked_at
+                && $report->isDirty(['report_data', 'summary_metrics', 'charts_data'])) {
+                throw new \RuntimeException('System data is locked and cannot be modified.');
+            }
+        });
+    }
 
     /**
      * Get the branch that owns the report.
@@ -92,6 +106,73 @@ class DepartmentReport extends Model
     {
         return $this->belongsToMany(CompiledReport::class, 'compiled_report_department_report')
             ->withTimestamps();
+    }
+
+    /**
+     * Get the annotations for this report.
+     */
+    public function annotations()
+    {
+        return $this->morphMany(ReportAnnotation::class, 'reportable');
+    }
+
+    /**
+     * Compute the system data hash for integrity checks.
+     */
+    public static function computeSystemDataHash(array $reportData, array $summaryMetrics, array $chartsData): string
+    {
+        $payload = [
+            'report_data' => $reportData,
+            'summary_metrics' => $summaryMetrics,
+            'charts_data' => $chartsData,
+        ];
+
+        $payload = self::sortArrayRecursively($payload);
+
+        return hash('sha256', json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+    }
+
+    /**
+     * Verify stored system data hash.
+     */
+    public function systemDataHashIsValid(): bool
+    {
+        if (!$this->system_data_hash) {
+            return false;
+        }
+
+        return hash_equals(
+            $this->system_data_hash,
+            self::computeSystemDataHash(
+                $this->report_data ?? [],
+                $this->summary_metrics ?? [],
+                $this->charts_data ?? []
+            )
+        );
+    }
+
+    protected static function sortArrayRecursively(array $payload): array
+    {
+        foreach ($payload as $key => $value) {
+            if (is_array($value)) {
+                $payload[$key] = self::sortArrayRecursively($value);
+            }
+        }
+
+        if (self::isAssoc($payload)) {
+            ksort($payload);
+        }
+
+        return $payload;
+    }
+
+    protected static function isAssoc(array $payload): bool
+    {
+        if ($payload === []) {
+            return false;
+        }
+
+        return array_keys($payload) !== range(0, count($payload) - 1);
     }
 
     /**

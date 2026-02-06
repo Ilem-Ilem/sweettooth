@@ -100,7 +100,7 @@ class ValidateSalesDepartmentContext
         // Manager-level roles
         $managerRoles = [
             'Manager', 'Head of Production', 'Chef', 'Head of Gelato',
-            'Confectioneries Manager', 'Sales Manager', 'HR Manager',
+            'Confectionaries Manager', 'Sales Manager', 'HR Manager',
             'Inventory Manager', 'Corner Store Manager', 'MD', 'Managing Director'
         ];
         if ($user->hasAnyRole($managerRoles)) return 3;

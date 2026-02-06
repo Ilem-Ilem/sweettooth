@@ -203,7 +203,7 @@ class AssignPermissionsToRolesSeeder extends Seeder
                 'view_recipes',
             ],
             
-            'Confectioneries Production Staff' => [
+            'Confectionaries Production Staff' => [
                 'view_production_queue', 'start_production', 'complete_production',
                 'view_recipes',
             ],
@@ -304,7 +304,7 @@ class AssignPermissionsToRolesSeeder extends Seeder
                 'process_sale', 'view_daily_sales',
             ],
             
-            'Confectioneries Manager' => [
+            'Confectionaries Manager' => [
                 'view_production_queue', 'start_production', 'complete_production',
                 'view_production_callbacks', 'create_production_callback',
                 'view_inventory', 'view_stock_levels', 'adjust_inventory',
@@ -313,7 +313,7 @@ class AssignPermissionsToRolesSeeder extends Seeder
                 'view_reports',
             ],
             
-            'Confectioneries Sales Staff' => [
+            'Confectionaries Sales Staff' => [
                 'process_sale', 'view_daily_sales',
                 'view_inventory', 'view_stock_levels',
             ],

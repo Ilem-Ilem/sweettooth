@@ -122,11 +122,6 @@
                         @enderror
                     </div>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">VAT Number</label>
-                    <input type="text" wire:model="vatNumber"
-                        class="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100">
-                </div>
             </div>
 
               <!-- Backup Settings -->
@@ -146,9 +141,9 @@
                         @enderror
                     </div>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">VAT Number</label>
-                    <select type="text" wire:model="backup_period"
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Backup Period</label>
+                    <select wire:model="backup_period"
                         class="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100">
                         <option value="">Select Period</option>
                         <option value="days">Days</option>

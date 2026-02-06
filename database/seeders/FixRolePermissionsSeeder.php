@@ -145,6 +145,18 @@ class FixRolePermissionsSeeder extends Seeder
                 'view_production_dashboard',
             ],
 
+            'Confectionaries Sales Staff' => [
+                // Core sales operations
+                'view-sales-dashboard', 'process-sale', 'view-daily-sales',
+                'view-sales-transactions', 'view-till-records',
+                // Inventory viewing
+                'view-stock-levels',
+                // Minimal reporting
+                'view-dashboard',
+                // Dashboard access
+                'view_sales_dashboard',
+            ],
+
             // ===== PRODUCTION ROLES - COMPLETE PERMISSIONS =====
             'Head of Production' => [
                 // Production operations - full access
@@ -253,6 +265,34 @@ class FixRolePermissionsSeeder extends Seeder
                 'view-activity-logs',
                 // Dashboard access
                 'view_hr_dashboard', 'view_reports',
+            ],
+
+            // ===== ACCOUNTING ROLES - COMPLETE PERMISSIONS =====
+            'Accounting Manager' => [
+                // Core accounting access
+                'access_accounting', 'view_financial_reports',
+                // Accounting management
+                'manage_accounts', 'manage_periods', 'create_journal_entries', 'reconcile_bank_accounts',
+                'view-chart-accounts', 'create-accounts', 'edit-accounts',
+                'view-gl-entries', 'create-gl-entries', 'post-gl-entries', 'reverse-gl-entries',
+                'view-accounting-reports', 'reconcile-accounts', 'manage-bank-accounts',
+                'view-trial-balance', 'view-financial-statements',
+                'manage-accounting-period', 'view-account-reconciliation',
+                // Analytics & Reporting
+                'view-dashboard', 'view-analytics',
+            ],
+
+            'Accountant' => [
+                // Core accounting access
+                'access_accounting', 'view_financial_reports',
+                // Accounting operations
+                'create_journal_entries', 'reconcile_bank_accounts',
+                'view-chart-accounts', 'view-gl-entries',
+                'view-accounting-reports', 'reconcile-accounts', 'manage-bank-accounts',
+                'view-trial-balance', 'view-financial-statements',
+                'view-account-reconciliation',
+                // Reporting
+                'view-dashboard',
             ],
 
             // ===== INVENTORY ROLES - COMPLETE PERMISSIONS =====

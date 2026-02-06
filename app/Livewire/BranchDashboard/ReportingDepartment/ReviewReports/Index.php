@@ -26,6 +26,10 @@ class Index extends Component
 
     public $reviewNotes = '';
 
+    public $newAnnotation = '';
+
+    public $annotations = [];
+
     public $filterCategory = 'all';
 
     public $filterDepartment = 'all';
@@ -54,6 +58,20 @@ class Index extends Component
         }
 
         $this->reviewNotes = $this->selectedReport->review_notes ?? '';
+        $this->annotations = $this->selectedReport->annotations()
+            ->with('author')
+            ->orderBy('created_at', 'asc')
+            ->get()
+            ->map(function ($annotation) {
+                return [
+                    'id' => $annotation->id,
+                    'body' => $annotation->body,
+                    'author' => $annotation->author?->name ?? 'Unknown',
+                    'created_at' => $annotation->created_at?->format('Y-m-d H:i'),
+                ];
+            })
+            ->toArray();
+        $this->newAnnotation = '';
         $this->showReviewModal = true;
     }
 
@@ -62,6 +80,43 @@ class Index extends Component
         $this->showReviewModal = false;
         $this->selectedReport = null;
         $this->reviewNotes = '';
+        $this->newAnnotation = '';
+        $this->annotations = [];
+    }
+
+    public function addAnnotation()
+    {
+        if (! $this->selectedReport) {
+            $this->toast()->error('No report selected')->send();
+
+            return;
+        }
+
+        $this->validate([
+            'newAnnotation' => 'required|string|min:2|max:2000',
+        ]);
+
+        try {
+            $actor = current_actor();
+
+            $annotation = $this->selectedReport->annotations()->create([
+                'author_id' => $actor?->getKey(),
+                'author_type' => $actor ? get_class($actor) : null,
+                'body' => $this->newAnnotation,
+            ]);
+
+            $this->annotations[] = [
+                'id' => $annotation->id,
+                'body' => $annotation->body,
+                'author' => $actor?->name ?? 'Unknown',
+                'created_at' => $annotation->created_at?->format('Y-m-d H:i'),
+            ];
+
+            $this->newAnnotation = '';
+            $this->toast()->success('Annotation added.')->send();
+        } catch (\Exception $e) {
+            $this->toast()->error('Error adding annotation: '.$e->getMessage())->send();
+        }
     }
 
     public function approveReport()
@@ -73,8 +128,11 @@ class Index extends Component
         }
 
         try {
+            $actor = current_actor();
+
             $this->selectedReport->markAsReviewed(
-                auth()->id(),
+                $actor?->getKey(),
+                $actor ? get_class($actor) : null,
                 $this->reviewNotes
             );
 
@@ -95,15 +153,17 @@ class Index extends Component
         }
 
         if (empty($this->reviewNotes)) {
-            $this->toast()->error('Please provide rejection notes')->send();
-
-            return;
+            $this->reviewNotes = 'Rejected without notes.';
+            $this->toast()->warning('No rejection notes provided; default note applied.')->send();
         }
 
         try {
+            $actor = current_actor();
+
             $this->selectedReport->update([
                 'status' => 'rejected',
-                'reviewed_by' => auth()->id(),
+                'reviewed_by_id' => $actor?->getKey(),
+                'reviewed_by_type' => $actor ? get_class($actor) : null,
                 'reviewed_at' => now(),
                 'review_notes' => $this->reviewNotes,
             ]);
@@ -135,7 +195,10 @@ class Index extends Component
 
         $reports = $query->orderBy('report_date', 'desc')->paginate(15);
 
-        $departments = \App\Models\Department::where('branch_id', $branchId)
+        $departments = \App\Models\Department::where(function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId)
+                    ->orWhereNull('branch_id');
+            })
             ->orderBy('name')
             ->get();
 

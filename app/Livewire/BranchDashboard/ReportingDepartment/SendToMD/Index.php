@@ -22,7 +22,7 @@ class Index extends Component
     #[Url(keep: true)]
     public ?string $b_id = null;
 
-    public ?User $selectedMdUser = null;
+    public ?string $selectedMdUser = null;
 
     public $showSendModal = false;
 
@@ -30,6 +30,10 @@ class Index extends Component
 
     public function mount()
     {
+        if (! is_super_admin()) {
+            abort(403, 'Only Super Admins can send reports to MD');
+        }
+
         $this->b_id = $this->b_id ?? current_branch_id();
     }
 
@@ -45,8 +49,7 @@ class Index extends Component
         $this->reportToSend = CompiledReport::findOrFail($reportId);
 
         if (! $this->reportToSend->canBeSentToMD()) {
-            $this->toast()->error('Report must be approved before sending to MD')->send();
-
+            $this->toast()->error('Report has already been sent to MD')->send();
             return;
         }
 
@@ -93,26 +96,6 @@ class Index extends Component
         }
     }
 
-    public function approveReport($reportId)
-    {
-        try {
-            $report = CompiledReport::findOrFail($reportId);
-
-            if (! $report->canBeApproved()) {
-                $this->toast()->error('Report cannot be approved in its current state')->send();
-
-                return;
-            }
-
-            $compilationService = new ReportCompilationService;
-            $compilationService->approve($report, auth()->id());
-
-            $this->toast()->success('Report approved successfully!')->send();
-
-        } catch (\Exception $e) {
-            $this->toast()->error('Error approving report: '.$e->getMessage())->send();
-        }
-    }
 
     public function render()
     {

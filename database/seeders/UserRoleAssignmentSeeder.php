@@ -24,7 +24,7 @@ class UserRoleAssignmentSeeder extends Seeder
             'abubakar.mohammed.22@sweettooth.com' => ['Admin'],
             'chigozie.eze.51@sweettooth.com' => ['Kitchen Staff'],
             'ibrahim.bello.104@sweettooth.com' => ['Gelato Production Staff'],
-            'abubakar.okafor.24@sweettooth.com' => ['Confectioneries Production Staff'],
+            'abubakar.okafor.24@sweettooth.com' => ['Confectionaries Production Staff'],
             'nneka.chukwu.26@sweettooth.com' => ['Cashier'],
             'ada.eze.93@sweettooth.com' => ['Till Supervisor'],
             'folake.nwankwo.64@sweettooth.com' => ['Corner Store Manager'],

@@ -103,6 +103,23 @@
         </div>
     </div>
 
+    <!-- Quick Access -->
+    <div class="bg-white rounded-lg border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Quick Access</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <a href="{{ branch_route('branch-dashboard.hr.reports.workforce-overview') }}"
+               class="flex items-center justify-between p-4 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition">
+                <div>
+                    <p class="text-sm text-emerald-700 font-medium">HR Workforce Report</p>
+                    <p class="text-xs text-emerald-600 mt-1">Generate and review workforce insights</p>
+                </div>
+                <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h7" />
+                </svg>
+            </a>
+        </div>
+    </div>
+
     <!-- Department Breakdown -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-2 bg-white rounded-lg border border-gray-200 p-6">

@@ -24,11 +24,11 @@ class BalanceSheetService
      * - Equity
      * = Total Liabilities & Equity
      */
-    public function generate(?AccountingPeriod $period = null, ?Carbon $asOfDate = null): array
+    public function generate(?AccountingPeriod $period = null, ?Carbon $asOfDate = null, ?string $branchId = null): array
     {
-        $assets = $this->getAccountBalances('asset', $period, $asOfDate);
-        $liabilities = $this->getAccountBalances('liability', $period, $asOfDate);
-        $equity = $this->getAccountBalances('equity', $period, $asOfDate);
+        $assets = $this->getAccountBalances('asset', $period, $asOfDate, $branchId);
+        $liabilities = $this->getAccountBalances('liability', $period, $asOfDate, $branchId);
+        $equity = $this->getAccountBalances('equity', $period, $asOfDate, $branchId);
 
         $totalAssets = abs($assets['balance']);
         $totalLiabilities = abs($liabilities['balance']);
@@ -67,7 +67,7 @@ class BalanceSheetService
     /**
      * Get account balances by type
      */
-    private function getAccountBalances(string $type, ?AccountingPeriod $period = null, ?Carbon $asOfDate = null): array
+    private function getAccountBalances(string $type, ?AccountingPeriod $period = null, ?Carbon $asOfDate = null, ?string $branchId = null): array
     {
         $query = GlAccount::where('account_type', $type)
             ->where('is_active', true);
@@ -87,6 +87,10 @@ class BalanceSheetService
 
             if ($asOfDate) {
                 $entryQuery->whereDate('entry_date', '<=', $asOfDate);
+            }
+
+            if ($branchId) {
+                $entryQuery->where('branch_id', $branchId);
             }
 
             $debit = $entryQuery->sum('debit');

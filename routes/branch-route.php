@@ -71,6 +71,13 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
             });
             // Route::get('/performance-goals', App\Livewire\BranchDashboard\PerformanceGoals::class)->name('performance-goals');
             // Route::get('/feedback-requests', App\Livewire\BranchDashboard\FeedbackRequests::class)->name('feedback-requests');
+
+            Route::prefix('reports')->name('reports.')->group(function () {
+                Route::middleware('role_or_permission:manage_organization')->get(
+                    '/workforce-overview',
+                    \App\Livewire\BranchDashboard\HR\Reports\WorkforceOverview\Index::class
+                )->name('workforce-overview');
+            });
         });
 
         // Leave Management routes (restricted to branch users)
@@ -261,13 +268,16 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
             Route::get('stock-level-analytics', [\App\Http\Controllers\ExportController::class, 'stockLevelAnalytics'])->name('stock-level-analytics');
             Route::get('health-checks', [\App\Http\Controllers\ExportController::class, 'healthChecks'])->name('health-checks');
             Route::get('item-requests', [\App\Http\Controllers\ExportController::class, 'itemRequests'])->name('item-requests');
+            Route::get('department-report/{reportId}', [\App\Http\Controllers\ExportController::class, 'departmentReport'])->name('department-report');
         });
 
         // Reporting Department Routes
         Route::prefix('reporting')->name('reporting.')->group(function () {
+            Route::get('generate', \App\Livewire\BranchDashboard\Reporting\Generate::class)->name('generate');
             Route::get('dashboard', \App\Livewire\BranchDashboard\ReportingDepartment\Dashboard\Index::class)->name('dashboard');
             Route::get('review', \App\Livewire\BranchDashboard\ReportingDepartment\ReviewReports\Index::class)->name('review');
             Route::get('compile', \App\Livewire\BranchDashboard\ReportingDepartment\CompileReports\Index::class)->name('compile');
+            Route::get('report/{id}', \App\Livewire\BranchDashboard\ReportingDepartment\ReportDetail\Index::class)->name('report.view');
             Route::get('compiled/{id}', \App\Livewire\BranchDashboard\ReportingDepartment\ViewCompiled\Index::class)->name('compiled.view');
             Route::get('send-to-md', \App\Livewire\BranchDashboard\ReportingDepartment\SendToMD\Index::class)->name('send-to-md');
         });
@@ -314,6 +324,7 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
 
             // Financial Reports
             Route::prefix('reports')->name('reports.')->group(function () {
+                Route::get('/unified', \App\Livewire\BranchDashboard\Accounting\Reports\Unified::class)->name('unified');
                 Route::get('/', \App\Livewire\BranchDashboard\Accounting\Report\Index::class)->name('index');
                 Route::get('/general-ledger', \App\Livewire\BranchDashboard\Accounting\Report\GeneralLedgerReport::class)->name('general-ledger');
                 Route::get('/trial-balance', \App\Livewire\BranchDashboard\Accounting\Report\TrialBalanceReport::class)->name('trial-balance');
@@ -345,6 +356,12 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
                 // My Sales - Personal Sales Dashboard, less restrictive
                 Route::prefix('my-sales')->name('my-sales.')->group(function () {
                     Route::get('/{salesDeptSlug?}', \App\Livewire\BranchDashboard\SalesDashboard\MySales\Index::class)->name('index');
+                });
+
+                // Sales Reports
+                Route::prefix('reports')->name('reports.')->group(function () {
+                    Route::get('/sales-performance/{salesDeptSlug?}', \App\Livewire\BranchDashboard\SalesDashboard\Reports\SalesPerformance\Index::class)
+                        ->name('sales-performance');
                 });
 
                 // Shift Closing - Sales (department-based) - Protected by workflow

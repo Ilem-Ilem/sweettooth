@@ -35,6 +35,7 @@ class BranchBusinessConfiguration extends Model
             'business_type' => $branchSettings?->business_type ?? $globalSettings?->business_type ?? ['retail', 'wholesale', 'services'],
             'storage_settings' => $branchSettings?->storage_settings ?? $globalSettings?->storage_settings ?? ['local', 's3'],
             'subscription_plan' => $branchSettings?->subscription_plan ?? $globalSettings?->subscription_plan ?? 'basic',
+            'appearance_settings' => $globalSettings?->appearance_settings ?? [],
         ];
     }
 

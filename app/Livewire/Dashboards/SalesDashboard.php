@@ -163,7 +163,7 @@ class SalesDashboard extends BaseDashboard
                 || $user->hasRole('Cashier')
                 || $user->hasRole('Corner Store Manager')
                 || $user->hasRole('Corner Store Staff')
-                || $user->hasRole('Confectioneries Sales Staff')
+                || $user->hasRole('Confectionaries Sales Staff')
                 || $user->hasRole('Admin');
         }
         

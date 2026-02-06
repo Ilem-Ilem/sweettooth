@@ -8,6 +8,15 @@
 
     <div class="row">
         <div class="col-md-6 col-lg-4 mb-3">
+            <a href="{{ route('branch-dashboard.accounting.reports.unified') }}" class="card text-decoration-none h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Unified Reporting</h5>
+                    <p class="card-text text-muted">Generate review-ready accounting reports with narratives and tables</p>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-md-6 col-lg-4 mb-3">
             <a href="{{ route('branch-dashboard.accounting.reports.general-ledger') }}" class="card text-decoration-none h-100">
                 <div class="card-body">
                     <h5 class="card-title">General Ledger</h5>

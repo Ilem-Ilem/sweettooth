@@ -135,4 +135,5 @@ class Item extends Model
 
         return $this->getCurrentStock($branchId) < $this->reorder_level;
     }
+
 }

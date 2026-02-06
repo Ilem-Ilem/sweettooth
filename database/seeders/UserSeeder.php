@@ -161,11 +161,11 @@ class UserSeeder extends Seeder
         );
         $headGelato->syncRoles(['Head of Gelato']);
 
-        // Create Confectioneries Manager
+        // Create Confectionaries Manager
         $confMgr = User::firstOrCreate(
             ['email' => 'confectioneries.manager@sweettooth.local'],
             [
-                'name' => 'Sophie Confectioneries',
+                'name' => 'Sophie Confectionaries',
                 'password' => bcrypt('password'),
                 'branch_id' => $defaultBranch->id,
                 'is_active' => true,
@@ -173,7 +173,7 @@ class UserSeeder extends Seeder
                 'email_verified_at' => now(),
             ]
         );
-        $confMgr->syncRoles(['Confectioneries Manager']);
+        $confMgr->syncRoles(['Confectionaries Manager']);
 
         // Create Production Staff
         $prodStaff = User::firstOrCreate(

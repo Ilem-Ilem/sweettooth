@@ -40,9 +40,15 @@ class ReportCompilationService
             // Generate recommendations
             $recommendations = $this->generateRecommendations($departmentReports);
 
-            // Get the current user/employee to determine polymorphic type
-            $user = auth()->user();
-            $compiledByType = $user instanceof \App\Models\Employee ? \App\Models\Employee::class : \App\Models\User::class;
+            // Get the current actor to determine polymorphic type
+            $actor = current_actor();
+            if ($actor) {
+                $employeeId = $employeeId ?? $actor->getKey();
+                $compiledByType = get_class($actor);
+            } else {
+                $user = auth()->user();
+                $compiledByType = $user instanceof \App\Models\Employee ? \App\Models\Employee::class : \App\Models\User::class;
+            }
 
             // Create compiled report
             $compiledReport = CompiledReport::create([
@@ -105,12 +111,16 @@ class ReportCompilationService
         $production = $reports->where('report_category', 'production');
         $sales = $reports->where('report_category', 'sales');
         $inventory = $reports->where('report_category', 'inventory');
+        $accounting = $reports->where('report_category', 'accounting');
+        $hr = $reports->where('report_category', 'hr');
 
         return [
             'overview' => $this->generateOverview($reports),
             'production_summary' => $this->generateProductionSummary($production),
             'sales_summary' => $this->generateSalesSummary($sales),
             'inventory_summary' => $this->generateInventorySummary($inventory),
+            'accounting_summary' => $this->generateAccountingSummary($accounting),
+            'hr_summary' => $this->generateHRSummary($hr),
             'highlights' => $this->generateHighlights($reports),
             'concerns' => $this->generateConcerns($reports),
         ];
@@ -126,6 +136,8 @@ class ReportCompilationService
             'production_reports' => $reports->where('report_category', 'production')->count(),
             'sales_reports' => $reports->where('report_category', 'sales')->count(),
             'inventory_reports' => $reports->where('report_category', 'inventory')->count(),
+            'accounting_reports' => $reports->where('report_category', 'accounting')->count(),
+            'hr_reports' => $reports->where('report_category', 'hr')->count(),
             'departments_covered' => $reports->pluck('department_id')->unique()->count(),
             'generated_at' => now()->toDateTimeString(),
         ];
@@ -197,6 +209,36 @@ class ReportCompilationService
     }
 
     /**
+     * Generate accounting summary.
+     */
+    private function generateAccountingSummary(Collection $accountingReports): array
+    {
+        if ($accountingReports->isEmpty()) {
+            return ['status' => 'No accounting reports included'];
+        }
+
+        return [
+            'reports_count' => $accountingReports->count(),
+            'report_types' => $accountingReports->pluck('report_type')->unique()->values()->toArray(),
+        ];
+    }
+
+    /**
+     * Generate HR summary.
+     */
+    private function generateHRSummary(Collection $hrReports): array
+    {
+        if ($hrReports->isEmpty()) {
+            return ['status' => 'No HR reports included'];
+        }
+
+        return [
+            'reports_count' => $hrReports->count(),
+            'report_types' => $hrReports->pluck('report_type')->unique()->values()->toArray(),
+        ];
+    }
+
+    /**
      * Generate highlights.
      */
     private function generateHighlights(Collection $reports): array
@@ -228,6 +270,19 @@ class ReportCompilationService
                         'category' => 'production',
                         'message' => "Outstanding quality approval rate of {$approvalRate}%",
                         'department' => $report->department->name ?? 'Unknown',
+                    ];
+                }
+            }
+
+            // Accounting highlights
+            if ($report->report_type === 'income_statement') {
+                $netIncome = $metrics['net_income'] ?? 0;
+                if ($netIncome > 0) {
+                    $highlights[] = [
+                        'type' => 'positive',
+                        'category' => 'accounting',
+                        'message' => 'Positive net income recorded for the period',
+                        'department' => $report->department->name ?? 'N/A',
                     ];
                 }
             }
@@ -273,6 +328,46 @@ class ReportCompilationService
                     ];
                 }
             }
+
+            // Accounting concerns
+            if ($report->report_type === 'income_statement') {
+                $netIncome = $metrics['net_income'] ?? 0;
+                if ($netIncome < 0) {
+                    $concerns[] = [
+                        'type' => 'warning',
+                        'severity' => 'high',
+                        'category' => 'accounting',
+                        'message' => 'Net income is negative for the period',
+                        'department' => $report->department->name ?? 'N/A',
+                    ];
+                }
+            }
+
+            if ($report->report_type === 'balance_sheet') {
+                $isBalanced = $metrics['is_balanced'] ?? true;
+                if (!$isBalanced) {
+                    $concerns[] = [
+                        'type' => 'warning',
+                        'severity' => 'high',
+                        'category' => 'accounting',
+                        'message' => 'Balance sheet is out of balance',
+                        'department' => $report->department->name ?? 'N/A',
+                    ];
+                }
+            }
+
+            if ($report->report_type === 'trial_balance') {
+                $isBalanced = $metrics['is_balanced'] ?? true;
+                if (!$isBalanced) {
+                    $concerns[] = [
+                        'type' => 'warning',
+                        'severity' => 'high',
+                        'category' => 'accounting',
+                        'message' => 'Trial balance is not balanced',
+                        'department' => $report->department->name ?? 'N/A',
+                    ];
+                }
+            }
         }
 
         return $concerns;
@@ -287,6 +382,8 @@ class ReportCompilationService
             'production_metrics' => $this->extractProductionMetrics($reports),
             'sales_metrics' => $this->extractSalesMetrics($reports),
             'inventory_metrics' => $this->extractInventoryMetrics($reports),
+            'accounting_metrics' => $this->extractAccountingMetrics($reports),
+            'hr_metrics' => $this->extractHRMetrics($reports),
             'cross_department_insights' => $this->generateCrossDepartmentInsights($reports),
         ];
     }
@@ -334,6 +431,46 @@ class ReportCompilationService
         return [
             'total_reports' => $inventoryReports->count(),
         ];
+    }
+
+    /**
+     * Extract accounting metrics.
+     */
+    private function extractAccountingMetrics(Collection $reports): array
+    {
+        $accountingReports = $reports->where('report_category', 'accounting');
+
+        $metrics = [
+            'total_reports' => $accountingReports->count(),
+            'report_types' => $accountingReports->pluck('report_type')->unique()->values()->toArray(),
+        ];
+
+        foreach ($accountingReports as $report) {
+            $summary = $report->summary_metrics ?? [];
+            $metrics[$report->report_type] = $summary;
+        }
+
+        return $metrics;
+    }
+
+    /**
+     * Extract HR metrics.
+     */
+    private function extractHRMetrics(Collection $reports): array
+    {
+        $hrReports = $reports->where('report_category', 'hr');
+
+        $metrics = [
+            'total_reports' => $hrReports->count(),
+            'report_types' => $hrReports->pluck('report_type')->unique()->values()->toArray(),
+        ];
+
+        foreach ($hrReports as $report) {
+            $summary = $report->summary_metrics ?? [];
+            $metrics[$report->report_type] = $summary;
+        }
+
+        return $metrics;
     }
 
     /**

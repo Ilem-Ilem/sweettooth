@@ -28,6 +28,16 @@
                     <x-input label="To Date" type="date" wire:model="customDateTo" />
                 </div>
             @endif
+            @if(count($availableDepartments ?? []) > 0)
+                <div class="flex-1 min-w-[200px]">
+                    <x-select.native label="Department" wire:model.live="selectedDepartmentId">
+                        <option value="">Select Department</option>
+                        @foreach($availableDepartments as $dept)
+                            <option value="{{ $dept->id }}">{{ $dept->name }}</option>
+                        @endforeach
+                    </x-select.native>
+                </div>
+            @endif
 
             <div class="flex gap-2">
                 <x-button color="primary" wire:click="generatePreview" :loading="$isLoading">
@@ -104,6 +114,46 @@
                 </div>
             </div>
         </div>
+
+        {{-- Narrative Insights --}}
+        @if(!empty($narrative))
+            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-3">Insights</h3>
+                @if(!empty($narrative['overview']))
+                    <p class="text-sm text-zinc-700 dark:text-zinc-300">{{ $narrative['overview'] }}</p>
+                @endif
+                @if(!empty($narrative['highlights']))
+                    <div class="mt-3">
+                        <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">Highlights</p>
+                        <ul class="list-disc pl-5 text-sm text-zinc-700 dark:text-zinc-300">
+                            @foreach($narrative['highlights'] as $item)
+                                <li>{{ $item }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+                @if(!empty($narrative['concerns']))
+                    <div class="mt-3">
+                        <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">Concerns</p>
+                        <ul class="list-disc pl-5 text-sm text-zinc-700 dark:text-zinc-300">
+                            @foreach($narrative['concerns'] as $item)
+                                <li>{{ $item }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+                @if(!empty($narrative['recommendations']))
+                    <div class="mt-3">
+                        <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">Recommendations</p>
+                        <ul class="list-disc pl-5 text-sm text-zinc-700 dark:text-zinc-300">
+                            @foreach($narrative['recommendations'] as $item)
+                                <li>{{ $item }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+            </div>
+        @endif
 
         {{-- Overview Cards --}}
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -313,6 +363,48 @@
                 </div>
             </div>
         @endif
+
+        {{-- Data Tables --}}
+        @if(!empty($tablesData))
+            <div class="bg-white dark:bg-zinc-800 rounded-lg shadow">
+                <div class="p-4 border-b border-zinc-200 dark:border-zinc-700">
+                    <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Data Tables</h3>
+                </div>
+                <div class="p-4 space-y-6">
+                    @foreach($tablesData as $tableKey => $table)
+                        <div>
+                            <h4 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-2">
+                                {{ \Illuminate\Support\Str::title(str_replace('_', ' ', $tableKey)) }}
+                            </h4>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
+                                    <thead>
+                                        <tr>
+                                            @foreach(($table['headers'] ?? []) as $header)
+                                                <th class="px-4 py-2 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                                    {{ $header }}
+                                                </th>
+                                            @endforeach
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                                        @foreach(($table['rows'] ?? []) as $row)
+                                            <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-700/50">
+                                                @foreach($row as $cell)
+                                                    <td class="px-4 py-2 text-sm text-zinc-700 dark:text-zinc-300">
+                                                        {{ is_numeric($cell) ? number_format($cell, 2) : $cell }}
+                                                    </td>
+                                                @endforeach
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
     @else
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow p-12 text-center">
             <svg class="mx-auto h-16 w-16 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -324,6 +416,8 @@
             </p>
         </div>
     @endif
+
+    @include('livewire.partials.department-select-modal')
 
     {{-- Report Save Modal --}}
     @if($showReportModal && $generatedReport)

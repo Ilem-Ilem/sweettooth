@@ -604,9 +604,9 @@ class RolePermissionService
             'Chef' => ['Kitchen'],
             'Gelato Production Staff' => ['Gelato Production'],
             'Head of Gelato' => ['Gelato Production'],
-            'Confectioneries Production Staff' => ['Confectioneries Production'],
-            'Confectioneries Manager' => ['Confectioneries Production'],
-            'Production Helper' => ['Kitchen', 'Gelato Production', 'Confectioneries Production'],
+            'Confectionaries Production Staff' => ['Confectionaries Production'],
+            'Confectionaries Manager' => ['Confectionaries Production'],
+            'Production Helper' => ['Kitchen', 'Gelato Production', 'Confectionaries Production'],
 
             // Sales roles
             'Cashier' => ['Till'],
@@ -614,10 +614,10 @@ class RolePermissionService
             'Till Supervisor' => ['Till'],
             'Corner Store Staff' => ['Corner Store'],
             'Corner Store Manager' => ['Corner Store'],
-            'Confectioneries Sales Staff' => ['Confectioneries Sales'],
-            'Sales Manager' => ['Till', 'Corner Store', 'Confectioneries Sales'],
-            'Sales Associate' => ['Till', 'Corner Store', 'Confectioneries Sales'],
-            'Sales Supervisor' => ['Till', 'Corner Store', 'Confectioneries Sales'],
+            'Confectionaries Sales Staff' => ['Confectionaries Sales'],
+            'Sales Manager' => ['Till', 'Corner Store', 'Confectionaries Sales'],
+            'Sales Associate' => ['Till', 'Corner Store', 'Confectionaries Sales'],
+            'Sales Supervisor' => ['Till', 'Corner Store', 'Confectionaries Sales'],
 
             // Support roles
             'Stock Controller' => ['Inventory/Store'],
@@ -625,8 +625,8 @@ class RolePermissionService
             'Warehouse Manager' => ['Inventory/Store'],
             'Inventory Clerk' => ['Inventory/Store'],
             'Inventory Manager' => ['Inventory/Store'],
-            'Store Manager' => ['Corner Store', 'Confectioneries Sales', 'Inventory/Store'],
-            'Store Supervisor' => ['Corner Store', 'Confectioneries Sales'],
+            'Store Manager' => ['Corner Store', 'Confectionaries Sales', 'Inventory/Store'],
+            'Store Supervisor' => ['Corner Store', 'Confectionaries Sales'],
             'HR Officer' => ['HR'],
             'HR Manager' => ['HR'],
             'Accountant' => ['Accounting'],

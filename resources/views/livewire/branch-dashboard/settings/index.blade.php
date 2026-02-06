@@ -39,6 +39,8 @@
                          @livewire('branch-dashboard.settings.business-configuration')
                      @elseif($activeTab === 'currency-localization')
                          @livewire('branch-dashboard.settings.currency-localization')
+                     @elseif($activeTab === 'appearance')
+                         @livewire('branch-dashboard.settings.appearance')
                      @endif
                  </div>
             </div>

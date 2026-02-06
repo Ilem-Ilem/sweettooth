@@ -5,9 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Stock;
 use App\Models\HealthCheck;
 use App\Models\ItemRequest;
+use App\Models\DepartmentReport;
+use App\Exports\DepartmentReportExport;
 use App\Traits\Exportable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ExportController extends Controller
 {
@@ -155,5 +158,49 @@ class ExportController extends Controller
             'exports.inventory.item-requests',
             $format
         );
+    }
+
+    /**
+     * Export a saved department report as Excel.
+     */
+    public function departmentReport(Request $request, string $reportId)
+    {
+        $user = Auth::guard('web')->user();
+        if (! $user || ! $this->canExportReports($user)) {
+            abort(403, 'You do not have permission to export reports.');
+        }
+
+        $branchId = $user->branch_id ?? $request->get('b_id') ?? current_branch_id();
+        $report = DepartmentReport::query()
+            ->with('department')
+            ->where('branch_id', $branchId)
+            ->findOrFail($reportId);
+
+        $filename = sprintf(
+            'report-%s-%s-%s',
+            $report->report_category,
+            $report->report_type,
+            now()->format('Y-m-d')
+        );
+
+        return Excel::download(new DepartmentReportExport($report), $filename . '.xlsx');
+    }
+
+    private function canExportReports($user): bool
+    {
+        $checks = [
+            'export-reports',
+            'export_reports',
+            'export-inventory-reports',
+            'export_inventory_reports',
+        ];
+
+        foreach ($checks as $permission) {
+            if ($user->can($permission)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

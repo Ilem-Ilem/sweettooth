@@ -468,10 +468,10 @@ class Analytics extends BaseComponent
     {
         // Group stocks by item category or department
         $this->departmentBreakdown = Stock::where('branch_id', $branchId)
-            ->with('item.category')
+            ->with('item')
             ->get()
             ->groupBy(function ($stock) {
-                return $stock->item->category->name ?? 'Uncategorized';
+                return $stock->item->category ?? 'Uncategorized';
             })
             ->map(function ($stocks, $category) use ($dateFrom, $dateTo) {
                 $stockValue = $stocks->sum(function ($stock) {

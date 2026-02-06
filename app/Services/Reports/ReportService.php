@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 
 abstract class ReportService
 {
+    protected ?\App\Services\Reports\Definitions\ReportDefinition $definition = null;
     protected string $reportCategory;
     protected string $reportType;
     protected $branchId;
@@ -52,14 +53,26 @@ abstract class ReportService
     {
         DB::beginTransaction();
         try {
-            $reportData = $this->generateReportData();
-            $summaryMetrics = $this->generateSummaryMetrics($reportData);
-            $chartsData = $this->generateChartsData($reportData);
+            if ($this->definition) {
+                $reportPayload = $this->generateReportPayloadFromDefinition($employeeId);
+                $reportData = $reportPayload['report_data'];
+                $summaryMetrics = $reportPayload['summary_metrics'];
+                $chartsData = $reportPayload['charts_data'];
+            } else {
+                $reportData = $this->generateReportData();
+                $summaryMetrics = $this->generateSummaryMetrics($reportData);
+                $chartsData = $this->generateChartsData($reportData);
+            }
+
+            $actor = current_actor();
+            $generatedById = $actor?->getKey() ?? $employeeId;
+            $generatedByType = $actor ? get_class($actor) : null;
 
             $report = DepartmentReport::create([
                 'branch_id' => $this->branchId,
                 'department_id' => $this->departmentId,
-                'generated_by' => $employeeId,
+                'generated_by_id' => $generatedById,
+                'generated_by_type' => $generatedByType,
                 'report_type' => $this->reportType,
                 'report_category' => $this->reportCategory,
                 'report_name' => $this->getReportName(),
@@ -69,6 +82,13 @@ abstract class ReportService
                 'report_data' => $reportData,
                 'summary_metrics' => $summaryMetrics,
                 'charts_data' => $chartsData,
+                'system_data_hash' => DepartmentReport::computeSystemDataHash(
+                    $reportData,
+                    $summaryMetrics,
+                    $chartsData
+                ),
+                'system_data_version' => 1,
+                'system_data_locked_at' => now(),
                 'status' => 'draft',
             ]);
 
@@ -88,8 +108,91 @@ abstract class ReportService
         $cacheKey = $this->getCacheKey();
 
         return Cache::remember($cacheKey, $this->cacheMinutes * 60, function () {
+            if ($this->definition) {
+                return $this->generateReportPayloadFromDefinition()['report_data'];
+            }
+
             return $this->generateReportData();
         });
+    }
+
+    /**
+     * Use unified report definition (new pattern).
+     */
+    public function useDefinition(\App\Services\Reports\Definitions\ReportDefinition $definition): self
+    {
+        $this->definition = $definition;
+
+        $meta = $definition->meta();
+        $this->reportType = $meta['type'] ?? $this->reportType;
+        $this->reportCategory = $meta['category'] ?? $this->reportCategory;
+
+        return $this;
+    }
+
+    /**
+     * Build payload using a report definition.
+     */
+    protected function generateReportPayloadFromDefinition($employeeId = null): array
+    {
+        $this->validateParameters();
+
+        $meta = $this->definition->meta();
+        $actor = current_actor();
+        if (!empty($meta['requires_department']) && !$this->departmentId) {
+            $this->departmentId = $actor?->department_id
+                ?? session('selected_department_id')
+                ?? request()?->attributes?->get('current_department_id')
+                ?? $this->departmentId;
+        }
+        if (!empty($meta['requires_department']) && !$this->departmentId) {
+            $fallbackDeptId = \App\Models\Department::where(function ($q) {
+                    $q->where('branch_id', $this->branchId)
+                        ->orWhereNull('branch_id');
+                })
+                ->orderBy('name')
+                ->value('id');
+            if ($fallbackDeptId) {
+                $this->departmentId = $fallbackDeptId;
+                session(['selected_department_id' => $fallbackDeptId]);
+            }
+        }
+        if (!empty($meta['requires_department']) && !$this->departmentId) {
+            throw new \InvalidArgumentException('Department ID is required for this report. Please select a department.');
+        }
+
+        $context = [
+            'branch_id' => $this->branchId,
+            'department_id' => $this->departmentId,
+            'period_from' => $this->periodFrom,
+            'period_to' => $this->periodTo,
+            'actor' => $actor,
+            'employee_id' => $employeeId,
+        ];
+
+        $data = $this->definition->query($context);
+        $summary = $this->definition->summary($data, $context);
+        $charts = $this->definition->charts($data, $context);
+        $tables = $this->definition->tables($data, $summary, $context);
+        $narrative = $this->definition->narrative($data, $summary, $context);
+
+        $reportData = [
+            'report_data' => $data,
+            'summary_metrics' => $summary,
+            'charts_data' => $charts,
+            'tables' => $tables,
+            'narrative' => $narrative,
+            'period_info' => [
+                'from' => $this->periodFrom,
+                'to' => $this->periodTo,
+            ],
+        ];
+
+        return [
+            'report_data' => $reportData,
+            'summary_metrics' => $summary,
+            'charts_data' => $charts,
+        ];
     }
 
     /**

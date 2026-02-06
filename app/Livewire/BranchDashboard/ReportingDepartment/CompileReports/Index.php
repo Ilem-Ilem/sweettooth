@@ -34,17 +34,23 @@ class Index extends Component
 
     public $filterCategory = 'all';
 
-    public $filterStatus = 'reviewed';
+    public $filterStatus = 'all';
 
     public $showCompileModal = false;
 
     public $isCompiling = false;
 
+    public ?DepartmentReport $selectedReport = null;
+
+    public bool $showReviewModal = false;
+
+    public string $reviewNotes = '';
+
     public function mount()
     {
         $this->b_id = $this->b_id ?? current_branch_id();
-        $this->periodFrom = Carbon::now()->startOfMonth()->toDateString();
-        $this->periodTo = Carbon::now()->endOfMonth()->toDateString();
+        $this->periodFrom = Carbon::now()->subYear()->toDateString();  // Last year to be more inclusive
+        $this->periodTo = Carbon::now()->toDateString();
     }
 
     // Listen for branch changes from BranchSelector (for super admins)
@@ -147,6 +153,78 @@ class Index extends Component
         }
     }
 
+    public function openReviewModal(string $reportId): void
+    {
+        $report = DepartmentReport::with(['department', 'generatedBy'])
+            ->findOrFail($reportId);
+
+        if (! $report->canBeReviewed()) {
+            $this->toast()->error('This report cannot be reviewed')->send();
+            return;
+        }
+
+        $this->selectedReport = $report;
+        $this->reviewNotes = $report->review_notes ?? '';
+        $this->showReviewModal = true;
+    }
+
+    public function closeReviewModal(): void
+    {
+        $this->showReviewModal = false;
+        $this->selectedReport = null;
+        $this->reviewNotes = '';
+    }
+
+    public function approveReport(): void
+    {
+        if (! $this->selectedReport) {
+            $this->toast()->error('No report selected')->send();
+            return;
+        }
+
+        try {
+            $actor = current_actor();
+            $this->selectedReport->markAsReviewed(
+                $actor?->getKey(),
+                $actor ? get_class($actor) : null,
+                $this->reviewNotes
+            );
+
+            $this->toast()->success('Report approved successfully')->send();
+            $this->closeReviewModal();
+        } catch (\Exception $e) {
+            $this->toast()->error('Error approving report: '.$e->getMessage())->send();
+        }
+    }
+
+    public function rejectReport(): void
+    {
+        if (! $this->selectedReport) {
+            $this->toast()->error('No report selected')->send();
+            return;
+        }
+
+        if (empty($this->reviewNotes)) {
+            $this->reviewNotes = 'Rejected without notes.';
+        }
+
+        try {
+            $actor = current_actor();
+            $this->selectedReport->update([
+                'status' => 'rejected',
+                'reviewed_by_id' => $actor?->getKey(),
+                'reviewed_by_type' => $actor ? get_class($actor) : null,
+                'reviewed_at' => now(),
+                'review_notes' => $this->reviewNotes,
+            ]);
+
+            $this->toast()->success('Report rejected. Notes saved.')->send();
+            $this->closeReviewModal();
+        } catch (\Exception $e) {
+            $this->toast()->error('Error rejecting report: '.$e->getMessage())->send();
+        }
+    }
+
     public function getAvailableReports()
     {
         $query = DepartmentReport::query()
@@ -173,6 +251,8 @@ class Index extends Component
             'production' => $availableReports->where('report_category', 'production')->count(),
             'sales' => $availableReports->where('report_category', 'sales')->count(),
             'inventory' => $availableReports->where('report_category', 'inventory')->count(),
+            'accounting' => $availableReports->where('report_category', 'accounting')->count(),
+            'hr' => $availableReports->where('report_category', 'hr')->count(),
         ];
 
         return view('livewire.branch-dashboard.reporting-department.compile-reports.index', [

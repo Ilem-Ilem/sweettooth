@@ -3,7 +3,9 @@
 namespace App\Livewire\BranchDashboard\Production\Reports\ProductionEfficiency;
 
 use App\Models\DepartmentReport;
+use App\Services\Reports\Definitions\ProductionEfficiencyDefinition;
 use App\Services\Reports\ProductionEfficiencyReportService;
+use App\Livewire\Traits\RequiresDepartmentSelection;
 use Carbon\Carbon;
 use Livewire\Component;
 use Livewire\Attributes\{Layout, On, Title, Url};
@@ -13,7 +15,7 @@ use TallStackUi\Traits\Interactions;
 #[Title('Production Efficiency Report')]
 class Index extends Component
 {
-    use Interactions;
+    use Interactions, RequiresDepartmentSelection;
 
     #[Url(keep: true)]
     public ?string $b_id = null;
@@ -28,6 +30,8 @@ class Index extends Component
     public $reportData = null;
     public $summaryMetrics = [];
     public $chartsData = [];
+    public $tablesData = [];
+    public $narrative = [];
     public $isLoading = false;
 
     // Generated report
@@ -43,6 +47,7 @@ class Index extends Component
     {
         $this->b_id = $this->b_id ?? current_branch_id();
         $this->departmentId = session('selected_department_id');
+        $this->initDepartments($this->b_id);
         $this->setDateRange();
     }
 
@@ -51,6 +56,7 @@ class Index extends Component
     public function handleBranchChange($branchId)
     {
         $this->b_id = $branchId;
+        $this->initDepartments($branchId);
     }
 
     /**
@@ -90,6 +96,10 @@ class Index extends Component
      */
     public function generatePreview()
     {
+        if (! $this->ensureDepartmentSelected('preview')) {
+            return;
+        }
+
         $this->validate([
             'customDateFrom' => 'required|date',
             'customDateTo' => 'required|date|after_or_equal:customDateFrom',
@@ -98,15 +108,19 @@ class Index extends Component
         $this->isLoading = true;
 
         try {
-            $service = new ProductionEfficiencyReportService();
+            $service = (new ProductionEfficiencyReportService())
+                ->useDefinition(new ProductionEfficiencyDefinition());
 
             $service->forBranch($this->b_id ?? current_branch_id())
                 ->forDepartment($this->departmentId)
                 ->forPeriod($this->customDateFrom, $this->customDateTo);
 
-            $this->reportData = $service->getReportData();
-            $this->summaryMetrics = $this->reportData['summary_metrics'] ?? $service->getSummaryMetrics($this->reportData);
-            $this->chartsData = $service->getChartsData($this->reportData);
+            $payload = $service->getReportData();
+            $this->reportData = $payload['report_data'] ?? $payload;
+            $this->summaryMetrics = $payload['summary_metrics'] ?? ($this->reportData['summary_metrics'] ?? []);
+            $this->chartsData = $payload['charts_data'] ?? [];
+            $this->tablesData = $payload['tables'] ?? [];
+            $this->narrative = $payload['narrative'] ?? [];
 
             $this->toast()->success('Report generated successfully')->send();
         } catch (\Exception $e) {
@@ -121,13 +135,18 @@ class Index extends Component
      */
     public function generateReport()
     {
+        if (! $this->ensureDepartmentSelected('generate')) {
+            return;
+        }
+
         $this->validate([
             'customDateFrom' => 'required|date',
             'customDateTo' => 'required|date|after_or_equal:customDateFrom',
         ]);
 
         try {
-            $service = new ProductionEfficiencyReportService();
+            $service = (new ProductionEfficiencyReportService())
+                ->useDefinition(new ProductionEfficiencyDefinition());
 
             $this->generatedReport = $service
                 ->forBranch($this->b_id ?? current_branch_id())
@@ -206,9 +225,12 @@ class Index extends Component
             $report = DepartmentReport::findOrFail($reportId);
 
             // Load the report data into the preview
-            $this->reportData = $report->report_data;
-            $this->summaryMetrics = $report->summary_metrics;
-            $this->chartsData = $report->charts_data;
+            $payload = $report->report_data ?? [];
+            $this->reportData = $payload['report_data'] ?? $payload;
+            $this->summaryMetrics = $report->summary_metrics ?? ($payload['summary_metrics'] ?? []);
+            $this->chartsData = $report->charts_data ?? ($payload['charts_data'] ?? []);
+            $this->tablesData = $payload['tables'] ?? [];
+            $this->narrative = $payload['narrative'] ?? [];
             $this->customDateFrom = Carbon::parse($report->period_from)->toDateString();
             $this->customDateTo = Carbon::parse($report->period_to)->toDateString();
             $this->periodFilter = 'custom';

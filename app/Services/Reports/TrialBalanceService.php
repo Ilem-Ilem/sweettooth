@@ -15,7 +15,7 @@ class TrialBalanceService
      * Generate trial balance report
      * Shows debit and credit balances for all accounts
      */
-    public function generate(?AccountingPeriod $period = null, ?Carbon $startDate = null, ?Carbon $endDate = null): array
+    public function generate(?AccountingPeriod $period = null, ?Carbon $startDate = null, ?Carbon $endDate = null, ?string $branchId = null): array
     {
         $query = GlEntry::where('status', 'posted')
             ->selectRaw('gl_account_id, SUM(debit) as total_debit, SUM(credit) as total_credit')
@@ -32,6 +32,10 @@ class TrialBalanceService
 
         if ($endDate) {
             $query->whereDate('entry_date', '<=', $endDate);
+        }
+
+        if ($branchId) {
+            $query->where('branch_id', $branchId);
         }
 
         $entries = $query->get();

@@ -89,6 +89,13 @@ class SalesPagesSeeder extends Seeder
                 'icon' => 'clock',
                 'order' => 4,
             ],
+            [
+                'name' => 'Sales Reports',
+                'slug' => 'sales-reports',
+                'route_name' => 'branch-dashboard.sales-dashboard.reports.sales-performance',
+                'icon' => 'document-text',
+                'order' => 5,
+            ],
         ];
 
         foreach ($pages as $pageData) {

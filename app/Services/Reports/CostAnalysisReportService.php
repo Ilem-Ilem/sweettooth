@@ -86,20 +86,11 @@ class CostAnalysisReportService extends ReportService
         // Get production records for cost analysis
         $productionRecords = ProductionRecord::query()
             ->with(['recipe', 'producedBy'])
-            ->where(function ($q) {
-                $q->whereHas('dailyProduce.shift', function ($subQ) {
-                    $subQ->where('branch_id', $this->branchId);
-                    if ($this->departmentId) {
-                        $subQ->where('department_id', $this->departmentId);
-                    }
-                })
-                ->orWhere(function ($orQ) {
-                    $orQ->whereNull('daily_produce_id')
-                        ->where('branch_id', $this->branchId);
-                    if ($this->departmentId) {
-                        $orQ->where('department_id', $this->departmentId);
-                    }
-                });
+            ->whereHas('dailyProduce.shift', function ($q) {
+                $q->where('branch_id', $this->branchId);
+                if ($this->departmentId) {
+                    $q->where('department_id', $this->departmentId);
+                }
             })
             ->whereBetween('production_time', [$this->periodFrom, $this->periodTo])
             ->get();
@@ -196,24 +187,6 @@ class CostAnalysisReportService extends ReportService
     }
 
     /**
-     * Generate cost efficiency analysis.
-     */
-    private function generateCostEfficiency($productionRecords): array
-    {
-        $totalCost = $productionRecords->sum(function ($record) {
-            return $record->quantity_produced * ($record->unit_cost ?? 0);
-        });
-        $totalProduced = $productionRecords->sum('quantity_produced');
-
-        return [
-            'total_production_cost' => $totalCost,
-            'total_units_produced' => $totalProduced,
-            'average_cost_per_unit' => $totalProduced > 0 ? $totalCost / $totalProduced : 0,
-            'cost_efficiency_score' => $totalProduced > 0 ? min(100, 1000 / ($totalCost / $totalProduced)) : 0,
-        ];
-    }
-
-    /**
      * Generate cost trends.
      */
     private function generateCostTrends($dispatchedItems, $productionRecords): array
@@ -318,90 +291,4 @@ class CostAnalysisReportService extends ReportService
         ];
     }
 
-    /**
-     * Generate cost trends.
-     */
-    private function generateCostTrends($dispatchedItems, $productionRecords): array
-    {
-        // Group by date for cost trends
-        $dailyCosts = collect();
-
-        // Add dispatched item costs
-        foreach ($dispatchedItems as $item) {
-            $date = \Carbon\Carbon::parse($item->updated_at)->format('Y-m-d');
-            $cost = $item->quantity_dispatched * ($item->item->cost_per_unit ?? 0);
-            $dailyCosts[$date] = ($dailyCosts[$date] ?? 0) + $cost;
-        }
-
-        // Add production costs
-        foreach ($productionRecords as $record) {
-            $date = \Carbon\Carbon::parse($record->production_time)->format('Y-m-d');
-            $cost = $record->quantity_produced * ($record->unit_cost ?? 0);
-            $dailyCosts[$date] = ($dailyCosts[$date] ?? 0) + $cost;
-        }
-
-        return [
-            'daily_costs' => $dailyCosts->map(function ($cost, $date) {
-                return ['date' => $date, 'cost' => $cost];
-            })->values()->toArray(),
-        ];
-    }
-
-    /**
-     * Generate summary metrics.
-     */
-    protected function generateSummaryMetrics(array $reportData): array
-    {
-        $costOverview = $reportData['cost_overview'];
-
-        return [
-            'total_material_cost' => $costOverview['total_material_cost'],
-            'total_production_cost' => $costOverview['total_production_cost'],
-            'total_cost' => $costOverview['total_cost'],
-            'cost_per_unit' => $costOverview['cost_per_unit'],
-            'items_tracked' => $costOverview['items_dispatched'],
-            'products_analyzed' => count($reportData['product_costs']),
-            'cost_efficiency_score' => $reportData['cost_efficiency']['cost_efficiency_score'],
-        ];
-    }
-
-    /**
-     * Generate charts data.
-     */
-    protected function generateChartsData(array $reportData): array
-    {
-        return [
-            'cost_breakdown_chart' => [
-                'type' => 'pie',
-                'labels' => ['Material Costs', 'Production Costs'],
-                'data' => [
-                    $reportData['cost_overview']['total_material_cost'],
-                    $reportData['cost_overview']['total_production_cost'],
-                ],
-                'colors' => ['#3b82f6', '#10b981'],
-            ],
-            'ingredient_cost_chart' => [
-                'type' => 'bar',
-                'labels' => array_column(array_slice($reportData['ingredient_costs'], 0, 10), 'item_name'),
-                'datasets' => [
-                    [
-                        'label' => 'Total Cost',
-                        'data' => array_column(array_slice($reportData['ingredient_costs'], 0, 10), 'total_cost'),
-                        'color' => '#8b5cf6',
-                    ],
-                ],
-            ],
-            'cost_trends_chart' => [
-                'type' => 'line',
-                'labels' => array_column($reportData['cost_trends']['daily_costs'], 'date'),
-                'datasets' => [
-                    [
-                        'label' => 'Daily Costs',
-                        'data' => array_column($reportData['cost_trends']['daily_costs'], 'cost'),
-                        'color' => '#ef4444',
-                    ],
-                ],
-            ],
-        ];
-    }
 }

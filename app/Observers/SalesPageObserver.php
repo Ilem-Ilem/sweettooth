@@ -68,32 +68,88 @@ class SalesPageObserver
     {
         return [
             [
+                'name' => 'Stock Opening',
+                'slug' => 'stock-opening',
+                'route_name' => "branch-dashboard.sales-dashboard.stock-opening.index",
+                'icon' => 'box',
+                'order' => 1,
+            ],
+            [
+                'name' => 'Kitchen Dispatches',
+                'slug' => 'kitchen-dispatches',
+                'route_name' => "branch-dashboard.sales-dashboard.kitchen-dispatches.index",
+                'icon' => 'truck',
+                'order' => 2,
+            ],
+            [
+                'name' => 'Monitor Product Stock',
+                'slug' => 'monitor-product-stock',
+                'route_name' => "branch-dashboard.sales-dashboard.monitor-product-stock.index",
+                'icon' => 'eye',
+                'order' => 3,
+            ],
+            [
+                'name' => 'My Sales Dashboard',
+                'slug' => 'my-sales-dashboard',
+                'route_name' => "branch-dashboard.sales-dashboard.my-sales-dashboard.index",
+                'icon' => 'dashboard',
+                'order' => 4,
+            ],
+            [
+                'name' => 'Helper',
+                'slug' => 'helper',
+                'route_name' => "branch-dashboard.sales-dashboard.helper.index",
+                'icon' => 'user',
+                'order' => 5,
+            ],
+            [
+                'name' => 'Callbacks',
+                'slug' => 'callbacks',
+                'route_name' => "branch-dashboard.sales-dashboard.callbacks.index",
+                'icon' => 'phone',
+                'order' => 6,
+            ],
+            [
+                'name' => 'Product Callbacks',
+                'slug' => 'product-callbacks',
+                'route_name' => "branch-dashboard.sales-dashboard.product-callbacks.index",
+                'icon' => 'tag',
+                'order' => 7,
+            ],
+            [
+                'name' => 'Dispatch Callbacks',
+                'slug' => 'dispatch-callbacks',
+                'route_name' => "branch-dashboard.sales-dashboard.dispatch-callbacks.index",
+                'icon' => 'truck',
+                'order' => 8,
+            ],
+            [
                 'name' => 'POS',
                 'slug' => 'pos',
                 'route_name' => "branch-dashboard.sales-dashboard.pos.index",
                 'icon' => 'shopping-cart',
-                'order' => 1,
+                'order' => 9,
             ],
             [
                 'name' => 'My Sales',
                 'slug' => 'my-sales',
                 'route_name' => 'branch-dashboard.sales-dashboard.my-sales.index',
                 'icon' => 'user-circle',
-                'order' => 2,
+                'order' => 10,
             ],
             [
                 'name'=> 'Sales Analytics',
                 'slug'=>'sales-analytics',
                 'route_name'=> 'branch-dashboard.sales-dashboard.analytics.index',
                 'icon'=>'chart-bar',
-                'order'=>3
+                'order'=>11
             ],
             [
                 'name' => 'Shift Closing',
                 'slug' => 'shift-closing',
                 'route_name' => 'branch-dashboard.sales-dashboard.shift-closing.index',
                 'icon' => 'clock',
-                'order' => 4,
+                'order' => 12,
             ]
         ];
     }

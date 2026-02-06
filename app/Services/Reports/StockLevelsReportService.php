@@ -30,11 +30,8 @@ class StockLevelsReportService extends ReportService
         // Get all items with their current stock levels
         $items = Item::query()
             ->where('branch_id', $this->branchId)
-            ->when($this->departmentId, function ($q) {
-                $q->where('department_id', $this->departmentId);
-            })
-            ->with(['category', 'supplier', 'stocks' => function ($q) {
-                $q->where('quantity', '>', 0);
+            ->with(['stocks' => function ($q) {
+                $q->where('quantity_available', '>', 0);
             }])
             ->get();
 
@@ -44,7 +41,7 @@ class StockLevelsReportService extends ReportService
         $overStockItems = [];
 
         foreach ($items as $item) {
-            $currentStock = $item->stocks->sum('quantity');
+            $currentStock = $item->stocks->sum(DB::raw('quantity_available + quantity_reserved + quantity_damaged'));
             $minStock = $item->min_stock_level ?? 0;
             $maxStock = $item->max_stock_level ?? 0;
             $reorderPoint = $item->reorder_point ?? 0;
@@ -55,8 +52,8 @@ class StockLevelsReportService extends ReportService
                 'item_id' => $item->id,
                 'item_name' => $item->name,
                 'sku' => $item->sku,
-                'category' => $item->category->name ?? 'Uncategorized',
-                'supplier' => $item->supplier->name ?? 'N/A',
+                'category' => $item->category ?? 'Uncategorized',
+                'supplier' => 'N/A',
                 'current_stock' => $currentStock,
                 'min_stock_level' => $minStock,
                 'max_stock_level' => $maxStock,
@@ -127,8 +124,10 @@ class StockLevelsReportService extends ReportService
         // Get average daily consumption over last 30 days
         $thirtyDaysAgo = now()->subDays(30);
 
-        $totalConsumed = StockMovement::where('item_id', $itemId)
-            ->where('movement_type', 'out')
+        $totalConsumed = StockMovement::whereHas('stock', function ($q) use ($itemId) {
+                $q->where('item_id', $itemId);
+            })
+            ->where('type', 'out')
             ->whereBetween('movement_date', [$thirtyDaysAgo, now()])
             ->sum('quantity');
 

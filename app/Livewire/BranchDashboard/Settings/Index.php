@@ -7,10 +7,11 @@ use Livewire\Component;
 class Index extends Component
 {
     public $activeTab = 'business-config';
-    
+
     public $tabs = [
         ['id' => 'business-config', 'name' => 'Business Configuration'],
         ['id' => 'currency-localization', 'name' => 'Currency & Localization'],
+        ['id' => 'appearance', 'name' => 'Appearance & Theme'],
     ];
 
     public function mount()

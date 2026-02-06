@@ -130,14 +130,18 @@
                             <tbody>
                                 @forelse($recentMovements as $movement)
                                     <tr class="border-b border-zinc-100 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700/50">
-                                        <td class="py-3 px-4 text-zinc-900 dark:text-zinc-100">{{ $movement->item->name }}</td>
+                                        <td class="py-3 px-4 text-zinc-900 dark:text-zinc-100">
+                                            {{ $movement->stock?->item?->name ?? 'Unknown Item' }}
+                                        </td>
                                         <td class="py-3 px-4">
                                             <span class="px-2 py-1 text-xs font-medium rounded-full {{ $movement->type === 'in' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' }}">
                                                 {{ ucfirst($movement->type) }}
                                             </span>
                                         </td>
                                         <td class="py-3 px-4 text-right font-semibold text-zinc-900 dark:text-zinc-100">{{ $movement->quantity }}</td>
-                                        <td class="py-3 px-4 text-zinc-600 dark:text-zinc-400 text-xs">{{ $movement->created_at->diffForHumans() }}</td>
+                                        <td class="py-3 px-4 text-zinc-600 dark:text-zinc-400 text-xs">
+                                            {{ $movement->created_at?->diffForHumans() ?? '—' }}
+                                        </td>
                                     </tr>
                                 @empty
                                     <tr>
@@ -162,13 +166,22 @@
                     <div class="space-y-3">
                         @forelse($lowStockItems->take(10) as $item)
                             <div class="border-b border-zinc-100 dark:border-zinc-700 pb-3 last:border-0">
+                                @php
+                                    $qty = (float) ($item->quantity ?? 0);
+                                    $reorderPoint = (float) ($item->reorder_point ?? 0);
+                                    $percent = $reorderPoint > 0 ? ($qty / $reorderPoint) * 100 : 0;
+                                @endphp
                                 <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $item->name }}</p>
                                 <div class="mt-1 flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-400">
-                                    <span>{{ $item->quantity }} / {{ $item->reorder_point }}</span>
-                                    <span class="text-red-600 dark:text-red-400 font-semibold">{{ round((($item->quantity / $item->reorder_point) * 100), 0) }}%</span>
+                                    <span>
+                                        {{ number_format($qty, 2) }}
+                                        /
+                                        {{ $reorderPoint > 0 ? number_format($reorderPoint, 2) : '—' }}
+                                    </span>
+                                    <span class="text-red-600 dark:text-red-400 font-semibold">{{ round($percent, 0) }}%</span>
                                 </div>
                                 <div class="mt-1 bg-zinc-200 dark:bg-zinc-700 rounded-full h-1.5 overflow-hidden">
-                                    <div class="bg-red-600 h-full" style="width: {{ min(100, (($item->quantity / $item->reorder_point) * 100)) }}%"></div>
+                                    <div class="bg-red-600 h-full" style="width: {{ min(100, $percent) }}%"></div>
                                 </div>
                             </div>
                         @empty

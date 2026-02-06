@@ -70,6 +70,16 @@ class Index extends Component
                 ->byCategory('inventory')
                 ->whereBetween('created_at', [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()])
                 ->count(),
+
+            'accounting_reports' => DepartmentReport::forBranch($branchId)
+                ->byCategory('accounting')
+                ->whereBetween('created_at', [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()])
+                ->count(),
+
+            'hr_reports' => DepartmentReport::forBranch($branchId)
+                ->byCategory('hr')
+                ->whereBetween('created_at', [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()])
+                ->count(),
         ];
     }
 

@@ -43,6 +43,8 @@ class Index extends Component
             'mdUser',
             'departmentReports.department',
             'departmentReports.generatedBy',
+            'annotations.author',
+            'departmentReports.annotations.author',
         ])
             ->where('branch_id', $this->b_id ?? current_branch_id())
             ->findOrFail($this->reportId);
@@ -65,10 +67,22 @@ class Index extends Component
             ->with('department', 'generatedBy')
             ->get();
 
+        $accountingReports = $this->compiledReport->departmentReports()
+            ->where('report_category', 'accounting')
+            ->with('department', 'generatedBy')
+            ->get();
+
+        $hrReports = $this->compiledReport->departmentReports()
+            ->where('report_category', 'hr')
+            ->with('department', 'generatedBy')
+            ->get();
+
         return view('livewire.branch-dashboard.reporting-department.view-compiled.index', [
             'productionReports' => $productionReports,
             'salesReports' => $salesReports,
             'inventoryReports' => $inventoryReports,
+            'accountingReports' => $accountingReports,
+            'hrReports' => $hrReports,
         ]);
     }
 }

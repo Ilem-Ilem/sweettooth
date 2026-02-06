@@ -91,7 +91,7 @@ class EmployeeWithRolesSeeder extends Seeder
                 'password' => 'password',
             ],
             [
-                'name' => 'Confectioneries Operator',
+                'name' => 'Confectionaries Operator',
                 'email' => 'confectioneries.operator@sweettooth.local',
                 'branch' => $calabarBranch,
                 'role' => 'Specialist',

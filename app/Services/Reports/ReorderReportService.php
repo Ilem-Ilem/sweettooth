@@ -6,6 +6,7 @@ use App\Models\Item;
 use App\Models\Stock;
 use App\Models\StockMovement;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class ReorderReportService extends ReportService
 {
@@ -30,10 +31,7 @@ class ReorderReportService extends ReportService
 
         $items = Item::query()
             ->where('branch_id', $this->branchId)
-            ->when($this->departmentId, function ($q) {
-                $q->where('department_id', $this->departmentId);
-            })
-            ->with(['category', 'supplier', 'stocks'])
+            ->with(['stocks'])
             ->get();
 
         $reorderData = [];
@@ -42,7 +40,7 @@ class ReorderReportService extends ReportService
         $normalItems = [];
 
         foreach ($items as $item) {
-            $currentStock = $item->stocks->sum('quantity');
+            $currentStock = $item->stocks->sum(DB::raw('quantity_available + quantity_reserved + quantity_damaged'));
             $reorderPoint = $item->reorder_point ?? 0;
             $minStock = $item->min_stock_level ?? 0;
             $reorderQuantity = $item->reorder_quantity ?? 0;
@@ -55,9 +53,9 @@ class ReorderReportService extends ReportService
                     'item_id' => $item->id,
                     'item_name' => $item->name,
                     'sku' => $item->sku,
-                    'category' => $item->category->name ?? 'Uncategorized',
-                    'supplier' => $item->supplier->name ?? 'N/A',
-                    'supplier_id' => $item->supplier_id,
+                    'category' => $item->category ?? 'Uncategorized',
+                    'supplier' => 'N/A',
+                    'supplier_id' => null,
                     'current_stock' => $currentStock,
                     'min_stock_level' => $minStock,
                     'reorder_point' => $reorderPoint,
@@ -149,8 +147,10 @@ class ReorderReportService extends ReportService
     {
         $thirtyDaysAgo = now()->subDays(30);
 
-        $totalConsumed = StockMovement::where('item_id', $itemId)
-            ->where('movement_type', 'out')
+        $totalConsumed = StockMovement::whereHas('stock', function ($q) use ($itemId) {
+                $q->where('item_id', $itemId);
+            })
+            ->where('type', 'out')
             ->whereBetween('movement_date', [$thirtyDaysAgo, now()])
             ->sum('quantity');
 
@@ -200,13 +200,17 @@ class ReorderReportService extends ReportService
      */
     private function getPendingOrders($itemId): array
     {
+        if (!Schema::hasColumn('purchase_order_items', 'item_id')) {
+            return [];
+        }
+
         $pendingOrders = DB::table('purchase_orders')
             ->join('purchase_order_items', 'purchase_orders.id', '=', 'purchase_order_items.purchase_order_id')
             ->where('purchase_order_items.item_id', $itemId)
             ->whereIn('purchase_orders.status', ['pending', 'approved', 'ordered'])
             ->select(
                 'purchase_orders.order_number',
-                'purchase_order_items.quantity',
+                'purchase_order_items.quantity_ordered',
                 'purchase_orders.expected_delivery_date'
             )
             ->get()

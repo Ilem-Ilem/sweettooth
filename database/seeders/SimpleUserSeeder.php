@@ -71,7 +71,7 @@ class SimpleUserSeeder extends Seeder
 
         User::firstOrCreate(
             ['email' => 'confectioneries.operator@sweettooth.local'],
-            ['name' => 'Confectioneries Operator', 'password' => bcrypt('password'), 'branch_id' => $defaultBranch->id]
+            ['name' => 'Confectionaries Operator', 'password' => bcrypt('password'), 'branch_id' => $defaultBranch->id]
         )->syncRoles(['Operator']);
 
         User::firstOrCreate(

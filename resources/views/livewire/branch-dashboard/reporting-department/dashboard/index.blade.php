@@ -70,7 +70,7 @@
         </div>
 
         <!-- Category Reports Summary -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
             <!-- Production Reports -->
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
                 <div class="flex items-center gap-3 mb-4">
@@ -140,6 +140,56 @@
                     <div class="mt-4">
                         <a href="{{ branch_route('branch-dashboard.reporting.compile') }}"
                            class="w-full inline-flex justify-center items-center px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors">
+                            View Reports
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Accounting Reports -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-blue-600 dark:text-blue-400">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-6-6h12" />
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Accounting Reports</h3>
+                </div>
+
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center py-2 border-b dark:border-gray-700">
+                        <span class="text-sm text-gray-600 dark:text-gray-400">This Month</span>
+                        <span class="font-semibold text-blue-600 dark:text-blue-400">{{ $stats['accounting_reports'] }}</span>
+                    </div>
+                    <div class="mt-4">
+                        <a href="{{ branch_route('branch-dashboard.reporting.compile') }}"
+                           class="w-full inline-flex justify-center items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+                            View Reports
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- HR Reports -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-emerald-600 dark:text-emerald-400">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9 9 0 10-12 0M15 21a3 3 0 11-6 0" />
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100">HR Reports</h3>
+                </div>
+
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center py-2 border-b dark:border-gray-700">
+                        <span class="text-sm text-gray-600 dark:text-gray-400">This Month</span>
+                        <span class="font-semibold text-emerald-600 dark:text-emerald-400">{{ $stats['hr_reports'] }}</span>
+                    </div>
+                    <div class="mt-4">
+                        <a href="{{ branch_route('branch-dashboard.reporting.compile') }}"
+                           class="w-full inline-flex justify-center items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors">
                             View Reports
                         </a>
                     </div>

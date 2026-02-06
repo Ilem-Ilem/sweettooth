@@ -77,7 +77,7 @@ return new class extends Migration
 
         // Set level for old roles (so they still work during transition)
         $managerRoles = [
-            'Head of Production', 'Chef', 'Head of Gelato', 'Confectioneries Manager',
+            'Head of Production', 'Chef', 'Head of Gelato', 'Confectionaries Manager',
             'Sales Manager', 'HR Manager', 'Inventory Manager', 'Corner Store Manager',
             'MD', 'Managing Director'
         ];

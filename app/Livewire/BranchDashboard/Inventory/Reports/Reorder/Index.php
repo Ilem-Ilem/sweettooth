@@ -3,7 +3,9 @@
 namespace App\Livewire\BranchDashboard\Inventory\Reports\Reorder;
 
 use App\Models\DepartmentReport;
+use App\Services\Reports\Definitions\InventoryReorderDefinition;
 use App\Services\Reports\ReorderReportService;
+use App\Livewire\Traits\RequiresDepartmentSelection;
 use Carbon\Carbon;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
@@ -15,7 +17,7 @@ use TallStackUi\Traits\Interactions;
 #[Title('Reorder Report')]
 class Index extends Component
 {
-    use Interactions;
+    use Interactions, RequiresDepartmentSelection;
 
     public $branchId;
 
@@ -33,6 +35,10 @@ class Index extends Component
 
     public $chartsData = [];
 
+    public $tablesData = [];
+
+    public $narrative = [];
+
     public $isLoading = false;
 
     public $generatedReport = null;
@@ -43,6 +49,7 @@ class Index extends Component
     {
         $this->branchId = current_branch_id();
         $this->departmentId = session('selected_department_id');
+        $this->initDepartments($this->branchId);
         $this->setDateRange();
         $this->generatePreview(); // Auto-generate on load
     }
@@ -51,6 +58,7 @@ class Index extends Component
     public function handleBranchChange($branchId)
     {
         $this->branchId = $branchId;
+        $this->initDepartments($branchId);
         $this->generatePreview(); // Regenerate report for new branch
     }
 
@@ -62,18 +70,26 @@ class Index extends Component
 
     public function generatePreview()
     {
+        if (! $this->ensureDepartmentSelected('preview')) {
+            return;
+        }
+
         $this->isLoading = true;
 
         try {
-            $service = new ReorderReportService;
+            $service = (new ReorderReportService())
+                ->useDefinition(new InventoryReorderDefinition());
 
             $service->forBranch($this->branchId)
                 ->forDepartment($this->departmentId)
                 ->forPeriod($this->customDateFrom, $this->customDateTo);
 
-            $this->reportData = $service->getReportData();
-            $this->summaryMetrics = $service->generateSummaryMetrics($this->reportData);
-            $this->chartsData = $service->generateChartsData($this->reportData);
+            $payload = $service->getReportData();
+            $this->reportData = $payload['report_data'] ?? $payload;
+            $this->summaryMetrics = $payload['summary_metrics'] ?? ($this->reportData['summary_metrics'] ?? []);
+            $this->chartsData = $payload['charts_data'] ?? [];
+            $this->tablesData = $payload['tables'] ?? [];
+            $this->narrative = $payload['narrative'] ?? [];
 
             $this->toast()->success('Reorder report generated successfully')->send();
         } catch (\Exception $e) {
@@ -85,8 +101,13 @@ class Index extends Component
 
     public function generateReport()
     {
+        if (! $this->ensureDepartmentSelected('generate')) {
+            return;
+        }
+
         try {
-            $service = new ReorderReportService;
+            $service = (new ReorderReportService())
+                ->useDefinition(new InventoryReorderDefinition());
 
             $this->generatedReport = $service
                 ->forBranch($this->branchId)

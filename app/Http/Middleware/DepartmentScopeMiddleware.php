@@ -114,6 +114,15 @@ class DepartmentScopeMiddleware
      */
     private function getUserRoleLevel(User $user): int
     {
+        // Legacy fast-path: user_type admin is treated as Super Admin
+        if (isset($user->user_type) && $user->user_type === 'admin') {
+            return self::LEVEL_SUPER_ADMIN;
+        }
+
+        if (function_exists('is_super_admin') && is_super_admin()) {
+            return self::LEVEL_SUPER_ADMIN;
+        }
+
         // Check by role level column first (new system)
         $role = $user->roles()->orderByDesc('level')->first();
 
@@ -128,7 +137,7 @@ class DepartmentScopeMiddleware
         // Manager-level roles (old names)
         $managerRoles = [
             'Manager', 'Head of Production', 'Chef', 'Head of Gelato',
-            'Confectioneries Manager', 'Sales Manager', 'HR Manager',
+            'Confectionaries Manager', 'Sales Manager', 'HR Manager',
             'Inventory Manager', 'Corner Store Manager', 'MD', 'Managing Director'
         ];
         if ($user->hasAnyRole($managerRoles)) return 3;

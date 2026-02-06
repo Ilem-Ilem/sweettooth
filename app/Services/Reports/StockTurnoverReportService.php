@@ -30,10 +30,7 @@ class StockTurnoverReportService extends ReportService
 
         $items = Item::query()
             ->where('branch_id', $this->branchId)
-            ->when($this->departmentId, function ($q) {
-                $q->where('department_id', $this->departmentId);
-            })
-            ->with(['category', 'stocks'])
+            ->with(['stocks'])
             ->get();
 
         $turnoverData = [];
@@ -92,11 +89,13 @@ class StockTurnoverReportService extends ReportService
      */
     private function calculateTurnoverMetrics(Item $item): ?array
     {
-        $currentStock = $item->stocks->sum('quantity');
+        $currentStock = $item->stocks->sum(DB::raw('quantity_available + quantity_reserved + quantity_damaged'));
 
         // Calculate total consumed in period
-        $consumed = StockMovement::where('item_id', $item->id)
-            ->where('movement_type', 'out')
+        $consumed = StockMovement::whereHas('stock', function ($q) use ($item) {
+                $q->where('item_id', $item->id);
+            })
+            ->where('type', 'out')
             ->whereBetween('movement_date', [$this->periodFrom, $this->periodTo])
             ->sum('quantity');
 
@@ -120,7 +119,7 @@ class StockTurnoverReportService extends ReportService
             'item_id' => $item->id,
             'item_name' => $item->name,
             'sku' => $item->sku,
-            'category' => $item->category->name ?? 'Uncategorized',
+            'category' => $item->category ?? 'Uncategorized',
             'current_stock' => $currentStock,
             'average_stock' => round($averageStock, 2),
             'consumed' => $consumed,
@@ -139,7 +138,9 @@ class StockTurnoverReportService extends ReportService
     private function calculateAverageStock($itemId): float
     {
         // Get stock movements during period
-        $movements = StockMovement::where('item_id', $itemId)
+        $movements = StockMovement::whereHas('stock', function ($q) use ($itemId) {
+                $q->where('item_id', $itemId);
+            })
             ->whereBetween('movement_date', [$this->periodFrom, $this->periodTo])
             ->orderBy('movement_date')
             ->get();
@@ -164,7 +165,7 @@ class StockTurnoverReportService extends ReportService
             // Apply movements for this date
             $dayMovements = $movements->where('movement_date', $currentDate->toDateString());
             foreach ($dayMovements as $movement) {
-                if ($movement->movement_type === 'in') {
+                if ($movement->type === 'in') {
                     $runningStock += $movement->quantity;
                 } else {
                     $runningStock -= $movement->quantity;

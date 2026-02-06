@@ -33,6 +33,7 @@ class InventoryStoreRolesSeeder extends Seeder
             'view-reorder-levels', 'manage-reorder-levels', 'write-off-stock',
             'view-stock-history', 'view-production-queue', 'view-sales-transactions',
             'view-analytics', 'view-dashboard', 'view-department-reports',
+            'view_inventory_dashboard',
         ]);
 
         // ===== STORE/WAREHOUSE ROLES =====
@@ -47,6 +48,7 @@ class InventoryStoreRolesSeeder extends Seeder
         $storeKeeper->givePermissionTo([
             'view-stock-levels', 'receive-stock', 'transfer-stock',
             'view-inventory-reports',
+            'view_inventory_dashboard',
         ]);
 
         $warehouseManager = Role::firstOrCreate([
@@ -62,6 +64,7 @@ class InventoryStoreRolesSeeder extends Seeder
             'create-purchase-order', 'view-inventory-reports',
             'view-reorder-levels', 'view-stock-history',
             'view-analytics', 'view-dashboard', 'view-department-reports',
+            'view_inventory_dashboard',
         ]);
 
         // ===== STORE MANAGEMENT ROLES =====
@@ -76,6 +79,7 @@ class InventoryStoreRolesSeeder extends Seeder
         $storeManager->givePermissionTo([
             'view-stock-levels', 'transfer-stock', 'view-inventory-reports',
             'view-sales-transactions', 'view-analytics', 'view-dashboard', 'view-department-reports',
+            'view_inventory_dashboard',
         ]);
 
         $storeSupervisor = Role::firstOrCreate([
@@ -89,6 +93,7 @@ class InventoryStoreRolesSeeder extends Seeder
         $storeSupervisor->givePermissionTo([
             'view-stock-levels', 'transfer-stock', 'view-inventory-reports',
             'view-sales-transactions', 'view-dashboard', 'view-department-reports',
+            'view_inventory_dashboard',
         ]);
 
         $cashier = Role::firstOrCreate([
@@ -114,6 +119,7 @@ class InventoryStoreRolesSeeder extends Seeder
         $inventoryClerk->givePermissionTo([
             'view-stock-levels', 'receive-stock', 'view-inventory-reports',
             'view-reorder-levels', 'view-stock-history',
+            'view_inventory_dashboard',
         ]);
 
         // ===== STORE MANAGEMENT ROLES =====
@@ -128,6 +134,7 @@ class InventoryStoreRolesSeeder extends Seeder
         $storeManager->givePermissionTo([
             'view-stock-levels', 'transfer-stock', 'view-inventory-reports',
             'view-sales-transactions', 'view-analytics', 'view-dashboard', 'view-department-reports',
+            'view_inventory_dashboard',
         ]);
 
         $storeSupervisor = Role::firstOrCreate([
@@ -141,6 +148,7 @@ class InventoryStoreRolesSeeder extends Seeder
         $storeSupervisor->givePermissionTo([
             'view-stock-levels', 'transfer-stock', 'view-inventory-reports',
             'view-sales-transactions', 'view-dashboard', 'view-department-reports',
+            'view_inventory_dashboard',
         ]);
 
         $cashier = Role::firstOrCreate([
@@ -166,6 +174,7 @@ class InventoryStoreRolesSeeder extends Seeder
         $storeSupervisor->givePermissionTo([
             'view-stock-levels', 'transfer-stock', 'view-inventory-reports',
             'view-sales-transactions', 'view-dashboard', 'view-department-reports',
+            'view_inventory_dashboard',
         ]);
 
         $cashier = Role::firstOrCreate([

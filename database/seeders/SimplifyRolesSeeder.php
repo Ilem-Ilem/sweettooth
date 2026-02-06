@@ -24,7 +24,7 @@ class SimplifyRolesSeeder extends Seeder
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
         $oldRoles = [
-            'MD', 'Head of Production', 'Head of Gelato', 'Confectioneries Manager',
+            'MD', 'Head of Production', 'Head of Gelato', 'Confectionaries Manager',
             'Chef', 'Supervisor', 'Kitchen Staff', 'Cashier', 'Corner Store Manager',
             'Stock Controller', 'HR Officer', 'Production Staff', 'Sales Staff',
             'Inventory Staff', 'HR Staff', 'Employee', 'Specialist', // Old individual role names
@@ -37,7 +37,7 @@ class SimplifyRolesSeeder extends Seeder
             'MD' => 'Manager',
             'Head of Production' => 'Manager',
             'Head of Gelato' => 'Operator',
-            'Confectioneries Manager' => 'Manager',
+            'Confectionaries Manager' => 'Manager',
             'Chef' => 'Operator',
             'Supervisor' => 'Manager',
             'Kitchen Staff' => 'Operator',

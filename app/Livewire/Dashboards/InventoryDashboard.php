@@ -110,10 +110,9 @@ class InventoryDashboard extends BaseDashboard
     public function getRecentMovements($limit = 10)
     {
         return $this->remember('recent_movements_'.$limit, function () use ($limit) {
-            return StockMovement::join('stocks', 'stock_movements.stock_id', '=', 'stocks.id')
-                ->where('stocks.branch_id', $this->getBranchId())
-                ->with('item', 'createdBy')
-                ->orderBy('stock_movements.created_at', 'desc')
+            return StockMovement::with(['stock.item', 'mover'])
+                ->where('branch_id', $this->getBranchId())
+                ->orderBy('created_at', 'desc')
                 ->limit($limit)
                 ->get();
         });
@@ -127,7 +126,7 @@ class InventoryDashboard extends BaseDashboard
         return $this->remember('low_stock_items_'.$limit, function () use ($limit) {
             $items = Stock::where('stocks.branch_id', $this->getBranchId())
                 ->join('items', 'stocks.item_id', '=', 'items.id')
-                ->selectRaw('items.id, items.name, items.sku, items.reorder_level as reorder_point, stocks.quantity_available')
+                ->selectRaw('items.id, items.name, items.sku, items.reorder_level as reorder_point, stocks.quantity_available as quantity, stocks.average_cost')
                 ->whereRaw('stocks.quantity_available <= items.reorder_level')
                 ->orderBy('stocks.quantity_available', 'asc')
                 ->limit($limit)
@@ -135,10 +134,7 @@ class InventoryDashboard extends BaseDashboard
 
             // Add last_unit_price to each item (use average cost from stock)
             foreach ($items as $item) {
-                $stock = Stock::where('item_id', $item->id)
-                    ->where('branch_id', $this->getBranchId())
-                    ->first();
-                $item->last_unit_price = $stock->average_cost ?? $this->getLastUnitPrice($item->id);
+                $item->last_unit_price = $item->average_cost ?? $this->getLastUnitPrice($item->id);
             }
 
             return $items;

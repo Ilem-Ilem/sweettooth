@@ -74,14 +74,37 @@ trait SalesDepartmentContext
     protected function loadDepartmentData(): void
     {
         if (!$this->salesDeptSlug) {
-            // If no slug provided, use employee's department
-            $employee = auth()->user();
-            if ($employee && $employee->department_id) {
-                $department = Department::find($employee->department_id);
-                if ($department) {
-                    $this->departmentId = $department->id;
-                    $this->departmentName = $department->name;
-                    $this->salesDeptSlug = $department->slug;
+            // If no slug provided, handle differently for super admins vs regular employees
+            if (is_super_admin() || can_access_all_branches()) {
+                // For super admins, redirect to a page to select a department
+                if (method_exists($this, 'toast')) {
+                    $this->toast()->error('Please select a sales department to view.')->send();
+                }
+
+                // Redirect to a page that lists available sales departments
+                $this->redirect(route('branch-dashboard.sales-dashboard.helper', [
+                    'b_id' => $this->getBranchId()
+                ]));
+                return;
+            } else {
+                // For regular employees, use their assigned department
+                $employee = auth()->user();
+                if ($employee && $employee->department_id) {
+                    $department = Department::find($employee->department_id);
+                    if ($department) {
+                        // Check if this is a sales department
+                        if ($this->isSalesDepartment($department)) {
+                            $this->departmentId = $department->id;
+                            $this->departmentName = $department->name;
+                            $this->salesDeptSlug = $department->slug;
+                        } else {
+                            // If employee's department is not a sales department, show error
+                            if (method_exists($this, 'toast')) {
+                                $this->toast()->error('You do not have access to sales department pages.')->send();
+                            }
+                            return;
+                        }
+                    }
                 }
             }
             return;
@@ -208,5 +231,74 @@ trait SalesDepartmentContext
         }
 
         return strtolower($department->category->name) === 'sales';
+    }
+
+    /**
+     * Check if a department is a sales department
+     */
+    protected function isSalesDepartment($department): bool
+    {
+        if (!$department) {
+            return false;
+        }
+
+        // Check if department name contains sales-related terms
+        $salesTerms = ['sales', 'store', 'till', 'pos', 'corner', 'retail', 'counter', 'service'];
+        $deptName = strtolower($department->name ?? '');
+        $deptSlug = strtolower($department->slug ?? '');
+
+        foreach ($salesTerms as $term) {
+            if (str_contains($deptName, $term) || str_contains($deptSlug, $term)) {
+                return true;
+            }
+        }
+
+        // Check if department category is sales-related
+        if ($department->category) {
+            $categoryName = strtolower($department->category->name ?? '');
+            foreach ($salesTerms as $term) {
+                if (str_contains($categoryName, $term)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Get all available sales departments for the current branch
+     */
+    protected function getAvailableSalesDepartments(): \Illuminate\Support\Collection
+    {
+        return Department::where('branch_id', $this->branchId)
+            ->where(function($query) {
+                $query->where('name', 'like', '%Sales%')
+                      ->orWhere('name', 'like', '%Store%')
+                      ->orWhere('name', 'like', '%Till%')
+                      ->orWhere('name', 'like', '%POS%')
+                      ->orWhere('name', 'like', '%Corner%')
+                      ->orWhere('name', 'like', '%Retail%')
+                      ->orWhere('name', 'like', '%Counter%')
+                      ->orWhere('name', 'like', '%Service%')
+                      ->orWhere('slug', 'like', '%sales%')
+                      ->orWhere('slug', 'like', '%store%')
+                      ->orWhere('slug', 'like', '%till%')
+                      ->orWhere('slug', 'like', '%pos%')
+                      ->orWhere('slug', 'like', '%corner%')
+                      ->orWhere('slug', 'like', '%retail%')
+                      ->orWhere('slug', 'like', '%counter%')
+                      ->orWhere('slug', 'like', '%service%');
+            })
+            ->orWhere(function($query) {
+                // Or departments that have 'sales' in their category
+                $query->whereHas('category', function($subQuery) {
+                    $subQuery->where('name', 'like', '%Sales%')
+                             ->orWhere('name', 'like', '%Retail%')
+                             ->orWhere('name', 'like', '%POS%')
+                             ->orWhere('name', 'like', '%Service%');
+                });
+            })
+            ->get();
     }
 }

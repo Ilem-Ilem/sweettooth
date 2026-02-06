@@ -22,14 +22,14 @@ class ProductionEfficiencyReportService extends ReportService
         $this->validateParameters();
 
         // Get daily production records for the period
-        $dailyProduces = DailyProduce::with(['recipe', 'shift', 'producedBy'])
+        $dailyProduces = DailyProduce::with(['recipe', 'shift'])
             ->whereHas('shift', function ($q) {
                 $q->where('branch_id', $this->branchId);
                 if ($this->departmentId) {
                     $q->where('department_id', $this->departmentId);
                 }
             })
-            ->whereBetween('production_date', [$this->periodFrom, $this->periodTo])
+            ->whereBetween('produce_date', [$this->periodFrom, $this->periodTo])
             ->get();
 
         // Get production records for efficiency analysis
@@ -284,8 +284,24 @@ class ProductionEfficiencyReportService extends ReportService
     /**
      * Calculate percentage helper.
      */
-    private function calculatePercentage($part, $total): float
+    protected function calculatePercentage($part, $total): float
     {
         return $total > 0 ? round(($part / $total) * 100, 2) : 0;
+    }
+
+    /**
+     * Get summary metrics for report data.
+     */
+    public function getSummaryMetrics(array $reportData): array
+    {
+        return $this->generateSummaryMetrics($reportData);
+    }
+
+    /**
+     * Get charts data for report data.
+     */
+    public function getChartsData(array $reportData): array
+    {
+        return $this->generateChartsData($reportData);
     }
 }

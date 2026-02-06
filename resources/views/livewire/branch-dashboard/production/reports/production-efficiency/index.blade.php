@@ -26,7 +26,7 @@
 
     {{-- Filters Section --}}
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
             {{-- Period Filter --}}
             <div>
                 <x-select.native
@@ -63,6 +63,21 @@
                     :disabled="$periodFilter !== 'custom'"
                 />
             </div>
+
+            {{-- Department --}}
+            @if(count($availableDepartments ?? []) > 0)
+                <div>
+                    <x-select.native
+                        label="Department"
+                        wire:model.live="selectedDepartmentId"
+                    >
+                        <option value="">Select Department</option>
+                        @foreach($availableDepartments as $dept)
+                            <option value="{{ $dept->id }}">{{ $dept->name }}</option>
+                        @endforeach
+                    </x-select.native>
+                </div>
+            @endif
 
             {{-- Generate Button --}}
             <div class="flex items-end">
@@ -172,12 +187,20 @@
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Daily Production Trend</h3>
                 <div id="daily-efficiency-chart" class="h-64"></div>
+                @if(empty($chartsData['daily_efficiency_chart'] ?? null))
+                    <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">No chart data available for this period.</p>
+@endif
+
+@include('livewire.partials.department-select-modal')
             </div>
 
             {{-- Variance Distribution --}}
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Variance Distribution</h3>
                 <div id="variance-distribution-chart" class="h-64"></div>
+                @if(empty($chartsData['variance_distribution'] ?? null))
+                    <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">No chart data available for this period.</p>
+                @endif
             </div>
         </div>
 
@@ -185,6 +208,9 @@
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Product Efficiency Comparison</h3>
             <div id="product-efficiency-chart" class="h-64"></div>
+            @if(empty($chartsData['product_efficiency_chart'] ?? null))
+                <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">No chart data available for this period.</p>
+            @endif
         </div>
 
         {{-- Product Efficiency Table --}}
@@ -330,9 +356,9 @@
             console.log('Charts data:', @json($chartsData));
 
             // Daily Efficiency Chart (Line Chart)
-            if (document.getElementById('daily-efficiency-chart') && @json($chartsData['daily_efficiency_chart'])) {
+            if (document.getElementById('daily-efficiency-chart') && @json($chartsData['daily_efficiency_chart'] ?? null)) {
                 console.log('Creating daily chart');
-                const dailyChartData = @json($chartsData['daily_efficiency_chart']);
+                const dailyChartData = @json($chartsData['daily_efficiency_chart'] ?? null);
 
                 const dailyOptions = {
                     series: [
@@ -402,8 +428,8 @@
             }
 
             // Variance Distribution Chart (Pie Chart)
-            if (document.getElementById('variance-distribution-chart') && @json($chartsData['variance_distribution'])) {
-                const varianceChartData = @json($chartsData['variance_distribution']);
+            if (document.getElementById('variance-distribution-chart') && @json($chartsData['variance_distribution'] ?? null)) {
+                const varianceChartData = @json($chartsData['variance_distribution'] ?? null);
 
                 const varianceOptions = {
                     series: varianceChartData.data,
@@ -447,8 +473,8 @@
             }
 
             // Product Efficiency Chart (Bar Chart)
-            if (document.getElementById('product-efficiency-chart') && @json($chartsData['product_efficiency_chart'])) {
-                const productChartData = @json($chartsData['product_efficiency_chart']);
+            if (document.getElementById('product-efficiency-chart') && @json($chartsData['product_efficiency_chart'] ?? null)) {
+                const productChartData = @json($chartsData['product_efficiency_chart'] ?? null);
 
                 const productOptions = {
                     series: [{

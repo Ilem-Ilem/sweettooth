@@ -57,7 +57,7 @@ class SuperAdminDashboard extends BaseDashboard
             return DB::table('stocks')
                 ->join('items', 'stocks.item_id', '=', 'items.id')
                 ->where('stocks.branch_id', $this->getBranchId())
-                ->selectRaw('SUM(stocks.quantity * items.last_unit_price) as total')
+                ->selectRaw('SUM((stocks.quantity_available + stocks.quantity_reserved + stocks.quantity_damaged) * items.last_unit_price) as total')
                 ->value('total') ?? 0;
         });
     }
@@ -104,7 +104,7 @@ class SuperAdminDashboard extends BaseDashboard
                     $inventory = DB::table('stocks')
                         ->join('items', 'stocks.item_id', '=', 'items.id')
                         ->where('stocks.branch_id', $branch->id)
-                        ->selectRaw('SUM(stocks.quantity * items.last_unit_price) as total')
+                        ->selectRaw('SUM((stocks.quantity_available + stocks.quantity_reserved + stocks.quantity_damaged) * items.last_unit_price) as total')
                         ->value('total') ?? 0;
 
                     $staff = DB::table('employees')

@@ -1,5 +1,29 @@
 <div>
     <div class="p-6 bg-gray-50 dark:bg-gray-900 min-h-screen">
+        @php
+            $formatValue = function ($value) {
+                if (is_null($value) || $value === '') {
+                    return '—';
+                }
+                if (is_numeric($value)) {
+                    return number_format($value, 2);
+                }
+                if (is_array($value)) {
+                    if (empty($value)) {
+                        return '—';
+                    }
+                    $isAssoc = \Illuminate\Support\Arr::isAssoc($value);
+                    if (!$isAssoc && collect($value)->every(fn($item) => is_scalar($item))) {
+                        return implode(', ', $value);
+                    }
+                    return 'Items: '.count($value);
+                }
+                if (is_object($value)) {
+                    return method_exists($value, '__toString') ? (string) $value : '—';
+                }
+                return (string) $value;
+            };
+        @endphp
         <!-- Header Section -->
         <div class="mb-6 flex justify-between items-center">
             <div>
@@ -57,73 +81,28 @@
             </div>
         </div>
 
-        <!-- Executive Summary -->
-        @if($compiledReport->executive_summary)
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
-                <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Executive Summary</h2>
+        <!-- Executive Summary intentionally removed in favor of full report detail blocks -->
 
-                <!-- Overview -->
-                @if(isset($compiledReport->executive_summary['overview']))
-                    <div class="mb-6">
-                        <h3 class="text-lg font-medium text-gray-800 dark:text-gray-200 mb-3">Overview</h3>
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            @foreach($compiledReport->executive_summary['overview'] as $key => $value)
-                                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
-                                    <p class="text-xs text-gray-600 dark:text-gray-400">{{ ucwords(str_replace('_', ' ', $key)) }}</p>
-                                    <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ is_numeric($value) ? $value : (is_string($value) ? $value : json_encode($value)) }}</p>
-                                </div>
-                            @endforeach
-                        </div>
-                    </div>
-                @endif
-
-                <!-- Highlights -->
-                @if(isset($compiledReport->executive_summary['highlights']) && count($compiledReport->executive_summary['highlights']) > 0)
-                    <div class="mb-6">
-                        <h3 class="text-lg font-medium text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-green-600">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            Highlights
-                        </h3>
-                        <div class="space-y-2">
-                            @foreach($compiledReport->executive_summary['highlights'] as $highlight)
-                                <div class="flex items-start gap-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                                    <span class="text-green-600 dark:text-green-400">✓</span>
-                                    <div class="flex-1">
-                                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $highlight['message'] }}</p>
-                                        <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">{{ $highlight['department'] }} - {{ ucfirst($highlight['category']) }}</p>
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                    </div>
-                @endif
-
-                <!-- Concerns -->
-                @if(isset($compiledReport->executive_summary['concerns']) && count($compiledReport->executive_summary['concerns']) > 0)
-                    <div class="mb-6">
-                        <h3 class="text-lg font-medium text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-red-600">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                            </svg>
-                            Concerns
-                        </h3>
-                        <div class="space-y-2">
-                            @foreach($compiledReport->executive_summary['concerns'] as $concern)
-                                <div class="flex items-start gap-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                                    <span class="text-red-600 dark:text-red-400">!</span>
-                                    <div class="flex-1">
-                                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $concern['message'] }}</p>
-                                        <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">{{ $concern['department'] }} - {{ ucfirst($concern['category']) }} ({{ ucfirst($concern['severity']) }} priority)</p>
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                    </div>
-                @endif
+        <!-- Compiled Report Annotations -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Compiled Report Annotations</h2>
+                <span class="text-xs text-gray-500 dark:text-gray-400">Read-only</span>
             </div>
-        @endif
+            <div class="space-y-3">
+                @forelse($compiledReport->annotations as $annotation)
+                    <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 p-4">
+                        <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-2">
+                            <span>{{ $annotation->author?->name ?? 'Unknown' }}</span>
+                            <span>{{ $annotation->created_at?->format('Y-m-d H:i') }}</span>
+                        </div>
+                        <p class="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap">{{ $annotation->body }}</p>
+                    </div>
+                @empty
+                    <p class="text-sm text-gray-500 dark:text-gray-400">No annotations yet.</p>
+                @endforelse
+            </div>
+        </div>
 
         <!-- Recommendations -->
         @if($compiledReport->recommendations && count($compiledReport->recommendations) > 0)
@@ -163,6 +142,16 @@
         <!-- Included Department Reports -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Included Department Reports</h2>
+            @php
+                $hasIntegrityIssues = $compiledReport->departmentReports->contains(function ($report) {
+                    return !$report->systemDataHashIsValid();
+                });
+            @endphp
+            @if($hasIntegrityIssues)
+                <div class="mb-4 rounded-lg border border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
+                    Warning: One or more included reports failed the system data integrity check.
+                </div>
+            @endif
 
             <!-- Production Reports -->
             @if($productionReports->count() > 0)
@@ -170,17 +159,42 @@
                     <h3 class="text-lg font-medium text-gray-800 dark:text-gray-200 mb-3">Production Reports</h3>
                     <div class="space-y-2">
                         @foreach($productionReports as $report)
+                            @php
+                                $integrityOk = $report->systemDataHashIsValid();
+                            @endphp
                             <div class="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
                                 <div>
                                     <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $report->report_name }}</p>
                                     <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
                                         {{ $report->department?->name }} • Generated by {{ $report->generatedBy?->name }}
                                     </p>
+                                    @if(!$integrityOk)
+                                        <p class="mt-1 text-xs text-red-600 dark:text-red-300">Integrity check failed</p>
+                                    @endif
                                 </div>
-                                <span class="text-xs text-gray-500 dark:text-gray-400">
-                                    {{ \Carbon\Carbon::parse($report->report_date)->format('M d, Y') }}
-                                </span>
+                                <div class="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                                    <span>{{ \Carbon\Carbon::parse($report->report_date)->format('M d, Y') }}</span>
+                                    <a href="{{ branch_route('branch-dashboard.reporting.report.view', ['id' => $report->id, 'b_id' => $b_id]) }}"
+                                       class="px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700">
+                                        View Full
+                                    </a>
+                                </div>
                             </div>
+                            @if($report->annotations?->count())
+                                <div class="ml-3 mt-2 space-y-2">
+                                    @foreach($report->annotations as $annotation)
+                                        <div class="rounded-md border border-purple-200 dark:border-purple-800 bg-white dark:bg-gray-800 p-3">
+                                            <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                                <span>{{ $annotation->author?->name ?? 'Unknown' }}</span>
+                                                <span>{{ $annotation->created_at?->format('Y-m-d H:i') }}</span>
+                                            </div>
+                                            <p class="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap">{{ $annotation->body }}</p>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
+
+                            @include('livewire.branch-dashboard.reporting-department.view-compiled.report-details', ['report' => $report, 'formatValue' => $formatValue])
                         @endforeach
                     </div>
                 </div>
@@ -192,17 +206,42 @@
                     <h3 class="text-lg font-medium text-gray-800 dark:text-gray-200 mb-3">Sales Reports</h3>
                     <div class="space-y-2">
                         @foreach($salesReports as $report)
+                            @php
+                                $integrityOk = $report->systemDataHashIsValid();
+                            @endphp
                             <div class="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
                                 <div>
                                     <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $report->report_name }}</p>
                                     <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
                                         {{ $report->department?->name }} • Generated by {{ $report->generatedBy?->name }}
                                     </p>
+                                    @if(!$integrityOk)
+                                        <p class="mt-1 text-xs text-red-600 dark:text-red-300">Integrity check failed</p>
+                                    @endif
                                 </div>
-                                <span class="text-xs text-gray-500 dark:text-gray-400">
-                                    {{ \Carbon\Carbon::parse($report->report_date)->format('M d, Y') }}
-                                </span>
+                                <div class="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                                    <span>{{ \Carbon\Carbon::parse($report->report_date)->format('M d, Y') }}</span>
+                                    <a href="{{ branch_route('branch-dashboard.reporting.report.view', ['id' => $report->id, 'b_id' => $b_id]) }}"
+                                       class="px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700">
+                                        View Full
+                                    </a>
+                                </div>
                             </div>
+                            @if($report->annotations?->count())
+                                <div class="ml-3 mt-2 space-y-2">
+                                    @foreach($report->annotations as $annotation)
+                                        <div class="rounded-md border border-green-200 dark:border-green-800 bg-white dark:bg-gray-800 p-3">
+                                            <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                                <span>{{ $annotation->author?->name ?? 'Unknown' }}</span>
+                                                <span>{{ $annotation->created_at?->format('Y-m-d H:i') }}</span>
+                                            </div>
+                                            <p class="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap">{{ $annotation->body }}</p>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
+
+                            @include('livewire.branch-dashboard.reporting-department.view-compiled.report-details', ['report' => $report, 'formatValue' => $formatValue])
                         @endforeach
                     </div>
                 </div>
@@ -214,17 +253,136 @@
                     <h3 class="text-lg font-medium text-gray-800 dark:text-gray-200 mb-3">Inventory Reports</h3>
                     <div class="space-y-2">
                         @foreach($inventoryReports as $report)
+                            @php
+                                $integrityOk = $report->systemDataHashIsValid();
+                            @endphp
                             <div class="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
                                 <div>
                                     <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $report->report_name }}</p>
                                     <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
                                         {{ $report->department?->name }} • Generated by {{ $report->generatedBy?->name }}
                                     </p>
+                                    @if(!$integrityOk)
+                                        <p class="mt-1 text-xs text-red-600 dark:text-red-300">Integrity check failed</p>
+                                    @endif
                                 </div>
-                                <span class="text-xs text-gray-500 dark:text-gray-400">
-                                    {{ \Carbon\Carbon::parse($report->report_date)->format('M d, Y') }}
-                                </span>
+                                <div class="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                                    <span>{{ \Carbon\Carbon::parse($report->report_date)->format('M d, Y') }}</span>
+                                    <a href="{{ branch_route('branch-dashboard.reporting.report.view', ['id' => $report->id, 'b_id' => $b_id]) }}"
+                                       class="px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700">
+                                        View Full
+                                    </a>
+                                </div>
                             </div>
+                            @if($report->annotations?->count())
+                                <div class="ml-3 mt-2 space-y-2">
+                                    @foreach($report->annotations as $annotation)
+                                        <div class="rounded-md border border-amber-200 dark:border-amber-800 bg-white dark:bg-gray-800 p-3">
+                                            <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                                <span>{{ $annotation->author?->name ?? 'Unknown' }}</span>
+                                                <span>{{ $annotation->created_at?->format('Y-m-d H:i') }}</span>
+                                            </div>
+                                            <p class="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap">{{ $annotation->body }}</p>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
+
+                            @include('livewire.branch-dashboard.reporting-department.view-compiled.report-details', ['report' => $report, 'formatValue' => $formatValue])
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
+            <!-- Accounting Reports -->
+            @if($accountingReports->count() > 0)
+                <div class="mt-6">
+                    <h3 class="text-lg font-medium text-gray-800 dark:text-gray-200 mb-3">Accounting Reports</h3>
+                    <div class="space-y-2">
+                        @foreach($accountingReports as $report)
+                            @php
+                                $integrityOk = $report->systemDataHashIsValid();
+                            @endphp
+                            <div class="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $report->report_name }}</p>
+                                    <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                                        {{ $report->department?->name ?? 'N/A' }} • Generated by {{ $report->generatedBy?->name }}
+                                    </p>
+                                    @if(!$integrityOk)
+                                        <p class="mt-1 text-xs text-red-600 dark:text-red-300">Integrity check failed</p>
+                                    @endif
+                                </div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                                    <span>{{ \Carbon\Carbon::parse($report->report_date)->format('M d, Y') }}</span>
+                                    <a href="{{ branch_route('branch-dashboard.reporting.report.view', ['id' => $report->id, 'b_id' => $b_id]) }}"
+                                       class="px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700">
+                                        View Full
+                                    </a>
+                                </div>
+                            </div>
+                            @if($report->annotations?->count())
+                                <div class="ml-3 mt-2 space-y-2">
+                                    @foreach($report->annotations as $annotation)
+                                        <div class="rounded-md border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 p-3">
+                                            <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                                <span>{{ $annotation->author?->name ?? 'Unknown' }}</span>
+                                                <span>{{ $annotation->created_at?->format('Y-m-d H:i') }}</span>
+                                            </div>
+                                            <p class="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap">{{ $annotation->body }}</p>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
+
+                            @include('livewire.branch-dashboard.reporting-department.view-compiled.report-details', ['report' => $report, 'formatValue' => $formatValue])
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
+            <!-- HR Reports -->
+            @if($hrReports->count() > 0)
+                <div class="mt-6">
+                    <h3 class="text-lg font-medium text-gray-800 dark:text-gray-200 mb-3">HR Reports</h3>
+                    <div class="space-y-2">
+                        @foreach($hrReports as $report)
+                            @php
+                                $integrityOk = $report->systemDataHashIsValid();
+                            @endphp
+                            <div class="flex items-center justify-between p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $report->report_name }}</p>
+                                    <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                                        {{ $report->department?->name ?? 'N/A' }} • Generated by {{ $report->generatedBy?->name }}
+                                    </p>
+                                    @if(!$integrityOk)
+                                        <p class="mt-1 text-xs text-red-600 dark:text-red-300">Integrity check failed</p>
+                                    @endif
+                                </div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                                    <span>{{ \Carbon\Carbon::parse($report->report_date)->format('M d, Y') }}</span>
+                                    <a href="{{ branch_route('branch-dashboard.reporting.report.view', ['id' => $report->id, 'b_id' => $b_id]) }}"
+                                       class="px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700">
+                                        View Full
+                                    </a>
+                                </div>
+                            </div>
+                            @if($report->annotations?->count())
+                                <div class="ml-3 mt-2 space-y-2">
+                                    @foreach($report->annotations as $annotation)
+                                        <div class="rounded-md border border-emerald-200 dark:border-emerald-800 bg-white dark:bg-gray-800 p-3">
+                                            <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                                <span>{{ $annotation->author?->name ?? 'Unknown' }}</span>
+                                                <span>{{ $annotation->created_at?->format('Y-m-d H:i') }}</span>
+                                            </div>
+                                            <p class="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap">{{ $annotation->body }}</p>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
+
+                            @include('livewire.branch-dashboard.reporting-department.view-compiled.report-details', ['report' => $report, 'formatValue' => $formatValue])
                         @endforeach
                     </div>
                 </div>

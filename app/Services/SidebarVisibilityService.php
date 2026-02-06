@@ -40,6 +40,11 @@ class SidebarVisibilityService
             return 0;
         }
 
+        // Legacy fast-path: user_type admin is treated as Super Admin
+        if (isset($user->user_type) && $user->user_type === 'admin') {
+            return self::LEVEL_SUPER_ADMIN;
+        }
+
         // Check by role level column first (new system)
         $role = $user->roles()->orderByDesc('level')->first();
 
@@ -53,7 +58,7 @@ class SidebarVisibilityService
 
         $managerRoles = [
             'Manager', 'Head of Production', 'Chef', 'Head of Gelato',
-            'Confectioneries Manager', 'Sales Manager', 'HR Manager',
+            'Confectionaries Manager', 'Sales Manager', 'HR Manager',
             'Inventory Manager', 'Corner Store Manager', 'MD', 'Managing Director'
         ];
         if ($user->hasAnyRole($managerRoles)) return self::LEVEL_MANAGER;
@@ -123,14 +128,20 @@ class SidebarVisibilityService
         if ($level >= self::LEVEL_SUPER_ADMIN) {
             $query = Department::where('is_active', true);
             if ($branchId) {
-                $query->where('branch_id', $branchId);
+                $query->where(function ($q) use ($branchId) {
+                    $q->where('branch_id', $branchId)
+                        ->orWhereNull('branch_id');
+                });
             }
             return $query->with('category')->orderBy('name')->get();
         }
 
         // Level 4: Admin sees all departments in their branch
         if ($level >= self::LEVEL_ADMIN) {
-            return Department::where('branch_id', $branchId)
+            return Department::where(function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId)
+                    ->orWhereNull('branch_id');
+            })
                 ->where('is_active', true)
                 ->with('category')
                 ->orderBy('name')
@@ -140,7 +151,10 @@ class SidebarVisibilityService
         // Level 3: Manager sees all departments in same category
         if ($level >= self::LEVEL_MANAGER) {
             $categoryId = $user->department?->category_id;
-            return Department::where('branch_id', $branchId)
+            return Department::where(function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId)
+                    ->orWhereNull('branch_id');
+            })
                 ->where('category_id', $categoryId)
                 ->where('is_active', true)
                 ->with('category')

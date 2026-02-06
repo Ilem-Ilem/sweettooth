@@ -169,17 +169,14 @@ class Index extends BaseComponent
         // Get products from the department - filter by department
         $query = Product::query()->active(); // Only get active products
 
-        // Filter by department using the scope unless super admin
-        if (!is_super_admin()) {
-            if ($this->departmentId) {
-                $query->forDepartment($this->departmentId);
-            } else {
-                // Fallback to employee's department if no departmentId is set
-                $employee = auth()->user();
-                if ($employee && $employee->department_id) {
-                    // Use the same forDepartment scope for consistency
-                    $query->forDepartment($employee->department_id);
-                }
+        if ($this->departmentId) {
+            $query->forDepartment($this->departmentId);
+        } else {
+            // Fallback to employee's department if no departmentId is set
+            $employee = auth()->user();
+            if ($employee && $employee->department_id) {
+                // Use the same forDepartment scope for consistency
+                $query->forDepartment($employee->department_id);
             }
         }
 
