@@ -426,6 +426,15 @@ class Index extends Component
         $this->availableRecipes = [];
     }
 
+    public function getDisplayStatus(ProductionRequest $request): string
+    {
+        if ($request->itemRequest) {
+            return $request->itemRequest->status ?? ($request->status ?? 'pending');
+        }
+
+        return $request->status ?? 'pending';
+    }
+
     /**
      * Get request type label
      */
@@ -644,7 +653,7 @@ class Index extends Component
         // Get status summary
         $statusSummary = collect();
         if ($this->department) {
-            $statusQuery = ProductionRequest::where(function ($q) use ($branchId) {
+            $statusQuery = ProductionRequest::with('itemRequest')->where(function ($q) use ($branchId) {
                 $q->whereHas('itemRequest', function ($itemQ) use ($branchId) {
                     $itemQ->where('branch_id', $branchId)
                           ->where('department_id', $this->department->id);
@@ -656,7 +665,7 @@ class Index extends Component
             })->get();
 
             $statusSummary = $statusQuery->groupBy(function ($request) {
-                    return $request->status ?? 'pending';
+                    return $this->getDisplayStatus($request);
                 })
                 ->map(function ($group) {
                     return $group->count();

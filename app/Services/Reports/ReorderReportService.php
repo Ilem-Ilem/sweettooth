@@ -13,6 +13,7 @@ class ReorderReportService extends ReportService
     protected string $reportCategory = 'inventory';
 
     protected string $reportType = 'reorder';
+    protected string $cacheKeyVersion = 'v2';
 
     /**
      * Get report name.
@@ -20,6 +21,20 @@ class ReorderReportService extends ReportService
     protected function getReportName(): string
     {
         return 'Reorder Report';
+    }
+
+    protected function getCacheKey(): string
+    {
+        return sprintf(
+            'report:%s:%s:%s:%s:%s:%s:%s',
+            $this->cacheKeyVersion,
+            $this->reportCategory,
+            $this->reportType,
+            $this->branchId,
+            $this->departmentId,
+            $this->periodFrom,
+            $this->periodTo
+        );
     }
 
     /**

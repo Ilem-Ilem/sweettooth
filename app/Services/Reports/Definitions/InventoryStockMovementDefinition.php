@@ -20,19 +20,30 @@ class InventoryStockMovementDefinition implements ReportDefinition
 
     public function query(array $context): array
     {
+        $dateFrom = Carbon::parse($context['period_from'])->startOfDay();
+        $dateTo = Carbon::parse($context['period_to'])->endOfDay();
+
         $movements = StockMovement::query()
-            ->where('branch_id', $context['branch_id'])
+            ->where(function ($q) use ($context) {
+                $q->where('branch_id', $context['branch_id'])
+                    ->orWhereHas('stock', function ($sq) use ($context) {
+                        $sq->where('branch_id', $context['branch_id']);
+                    });
+            })
             ->when($context['department_id'], function ($q) use ($context) {
                 $q->where('department_id', $context['department_id']);
             })
-            ->whereBetween('movement_date', [$context['period_from'], $context['period_to']])
+            ->whereBetween(
+                \DB::raw('COALESCE(movement_date, created_at)'),
+                [$dateFrom, $dateTo]
+            )
             ->with(['stock.item', 'mover'])
             ->orderBy('movement_date', 'desc')
             ->orderBy('created_at', 'desc')
             ->get();
 
-        $movementsIn = $movements->where('type', 'in');
-        $movementsOut = $movements->where('type', 'out');
+        $movementsIn = $movements->filter(fn ($m) => $m->isInbound());
+        $movementsOut = $movements->filter(fn ($m) => $m->isOutbound());
 
         return [
             'movement_overview' => $this->buildMovementOverview($movements, $context['period_from'], $context['period_to']),
@@ -193,8 +204,8 @@ class InventoryStockMovementDefinition implements ReportDefinition
         return $movements->map(function ($movement) {
             return [
                 'id' => $movement->id,
-                'date' => Carbon::parse($movement->movement_date)->format('Y-m-d'),
-                'time' => $movement->created_at->format('H:i'),
+                'date' => Carbon::parse($movement->movement_date ?? $movement->created_at)->format('Y-m-d'),
+                'time' => ($movement->movement_date ?? $movement->created_at)->format('H:i'),
                 'item_name' => $movement->stock?->item?->name ?? 'Unknown',
                 'sku' => $movement->stock?->item?->sku ?? 'N/A',
                 'category' => $movement->stock?->item?->category ?? 'Uncategorized',
@@ -220,11 +231,11 @@ class InventoryStockMovementDefinition implements ReportDefinition
         $totalOutQuantity = $movementsOut->sum('quantity');
 
         $totalInValue = $movementsIn->sum(function ($m) {
-            return $m->quantity * ($m->item->unit_cost ?? 0);
+            return $m->quantity * ($m->stock?->item?->unit_cost ?? 0);
         });
 
         $totalOutValue = $movementsOut->sum(function ($m) {
-            return $m->quantity * ($m->item->unit_cost ?? 0);
+            return $m->quantity * ($m->stock?->item?->unit_cost ?? 0);
         });
 
         return [
@@ -270,14 +281,14 @@ class InventoryStockMovementDefinition implements ReportDefinition
 
             $sources[$source]['movements_count']++;
 
-            if ($movement->type === 'in') {
+            if ($movement->isInbound()) {
                 $sources[$source]['in_count']++;
             } else {
                 $sources[$source]['out_count']++;
             }
 
             $sources[$source]['total_quantity'] += $movement->quantity;
-            $sources[$source]['total_value'] += $movement->quantity * ($movement->item->unit_cost ?? 0);
+            $sources[$source]['total_value'] += $movement->quantity * ($movement->stock?->item?->unit_cost ?? 0);
         }
 
         usort($sources, function ($a, $b) {
@@ -309,7 +320,7 @@ class InventoryStockMovementDefinition implements ReportDefinition
             $quantity = $movement->quantity;
             $value = $quantity * ($movement->stock?->item?->unit_cost ?? 0);
 
-            if ($movement->type === 'in') {
+            if ($movement->isInbound()) {
                 $categories[$category]['in_quantity'] += $quantity;
                 $categories[$category]['total_value'] += $value;
             } else {
@@ -354,7 +365,7 @@ class InventoryStockMovementDefinition implements ReportDefinition
             $quantity = $movement->quantity;
             $value = $quantity * ($movement->stock?->item?->unit_cost ?? 0);
 
-            if ($movement->type === 'in') {
+            if ($movement->isInbound()) {
                 $items[$itemId]['in_quantity'] += $quantity;
                 $items[$itemId]['total_value'] += $value;
             } else {
@@ -393,9 +404,9 @@ class InventoryStockMovementDefinition implements ReportDefinition
             }
 
             $quantity = $movement->quantity;
-            $value = $quantity * ($movement->item->unit_cost ?? 0);
+            $value = $quantity * ($movement->stock?->item?->unit_cost ?? 0);
 
-            if ($movement->type === 'in') {
+            if ($movement->isInbound()) {
                 $dailyData[$date]['in_count']++;
                 $dailyData[$date]['in_quantity'] += $quantity;
                 $dailyData[$date]['in_value'] += $value;

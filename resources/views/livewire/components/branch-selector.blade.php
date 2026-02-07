@@ -1,6 +1,6 @@
 <div>
     @if($this->isSuperAdmin && $this->branches->count() > 0)
-    <div class="sticky top-0 z-40 flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-purple-50 via-blue-50 to-indigo-50 dark:from-purple-900/30 dark:via-blue-900/30 dark:to-indigo-900/30 border-b-2 border-purple-300 dark:border-purple-700 shadow-sm">
+    <div class="branch-selector-card sticky top-0 z-40 flex items-center gap-3 px-4 py-3 border-b-2 shadow-sm">
         <div class="flex items-center gap-2 flex-shrink-0">
             <div class="p-2 bg-purple-600 dark:bg-purple-500 rounded-lg shadow-md">
                 <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -8,22 +8,23 @@
                 </svg>
             </div>
             <div>
-                <span class="text-xs font-semibold text-purple-600 dark:text-purple-300 uppercase tracking-wide">Super Admin View</span>
-                <p class="text-xs text-purple-700 dark:text-purple-400">Multi-Branch Access</p>
+            <span class="text-xs font-semibold uppercase tracking-wide">Super Admin View</span>
+            <p class="text-xs">Multi-Branch Access</p>
             </div>
         </div>
 
         <div class="flex-1 max-w-md">
             <div class="flex items-end gap-2">
                 <div class="relative flex-1">
-                    <label class="block text-xs font-medium text-purple-700 dark:text-purple-300 mb-1">
+                    <label class="block text-xs font-medium text-zinc-700 mb-1">
                         <svg class="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
                         </svg>
                         Select Branch
                     </label>
                     <select wire:model="selectedBranch"
-                            class="w-full rounded-lg border-2 border-purple-300 dark:border-purple-600 bg-white dark:bg-zinc-800 text-sm font-medium text-zinc-900 dark:text-zinc-100 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 shadow-sm transition-all duration-200 hover:border-purple-400 dark:hover:border-purple-500">
+                            class="branch-selector-select w-full rounded-lg border-2 bg-white dark:bg-zinc-900 text-sm font-medium text-zinc-900 dark:text-zinc-100 shadow-sm transition-all duration-200"
+                            style="border-color: var(--color-accent);">
                         <option value="">-- Select a Branch --</option>
                         @foreach($this->branches as $branch)
                             <option value="{{ $branch->id }}">
@@ -35,7 +36,8 @@
                 <button type="button"
                         wire:click="changeBranch"
                         wire:loading.attr="disabled" wire:target="changeBranch"
-                        class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                        class="branch-selector-button px-4 py-2 text-white text-sm font-medium rounded-lg shadow-sm transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        style="background-color: var(--color-primary); border: 1px solid var(--color-accent);">
                     <span wire:loading.remove wire:target="changeBranch">Switch</span>
                     <span wire:loading wire:target="changeBranch" class="flex items-center gap-2">
                         <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -48,7 +50,7 @@
             </div>
         </div>
 
-        <div class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-zinc-800 rounded-lg border-2 border-purple-200 dark:border-purple-700 shadow-sm">
+            <div class="flex items-center gap-2 px-4 py-2 rounded-lg border-2 shadow-sm branch-selector-status">
             <div class="flex flex-col">
                 <span class="text-[10px] font-medium text-purple-600 dark:text-purple-400 uppercase tracking-wider">Acting as</span>
                 <span class="text-sm font-bold text-zinc-900 dark:text-zinc-100">{{ $this->currentBranchName }}</span>
@@ -63,4 +65,37 @@
         </div>
     </div>
     @endif
+    <style>
+        .branch-selector-card {
+            background: var(--color-primary-muted);
+            border-color: color-mix(in srgb, var(--color-primary) 50%, #ffffff);
+            color: var(--color-primary-foreground);
+        }
+
+        .branch-selector-card svg {
+            color: var(--color-primary-foreground);
+        }
+
+        .branch-selector-select:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 70%, #ffffff);
+        }
+
+        .branch-selector-button {
+            color: var(--color-primary-foreground);
+        }
+
+        .branch-selector-button:hover:not(:disabled),
+        .branch-selector-button:focus-visible {
+            background-color: var(--color-accent);
+            border-color: var(--color-accent);
+            color: var(--color-accent-foreground);
+        }
+
+        .branch-selector-status {
+            background: color-mix(in srgb, var(--color-primary) 55%, #ffffff);
+            border-color: color-mix(in srgb, var(--color-accent) 70%, transparent);
+            color: var(--color-primary-foreground);
+        }
+    </style>
 </div>

@@ -3,7 +3,20 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#10b981">
+@php
+    use App\Helpers\Color;
+    use App\Helpers\Settings;
+
+    $appearanceSettings = Settings::businessConfiguration('appearance_settings', []);
+    $primaryColor = $appearanceSettings['primary_color'] ?? '#10b981';
+    $themeMode = $appearanceSettings['theme_mode'] ?? 'system';
+    $accentColor = Color::darkenHex($primaryColor, 15);
+    $primaryMuted = Color::lightenHex($primaryColor, 40);
+    $pageBackground = Color::lightenHex($primaryColor, 70);
+    $primaryContrast = Color::contrastColor($primaryColor);
+@endphp
+
+<meta name="theme-color" content="{{ $primaryColor }}">
 
 <title>{{ $title ?? \App\Helpers\Settings::businessConfiguration('business_name', config('app.name')) }}</title>
 <meta name="description" content="Sweet Tooth Point of Sale and Management System">
@@ -29,3 +42,29 @@
 <tallstackui:script />
 @vite(['resources/css/app.css', 'resources/js/app.js'])
 @fluxAppearance
+<style>
+    :root {
+        --color-primary: {{ $primaryColor }};
+        --color-accent: {{ $accentColor }};
+        --color-accent-content: {{ $accentColor }};
+        --color-accent-foreground: #ffffff;
+        --color-primary-muted: {{ $primaryMuted }};
+        --color-primary-foreground: {{ $primaryContrast }};
+        --color-background: {{ $pageBackground }};
+    }
+
+    :root.dark {
+        --color-primary: {{ $primaryColor }};
+        --color-accent: {{ $accentColor }};
+        --color-accent-content: {{ $accentColor }};
+        --color-accent-foreground: #ffffff;
+        --color-primary-muted: {{ $primaryMuted }};
+        --color-primary-foreground: {{ $primaryContrast }};
+        --color-background: {{ $pageBackground }};
+    }
+</style>
+<script>
+    if (window.Flux && typeof window.Flux.applyAppearance === 'function') {
+        window.Flux.applyAppearance(@json($themeMode));
+    }
+</script>

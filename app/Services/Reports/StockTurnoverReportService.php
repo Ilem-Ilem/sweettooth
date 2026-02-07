@@ -6,6 +6,7 @@ use App\Models\Item;
 use App\Models\Stock;
 use App\Models\StockMovement;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class StockTurnoverReportService extends ReportService
 {
@@ -89,7 +90,9 @@ class StockTurnoverReportService extends ReportService
      */
     private function calculateTurnoverMetrics(Item $item): ?array
     {
-        $currentStock = $item->stocks->sum(DB::raw('quantity_available + quantity_reserved + quantity_damaged'));
+        $currentStock = $item->stocks->sum(function ($stock) {
+            return ($stock->quantity_available ?? 0) + ($stock->quantity_reserved ?? 0) + ($stock->quantity_damaged ?? 0);
+        });
 
         // Calculate total consumed in period
         $consumed = StockMovement::whereHas('stock', function ($q) use ($item) {
@@ -147,10 +150,14 @@ class StockTurnoverReportService extends ReportService
 
         if ($movements->isEmpty()) {
             // Return current stock if no movements
-            return Stock::where('item_id', $itemId)->sum('quantity');
+            return Stock::where('item_id', $itemId)->sum(
+                DB::raw('COALESCE(quantity_available,0) + COALESCE(quantity_reserved,0) + COALESCE(quantity_damaged,0)')
+            );
         }
 
-        $runningStock = Stock::where('item_id', $itemId)->sum('quantity');
+        $runningStock = Stock::where('item_id', $itemId)->sum(
+            DB::raw('COALESCE(quantity_available,0) + COALESCE(quantity_reserved,0) + COALESCE(quantity_damaged,0)')
+        );
         $totalStock = 0;
         $days = 0;
 

@@ -74,6 +74,121 @@
     ::file-selector-button {
         border-color: var(--color-gray-200, currentColor);
     }
+
+    body {
+        background-color: var(--color-background, #f7fafc);
+    }
+}
+
+:root {
+    --color-primary: inherit;
+}
+
+/* scrollbars match primary */
+.overflow-auto,
+.overflow-y-auto,
+.overflow-x-auto,
+.overflow-scroll,
+.overflow-y-scroll,
+.overflow-x-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-primary) transparent;
+}
+
+.overflow-auto::-webkit-scrollbar,
+.overflow-y-auto::-webkit-scrollbar,
+.overflow-x-auto::-webkit-scrollbar,
+.overflow-scroll::-webkit-scrollbar,
+.overflow-y-scroll::-webkit-scrollbar,
+.overflow-x-scroll::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+.overflow-auto::-webkit-scrollbar-thumb,
+.overflow-y-auto::-webkit-scrollbar-thumb,
+.overflow-x-auto::-webkit-scrollbar-thumb,
+.overflow-scroll::-webkit-scrollbar-thumb,
+.overflow-y-scroll::-webkit-scrollbar-thumb,
+.overflow-x-scroll::-webkit-scrollbar-thumb {
+    background-color: var(--color-primary);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    transition: background-color 0.2s ease;
+}
+
+.overflow-auto::-webkit-scrollbar-thumb:hover,
+.overflow-y-auto::-webkit-scrollbar-thumb:hover,
+.overflow-x-auto::-webkit-scrollbar-thumb:hover,
+.overflow-scroll::-webkit-scrollbar-thumb:hover,
+.overflow-y-scroll::-webkit-scrollbar-thumb:hover,
+.overflow-x-scroll::-webkit-scrollbar-thumb:hover,
+.overflow-auto::-webkit-scrollbar-thumb:active,
+.overflow-y-auto::-webkit-scrollbar-thumb:active,
+.overflow-x-auto::-webkit-scrollbar-thumb:active,
+.overflow-scroll::-webkit-scrollbar-thumb:active,
+.overflow-y-scroll::-webkit-scrollbar-thumb:active,
+.overflow-x-scroll::-webkit-scrollbar-thumb:active {
+    background-color: var(--color-accent);
+}
+
+.overflow-auto::-webkit-scrollbar-track,
+.overflow-y-auto::-webkit-scrollbar-track,
+.overflow-x-auto::-webkit-scrollbar-track,
+.overflow-scroll::-webkit-scrollbar-track,
+.overflow-y-scroll::-webkit-scrollbar-track,
+.overflow-x-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/* interactive elements follow primary palette */
+a,
+button,
+input[type="button"],
+input[type="submit"],
+input[type="reset"] {
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+a.primary,
+a.btn,
+a.button,
+button.primary,
+button.btn,
+.flux\:navlist\.item,
+.flux\:navlist\.item button,
+.flux\:navlist\.group button {
+    background-color: transparent;
+    color: inherit;
+    border-color: transparent;
+}
+
+a:hover,
+a:focus-visible,
+a:active,
+a.primary:hover,
+a.btn:hover,
+a.button:hover,
+button:hover,
+button.primary:hover,
+button.btn:hover,
+.flux\:navlist\.item:hover,
+.flux\:navlist\.item button:hover,
+.flux\:navlist\.group button:hover,
+.flux\:navlist\.item:focus-visible,
+.flux\:navlist\.item button:focus-visible,
+.flux\:navlist\.group button:focus-visible,
+.flux\:navlist\.item:active,
+.flux\:navlist\.item button:active,
+.flux\:navlist\.group button:active {
+    background-color: var(--color-accent);
+    color: var(--color-accent-foreground);
+}
+
+::selection {
+    background-color: var(--color-accent);
+    color: var(--color-accent-foreground);
 }
 
 [data-flux-field]:not(ui-radio, ui-checkbox) {

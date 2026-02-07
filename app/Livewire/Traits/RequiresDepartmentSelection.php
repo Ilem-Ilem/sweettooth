@@ -13,7 +13,9 @@ trait RequiresDepartmentSelection
 
     protected function initDepartments($branchId): void
     {
-        $this->availableDepartments = Department::where('branch_id', $branchId)
+        $this->availableDepartments = Department::where(function ($query) use ($branchId) {
+                $query->where('branch_id', $branchId)->orWhereNull('branch_id');
+            })
             ->orderBy('name')
             ->get();
         $this->selectedDepartmentId = $this->departmentId

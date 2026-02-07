@@ -62,15 +62,6 @@
                                    class="ml-2 w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100">
                         </div>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Accent Color</label>
-                        <div class="flex items-center">
-                            <input type="color" wire:model="accentColor" 
-                                   class="w-12 h-10 border border-zinc-300 dark:border-zinc-600 rounded-md bg-white dark:bg-zinc-800">
-                            <input type="text" wire:model="accentColor" 
-                                   class="ml-2 w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100">
-                        </div>
-                    </div>
                 </div>
             </div>
 

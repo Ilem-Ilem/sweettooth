@@ -6,6 +6,8 @@ use App\Livewire\BaseComponent;
 use App\Models\ProductDispatch;
 use App\Models\ProductDispatchCallback;
 use App\Models\SalesShift;
+use App\Models\Department;
+use App\Models\Branch;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
@@ -19,6 +21,12 @@ class CreateDispatchCallback extends BaseComponent
 
     #[Url(keep: true)]
     public ?string $b_id = null;
+
+    #[Url(keep: true)]
+    public ?string $salesDeptSlug = null;
+
+    public ?string $branchId = null;
+    public ?int $departmentId = null;
 
     public ?int $quantity = 20;
     public ?string $search = null;
@@ -72,12 +80,10 @@ class CreateDispatchCallback extends BaseComponent
     {
         $shiftId = $this->selectedSalesShiftId ?? $this->currentSalesShiftId;
 
-        if (!$shiftId) {
-            return ProductDispatch::query()->whereRaw('1=0');
-        }
-
         return ProductDispatch::query()
-            ->where('sales_shift_id', $shiftId)
+            ->where('branch_id', $this->getBranchId())
+            ->when($this->departmentId, fn ($q) => $q->where('sales_department_id', $this->departmentId))
+            ->when($shiftId, fn ($q) => $q->where('sales_shift_id', $shiftId))
             ->where('status', 'received');
     }
 
@@ -89,6 +95,7 @@ class CreateDispatchCallback extends BaseComponent
     public function mount()
     {
         $this->stockDate = \Carbon\Carbon::today()->format('Y-m-d');
+        $this->loadBranchAndDepartment();
         $this->loadAvailableShifts();
         $this->loadCurrentSalesShift();
 
@@ -109,10 +116,31 @@ class CreateDispatchCallback extends BaseComponent
         // Get sales shifts from last 30 days
         $this->availableShifts = SalesShift::where('branch_id', $branchId)
             ->where('shift_date', '>=', now()->subDays(30))
+            ->when($this->departmentId, fn ($q) => $q->where('department_id', $this->departmentId))
             ->with('department')
             ->orderBy('shift_date', 'desc')
             ->orderBy('shift_type', 'desc')
             ->get();
+    }
+
+    protected function loadBranchAndDepartment(): void
+    {
+        $this->branchId = $this->getBranchId();
+        if ($this->salesDeptSlug) {
+            $department = Department::where('slug', $this->salesDeptSlug)
+                ->where('branch_id', $this->branchId)
+                ->first();
+
+            if (! $department) {
+                $department = Department::where('slug', $this->salesDeptSlug)
+                    ->whereNull('branch_id')
+                    ->first();
+            }
+
+            if ($department) {
+                $this->departmentId = $department->id;
+            }
+        }
     }
 
     protected function loadCurrentSalesShift()
@@ -161,12 +189,10 @@ class CreateDispatchCallback extends BaseComponent
     {
         $shiftId = $this->selectedSalesShiftId ?? $this->currentSalesShiftId;
 
-        if (!$shiftId) {
-            return ProductDispatch::query()->whereRaw('1=0')->paginate($this->quantity);
-        }
-
         $query = ProductDispatch::with(['product', 'shift', 'productDispatchCallbacks'])
-            ->where('sales_shift_id', $shiftId)
+            ->where('branch_id', $this->getBranchId())
+            ->when($this->departmentId, fn ($q) => $q->where('sales_department_id', $this->departmentId))
+            ->when($shiftId, fn ($q) => $q->where('sales_shift_id', $shiftId))
             ->where('status', 'received');
 
         // Search filter
@@ -240,10 +266,17 @@ class CreateDispatchCallback extends BaseComponent
 
             $employee = auth()->user();
 
-            $shiftId = $this->selectedSalesShiftId ?? $this->currentSalesShiftId;
+            $shiftId = $this->selectedDispatch->sales_shift_id
+                ?? $this->selectedSalesShiftId
+                ?? $this->currentSalesShiftId;
+
+            if (! $shiftId) {
+                $this->toast()->error('No sales shift found for this dispatch. Please ensure the dispatch is tied to an active sales shift.')->send();
+                return;
+            }
 
             // Create callback record
-            ProductDispatchCallback::create([
+            $callback = ProductDispatchCallback::create([
                 'product_dispatch_id' => $this->selectedDispatch->id,
                 'sales_shift_id' => $shiftId,
                 'product_id' => $this->selectedDispatch->product_id,
@@ -255,6 +288,9 @@ class CreateDispatchCallback extends BaseComponent
                 'notes' => $this->callbackNotes,
                 'callback_time' => now(),
             ]);
+
+            // Immediately reflect callback in sales stock
+            $callback->syncProductStock();
 
             DB::commit();
 

@@ -11,6 +11,7 @@ class StockMovementReportService extends ReportService
 {
     protected string $reportCategory = 'inventory';
     protected string $reportType = 'stock_movement';
+    protected string $cacheKeyVersion = 'v2';
 
     /**
      * Get report name.
@@ -20,6 +21,20 @@ class StockMovementReportService extends ReportService
         return 'Stock Movement Report';
     }
 
+    protected function getCacheKey(): string
+    {
+        return sprintf(
+            'report:%s:%s:%s:%s:%s:%s:%s',
+            $this->cacheKeyVersion,
+            $this->reportCategory,
+            $this->reportType,
+            $this->branchId,
+            $this->departmentId,
+            $this->periodFrom,
+            $this->periodTo
+        );
+    }
+
     /**
      * Generate the stock movement report data.
      */
@@ -27,20 +42,31 @@ class StockMovementReportService extends ReportService
     {
         $this->validateParameters();
 
+        $dateFrom = Carbon::parse($this->periodFrom)->startOfDay();
+        $dateTo = Carbon::parse($this->periodTo)->endOfDay();
+
         // Get all stock movements in the period
         $movements = StockMovement::query()
-            ->where('branch_id', $this->branchId)
+            ->where(function ($q) {
+                $q->where('branch_id', $this->branchId)
+                    ->orWhereHas('stock', function ($sq) {
+                        $sq->where('branch_id', $this->branchId);
+                    });
+            })
             ->when($this->departmentId, function ($q) {
                 $q->where('department_id', $this->departmentId);
             })
-            ->whereBetween('movement_date', [$this->periodFrom, $this->periodTo])
+            ->where(function ($q) use ($dateFrom, $dateTo) {
+                $q->whereBetween('movement_date', [$dateFrom, $dateTo])
+                    ->orWhereBetween('created_at', [$dateFrom, $dateTo]);
+            })
             ->with(['stock.item', 'mover'])
             ->orderBy('movement_date', 'desc')
             ->orderBy('created_at', 'desc')
             ->get();
 
-        $movementsIn = $movements->where('type', 'in');
-        $movementsOut = $movements->where('type', 'out');
+        $movementsIn = $movements->filter(fn ($m) => $m->isInbound());
+        $movementsOut = $movements->filter(fn ($m) => $m->isOutbound());
 
         return [
             'movement_overview' => $this->generateMovementOverview($movements),
@@ -97,11 +123,11 @@ class StockMovementReportService extends ReportService
         $totalOutQuantity = $movementsOut->sum('quantity');
 
         $totalInValue = $movementsIn->sum(function ($m) {
-            return $m->quantity * ($m->item->unit_cost ?? 0);
+            return $m->quantity * ($m->stock?->item?->unit_cost ?? 0);
         });
 
         $totalOutValue = $movementsOut->sum(function ($m) {
-            return $m->quantity * ($m->item->unit_cost ?? 0);
+            return $m->quantity * ($m->stock?->item?->unit_cost ?? 0);
         });
 
         return [
@@ -155,14 +181,14 @@ class StockMovementReportService extends ReportService
 
             $sources[$source]['movements_count']++;
 
-            if ($movement->type === 'in') {
+            if ($movement->isInbound()) {
                 $sources[$source]['in_count']++;
             } else {
                 $sources[$source]['out_count']++;
             }
 
             $sources[$source]['total_quantity'] += $movement->quantity;
-            $sources[$source]['total_value'] += $movement->quantity * ($movement->item->unit_cost ?? 0);
+            $sources[$source]['total_value'] += $movement->quantity * ($movement->stock?->item?->unit_cost ?? 0);
         }
 
         // Sort by movements count descending
@@ -198,7 +224,7 @@ class StockMovementReportService extends ReportService
             $quantity = $movement->quantity;
             $value = $quantity * ($movement->stock?->item?->unit_cost ?? 0);
 
-            if ($movement->type === 'in') {
+            if ($movement->isInbound()) {
                 $categories[$category]['in_quantity'] += $quantity;
                 $categories[$category]['total_value'] += $value;
             } else {
@@ -247,7 +273,7 @@ class StockMovementReportService extends ReportService
             $quantity = $movement->quantity;
             $value = $quantity * ($movement->stock?->item?->unit_cost ?? 0);
 
-            if ($movement->type === 'in') {
+            if ($movement->isInbound()) {
                 $items[$itemId]['in_quantity'] += $quantity;
                 $items[$itemId]['total_value'] += $value;
             } else {
@@ -292,9 +318,9 @@ class StockMovementReportService extends ReportService
 
             $dailyData[$date]['total_movements']++;
             $quantity = $movement->quantity;
-            $value = $quantity * ($movement->item->unit_cost ?? 0);
+            $value = $quantity * ($movement->stock?->item?->unit_cost ?? 0);
 
-            if ($movement->type === 'in') {
+            if ($movement->isInbound()) {
                 $dailyData[$date]['in_count']++;
                 $dailyData[$date]['in_quantity'] += $quantity;
                 $dailyData[$date]['in_value'] += $value;

@@ -15,7 +15,6 @@ class Appearance extends Component
     public $sidebarPosition;
     public $uiDensity;
     public $fontSize;
-    public $accentColor;
     public $animationEnabled;
     
     // Dark mode logos
@@ -30,7 +29,6 @@ class Appearance extends Component
         'sidebarPosition' => 'string|in:left,right',
         'uiDensity' => 'string|in:compact,normal,spacious',
         'fontSize' => 'string|in:small,normal,large',
-        'accentColor' => 'string|max:20',
         'animationEnabled' => 'boolean',
         'lightModeLogo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         'darkModeLogo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
@@ -50,7 +48,6 @@ class Appearance extends Component
                 $this->sidebarPosition = $appearanceSettings['sidebar_position'] ?? 'left';
                 $this->uiDensity = $appearanceSettings['ui_density'] ?? 'normal';
                 $this->fontSize = $appearanceSettings['font_size'] ?? 'normal';
-                $this->accentColor = $appearanceSettings['accent_color'] ?? '#3b82f6';
                 $this->animationEnabled = $appearanceSettings['animation_enabled'] ?? true;
                 
                 $this->existingLightModeLogo = $appearanceSettings['light_mode_logo'] ?? null;
@@ -69,7 +66,6 @@ class Appearance extends Component
                 $this->sidebarPosition = $appearanceSettings['sidebar_position'] ?? 'left';
                 $this->uiDensity = $appearanceSettings['ui_density'] ?? 'normal';
                 $this->fontSize = $appearanceSettings['font_size'] ?? 'normal';
-                $this->accentColor = $appearanceSettings['accent_color'] ?? '#3b82f6';
                 $this->animationEnabled = $appearanceSettings['animation_enabled'] ?? true;
                 
                 $this->existingLightModeLogo = $appearanceSettings['light_mode_logo'] ?? null;
@@ -98,7 +94,6 @@ class Appearance extends Component
                     'sidebar_position' => $this->sidebarPosition,
                     'ui_density' => $this->uiDensity,
                     'font_size' => $this->fontSize,
-                    'accent_color' => $this->accentColor,
                     'animation_enabled' => $this->animationEnabled,
                 ];
 
@@ -157,7 +152,6 @@ class Appearance extends Component
                     'sidebar_position' => $this->sidebarPosition,
                     'ui_density' => $this->uiDensity,
                     'font_size' => $this->fontSize,
-                    'accent_color' => $this->accentColor,
                     'animation_enabled' => $this->animationEnabled,
                 ];
 

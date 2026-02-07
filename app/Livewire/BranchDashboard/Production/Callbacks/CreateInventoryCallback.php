@@ -263,7 +263,10 @@ class CreateInventoryCallback extends BaseComponent
         $this->selectedItemId = $dispatch->item_id;
         $this->selectedProductId = null;
         $this->callbackQuantity = 0;
-        $this->callbackUom = $dispatch->unitOfMeasure?->symbol ?? $dispatch->item->unit ?? '';
+        $this->callbackUom = $dispatch->uom
+            ?? $dispatch->item->unitOfMeasure?->symbol
+            ?? $dispatch->item->uom
+            ?? 'units';
         $this->callbackReason = '';
         $this->callbackNotes = '';
         $this->showCallbackModal = true;
@@ -278,11 +281,31 @@ class CreateInventoryCallback extends BaseComponent
             return;
         }
 
+        if ((float) ($dailyProduce->callback_quantity ?? 0) <= 0) {
+            $this->toast()->error('Record damaged quantity in Daily Produce before creating a callback.')->send();
+            return;
+        }
+
+        $usedQty = ProductionCallback::where('shift_id', $dailyProduce->shift_id)
+            ->where('product_id', $dailyProduce->recipe->product_id)
+            ->where('source_type', 'finished_product_reject')
+            ->where('status', '!=', 'rejected')
+            ->sum('quantity');
+
+        $remaining = (float) $dailyProduce->callback_quantity - (float) $usedQty;
+
+        if ($remaining <= 0) {
+            $this->toast()->error('Callback quantity already fully used for this product and shift.')->send();
+            return;
+        }
+
         $this->callbackType = 'finished_product';
         $this->selectedItemId = null;
         $this->selectedProductId = $dailyProduce->recipe->product_id;
         $this->callbackQuantity = 0;
-        $this->callbackUom = $dailyProduce->recipe->product->unit ?? '';
+        $this->callbackUom = $dailyProduce->recipe->product->unitOfMeasure?->symbol
+            ?? $dailyProduce->recipe->product->uom
+            ?? 'units';
         $this->callbackReason = '';
         $this->callbackNotes = '';
         $this->showCallbackModal = true;
@@ -340,6 +363,29 @@ class CreateInventoryCallback extends BaseComponent
                     throw new \Exception('Daily produce record not found');
                 }
 
+                if ((float) ($dailyProduce->callback_quantity ?? 0) <= 0) {
+                    $this->toast()->error('Record damaged quantity in Daily Produce before creating a callback.')->send();
+                    return;
+                }
+
+                $usedQty = ProductionCallback::where('shift_id', $shiftId)
+                    ->where('product_id', $this->selectedProductId)
+                    ->where('source_type', 'finished_product_reject')
+                    ->where('status', '!=', 'rejected')
+                    ->sum('quantity');
+
+                $remaining = (float) $dailyProduce->callback_quantity - (float) $usedQty;
+
+                if ($remaining <= 0) {
+                    $this->toast()->error('Callback quantity already fully used for this product and shift.')->send();
+                    return;
+                }
+
+                if ($this->callbackQuantity > $remaining) {
+                    $this->toast()->error("Callback quantity cannot exceed recorded damaged quantity ({$remaining}).")->send();
+                    return;
+                }
+
                 if ($this->callbackQuantity > $dailyProduce->produced_quantity) {
                     $this->toast()->error("Callback quantity cannot exceed produced quantity ({$dailyProduce->produced_quantity}).")->send();
                     return;
@@ -389,6 +435,24 @@ class CreateInventoryCallback extends BaseComponent
     public function render()
     {
         $shiftId = $this->selectedShiftId ?? $this->currentShiftId;
+
+        // Enhance finished products with callback allowance info
+        if ($this->callbackType === 'finished_product') {
+            $finished = $this->finishedProducts;
+            if ($finished instanceof \Illuminate\Pagination\LengthAwarePaginator) {
+                $finished->getCollection()->transform(function ($row) {
+                    $callbackQty = (float) ($row->callback_quantity ?? 0);
+                    $usedQty = ProductionCallback::where('shift_id', $row->shift_id)
+                        ->where('product_id', $row->recipe->product_id)
+                        ->where('source_type', 'finished_product_reject')
+                        ->where('status', '!=', 'rejected')
+                        ->sum('quantity');
+                    $row->callback_remaining = max(0, $callbackQty - (float) $usedQty);
+                    $row->can_callback = $row->callback_remaining > 0;
+                    return $row;
+                });
+            }
+        }
 
         return view('livewire.branch-dashboard.production.callbacks.create-inventory-callback', [
             'currentShift' => $this->currentShiftId ? Shift::find($this->currentShiftId) : null,

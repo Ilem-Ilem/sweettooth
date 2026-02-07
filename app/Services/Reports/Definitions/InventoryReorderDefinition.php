@@ -23,8 +23,8 @@ class InventoryReorderDefinition implements ReportDefinition
     public function query(array $context): array
     {
         $items = Item::query()
-            ->where('branch_id', $context['branch_id'])
-            ->with(['stocks'])
+            ->whereHas('stocks', fn ($q) => $q->where('branch_id', $context['branch_id']))
+            ->with(['stocks' => fn ($q) => $q->where('branch_id', $context['branch_id'])])
             ->get();
 
         $reorderData = [];
@@ -33,12 +33,16 @@ class InventoryReorderDefinition implements ReportDefinition
         $normalItems = [];
 
         foreach ($items as $item) {
-            $currentStock = $item->stocks->sum(DB::raw('quantity_available + quantity_reserved + quantity_damaged'));
-            $reorderPoint = $item->reorder_point ?? 0;
+            // Reorder logic should be based on available stock
+            $currentStock = $item->stocks->sum(function ($stock) {
+                return (float) ($stock->quantity_available ?? 0);
+            });
+            $reorderPoint = $item->reorder_level ?? $item->reorder_point ?? 0;
             $minStock = $item->min_stock_level ?? 0;
             $reorderQuantity = $item->reorder_quantity ?? 0;
 
-            $needsReorder = $currentStock <= $reorderPoint || $currentStock < $minStock;
+            $needsReorder = ($reorderPoint > 0 && $currentStock <= $reorderPoint)
+                || ($minStock > 0 && $currentStock < $minStock);
             if (! $needsReorder) {
                 continue;
             }
@@ -55,7 +59,7 @@ class InventoryReorderDefinition implements ReportDefinition
                 'reorder_point' => $reorderPoint,
                 'reorder_quantity' => $reorderQuantity,
                 'suggested_order_qty' => $this->calculateSuggestedOrderQuantity($item, $currentStock),
-                'uom' => $item->uom,
+                'uom' => $item->unitOfMeasure?->symbol ?? $item->uom,
                 'unit_cost' => $item->unit_cost ?? 0,
                 'lead_time_days' => $item->lead_time_days ?? 0,
                 'avg_daily_consumption' => $this->calculateAvgDailyConsumption($item->id),

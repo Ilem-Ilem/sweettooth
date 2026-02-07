@@ -229,7 +229,7 @@
         @interact('column_status', $row)
             <div class="text-center">
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $this->getStatusBadgeClass($row->status) }}">
-                    {{ ucwords(str_replace('_', ' ', $row->status)) }}
+                    {{ $row->status instanceof \App\Enums\CallbackStatus ? $row->status->getLabel() : ucwords(str_replace('_', ' ', (string) $row->status)) }}
                 </span>
             </div>
         @endinteract

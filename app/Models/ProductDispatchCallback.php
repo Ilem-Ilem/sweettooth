@@ -357,7 +357,8 @@ class ProductDispatchCallback extends Model
      */
     public function getFormattedStatusAttribute(): string
     {
-        return ucwords(str_replace('_', ' ', $this->status));
+        $value = $this->status instanceof CallbackStatus ? $this->status->value : $this->status;
+        return ucwords(str_replace('_', ' ', $value));
     }
 
     /**
@@ -471,7 +472,7 @@ class ProductDispatchCallback extends Model
         }
 
         return DB::transaction(function () {
-            $this->updateProductStock();
+            $this->syncProductStock();
             $this->updateDailyProduce();
             $this->update(['status' => 'completed']);
             return true;
@@ -479,12 +480,12 @@ class ProductDispatchCallback extends Model
     }
 
     /**
-     * Update ProductStock when product is returned to sales
+     * Sync ProductStock callback quantity to avoid double counting
      *
      * @throws RuntimeException
      * @return void
      */
-    private function updateProductStock(): void
+    public function syncProductStock(): void
     {
         $productStock = ProductStock::where('sales_shift_id', $this->sales_shift_id)
             ->where('product_id', $this->product_id)
@@ -497,8 +498,13 @@ class ProductDispatchCallback extends Model
             );
         }
 
-        $productStock->increment('callback_quantity', $this->quantity);
-        // This should trigger ProductStock::booted() to recalculate total_available
+        $totalCallbacks = self::where('sales_shift_id', $this->sales_shift_id)
+            ->where('product_id', $this->product_id)
+            ->whereIn('status', ['pending', 'approved_by_production', 'received_by_production', 'completed'])
+            ->sum('quantity');
+
+        $productStock->callback_quantity = $totalCallbacks;
+        $productStock->save();
     }
 
     /**

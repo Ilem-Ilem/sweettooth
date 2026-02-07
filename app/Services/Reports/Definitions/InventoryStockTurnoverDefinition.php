@@ -6,6 +6,7 @@ use App\Models\Item;
 use App\Models\Stock;
 use App\Models\StockMovement;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class InventoryStockTurnoverDefinition implements ReportDefinition
 {
@@ -190,7 +191,11 @@ class InventoryStockTurnoverDefinition implements ReportDefinition
 
     private function calculateTurnoverMetrics(Item $item, $from, $to): ?array
     {
-        $currentStock = $item->stocks->sum(DB::raw('quantity_available + quantity_reserved + quantity_damaged'));
+        $currentStock = $item->stocks->sum(function ($stock) {
+            return ($stock->quantity_available ?? 0)
+                + ($stock->quantity_reserved ?? 0)
+                + ($stock->quantity_damaged ?? 0);
+        });
 
         $consumed = StockMovement::whereHas('stock', function ($q) use ($item) {
                 $q->where('item_id', $item->id);
@@ -236,10 +241,14 @@ class InventoryStockTurnoverDefinition implements ReportDefinition
             ->get();
 
         if ($movements->isEmpty()) {
-            return Stock::where('item_id', $itemId)->sum('quantity');
+            return Stock::where('item_id', $itemId)->sum(
+                DB::raw('COALESCE(quantity_available,0) + COALESCE(quantity_reserved,0) + COALESCE(quantity_damaged,0)')
+            );
         }
 
-        $runningStock = Stock::where('item_id', $itemId)->sum('quantity');
+        $runningStock = Stock::where('item_id', $itemId)->sum(
+            DB::raw('COALESCE(quantity_available,0) + COALESCE(quantity_reserved,0) + COALESCE(quantity_damaged,0)')
+        );
         $totalStock = 0;
         $days = 0;
 

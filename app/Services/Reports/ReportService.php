@@ -109,7 +109,7 @@ abstract class ReportService
 
         return Cache::remember($cacheKey, $this->cacheMinutes * 60, function () {
             if ($this->definition) {
-                return $this->generateReportPayloadFromDefinition()['report_data'];
+                return $this->generateReportPayloadFromDefinition();
             }
 
             return $this->generateReportData();

@@ -5,11 +5,11 @@ namespace App\Livewire\BranchDashboard\Inventory\Reports\Variance;
 use App\Models\DepartmentReport;
 use App\Services\Reports\Definitions\InventoryStockVarianceDefinition;
 use App\Services\Reports\StockVarianceReportService;
-use App\Livewire\Traits\RequiresDepartmentSelection;
 use Carbon\Carbon;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use TallStackUi\Traits\Interactions;
 
@@ -17,7 +17,10 @@ use TallStackUi\Traits\Interactions;
 #[Title('Stock Variance Report')]
 class Index extends Component
 {
-    use Interactions, RequiresDepartmentSelection;
+    use Interactions;
+
+    #[Url(keep: true)]
+    public ?string $b_id = null;
 
     public $branchId;
 
@@ -47,9 +50,8 @@ class Index extends Component
 
     public function mount()
     {
-        $this->branchId = current_branch_id();
-        $this->departmentId = session('selected_department_id');
-        $this->initDepartments($this->branchId);
+        $this->branchId = $this->b_id ?: current_branch_id();
+        $this->departmentId = null;
         $this->setDateRange();
     }
 
@@ -57,7 +59,6 @@ class Index extends Component
     public function handleBranchChange($branchId)
     {
         $this->branchId = $branchId;
-        $this->initDepartments($branchId);
         $this->generatePreview(); // Regenerate report for new branch
     }
 
@@ -89,10 +90,6 @@ class Index extends Component
 
     public function generatePreview()
     {
-        if (! $this->ensureDepartmentSelected('preview')) {
-            return;
-        }
-
         $this->validate([
             'customDateFrom' => 'required|date',
             'customDateTo' => 'required|date|after_or_equal:customDateFrom',
@@ -109,11 +106,12 @@ class Index extends Component
                 ->forPeriod($this->customDateFrom, $this->customDateTo);
 
             $payload = $service->getReportData();
-            $this->reportData = $payload['report_data'] ?? $payload;
-            $this->summaryMetrics = $payload['summary_metrics'] ?? ($this->reportData['summary_metrics'] ?? []);
-            $this->chartsData = $payload['charts_data'] ?? [];
-            $this->tablesData = $payload['tables'] ?? [];
-            $this->narrative = $payload['narrative'] ?? [];
+            $rawReport = $payload['report_data'] ?? $payload;
+            $this->reportData = $rawReport['report_data'] ?? $rawReport;
+            $this->summaryMetrics = $payload['summary_metrics'] ?? ($rawReport['summary_metrics'] ?? []);
+            $this->chartsData = $payload['charts_data'] ?? ($rawReport['charts_data'] ?? []);
+            $this->tablesData = $rawReport['tables'] ?? [];
+            $this->narrative = $rawReport['narrative'] ?? [];
 
             $this->toast()->success('Stock variance report generated successfully')->send();
         } catch (\Exception $e) {
@@ -125,10 +123,6 @@ class Index extends Component
 
     public function generateReport()
     {
-        if (! $this->ensureDepartmentSelected('generate')) {
-            return;
-        }
-
         $this->validate([
             'customDateFrom' => 'required|date',
             'customDateTo' => 'required|date|after_or_equal:customDateFrom',

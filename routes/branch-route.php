@@ -173,6 +173,7 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
                 Route::get('/stock-levels', \App\Livewire\BranchDashboard\Inventory\Reports\StockLevels\Index::class)->name('stock-levels');
                 Route::get('/stock-movement', \App\Livewire\BranchDashboard\Inventory\Reports\StockMovement\Index::class)->name('stock-movement');
                 Route::get('/turnover', \App\Livewire\BranchDashboard\Inventory\Reports\StockTurnover\Index::class)->name('turnover');
+                Route::get('/stock-turnover', \App\Livewire\BranchDashboard\Inventory\Reports\StockTurnover\Index::class)->name('stock-turnover');
                 Route::get('/reorder', \App\Livewire\BranchDashboard\Inventory\Reports\Reorder\Index::class)->name('reorder');
                 Route::get('/variance', \App\Livewire\BranchDashboard\Inventory\Reports\Variance\Index::class)->name('variance');
             });

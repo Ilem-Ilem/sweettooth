@@ -27,17 +27,6 @@
                     <x-input label="To Date" type="date" wire:model="customDateTo" />
                 </div>
             @endif
-            @if(count($availableDepartments ?? []) > 0)
-                <div class="flex-1 min-w-[200px]">
-                    <x-select.native label="Department" wire:model.live="selectedDepartmentId">
-                        <option value="">Select Department</option>
-                        @foreach($availableDepartments as $dept)
-                            <option value="{{ $dept->id }}">{{ $dept->name }}</option>
-                        @endforeach
-                    </x-select.native>
-                </div>
-            @endif
-
             <div class="flex gap-2">
                 <x-button color="primary" wire:click="generatePreview" :loading="$isLoading">
                     <x-icon name="arrow-path" class="w-4 h-4 mr-2" />
@@ -147,8 +136,6 @@
             </p>
         </div>
     @endif
-
-    @include('livewire.partials.department-select-modal')
 
     {{-- Report Save Modal --}}
     @if($showReportModal && $generatedReport)

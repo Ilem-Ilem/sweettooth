@@ -41,7 +41,9 @@ class StockLevelsReportService extends ReportService
         $overStockItems = [];
 
         foreach ($items as $item) {
-            $currentStock = $item->stocks->sum(DB::raw('quantity_available + quantity_reserved + quantity_damaged'));
+            $currentStock = $item->stocks->sum(function ($stock) {
+            return ($stock->quantity_available ?? 0) + ($stock->quantity_reserved ?? 0) + ($stock->quantity_damaged ?? 0);
+        });
             $minStock = $item->min_stock_level ?? 0;
             $maxStock = $item->max_stock_level ?? 0;
             $reorderPoint = $item->reorder_point ?? 0;

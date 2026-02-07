@@ -5,7 +5,7 @@
     @include('partials.head')
 </head>
 
-<body class="min-h-screen bg-white dark:bg-zinc-800">
+<body class="min-h-screen">
     <!-- Universal Loading Indicator -->
     <div x-data="{
             loading: false,
@@ -614,6 +614,32 @@
                 $OPEN_SALES_DEPT = null;
 
                 if (($branchId || $isSuperAdmin) && $sidebarService::canSeeSalesManagement($currentUser)) {
+                    $excludedSalesRoutes = [
+                        'branch-dashboard.sales-dashboard.stock-opening.index',
+                        'branch-dashboard.sales-dashboard.dispatches.index',
+                        'branch-dashboard.sales-dashboard.stock-monitor',
+                        'branch-dashboard.sales-dashboard.my-sales.index',
+                        'branch-dashboard.sales-dashboard.reports.sales-performance',
+                        'branch-dashboard.sales-dashboard.helper',
+                        'branch-dashboard.sales-dashboard.callbacks.index',
+                        'branch-dashboard.sales-dashboard.callbacks.dispatch-callbacks',
+                        'branch-dashboard.sales-dashboard.pos.index',
+                    ];
+                    $excludedSalesNames = [
+                        'Stock Opening',
+                        'Kitchen Dispatches',
+                        'Monitor Product Stock',
+                        'My Sales Dashboard',
+                        'Sales Reports',
+                        'Helper',
+                        'Callbacks',
+                        'Product Callbacks',
+                        'Dispatch Callbacks',
+                        'POS',
+                        'My Sales',
+                        'Sales Analytics',
+                    ];
+
                     $query = \App\Models\Department::with([
                         'category',
                         'pages' => fn($q) => $q->where('is_active', true)->orderBy('order')->orderBy('name'),
@@ -637,11 +663,13 @@
                         }
                     }
 
-                    $salesDepartments = $salesDepartments->map(function ($dept) {
+                    $salesDepartments = $salesDepartments->map(function ($dept) use ($excludedSalesRoutes, $excludedSalesNames) {
                         $dept->pages = $dept->pages->reject(
                             fn($p) => str_contains($p->route_name, 'edit') ||
                                 str_contains($p->route_name, 'detail') ||
-                                str_contains($p->route_name, 'shift-closing'),
+                                str_contains($p->route_name, 'shift-closing') ||
+                                in_array($p->route_name, $excludedSalesRoutes, true) ||
+                                in_array($p->name, $excludedSalesNames, true),
                         );
                         return $dept;
                     });

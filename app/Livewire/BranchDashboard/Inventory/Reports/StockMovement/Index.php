@@ -3,13 +3,15 @@
 namespace App\Livewire\BranchDashboard\Inventory\Reports\StockMovement;
 
 use App\Models\DepartmentReport;
+use App\Models\StockMovement;
 use App\Services\Reports\Definitions\InventoryStockMovementDefinition;
 use App\Services\Reports\StockMovementReportService;
-use App\Livewire\Traits\RequiresDepartmentSelection;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use TallStackUi\Traits\Interactions;
 
@@ -17,7 +19,10 @@ use TallStackUi\Traits\Interactions;
 #[Title('Stock Movement Report')]
 class Index extends Component
 {
-    use Interactions, RequiresDepartmentSelection;
+    use Interactions;
+
+    #[Url(keep: true)]
+    public ?string $b_id = null;
 
     public $branchId;
 
@@ -27,7 +32,7 @@ class Index extends Component
 
     public $customDateTo;
 
-    public $departmentId;
+    public $departmentId = null;
 
     public $reportData = null;
 
@@ -45,11 +50,11 @@ class Index extends Component
 
     public $showReportModal = false;
 
+    public array $debugInfo = [];
+
     public function mount()
     {
-        $this->branchId = current_branch_id();
-        $this->departmentId = session('selected_department_id');
-        $this->initDepartments($this->branchId);
+        $this->branchId = $this->b_id ?: current_branch_id();
         $this->setDateRange();
     }
 
@@ -57,7 +62,6 @@ class Index extends Component
     public function handleBranchChange($branchId)
     {
         $this->branchId = $branchId;
-        $this->initDepartments($branchId);
         $this->generatePreview(); // Regenerate report for new branch
     }
 
@@ -89,10 +93,6 @@ class Index extends Component
 
     public function generatePreview()
     {
-        if (! $this->ensureDepartmentSelected('preview')) {
-            return;
-        }
-
         $this->validate([
             'customDateFrom' => 'required|date',
             'customDateTo' => 'required|date|after_or_equal:customDateFrom',
@@ -105,15 +105,16 @@ class Index extends Component
                 ->useDefinition(new InventoryStockMovementDefinition());
 
             $service->forBranch($this->branchId)
-                ->forDepartment($this->departmentId)
                 ->forPeriod($this->customDateFrom, $this->customDateTo);
 
             $payload = $service->getReportData();
-            $this->reportData = $payload['report_data'] ?? $payload;
-            $this->summaryMetrics = $payload['summary_metrics'] ?? ($this->reportData['summary_metrics'] ?? []);
-            $this->chartsData = $payload['charts_data'] ?? [];
-            $this->tablesData = $payload['tables'] ?? [];
-            $this->narrative = $payload['narrative'] ?? [];
+            $rawReport = $payload['report_data'] ?? $payload;
+            $this->reportData = $rawReport['report_data'] ?? $rawReport;
+            $this->summaryMetrics = $payload['summary_metrics'] ?? ($rawReport['summary_metrics'] ?? []);
+            $this->chartsData = $payload['charts_data'] ?? ($rawReport['charts_data'] ?? []);
+            $this->tablesData = $rawReport['tables'] ?? [];
+            $this->narrative = $rawReport['narrative'] ?? [];
+            $this->debugInfo = $this->buildDebugInfo();
 
             $this->toast()->success('Stock movement report generated successfully')->send();
         } catch (\Exception $e) {
@@ -125,10 +126,6 @@ class Index extends Component
 
     public function generateReport()
     {
-        if (! $this->ensureDepartmentSelected('generate')) {
-            return;
-        }
-
         $this->validate([
             'customDateFrom' => 'required|date',
             'customDateTo' => 'required|date|after_or_equal:customDateFrom',
@@ -140,7 +137,6 @@ class Index extends Component
 
             $this->generatedReport = $service
                 ->forBranch($this->branchId)
-                ->forDepartment($this->departmentId)
                 ->forPeriod($this->customDateFrom, $this->customDateTo)
                 ->generate(auth()->id());
 
@@ -169,6 +165,88 @@ class Index extends Component
         if ($this->periodFilter !== 'custom') {
             $this->generatePreview();
         }
+    }
+
+    protected function buildDebugInfo(): array
+    {
+        $dateFrom = Carbon::parse($this->customDateFrom)->startOfDay();
+        $dateTo = Carbon::parse($this->customDateTo)->endOfDay();
+
+        $baseQuery = StockMovement::query()
+            ->where(function ($q) {
+                $q->where('branch_id', $this->branchId)
+                    ->orWhereHas('stock', function ($sq) {
+                        $sq->where('branch_id', $this->branchId);
+                    });
+            })
+            ->whereBetween(
+                \DB::raw('COALESCE(movement_date, created_at)'),
+                [$dateFrom, $dateTo]
+            );
+
+        $total = (clone $baseQuery)->count();
+        $inbound = (clone $baseQuery)->whereIn('type', ['in', 'return'])->count();
+        $outbound = (clone $baseQuery)->whereIn('type', ['out', 'damaged', 'transfer'])->count();
+        $first = (clone $baseQuery)->min('movement_date');
+        $last = (clone $baseQuery)->max('movement_date');
+
+        $stockBranchMovements = StockMovement::query()
+            ->whereHas('stock', fn ($q) => $q->where('branch_id', $this->branchId))
+            ->whereBetween(\DB::raw('COALESCE(movement_date, created_at)'), [$dateFrom, $dateTo])
+            ->count();
+        $stockBranchCreated = StockMovement::query()
+            ->whereHas('stock', fn ($q) => $q->where('branch_id', $this->branchId))
+            ->whereBetween(\DB::raw('COALESCE(movement_date, created_at)'), [$dateFrom, $dateTo])
+            ->count();
+        $movementBranchMovements = StockMovement::query()
+            ->where('branch_id', $this->branchId)
+            ->whereBetween(\DB::raw('COALESCE(movement_date, created_at)'), [$dateFrom, $dateTo])
+            ->count();
+        $movementBranchCreated = StockMovement::query()
+            ->where('branch_id', $this->branchId)
+            ->whereBetween(\DB::raw('COALESCE(movement_date, created_at)'), [$dateFrom, $dateTo])
+            ->count();
+        $nullStockId = StockMovement::query()
+            ->where('branch_id', $this->branchId)
+            ->whereNull('stock_id')
+            ->count();
+        $overallMovements = StockMovement::query()->count();
+        $topMovementBranches = StockMovement::query()
+            ->select('branch_id', DB::raw('COUNT(*) as c'))
+            ->groupBy('branch_id')
+            ->orderByDesc('c')
+            ->limit(5)
+            ->get()
+            ->map(fn ($row) => [$row->branch_id, (int) $row->c])
+            ->toArray();
+        $topStockBranches = DB::table('stock_movements')
+            ->join('stocks', 'stocks.id', '=', 'stock_movements.stock_id')
+            ->select('stocks.branch_id', DB::raw('COUNT(*) as c'))
+            ->groupBy('stocks.branch_id')
+            ->orderByDesc('c')
+            ->limit(5)
+            ->get()
+            ->map(fn ($row) => [$row->branch_id, (int) $row->c])
+            ->toArray();
+
+        return [
+            'branch_id' => $this->branchId,
+            'from' => $dateFrom->toDateTimeString(),
+            'to' => $dateTo->toDateTimeString(),
+            'total' => $total,
+            'inbound' => $inbound,
+            'outbound' => $outbound,
+            'first_movement' => $first,
+            'last_movement' => $last,
+            'stock_branch_by_movement_date' => $stockBranchMovements,
+            'stock_branch_by_created_at' => $stockBranchCreated,
+            'movement_branch_by_movement_date' => $movementBranchMovements,
+            'movement_branch_by_created_at' => $movementBranchCreated,
+            'null_stock_id_count' => $nullStockId,
+            'overall_movements' => $overallMovements,
+            'top_movement_branches' => $topMovementBranches,
+            'top_stock_branches' => $topStockBranches,
+        ];
     }
 
     public function render()

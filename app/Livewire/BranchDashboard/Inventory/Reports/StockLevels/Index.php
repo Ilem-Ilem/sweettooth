@@ -89,7 +89,11 @@ class Index extends Component
 
     public function generatePreview()
     {
-        if (! $this->ensureDepartmentSelected('preview')) {
+        // Check if the report definition requires a department
+        $definition = new InventoryStockLevelsDefinition();
+        $meta = $definition->meta();
+        
+        if (!empty($meta['requires_department']) && !$this->ensureDepartmentSelected('preview')) {
             return;
         }
 
@@ -125,7 +129,11 @@ class Index extends Component
 
     public function generateReport()
     {
-        if (! $this->ensureDepartmentSelected('generate')) {
+        // Check if the report definition requires a department
+        $definition = new InventoryStockLevelsDefinition();
+        $meta = $definition->meta();
+        
+        if (!empty($meta['requires_department']) && !$this->ensureDepartmentSelected('generate')) {
             return;
         }
 

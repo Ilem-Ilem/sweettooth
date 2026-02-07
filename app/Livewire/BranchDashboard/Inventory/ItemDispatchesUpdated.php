@@ -192,6 +192,7 @@ class ItemDispatches extends Component
                     ->firstOrFail();
 
                 $approvedCount = 0;
+                $approvalTotals = [];
 
                 foreach ($this->dispatchedItems as $item) {
                     $approveQty = (float) ($item['approve_quantity'] ?? 0);
@@ -211,6 +212,26 @@ class ItemDispatches extends Component
                     if ($approveQty > $remainingToApprove) {
                         throw new \Exception("Cannot approve {$approveQty} {$item['uom']} of {$item['item_name']}. Only {$remainingToApprove} {$item['uom']} remaining to approve.");
                     }
+
+                    // Ensure sufficient stock before approving (prevent over-approval)
+                    $stock = Stock::forBranch($branchId)
+                        ->where('item_id', $item['item_id'])
+                        ->lockForUpdate()
+                        ->first();
+
+                    if (! $stock) {
+                        throw new \Exception("Stock not found for {$item['item_name']} in this branch.");
+                    }
+
+                    $available = (float) $stock->quantity_available;
+                    $alreadyApproved = (float) ($approvalTotals[$item['item_id']] ?? 0);
+                    $availableForThis = $available - $alreadyApproved;
+
+                    if ($approveQty > $availableForThis) {
+                        throw new \Exception("Cannot approve {$approveQty} {$item['uom']} of {$item['item_name']}. Only {$availableForThis} {$item['uom']} available in stock.");
+                    }
+
+                    $approvalTotals[$item['item_id']] = $alreadyApproved + $approveQty;
 
                     $detail->quantity_approved += $approveQty;
                     $detail->save();
@@ -358,15 +379,16 @@ class ItemDispatches extends Component
 
             // Track warnings and skipped items
             $lowStockWarnings = [];
-            $skippedItems = [];
+            $insufficientItems = [];
 
-            DB::transaction(function () use ($branchId, &$lowStockWarnings, &$skippedItems) {
+            DB::transaction(function () use ($branchId, &$lowStockWarnings, &$insufficientItems) {
                 // Verify request belongs to this branch
                 $request = ItemRequest::where('id', $this->requestId)
                     ->where('branch_id', $branchId)
                     ->firstOrFail();
 
                 $dispatchedCount = 0;
+                $dispatchPlan = [];
 
                 foreach ($this->dispatchedItems as $item) {
                     // Get fresh data from database
@@ -391,11 +413,29 @@ class ItemDispatches extends Component
                         throw new \Exception("Stock not found for {$item['item_name']} in this branch.");
                     }
 
-                    // Check if stock is insufficient - SKIP dispatch and notify user
+                    // Check if stock is insufficient - BLOCK ALL dispatch
                     if ($stock->quantity_available < $dispatchQty) {
-                        $skippedItems[] = "{$item['item_name']}: Requested {$dispatchQty} {$item['uom']}, but only {$stock->quantity_available} {$item['uom']} available in stock. Not dispatched to prevent negative inventory.";
-                        continue; // Skip this item - do NOT dispatch
+                        $insufficientItems[] = "{$item['item_name']}: Requested {$dispatchQty} {$item['uom']}, but only {$stock->quantity_available} {$item['uom']} available in stock.";
+                        continue;
                     }
+
+                    $dispatchPlan[] = [
+                        'item' => $item,
+                        'detail' => $detail,
+                        'stock' => $stock,
+                        'dispatchQty' => $dispatchQty,
+                    ];
+                }
+
+                if (! empty($insufficientItems)) {
+                    throw new \Exception('Dispatch blocked. Insufficient stock for: '.implode(' | ', $insufficientItems));
+                }
+
+                foreach ($dispatchPlan as $plan) {
+                    $item = $plan['item'];
+                    $detail = $plan['detail'];
+                    $stock = $plan['stock'];
+                    $dispatchQty = $plan['dispatchQty'];
 
                     // Save before and after quantities
                     $quantityBefore = $stock->quantity_available;
@@ -491,13 +531,7 @@ class ItemDispatches extends Component
             });
 
             // Show appropriate message based on what happened
-            if (! empty($skippedItems) && ! empty($lowStockWarnings)) {
-                $message = 'SKIPPED (insufficient stock): '.implode(' | ', $skippedItems).' | WARNINGS: '.implode(' | ', $lowStockWarnings);
-                $this->toast()->error($message)->send();
-            } elseif (! empty($skippedItems)) {
-                $message = 'Some items could not be dispatched due to insufficient stock: '.implode(' | ', $skippedItems);
-                $this->toast()->error($message)->send();
-            } elseif (! empty($lowStockWarnings)) {
+            if (! empty($lowStockWarnings)) {
                 $message = 'Items dispatched successfully, but with reorder warnings: '.implode(' | ', $lowStockWarnings);
                 $this->toast()->warning($message)->send();
             } else {

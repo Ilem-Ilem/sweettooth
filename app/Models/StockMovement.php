@@ -38,6 +38,18 @@ class StockMovement extends Model
         'movement_date' => 'datetime',
     ];
 
+    protected static function booted()
+    {
+        static::creating(function (StockMovement $movement) {
+            if (! $movement->branch_id && $movement->stock_id) {
+                $movement->branch_id = Stock::where('id', $movement->stock_id)->value('branch_id');
+            }
+            if (! $movement->movement_date) {
+                $movement->movement_date = now();
+            }
+        });
+    }
+
     // Automatically include department_name in all collections/JSON
     protected $appends = ['department_name'];
 

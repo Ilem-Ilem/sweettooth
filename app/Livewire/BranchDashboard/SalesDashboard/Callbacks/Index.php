@@ -182,6 +182,9 @@ class Index extends BaseComponent
 
     public function createCallback()
     {
+        $this->toast()->error('Please create callbacks from dispatches to ensure correct stock tracking.')->send();
+        return;
+
         $this->validate([
             'selectedProduct' => 'required|exists:products,id',
             'callbackQuantity' => 'required|numeric|min:0.01',
