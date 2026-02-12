@@ -501,6 +501,17 @@
 
                 <!-- Footer -->
                 <div class="bg-zinc-50 dark:bg-zinc-900 px-6 py-4 flex flex-wrap justify-end gap-3">
+                    @if($viewingRequest)
+                    <a href="{{ branch_route('branch-dashboard.production.request.progress', [
+                        'deptSlug' => $dept_slug,
+                        'requestId' => $viewingRequest->id,
+                        'page' => 'Progress' . '_' . $dept_slug
+                    ]) }}"
+                       class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">
+                        Track Progress
+                    </a>
+                    @endif
+
                     @if($viewingRequest->status === 'pending' && $viewingRequest->sales_department_id)
                     <button wire:click="approveRequest({{ $viewingRequest->id }})"
                             wire:confirm="Approve this production request?"

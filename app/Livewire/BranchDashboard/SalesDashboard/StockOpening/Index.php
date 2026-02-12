@@ -33,6 +33,7 @@ class Index extends BaseComponent
 
     // Stock opening data
     public array $stockOpenings = [];
+    public array $unclosedProducts = [];
     public bool $isVerified = false;
     public ?string $currentShiftId = null;
     public string $shiftType = 'morning';
@@ -194,13 +195,41 @@ class Index extends BaseComponent
             ->get();
 
         $stockOpenings = [];
+        $unclosedProducts = [];
 
         foreach ($products as $product) {
             // Get yesterday's closing stock
             $yesterdayStock = ProductStock::where('product_id', $product->id)
+                ->when(\Illuminate\Support\Facades\Schema::hasColumn('product_stocks', 'department_id'), function ($q) {
+                    $q->where('department_id', $this->departmentId);
+                })
                 ->where('stock_date', $yesterday)
                 ->where('shift_type', $this->shiftType)
                 ->first();
+
+            // If no closing for yesterday, surface last known closing for carry-forward
+            if (!$yesterdayStock) {
+                $lastStock = ProductStock::where('product_id', $product->id)
+                    ->when(\Illuminate\Support\Facades\Schema::hasColumn('product_stocks', 'department_id'), function ($q) {
+                        $q->where('department_id', $this->departmentId);
+                    })
+                    ->where('stock_date', '<', $this->stockDate)
+                    ->where('shift_type', $this->shiftType)
+                    ->orderBy('stock_date', 'desc')
+                    ->first();
+
+                if ($lastStock && (float) $lastStock->closing_quantity > 0) {
+                    $unclosedProducts[] = [
+                        'product_id' => $product->id,
+                        'product_name' => $product->name,
+                        'product_sku' => $product->sku,
+                        'product_uom' => $product->unitOfMeasure?->symbol,
+                        'last_closing' => $lastStock->closing_quantity,
+                        'last_stock_date' => $lastStock->stock_date?->format('Y-m-d') ?? null,
+                        'last_shift_type' => $lastStock->shift_type,
+                    ];
+                }
+            }
 
             // Get today's additions from production records (quantity_sent_out)
             // This pulls from production_records table where batches were marked as sent to sales
@@ -260,28 +289,27 @@ class Index extends BaseComponent
 
             // Get today's existing stock record
             $todayStock = null;
-            if ($this->currentShiftId) {
-                $todayStock = ProductStock::where('sales_shift_id', $this->currentShiftId)
-                    ->where('product_id', $product->id)
-                    ->where('stock_date', $this->stockDate)
-                    ->first();
-            }
+            $todayStock = ProductStock::query()
+                ->when(\Illuminate\Support\Facades\Schema::hasColumn('product_stocks', 'department_id'), function ($q) {
+                    $q->where('department_id', $this->departmentId);
+                })
+                ->where('product_id', $product->id)
+                ->where('stock_date', $this->stockDate)
+                ->where('shift_type', $this->shiftType)
+                ->first();
 
             $yesterdayClosing = $yesterdayStock ? $yesterdayStock->closing_quantity : 0;
-            // Expected opening is yesterday's closing (what we expect to find before adding today's production)
-            $expectedOpening  = $yesterdayClosing;
+            // Expected opening is previous closing + production sent today
+            $expectedOpening  = $yesterdayClosing + $todayAdditions;
             // Actual opening is what we actually count (defaults to expected if not yet verified)
-            $actualOpening = $todayStock ? $todayStock->opening_quantity : $yesterdayClosing;
-            // Variance is the difference between actual count and expected (yesterday's closing)
+            $actualOpening = $todayStock ? $todayStock->opening_quantity : $expectedOpening;
+            // Variance is the difference between actual count and expected
             $variance = $actualOpening - $expectedOpening;
-            // Total expected after additions
-            $expectedWithAdditions = $expectedOpening + $todayAdditions;
 
             // Determine variance source
             $varianceSource = 'None';
             if ($variance != 0) {
-                // Variance is between actual opening and expected (yesterday's closing)
-                $varianceSource = 'Stock count difference from previous closing (' . $yesterday . ')';
+                $varianceSource = 'Stock count difference vs expected opening (' . $yesterday . ' + production)';
             }
 
             $stockOpenings[] = [
@@ -305,6 +333,7 @@ class Index extends BaseComponent
         }
 
         $this->stockOpenings = $stockOpenings;
+        $this->unclosedProducts = $unclosedProducts;
     }
 
     /**
@@ -385,6 +414,9 @@ class Index extends BaseComponent
                     ],
                     [
                         'sales_shift_id'    => null, // Nullable - we use shifts table instead
+                        'department_id'     => \Illuminate\Support\Facades\Schema::hasColumn('product_stocks', 'department_id')
+                            ? $this->departmentId
+                            : null,
                         'opening_quantity'  => $stockOpening['actual_opening'],
                         'addition_quantity' => $stockOpening['today_additions'], // Total yield from production
                         'production_date'   => $stockOpening['production_date'],
@@ -433,8 +465,12 @@ class Index extends BaseComponent
             return false;
         }
 
-        $count = ProductStock::where('sales_shift_id', $this->currentShiftId)
+        $count = ProductStock::query()
+            ->when(\Illuminate\Support\Facades\Schema::hasColumn('product_stocks', 'department_id'), function ($q) {
+                $q->where('department_id', $this->departmentId);
+            })
             ->where('stock_date', $this->stockDate)
+            ->where('shift_type', $this->shiftType)
             ->count();
 
         $this->isVerified = $count > 0;
@@ -444,8 +480,11 @@ class Index extends BaseComponent
     protected function getFilteredQuery()
     {
         return ProductStock::query()
-            ->where('sales_shift_id', $this->currentShiftId)
-            ->where('stock_date', $this->stockDate);
+            ->when(\Illuminate\Support\Facades\Schema::hasColumn('product_stocks', 'department_id'), function ($q) {
+                $q->where('department_id', $this->departmentId);
+            })
+            ->where('stock_date', $this->stockDate)
+            ->where('shift_type', $this->shiftType);
     }
 
     public function updatedSearch()

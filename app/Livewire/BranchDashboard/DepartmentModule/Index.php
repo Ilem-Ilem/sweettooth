@@ -43,7 +43,7 @@ class Index extends BaseComponent
      * Pagination: number of items per page
      * @var int
      */
-    public ?int $quantity = 10;
+    public ?int $quantity = 5;
 
     /**
      * Quick search filter across department names
@@ -191,8 +191,12 @@ class Index extends BaseComponent
      */
     protected function getFilteredQuery()
     {
-        return Department::where('branch_id', '=', $this->b_id)
-        ->orWhere('branch_id', '=', null)
+        return Department::query()
+            // Branch scoping: show branch-specific records OR global (null) records
+            ->where(function ($query) {
+                $query->where('branch_id', $this->b_id)
+                      ->orWhereNull('branch_id');
+            })
             // Quick search: filter by department name
             ->when($this->search, function ($query) {
                 $query->where('name', 'like', '%' . $this->search . '%');
@@ -215,7 +219,10 @@ class Index extends BaseComponent
             // Date range filter: end date
             ->when($this->dateTo, function ($query) {
                 $query->whereDate('created_at', '<=', $this->dateTo);
-            });
+            })
+            // Stable ordering so new items stay visible across pagination
+            ->orderBy('created_at', 'desc')
+            ->orderBy('id', 'desc');
     }
 
     /**
@@ -570,7 +577,7 @@ class Index extends BaseComponent
     public function render()
     {
         // Get filtered departments with pagination
-        $rows = $this->getFilteredQuery()->paginate($this->quantity ?? 10);
+        $rows = $this->getFilteredQuery()->paginate($this->quantity ?? 5);
 
         // Return view with table structure and data
         return view('livewire.branch-dashboard.department-module.index', [

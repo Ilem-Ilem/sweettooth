@@ -156,6 +156,39 @@ class Recipe extends Model
     }
 
     /**
+     * Calculate ingredients needed for a specific production quantity (allows fractional batches)
+     */
+    public function calculateIngredientsForQuantity(float $plannedQuantity): array
+    {
+        $ingredients = [];
+        $yieldQty = (float) $this->yield_quantity;
+
+        if ($yieldQty <= 0) {
+            return $ingredients;
+        }
+
+        $batchFactor = $plannedQuantity / $yieldQty;
+
+        foreach ($this->ingredients as $ingredient) {
+            $ingredients[] = [
+                'item_id' => $ingredient->item_id,
+                'item_name' => $ingredient->item->name ?? 'N/A',
+                'quantity' => $ingredient->getQuantityForBatchFactor($batchFactor),
+                'base_quantity' => (float) $ingredient->quantity,
+                'uom_id' => $ingredient->uom_id,
+                'uom_symbol' => $ingredient->unitOfMeasure?->symbol ?? 'N/A',
+                'cost_per_unit' => (float) $ingredient->cost_per_unit,
+                'total_cost' => $ingredient->getCostForBatchFactor($batchFactor),
+                'waste_percentage' => (float) $ingredient->waste_percentage,
+                'notes' => $ingredient->notes,
+                'preparation_notes' => $ingredient->preparation_notes,
+            ];
+        }
+
+        return $ingredients;
+    }
+
+    /**
      * Calculate total cost for a specific batch size
      */
     public function calculateTotalCostForBatch(int $batchSize): float
@@ -185,5 +218,33 @@ class Recipe extends Model
     public function calculateYieldForBatch(int $batchSize): float
     {
         return (float) $this->yield_quantity * $batchSize;
+    }
+
+    /**
+     * Update ingredient costs from item purchase history
+     */
+    public function updateIngredientCostsFromItems(): void
+    {
+        foreach ($this->ingredients as $ingredient) {
+            // Get the average cost per unit from the item's purchase history
+            $averageCost = $ingredient->item->purchaseItems()->avg('cost_per_unit');
+            
+            if ($averageCost !== null && $averageCost > 0) {
+                $ingredient->update([
+                    'cost_per_unit' => $averageCost
+                ]);
+            } elseif ($averageCost === null || $averageCost == 0) {
+                // If no purchase history, try to get from the most recent purchase
+                $latestPurchaseItem = $ingredient->item->purchaseItems()
+                    ->orderBy('created_at', 'desc')
+                    ->first();
+                    
+                if ($latestPurchaseItem && $latestPurchaseItem->cost_per_unit > 0) {
+                    $ingredient->update([
+                        'cost_per_unit' => $latestPurchaseItem->cost_per_unit
+                    ]);
+                }
+            }
+        }
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Models\RoleCategoryConstraint;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
@@ -555,32 +556,25 @@ class RolePermissionService
             'MD' => 5,
             'Managing Director' => 5,
 
-            // Level 4 - Management
+            // Level 4 - Admin
             'Admin' => 4,
-            'Head of Production' => 4,
-            'Sales Manager' => 4,
-            'HR Manager' => 4,
-            'Inventory Manager' => 4,
+            'Head of Production' => 3,
+            'Sales Manager' => 3,
+            'HR Manager' => 3,
+            'Inventory Manager' => 3,
+            'Accounting Manager' => 3,
 
-            // Level 3 - Department Heads/Supervisors
-            'Chef' => 3,
-            'Head of Gelato' => 3,
-            'Confectionaries Manager' => 3,
-            'Till Supervisor' => 3,
-            'Corner Store Manager' => 3,
-
-            // Level 2 - Officers
+            // Level 2 - Supervisors
+            'Production Supervisor' => 2,
+            'Sales Supervisor' => 2,
+            'Inventory Supervisor' => 2,
             'HR Officer' => 2,
-            'Stock Controller' => 2,
-            'Store Keeper' => 2,
+            'Accountant' => 2,
 
             // Level 1 - Staff
-            'Kitchen Staff' => 1,
-            'Gelato Production Staff' => 1,
-            'Confectionaries Production Staff' => 1,
-            'Cashier' => 1,
-            'Corner Store Staff' => 1,
-            'Confectionaries Sales Staff' => 1,
+            'Production Staff' => 1,
+            'Sales Staff' => 1,
+            'Inventory Staff' => 1,
         ];
 
         return $hierarchy[$role] ?? 0;
@@ -594,52 +588,29 @@ class RolePermissionService
     public static function getRoleDepartmentMappings(): array
     {
         return [
-            // Base roles (can be assigned to any department)
-            'Employee' => ['*'],
-            'Staff' => ['*'],
-            'Viewer' => ['*'],
-
-            // Production roles
-            'Kitchen Staff' => ['Kitchen'],
-            'Chef' => ['Kitchen'],
-            'Gelato Production Staff' => ['Gelato Production'],
-            'Head of Gelato' => ['Gelato Production'],
-            'Confectionaries Production Staff' => ['Confectionaries Production'],
-            'Confectionaries Manager' => ['Confectionaries Production'],
-            'Production Helper' => ['Kitchen', 'Gelato Production', 'Confectionaries Production'],
-
-            // Sales roles
-            'Cashier' => ['Till'],
-            'Junior Cashier' => ['Till'],
-            'Till Supervisor' => ['Till'],
-            'Corner Store Staff' => ['Corner Store'],
-            'Corner Store Manager' => ['Corner Store'],
-            'Confectionaries Sales Staff' => ['Confectionaries Sales'],
-            'Sales Manager' => ['Till', 'Corner Store', 'Confectionaries Sales'],
-            'Sales Associate' => ['Till', 'Corner Store', 'Confectionaries Sales'],
-            'Sales Supervisor' => ['Till', 'Corner Store', 'Confectionaries Sales'],
-
-            // Support roles
-            'Stock Controller' => ['Inventory/Store'],
-            'Store Keeper' => ['Inventory/Store'],
-            'Warehouse Manager' => ['Inventory/Store'],
-            'Inventory Clerk' => ['Inventory/Store'],
-            'Inventory Manager' => ['Inventory/Store'],
-            'Store Manager' => ['Corner Store', 'Confectionaries Sales', 'Inventory/Store'],
-            'Store Supervisor' => ['Corner Store', 'Confectionaries Sales'],
-            'HR Officer' => ['HR'],
-            'HR Manager' => ['HR'],
-            'Accountant' => ['Accounting'],
-            'Accounting Manager' => ['Accounting'],
-            'Manager' => ['*'],
-
-            // Admin roles (can be assigned to any department)
-            'Admin' => ['*'],
+            // All roles are department-agnostic by default
             'Super Admin' => ['*'],
-            'Managing Director' => ['*'],
             'MD' => ['*'],
+            'Managing Director' => ['*'],
+            'Admin' => ['*'],
+
             'Head of Production' => ['*'],
-            'Supervisor' => ['*'],
+            'Production Supervisor' => ['*'],
+            'Production Staff' => ['*'],
+
+            'Sales Manager' => ['*'],
+            'Sales Supervisor' => ['*'],
+            'Sales Staff' => ['*'],
+
+            'Inventory Manager' => ['*'],
+            'Inventory Supervisor' => ['*'],
+            'Inventory Staff' => ['*'],
+
+            'HR Manager' => ['*'],
+            'HR Officer' => ['*'],
+
+            'Accounting Manager' => ['*'],
+            'Accountant' => ['*'],
         ];
     }
 
@@ -650,7 +621,20 @@ class RolePermissionService
      */
     public static function validateRoleForDepartment(Model $user, string $roleName): void
     {
-        // Get user's department
+        // Super admins can assign any role regardless of department constraints
+        if (self::isSuperAdmin()) {
+            return;
+        }
+
+        // If there are no active constraints for this role, allow assignment
+        $constraints = RoleCategoryConstraint::active()
+            ->whereRaw('LOWER(role_name) = ?', [strtolower($roleName)])
+            ->get();
+
+        if ($constraints->isEmpty()) {
+            return;
+        }
+
         if (! isset($user->department_id) || ! $user->department_id) {
             throw new \Exception('User must be assigned to a department before assigning roles');
         }
@@ -660,39 +644,26 @@ class RolePermissionService
             throw new \Exception('User department not found');
         }
 
-        // Get role-to-department mappings
-        $roleToDepartments = self::getRoleDepartmentMappings();
+        foreach ($constraints as $constraint) {
+            if ($constraint->department_type === 'branch_wide') {
+                return;
+            }
 
-        // Check if role exists in mapping (case-insensitive)
-        $foundRole = null;
-        foreach ($roleToDepartments as $mappedRole => $depts) {
-            if (strcasecmp($mappedRole, $roleName) === 0) {
-                $foundRole = $mappedRole;
-                break;
+            if ($constraint->department_type === 'category_wide') {
+                if (! $constraint->category_id || $department->category_id === $constraint->category_id) {
+                    return;
+                }
+            }
+
+            if ($constraint->department_type === 'specific') {
+                if (in_array($department->slug, $constraint->allowed_department_slugs ?? [], true)) {
+                    return;
+                }
             }
         }
 
-        if ($foundRole === null) {
-            throw new \Exception("Role '{$roleName}' is not defined for department assignment");
-        }
-
-        $allowedDepts = $roleToDepartments[$foundRole];
-
-        // Check if role is allowed in all departments
-        if (in_array('*', $allowedDepts)) {
-            return;
-        }
-
-        // Check if user's department is in the allowed list
-        if (! in_array($department->name, $allowedDepts)) {
-            $deptList = count($allowedDepts) === 1
-                ? $allowedDepts[0]
-                : implode(', ', array_slice($allowedDepts, 0, -1)).' or '.end($allowedDepts);
-
-            throw new \Exception(
-                "The \"{$roleName}\" role is only available for {$deptList} department staff. ".
-                'Please choose a different role for this employee.'
-            );
-        }
+        throw new \Exception(
+            "The \"{$roleName}\" role is not allowed for this employee's department."
+        );
     }
 }

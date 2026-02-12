@@ -186,7 +186,7 @@ class LeaveTypes extends BaseComponent
                 $message = 'Leave type updated successfully!';
             } else {
                 $leaveType = LeaveType::create($data);
-                LeaveAuditService::logLeaveTypeCreation($this->name, $actor);
+                LeaveAuditService::logLeaveTypeCreation($leaveType, $actor);
                 $message = 'Leave type created successfully!';
             }
 

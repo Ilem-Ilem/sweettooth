@@ -43,7 +43,7 @@ class Details extends Component
 
         // Set profile photo URL if available
         if ($employee->profile_photo) {
-            $this->profilePhotoUrl = asset('storage/'.$employee->profile_photo);
+            $this->profilePhotoUrl = asset($employee->profile_photo);
         }
 
         // Load leave information

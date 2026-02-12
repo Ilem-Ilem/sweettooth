@@ -56,25 +56,10 @@ class ProductionDashboard extends BaseDashboard
             return;
         }
 
-        $allowedRoles = [
-            'head_of_production',
-            'chef',
-            'head_of_gelato',
-            'confectionaries_manager',
-            'kitchen_staff',
-            'gelato_production_staff',
-            'confectionaries_production_staff',
-            'admin',
-        ];
-
-        // Check if user has ANY of the allowed roles
-        if ($this->user && method_exists($this->user, 'roles')) {
-            $userRoles = $this->user->roles()->pluck('name')->toArray();
-            foreach ($userRoles as $roleName) {
-                $normalizedRole = strtolower(str_replace(' ', '_', $roleName ?? ''));
-                if (in_array($normalizedRole, $allowedRoles)) {
-                    return; // User has at least one allowed role
-                }
+        // Check permission-based access (new system)
+        if ($this->user && method_exists($this->user, 'can')) {
+            if ($this->user->can('view-production') || $this->user->can('manage-production')) {
+                return;
             }
         }
 

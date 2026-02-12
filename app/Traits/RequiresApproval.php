@@ -25,7 +25,7 @@ trait RequiresApproval
         $user = auth()->guard('web')->user() ?? auth()->guard('employees')->user();
 
         // 1. Superadmin (web guard) → always bypass (no audit log here, handled by calling code)
-        if (auth('web')->check() && $user?->hasRole('superadmin')) {
+        if (auth('web')->check() && function_exists('is_super_admin') && is_super_admin()) {
             return true;
         }
 

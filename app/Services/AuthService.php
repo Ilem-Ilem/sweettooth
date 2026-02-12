@@ -38,17 +38,40 @@ class AuthService
      */
     public static function isSuperAdmin(): bool
     {
+        if (function_exists('is_super_admin')) {
+            return is_super_admin();
+        }
+
         $user = self::user();
         if (!$user) {
             return false;
         }
-        
-        // Check for any super-admin equivalent role
-        return $user->hasAnyRole([
-            'super-admin', 'Super Admin', 'super_admin',
-            'MD', 'Managing Director',
-            'admin', 'Admin'
-        ]);
+
+        if (isset($user->user_type) && $user->user_type === 'admin') {
+            return true;
+        }
+
+        if (method_exists($user, 'hasAnyRole')) {
+            return $user->hasAnyRole([
+                'super-admin', 'Super Admin', 'super_admin',
+                'SuperAdmin',
+                'MD', 'Managing Director',
+                'admin', 'Admin'
+            ]);
+        }
+
+        if (method_exists($user, 'hasRole')) {
+            return $user->hasRole('Super Admin')
+                || $user->hasRole('super-admin')
+                || $user->hasRole('super_admin')
+                || $user->hasRole('SuperAdmin')
+                || $user->hasRole('MD')
+                || $user->hasRole('Managing Director')
+                || $user->hasRole('admin')
+                || $user->hasRole('Admin');
+        }
+
+        return false;
     }
 
     /**
@@ -107,7 +130,7 @@ class AuthService
     public static function isEmployee(): bool
     {
         $user = self::user();
-        return $user && $user->hasRole('employee');
+        return (bool) $user && ! self::isSuperAdmin();
     }
 
     /**

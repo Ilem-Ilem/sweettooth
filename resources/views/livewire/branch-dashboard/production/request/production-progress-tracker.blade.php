@@ -21,7 +21,14 @@
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
                         <p class="text-xs text-zinc-500 dark:text-zinc-400 uppercase">Quantity</p>
-                        <p class="font-semibold text-zinc-900 dark:text-white">{{ number_format($request->planned_production_quantity, 2) }}</p>
+                        <p class="font-semibold text-zinc-900 dark:text-white">
+                            {{ number_format($request->planned_production_quantity, 2) }}
+                        </p>
+                        @if($request->requested_units && $request->requested_units != $request->planned_production_quantity)
+                            <p class="text-xs text-orange-600 dark:text-orange-400">
+                                Sales Requested: {{ number_format($request->requested_units, 2) }}
+                            </p>
+                        @endif
                     </div>
                     <div>
                         <p class="text-xs text-zinc-500 dark:text-zinc-400 uppercase">Status</p>
@@ -44,6 +51,12 @@
                         >
                             {{ ucfirst($request->priority) }}
                         </span>
+                    </div>
+                    <div>
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400 uppercase">Sales Dept</p>
+                        <p class="font-semibold text-zinc-900 dark:text-white">
+                            {{ $dispatchSalesDepartmentName ?? 'N/A' }}
+                        </p>
                     </div>
                     <div>
                         <p class="text-xs text-zinc-500 dark:text-zinc-400 uppercase">Created</p>
@@ -115,6 +128,23 @@
                             ></textarea>
                         </div>
 
+                        <!-- ETA Override -->
+                        <div>
+                            <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                                ETA Override (Minutes)
+                            </label>
+                            <input
+                                type="number"
+                                min="0"
+                                wire:model="etaOverrideMinutes"
+                                placeholder="Leave blank for auto ETA"
+                                class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white"
+                            />
+                            @error('etaOverrideMinutes')
+                                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+
                         <!-- Buttons -->
                         <div class="flex gap-3 justify-end pt-2">
                             <button 
@@ -141,6 +171,41 @@
                     >
                         Add Progress Update
                     </button>
+                </div>
+            @endif
+
+            @if($request->sales_department_id)
+                @php
+                    $dispatched = $request->dispatches->sum('quantity');
+                    $remaining = max(0, ($request->planned_production_quantity ?? 0) - $dispatched);
+                @endphp
+                <div class="border-t border-zinc-200 dark:border-zinc-700 pt-6">
+                    <h4 class="font-semibold text-zinc-900 dark:text-white mb-4">Dispatch to {{ $dispatchSalesDepartmentName ?? 'Sales Dept' }}</h4>
+                    <div class="flex flex-wrap items-center gap-3 mb-3 text-sm text-zinc-600 dark:text-zinc-300">
+                        <span>Dispatched: <strong>{{ number_format($dispatched,2) }}</strong></span>
+                        <span>Remaining: <strong>{{ number_format($remaining,2) }}</strong></span>
+                    </div>
+                    <form wire:submit.prevent="dispatchToSales" class="flex flex-wrap items-center gap-3">
+                        <input type="number" min="0.01" step="0.01" wire:model="dispatchQuantity"
+                               class="w-32 px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-700 text-sm"
+                               placeholder="Qty">
+                        <button type="submit"
+                                class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold">
+                            Dispatch
+                        </button>
+                        @error('dispatchQuantity')
+                            <p class="text-red-500 text-sm">{{ $message }}</p>
+                        @enderror
+                    </form>
+                    @if($request->dispatches->count())
+                        <div class="mt-4 space-y-2">
+                            @foreach($request->dispatches as $dispatch)
+                                <div class="text-sm text-zinc-700 dark:text-zinc-300">
+                                    {{ number_format($dispatch->quantity,2) }} sent • Status: {{ $dispatch->status }}
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
                 </div>
             @endif
 

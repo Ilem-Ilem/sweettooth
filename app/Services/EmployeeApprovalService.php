@@ -55,6 +55,10 @@ class EmployeeApprovalService
             $approver = $approver ?? current_actor();
             $payload = $request->payload;
 
+            if (empty($payload['user_type'])) {
+                $payload['user_type'] = 'employee';
+            }
+
             // Ensure password is hashed if provided as plaintext
             if (isset($payload['password']) && !str_starts_with($payload['password'], '$2y$')) {
                 $payload['password'] = Hash::make($payload['password']);

@@ -101,9 +101,9 @@
 
                             <!-- Quantity -->
                             <div>
-                                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Production Quantity (Batches) *</label>
+                                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Production Quantity (Units) *</label>
                                 <input type="number" step="1" min="1" wire:model.live="selectedProducts.{{ $index }}.quantity"
-                                       placeholder="Number of batches"
+                                       placeholder="Units requested"
                                        class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
                                 @error("selectedProducts.{$index}.quantity")
                                     <span class="text-red-500 text-xs mt-1">{{ $message }}</span>
@@ -114,10 +114,19 @@
                         <!-- Product Details (if selected) -->
                         @if(isset($product['product_details']) && $product['product_details'])
                         <div class="mt-4 p-4 bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                            @php
+                                $requestedUnits = (float) $product['quantity'];
+                                $yieldPerBatch = (float) $product['product_details']['yield_quantity'];
+                                $batchCount = $yieldPerBatch > 0 ? (int) ceil($requestedUnits / $yieldPerBatch) : 0;
+                                $plannedUnits = $batchCount * $yieldPerBatch;
+                            @endphp
                             <div class="mb-3 pb-3 border-b border-zinc-200 dark:border-zinc-700">
                                 <h4 class="font-semibold text-sm text-zinc-900 dark:text-zinc-100">Product: {{ $product['product_details']['name'] }}</h4>
                                 <p class="text-xs text-zinc-600 dark:text-zinc-400">
                                     Yield: {{ $product['product_details']['yield_quantity'] }} {{ $product['product_details']['uom'] }} per batch
+                                </p>
+                                <p class="text-xs text-zinc-600 dark:text-zinc-400">
+                                    Requested: {{ number_format($requestedUnits, 2) }} {{ $product['product_details']['uom'] }} | Plan: {{ $batchCount }} batch{{ $batchCount === 1 ? '' : 'es' }} = {{ number_format($plannedUnits, 2) }} {{ $product['product_details']['uom'] }}
                                 </p>
                             </div>
 
@@ -131,7 +140,7 @@
                                             <th class="px-3 py-2 text-left text-xs font-medium text-zinc-600 dark:text-zinc-400">Item</th>
                                             <th class="px-3 py-2 text-right text-xs font-medium text-zinc-600 dark:text-zinc-400">Per Batch</th>
                                             <th class="px-3 py-2 text-right text-xs font-medium text-zinc-600 dark:text-zinc-400">Waste %</th>
-                                            <th class="px-3 py-2 text-right text-xs font-medium text-zinc-600 dark:text-zinc-400">Total ({{ $product['quantity'] }} batches)</th>
+                                            <th class="px-3 py-2 text-right text-xs font-medium text-zinc-600 dark:text-zinc-400">Total ({{ $batchCount }} batch{{ $batchCount === 1 ? '' : 'es' }})</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
@@ -140,7 +149,7 @@
                                             $baseQty = $ingredient['quantity_per_batch'];
                                             $wasteMultiplier = 1 + ($ingredient['waste_percentage'] / 100);
                                             $actualQtyPerBatch = $baseQty *(float) $wasteMultiplier;
-                                            $totalQty = $actualQtyPerBatch *(float) $product['quantity'];
+                                            $totalQty = $actualQtyPerBatch *(float) $batchCount;
                                         @endphp
                                         <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
                                             <td class="px-3 py-2 text-zinc-900 dark:text-zinc-100">
@@ -172,7 +181,7 @@
                                 <div class="flex justify-between items-center text-sm">
                                     <span class="text-zinc-600 dark:text-zinc-400">Total Production:</span>
                                     <span class="font-semibold text-zinc-900 dark:text-zinc-100">
-                                        {{ (float)number_format($product['product_details']['yield_quantity'] * (float)$product['quantity'], 2) }}
+                                        {{ number_format($plannedUnits, 2) }}
                                         {{ $product['product_details']['uom'] }}
                                     </span>
                                 </div>

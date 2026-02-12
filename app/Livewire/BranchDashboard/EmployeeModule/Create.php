@@ -49,7 +49,6 @@ class Create extends BaseComponent
 
     public ?string $emergency_contact_phone = null;
 
-    public string $position = '';
 
     public ?string $hire_date = null;
 
@@ -354,6 +353,8 @@ class Create extends BaseComponent
                 'performance_rating' => $this->performance_rating,
                 'password' => Hash::make('password'),
                 'email_verified_at' => now(),
+                // Ensure new staff are not treated as legacy admins
+                'user_type' => 'employee',
             ];
 
             if ($this->profile_photo) {
@@ -362,11 +363,16 @@ class Create extends BaseComponent
 
             $user = current_actor();
 
+            $selectedRolesNames = Role::where('guard_name', 'web')
+                ->whereIn('id', (array) $this->selectedRoles)
+                ->pluck('name')
+                ->toArray();
+
             if (! is_super_admin()) {
                 // EMPLOYEE: Create approval request using EmployeeApprovalService
                 $approvalPayload = array_merge($data, [
                     'branch_id' => $this->b_id,
-                    'selectedRoles' => $this->selectedRoles,
+                    'selectedRoles' => $selectedRolesNames,
                 ]);
 
                 EmployeeApprovalService::requestCreate($approvalPayload, $this->creationReason);
@@ -381,13 +387,13 @@ class Create extends BaseComponent
             $employee = Employee::create($data);
 
             // Sync roles with audit
-            if (! empty($this->selectedRoles)) {
+            if (! empty($selectedRolesNames)) {
                 $oldRoles = [];
-                $employee->syncRoles($this->selectedRoles);
+                $employee->syncRoles($selectedRolesNames);
                 EmployeeAuditService::logRoleChange(
                     $employee,
                     $oldRoles,
-                    $this->selectedRoles,
+                    $selectedRolesNames,
                     'Initial role assignment during employee creation',
                     $user
                 );

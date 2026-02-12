@@ -58,27 +58,40 @@
             Production Calculator
         </h2>
 
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Batch Size</label>
-                <input type="number" wire:model.live="batchSize" min="1" step="1"
-                    class="w-full px-4 py-3 text-lg font-bold border-2 border-blue-300 dark:border-blue-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
-                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">How many batches to produce</p>
+        <div class="space-y-4">
+            <!-- Input section -->
+            <div class="grid grid-cols-1 gap-4">
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Batch Size</label>
+                    <div class="flex gap-2">
+                        <input type="number" wire:model="batchSize" min="1" step="1"
+                            class="flex-1 px-4 py-3 text-lg font-bold border-2 border-blue-300 dark:border-blue-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500"
+                            placeholder="Enter batch size">
+                        <button wire:click="calculateBatch"
+                            class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors whitespace-nowrap">
+                            Calculate
+                        </button>
+                    </div>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">How many batches to produce</p>
+                </div>
             </div>
 
-            <div class="bg-white dark:bg-zinc-800 p-4 rounded-lg border border-zinc-200 dark:border-zinc-700">
-                <p class="text-sm text-zinc-600 dark:text-zinc-400 font-medium">Total Yield</p>
-                <p class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{{ number_format($this->totalYield, 2) }} {{ $recipe->unitOfMeasure?->symbol ?? 'N/A' }}</p>
-            </div>
+            <!-- Results section -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-white dark:bg-zinc-800 p-4 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                    <p class="text-sm text-zinc-600 dark:text-zinc-400 font-medium">Total Yield</p>
+                    <p class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{{ number_format($this->totalYield, 2) }} {{ $recipe->unitOfMeasure?->symbol ?? 'N/A' }}</p>
+                </div>
 
-            <div class="bg-white dark:bg-zinc-800 p-4 rounded-lg border border-zinc-200 dark:border-zinc-700">
-                <p class="text-sm text-zinc-600 dark:text-zinc-400 font-medium">Total Cost</p>
-                <p class="text-2xl font-bold text-green-600 dark:text-green-400">₦{{ number_format($this->totalCost, 2) }}</p>
-            </div>
+                <div class="bg-white dark:bg-zinc-800 p-4 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                    <p class="text-sm text-zinc-600 dark:text-zinc-400 font-medium">Total Cost</p>
+                    <p class="text-2xl font-bold text-green-600 dark:text-green-400">₦{{ number_format($this->totalCost, 2) }}</p>
+                </div>
 
-            <div class="bg-white dark:bg-zinc-800 p-4 rounded-lg border border-zinc-200 dark:border-zinc-700">
-                <p class="text-sm text-zinc-600 dark:text-zinc-400 font-medium">Cost per {{ $recipe->unitOfMeasure?->symbol ?? 'N/A' }}</p>
-                <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($this->totalCost / max($this->totalYield, 1), 2) }}</p>
+                <div class="bg-white dark:bg-zinc-800 p-4 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                    <p class="text-sm text-zinc-600 dark:text-zinc-400 font-medium">Cost per {{ $recipe->unitOfMeasure?->symbol ?? 'N/A' }}</p>
+                    <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($this->totalCost / max($this->totalYield, 1), 2) }}</p>
+                </div>
             </div>
         </div>
     </div>

@@ -99,14 +99,14 @@
                 class="ml-2 bg-green-700 text-white rounded-md px-2 py-1">
                 Edit
             </a>
-            <button class="ml-2 bg-red-700 text-white rounded-md px-2 py-1" <button
+            <button
                 class="ml-2 bg-red-700 text-white rounded-md px-2 py-1"
                 @click="
                 showDeleteModal = true;
                 loading = true;
-                $wire.getSelectedData('{{ $row->id }}').then(() => {
-                    loading = false;
-                });
+                $wire.getSelectedData('{{ $row->id }}')
+                    .then(() => { loading = false; })
+                    .catch(() => { loading = false; });
             ">
                 Delete
             </button>
@@ -117,6 +117,12 @@
 
     <div class="fixed inset-0 z-[999999] flex items-center justify-center" x-cloak x-show="showDeleteModal"
         @keydown.escape.window="showDeleteModal = false">
+        <div x-init="
+            window.addEventListener('close-delete-modal', () => {
+                showDeleteModal = false;
+                loading = false;
+            });
+        "></div>
         <!-- Dark backdrop -->
         <div class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
             @click="showDeleteModal = false"></div>
@@ -160,9 +166,9 @@
                         class="px-4 py-2 rounded-md bg-gray-200 dark:bg-gray-700 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600 transition"
                         @click="showDeleteModal = false">Cancel</button>
                     <button class="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition shadow-sm"
-                       wire:click="delete('{{ $selectedCategoryId }}')">
-                        <span wire:loading.remove wire:target="delete">Confirm Delete</span>
-                        <span wire:loading wire:target="delete">Deleting...</span>
+                       wire:click="initiateDelete('{{ $selectedCategoryId }}')">
+                        <span wire:loading.remove wire:target="initiateDelete">Confirm Delete</span>
+                        <span wire:loading wire:target="initiateDelete">Deleting...</span>
                     </button>
                 </div>
             </div>

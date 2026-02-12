@@ -219,7 +219,18 @@
                                 @if ($profile_photo && is_object($profile_photo))
                                     <img src="{{ $profile_photo->temporaryUrl() }}" class="h-24 w-24 object-cover rounded-lg border-2 border-zinc-200 dark:border-zinc-600">
                                 @elseif ($existing_photo)
-                                    <img src="{{ Storage::url($existing_photo) }}" class="h-24 w-24 object-cover rounded-lg border-2 border-zinc-200 dark:border-zinc-600">
+                                    @php
+                                        $photoUrl = null;
+                                        if (Storage::disk('public')->exists($existing_photo)) {
+                                            $photoUrl = Storage::url($existing_photo);
+                                        } elseif (file_exists(storage_path('app/public/'.$existing_photo))) {
+                                            // Legacy location before disk override
+                                            $photoUrl = asset('storage/'.$existing_photo);
+                                        }
+                                    @endphp
+                                    @if ($photoUrl)
+                                        <img src="{{ $photoUrl }}" class="h-24 w-24 object-cover rounded-lg border-2 border-zinc-200 dark:border-zinc-600">
+                                    @endif
                                 @endif
                             </div>
                         </div>
@@ -381,7 +392,7 @@
                                 class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500"
                                 size="5">
                                 @foreach ($roles as $role)
-                                    <option value="{{ $role->name }}">{{ ucfirst($role->name) }}</option>
+                                    <option value="{{ $role->id }}">{{ ucfirst($role->name) }}</option>
                                 @endforeach
                             </select>
                             <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Hold Ctrl/Cmd to select multiple roles</p>

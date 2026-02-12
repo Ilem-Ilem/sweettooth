@@ -127,71 +127,12 @@ class SalesDashboard extends BaseDashboard
         $user = auth()->user();
         $role = $this->getUserRoleName();
         // Normalize role name to snake_case for comparison
-        $normalizedRole = strtolower(str_replace(' ', '_', $role ?? ''));
-        
-        // Log all available role information for debugging
-        $allRoles = [];
-        if ($user && is_object($user) && method_exists($user, 'getRoleNames')) {
-            $allRoles = $user->getRoleNames()->toArray();
-        }
-        
-        \Log::info('SalesDashboard access check', [
-            'user_id' => $user?->id ?? 'null',
-            'user_email' => $user?->email ?? 'null',
-            'primary_role_from_method' => $role,
-            'all_roles_from_getRoleNames' => $allRoles,
-            'normalized_role' => $normalizedRole,
-        ]);
-        
-        $allowedRoles = [
-            'sales_manager',
-            'till_supervisor',
-            'cashier',
-            'corner_store_manager',
-            'corner_store_staff',
-            'confectioneries_sales_staff',
-            'admin',
-        ];
-
-        // Allow access if user has allowed role OR is super admin
-        $isAllowed = in_array($normalizedRole, $allowedRoles) || is_super_admin();
-        
-        // Fallback: check using hasRole method with proper role names
-        if (!$isAllowed && $user && is_object($user)) {
-            $isAllowed = $user->hasRole('Sales Manager') 
-                || $user->hasRole('Till Supervisor')
-                || $user->hasRole('Cashier')
-                || $user->hasRole('Corner Store Manager')
-                || $user->hasRole('Corner Store Staff')
-                || $user->hasRole('Confectionaries Sales Staff')
-                || $user->hasRole('Admin');
-        }
+        $isAllowed = \App\Services\SidebarVisibilityService::canSeeSalesManagement($user)
+            || \App\Services\SidebarVisibilityService::isAdmin($user)
+            || \App\Services\SidebarVisibilityService::isSuperAdmin($user);
         
         if (!$isAllowed) {
-            // Get all user roles for debugging
-            $allRoles = [];
-            $user = auth()->user();
-            $userId = null;
-            
-            if ($user && is_object($user)) {
-                if (method_exists($user, 'getRoleNames')) {
-                    $allRoles = $user->getRoleNames()->toArray();
-                }
-                $userId = $user->id ?? null;
-            } elseif (is_string($user)) {
-                $userId = $user;
-            }
-            // Log for debugging
-            \Log::warning('Unauthorized sales dashboard access', [
-                'user_id' => $userId,
-                'user_type' => gettype($user),
-                'primary_role' => $role,
-                'normalized_role' => $normalizedRole,
-                'all_user_roles' => $allRoles,
-                'allowed_roles' => $allowedRoles,
-                'is_super_admin' => is_super_admin(),
-            ]);
-            abort(403, 'Unauthorized access to sales dashboard. Your role (' . ($role ?? 'none') . ') does not have access to this dashboard.');
+            abort(403, 'Unauthorized access to sales dashboard.');
         }
     }
 

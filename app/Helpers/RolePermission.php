@@ -159,9 +159,7 @@ class RolePermission
             'Sales Manager',
             'HR Manager',
             'Accounting Manager',
-            'Inventory Manager',
-            'Confectionaries Manager',
-            'Corner Store Manager'
+            'Inventory Manager'
         ];
 
         return self::hasAnyRole($managerRoles, $guard);
@@ -205,9 +203,11 @@ class RolePermission
     public static function isSupervisor(?string $guard = null): bool
     {
         $supervisorRoles = [
-            'Chef',
-            'Head of Gelato',
-            'Till Supervisor',
+            'Production Supervisor',
+            'Sales Supervisor',
+            'Inventory Supervisor',
+            'HR Officer',
+            'Accountant',
         ];
 
         return self::hasAnyRole($supervisorRoles, $guard);
@@ -219,15 +219,9 @@ class RolePermission
     public static function isStaff(?string $guard = null): bool
     {
         $staffRoles = [
-            'Kitchen Staff',
-            'Gelato Production Staff',
-            'Confectionaries Production Staff',
-            'Cashier',
-            'Corner Store Staff',
-            'Confectionaries Sales Staff',
-            'Stock Controller',
-            'Store Keeper',
-            'HR Officer',
+            'Production Staff',
+            'Sales Staff',
+            'Inventory Staff',
         ];
 
         return self::hasAnyRole($staffRoles, $guard);
@@ -546,33 +540,27 @@ class RolePermission
             // Level 5 - Executive
             'Super Admin' => 5,
             'Managing Director' => 5,
+            'MD' => 5,
 
-            // Level 4 - Management
+            // Level 4 - Admin
             'Admin' => 4,
-            'Head of Production' => 4,
-            'Sales Manager' => 4,
-            'HR Manager' => 4,
-            'Inventory Manager' => 4,
+            'Head of Production' => 3,
+            'Sales Manager' => 3,
+            'HR Manager' => 3,
+            'Inventory Manager' => 3,
+            'Accounting Manager' => 3,
 
-            // Level 3 - Department Heads/Supervisors
-            'Chef' => 3,
-            'Head of Gelato' => 3,
-            'Confectionaries Manager' => 3,
-            'Till Supervisor' => 3,
-            'Corner Store Manager' => 3,
-
-            // Level 2 - Officers
+            // Level 2 - Supervisors
+            'Production Supervisor' => 2,
+            'Sales Supervisor' => 2,
+            'Inventory Supervisor' => 2,
             'HR Officer' => 2,
-            'Stock Controller' => 2,
-            'Store Keeper' => 2,
+            'Accountant' => 2,
 
             // Level 1 - Staff
-            'Kitchen Staff' => 1,
-            'Gelato Production Staff' => 1,
-            'Confectionaries Production Staff' => 1,
-            'Cashier' => 1,
-            'Corner Store Staff' => 1,
-            'Confectionaries Sales Staff' => 1,
+            'Production Staff' => 1,
+            'Sales Staff' => 1,
+            'Inventory Staff' => 1,
         ];
 
         return $hierarchy[$role] ?? 0;
@@ -640,24 +628,19 @@ class RolePermission
             'Super Admin' => 'Full system access with all permissions',
             'Admin' => 'Administrative access to system settings',
             'Managing Director' => 'Executive level with full operational control',
-            'Head of Production' => 'Oversees all production operations',
+            'Head of Production' => 'Oversees production operations',
             'Sales Manager' => 'Manages sales operations and staff',
             'HR Manager' => 'Manages human resources and employee operations',
             'Inventory Manager' => 'Manages inventory and stock control',
-            'Chef' => 'Leads kitchen operations and production',
-            'Head of Gelato' => 'Manages gelato production department',
-            'Confectionaries Manager' => 'Manages confectionaries production and sales',
-            'Till Supervisor' => 'Supervises till operations and cashiers',
-            'Corner Store Manager' => 'Manages corner store operations',
-            'Kitchen Staff' => 'Executes kitchen production tasks',
-            'Gelato Production Staff' => 'Produces gelato products',
-            'Confectionaries Production Staff' => 'Produces confectionary products',
-            'Cashier' => 'Processes sales transactions',
-            'Corner Store Staff' => 'Handles corner store sales',
-            'Confectionaries Sales Staff' => 'Sells confectionary products',
-            'Stock Controller' => 'Controls and manages stock inventory',
-            'Store Keeper' => 'Maintains warehouse and stock',
+            'Accounting Manager' => 'Manages accounting operations',
+            'Production Supervisor' => 'Supervises production team',
+            'Sales Supervisor' => 'Supervises sales team',
+            'Inventory Supervisor' => 'Supervises inventory team',
             'HR Officer' => 'Handles HR administrative tasks',
+            'Accountant' => 'Accounting operations and reporting',
+            'Production Staff' => 'Production team member',
+            'Sales Staff' => 'Sales team member',
+            'Inventory Staff' => 'Inventory team member',
         ];
 
         return $descriptions[$role] ?? 'No description available';
@@ -669,12 +652,12 @@ class RolePermission
     public static function canAccessModule(string $module, ?string $guard = null): bool
     {
         $modulePermissions = [
-            'production' => ['view-production-queue', 'start-production', 'complete-production', 'manage-recipes'],
-            'sales' => ['process-sale', 'view-daily-sales'],
-            'inventory' => ['view-stock-levels', 'receive-stock', 'transfer-stock', 'adjust-inventory'],
-            'employees' => ['view-employees', 'create-employees', 'edit-employees'],
-            'reports' => ['view-reports', 'generate-reports', 'view-analytics'],
-            'settings' => ['view-settings', 'edit-settings', 'view-system-settings'],
+            'production' => ['view-production', 'manage-production'],
+            'sales' => ['view-sales', 'process-sales', 'manage-sales'],
+            'inventory' => ['view-inventory', 'manage-inventory'],
+            'employees' => ['view-employees', 'manage-employees'],
+            'reports' => ['view-reports', 'view-analytics'],
+            'settings' => ['manage-settings'],
         ];
 
         if (!isset($modulePermissions[$module])) {

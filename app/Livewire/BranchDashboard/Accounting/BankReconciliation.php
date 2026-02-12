@@ -15,7 +15,7 @@ use Livewire\Component;
 #[Layout('components.layouts.app.branch-dashboard')]
 class BankReconciliation extends Component
 {
-    protected BankReconciliationService $service;
+    protected ?BankReconciliationService $service = null;
 
     // Tab control
     public string $activeTab = 'select'; // select, matching, results
@@ -52,6 +52,15 @@ class BankReconciliation extends Component
     {
         $this->service = app(BankReconciliationService::class);
     }
+    
+    protected function getService(): BankReconciliationService
+    {
+        if (!$this->service instanceof BankReconciliationService) {
+            $this->service = app(BankReconciliationService::class);
+        }
+        
+        return $this->service;
+    }
 
     public function render()
     {
@@ -79,16 +88,26 @@ class BankReconciliation extends Component
      */
     public function startReconciliation()
     {
-        if (! $this->selectedBankAccountId || ! $this->reconciliationDate || ! $this->bankBalance) {
+        $hasBankAccount = ! is_null($this->selectedBankAccountId);
+        $hasDate = ! is_null($this->reconciliationDate) && trim($this->reconciliationDate) !== '';
+        $hasBalance = ! is_null($this->bankBalance) && trim((string) $this->bankBalance) !== '';
+
+        if (! $hasBankAccount || ! $hasDate || ! $hasBalance) {
             $this->addError('form', 'Please fill all required fields');
 
             return;
         }
 
         try {
+            $bankAccount = BankAccount::findOrFail($this->selectedBankAccountId);
+            if (! $bankAccount->gl_account_id) {
+                $this->addError('form', 'Selected bank account is missing a linked GL account.');
+                return;
+            }
+
             $reconciliationDate = Carbon::createFromFormat('Y-m-d', $this->reconciliationDate);
 
-            $reconciliation = $this->service->createReconciliation(
+            $reconciliation = $this->getService()->createReconciliation(
                 $this->selectedBankAccountId,
                 $reconciliationDate,
                 (float) $this->bankBalance,
@@ -117,7 +136,7 @@ class BankReconciliation extends Component
             $reconciliation = BankReconciliationModel::find($this->selectedReconciliationId);
 
             // Load unreconciled GL entries
-            $glEntries = $this->service->getUnreconciledGlEntries(
+            $glEntries = $this->getService()->getUnreconciledGlEntries(
                 $reconciliation->bank_account_id,
                 $reconciliation->reconciliation_date
             );
@@ -133,7 +152,7 @@ class BankReconciliation extends Component
             ])->all();
 
             // Load unreconciled bank transactions
-            $bankTransactions = $this->service->getUnreconciledBankTransactions(
+            $bankTransactions = $this->getService()->getUnreconciledBankTransactions(
                 $reconciliation->bank_account_id,
                 $reconciliation->reconciliation_date
             );
@@ -192,7 +211,7 @@ class BankReconciliation extends Component
             return;
         }
 
-        $this->stats = $this->service->getReconciliationStats($this->selectedReconciliationId);
+        $this->stats = $this->getService()->getReconciliationStats($this->selectedReconciliationId);
         $this->isBalanced = $this->stats['is_balanced'] ?? false;
     }
 
@@ -209,7 +228,7 @@ class BankReconciliation extends Component
         }
 
         try {
-            $this->service->matchTransaction($glEntryId, $bankTransactionId);
+            $this->getService()->matchTransaction($glEntryId, $bankTransactionId);
             $this->loadReconciliationData();
             $this->dispatch('notify', message: 'Transaction matched successfully');
         } catch (\Exception $e) {
@@ -223,7 +242,7 @@ class BankReconciliation extends Component
     public function unmatchTransactions(int $detailId)
     {
         try {
-            $this->service->unmatchTransaction($detailId);
+            $this->getService()->unmatchTransaction($detailId);
             $this->loadReconciliationData();
             $this->dispatch('notify', message: 'Match removed');
         } catch (\Exception $e) {
@@ -244,7 +263,7 @@ class BankReconciliation extends Component
 
         try {
             $reconciliation = BankReconciliationModel::find($this->selectedReconciliationId);
-            $count = $this->service->autoMatchTransactions($reconciliation->bank_account_id);
+            $count = $this->getService()->autoMatchTransactions($reconciliation->bank_account_id);
             $this->autoMatchCount = $count;
             $this->loadReconciliationData();
             $this->dispatch('notify', message: "Auto-matched {$count} transaction(s)");
@@ -271,7 +290,7 @@ class BankReconciliation extends Component
         }
 
         try {
-            $this->service->completeReconciliation($this->selectedReconciliationId);
+            $this->getService()->completeReconciliation($this->selectedReconciliationId);
             $this->activeTab = 'results';
             $this->dispatch('notify', message: 'Reconciliation completed successfully');
         } catch (\Exception $e) {

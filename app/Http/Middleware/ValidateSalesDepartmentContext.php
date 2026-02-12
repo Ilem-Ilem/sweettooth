@@ -55,9 +55,15 @@ class ValidateSalesDepartmentContext
                     return $next($request);
                 }
                 
-                // Allow if user is a manager (level 3+) in same category
+                // Sales Supervisor can access all sales departments.
+                // Sales Manager/Sales Staff are restricted to their assigned sales department.
                 $userLevel = $this->getUserRoleLevel($employee);
-                if ($userLevel >= 3 && $userDept && $userDept->category_id === $department->category_id) {
+                $isSalesSupervisor = $employee->hasRole('Sales Supervisor');
+                $isSalesManager = $employee->hasRole('Sales Manager');
+                $sameCategory = $userDept && $userDept->category_id === $department->category_id;
+                $isSalesDepartment = $department->category?->name === 'Sales';
+
+                if (($isSalesSupervisor && $isSalesDepartment) || ($userLevel >= 3 && $sameCategory && !$isSalesManager)) {
                     $request->merge(['current_department' => $department]);
                     return $next($request);
                 }
@@ -99,14 +105,13 @@ class ValidateSalesDepartmentContext
 
         // Manager-level roles
         $managerRoles = [
-            'Manager', 'Head of Production', 'Chef', 'Head of Gelato',
-            'Confectionaries Manager', 'Sales Manager', 'HR Manager',
-            'Inventory Manager', 'Corner Store Manager', 'MD', 'Managing Director'
+            'Head of Production', 'Sales Manager', 'HR Manager',
+            'Inventory Manager', 'Accounting Manager', 'MD', 'Managing Director'
         ];
         if ($user->hasAnyRole($managerRoles)) return 3;
 
         // Supervisor-level roles
-        $supervisorRoles = ['Supervisor', 'Till Supervisor', 'Sales Supervisor', 'Stock Controller'];
+        $supervisorRoles = ['Production Supervisor', 'Sales Supervisor', 'Inventory Supervisor', 'HR Officer', 'Accountant'];
         if ($user->hasAnyRole($supervisorRoles)) return 2;
 
         return 1; // Staff level

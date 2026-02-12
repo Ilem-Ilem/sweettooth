@@ -105,23 +105,14 @@
                                            placeholder="e.g., 10">
                                     <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-2">How many units per batch?</p>
                                 </div>
-                                <select wire:model="uom"
-                                        class="px-4 py-3 bg-white dark:bg-zinc-800 border-2 border-zinc-300 dark:border-zinc-600 rounded-lg text-sm font-semibold text-zinc-700 dark:text-zinc-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all whitespace-nowrap">
-                                    <option value="">Select Unit</option>
-                                    @foreach($unitsOfMeasure->groupBy('category') as $category => $units)
-                                        <optgroup label="{{ ucfirst($category) }}">
-                                            @foreach($units as $unit)
-                                                <option value="{{ $unit->code }}">{{ $unit->name }} ({{ $unit->symbol }})</option>
-                                            @endforeach
-                                        </optgroup>
-                                    @endforeach
-                                </select>
+                                <!-- Hidden input to maintain the UOM value -->
+                                <input type="hidden" wire:model="uom" />
                             </div>
                             @error('yield_quantity') <span class="text-red-500 text-xs mt-2 block">{{ $message }}</span> @enderror
                             @error('uom') <span class="text-red-500 text-xs mt-2 block">{{ $message }}</span> @enderror
                         </div>
 
-                        <!-- Unit of Measure Badge -->
+                        <!-- Unit of Measure Display (auto-selected from product) -->
                         <div class="flex flex-col justify-center">
                             <div class="px-4 py-3 bg-blue-100 dark:bg-blue-900/60 border-2 border-blue-300 dark:border-blue-700 rounded-lg text-center">
                                 <p class="text-xs text-blue-600 dark:text-blue-300 uppercase tracking-wide font-medium">Current Unit</p>
@@ -137,6 +128,7 @@
                                 @endphp
                                 <p class="text-2xl font-bold text-blue-700 dark:text-blue-200 mt-2">{{ $icon }} {{ $selectedUOM?->symbol ?? 'unit' }}</p>
                             </div>
+                            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-2 text-center">Auto-selected from product</p>
                         </div>
                     </div>
                 </div>
@@ -147,12 +139,13 @@
                         <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Preparation Time *</label>
                         <div class="flex gap-2">
                             <input type="number" wire:model="preparation_time" placeholder="0"
-                                   class="flex-1 px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                                   class="flex-1 px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-zinc-100 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 cursor-not-allowed"
+                                   readonly>
                             <div class="flex items-center px-3 bg-zinc-100 dark:bg-zinc-900 rounded-lg text-zinc-600 dark:text-zinc-400 font-medium">
                                 minutes
                             </div>
                         </div>
-                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">How long does one batch take to prepare?</p>
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Auto-filled from product's primary recipe</p>
                         @error('preparation_time') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                     </div>
                 </div>

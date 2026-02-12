@@ -37,15 +37,52 @@ if (!function_exists('is_super_admin')) {
             return true;
         }
         
-        // Check if user has super-admin role (case-insensitive for compatibility)
+        $allowedRoleNames = [
+            'super admin',
+            'super-admin',
+            'super_admin',
+            'superadmin',
+            'md',
+            'managing director',
+            'admin',
+        ];
+
+        // Check if user has super-admin role (include common legacy variants)
+        if (method_exists($user, 'hasAnyRole')) {
+            if ($user->hasAnyRole([
+                'Super Admin',
+                'super-admin',
+                'super_admin',
+                'SuperAdmin',
+                'MD',
+                'Managing Director',
+                'admin',
+                'Admin',
+            ])) {
+                return true;
+            }
+        }
+
         if (method_exists($user, 'hasRole')) {
             return $user->hasRole('Super Admin') 
                 || $user->hasRole('super-admin') 
                 || $user->hasRole('super_admin')
+                || $user->hasRole('SuperAdmin')
                 || $user->hasRole('MD')
                 || $user->hasRole('Managing Director')
                 || $user->hasRole('admin')
                 || $user->hasRole('Admin');
+        }
+
+        if (method_exists($user, 'getRoleNames')) {
+            $roleNames = $user->getRoleNames()
+                ->map(fn ($name) => strtolower(trim($name)))
+                ->toArray();
+            foreach ($allowedRoleNames as $allowed) {
+                if (in_array($allowed, $roleNames, true)) {
+                    return true;
+                }
+            }
         }
         
         return false;
@@ -85,12 +122,8 @@ if (!function_exists('is_employee')) {
         if (!$user || is_super_admin()) {
             return false;
         }
-        
-        if (method_exists($user, 'hasRole')) {
-            return $user->hasRole('employee') || $user->hasRole('Employee');
-        }
-        
-        return false;
+
+        return true;
     }
 }
 
@@ -129,12 +162,116 @@ if (!function_exists('has_permission')) {
         if (!$user) {
             return false;
         }
-        
-        if (method_exists($user, 'can')) {
-            return $user->can($permission);
+
+        if (!method_exists($user, 'can')) {
+            return false;
         }
-        
-        return false;
+
+        if (! $user->can($permission)) {
+            return false;
+        }
+
+        if (is_super_admin()) {
+            return true;
+        }
+
+        $dept = request()->attributes->get('current_department');
+        if (! $dept) {
+            return true;
+        }
+
+        return user_can_access_department($user, $dept);
+    }
+}
+
+if (!function_exists('get_user_role_level')) {
+    /**
+     * Get user's role level (1-5) using the same logic as DepartmentScopeMiddleware.
+     */
+    function get_user_role_level($user): int
+    {
+        if (!$user) {
+            return 1;
+        }
+
+        if (isset($user->user_type) && $user->user_type === 'admin') {
+            return 5;
+        }
+
+        if (function_exists('is_super_admin') && is_super_admin()) {
+            return 5;
+        }
+
+        if (method_exists($user, 'roles')) {
+            $role = $user->roles()->orderByDesc('level')->first();
+            if ($role && isset($role->level)) {
+                return (int) $role->level;
+            }
+        }
+
+        if (method_exists($user, 'hasRole')) {
+            if ($user->hasRole('Super Admin')) return 5;
+            if ($user->hasRole('Admin')) return 4;
+
+            $managerRoles = [
+                'Head of Production', 'Sales Manager', 'HR Manager',
+                'Inventory Manager', 'Accounting Manager', 'MD', 'Managing Director'
+            ];
+            if ($user->hasAnyRole($managerRoles)) return 3;
+
+            $supervisorRoles = ['Production Supervisor', 'Sales Supervisor', 'Inventory Supervisor', 'HR Officer', 'Accountant'];
+            if ($user->hasAnyRole($supervisorRoles)) return 2;
+        }
+
+        return 1;
+    }
+}
+
+if (!function_exists('user_can_access_department')) {
+    /**
+     * Check if a user can access a specific department context.
+     */
+    function user_can_access_department($user, $department): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        if (is_super_admin()) {
+            return true;
+        }
+
+        $dept = $department;
+        if (is_string($department)) {
+            $dept = \App\Models\Department::where('slug', $department)->first();
+        }
+
+        if (! $dept) {
+            return false;
+        }
+
+        $roleLevel = get_user_role_level($user);
+
+        if ($roleLevel >= 4) {
+            return isset($user->branch_id) && $user->branch_id === $dept->branch_id;
+        }
+
+        if ($roleLevel >= 3) {
+            $userDept = $user->department ?? \App\Models\Department::find($user->department_id);
+            if (! $userDept) {
+                return false;
+            }
+
+            return $userDept->category_id === $dept->category_id
+                && $user->branch_id === $dept->branch_id;
+        }
+
+        $userDept = $user->department ?? \App\Models\Department::find($user->department_id);
+        if (! $userDept) {
+            return false;
+        }
+
+        return $userDept->slug === $dept->slug;
     }
 }
 
@@ -367,7 +504,3 @@ if (!function_exists('set_current_branch')) {
         }
     }
 }
-
-
-
-

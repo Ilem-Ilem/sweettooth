@@ -8,6 +8,7 @@ use App\Models\Department;
 use App\Models\Product;
 use App\Models\ProductStock;
 use App\Models\ProductionRequest;
+use App\Models\Recipe;
 use App\Services\CurrencyFormattingService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
@@ -92,13 +93,13 @@ class RequestModel extends Component
         $q = Product::query();
 
         if ($this->selectedDepartment) {
-            $q->whereHas('departments', function($query) {
-                $query->where('departments.id', $this->selectedDepartment)
-                      ->where('department_product.is_available', 1);
+            // Filter products by the selected production department using the product_type relationship
+            $q->whereHas('productType', function($query) {
+                $query->where('department_id', $this->selectedDepartment);
             });
         }
 
-        return $q->active()->limit(50)->get();
+        return $q->active()->available()->limit(50)->get();
     }
 
     public function getAvailableDepartmentsProperty(): Collection
@@ -174,20 +175,48 @@ class RequestModel extends Component
             }
 
             DB::transaction(function () use ($employee, $currentShift, $salesDepartmentId) {
-                // Create Production Request
-                $productionRequest = ProductionRequest::create([
-                    'shift_id' => $currentShift?->id,
-                    'sales_department_id' => $salesDepartmentId,
-                    'production_department_id' => $this->selectedDepartment,
-                    'status' => 'pending',
-                    'priority' => $this->priority,
-                    'created_by_id' => $employee->id,
-                    'notes' => $this->notes ?: 'Request from POS system - Products: ' . implode(', ', array_keys($this->requestedItems)),
-                    'planned_production_quantity' => array_sum($this->requestedItems), // Total batch quantity
-                ]);
+                foreach ($this->requestedItems as $productId => $quantity) {
+                    $product = Product::find($productId);
+                    if (!$product) {
+                        continue;
+                    }
 
-                // Broadcast the request creation
-                broadcast(new RequestCreated($productionRequest))->toOthers();
+                    $recipe = Recipe::where('product_id', $productId)
+                        ->where('department_id', $this->selectedDepartment)
+                        ->first();
+
+                    $noteParts = [];
+                    $noteParts[] = "POS request for {$product->name} ({$product->sku})";
+                    $noteParts[] = "Qty: {$quantity}";
+                    if (!empty($this->notes)) {
+                        $noteParts[] = $this->notes;
+                    }
+
+                    $requestedUnits = (float) $quantity;
+                    $plannedQuantity = $requestedUnits;
+                    $plannedBatches = null;
+                    if ($recipe && (float) $recipe->yield_quantity > 0) {
+                        $plannedBatches = (int) ceil($requestedUnits / (float) $recipe->yield_quantity);
+                        $plannedQuantity = $plannedBatches * (float) $recipe->yield_quantity;
+                        $noteParts[] = "Planned: {$plannedBatches} batch(es) = {$plannedQuantity} units";
+                    }
+
+                    $productionRequest = ProductionRequest::create([
+                        'shift_id' => $currentShift?->id,
+                        'sales_department_id' => $salesDepartmentId,
+                        'production_department_id' => $this->selectedDepartment,
+                        'recipe_id' => $recipe?->id,
+                        'status' => 'pending',
+                        'priority' => $this->priority,
+                        'created_by_id' => $employee->id,
+                        'notes' => implode(' | ', $noteParts),
+                        'planned_production_quantity' => $plannedQuantity,
+                        'requested_units' => $requestedUnits,
+                    ]);
+
+                    // Broadcast each request creation
+                    broadcast(new RequestCreated($productionRequest))->toOthers();
+                }
             });
 
             $this->toast()->success('Production request sent successfully!')->send();

@@ -63,30 +63,45 @@ class RecipeDetail extends Component
 
     public function updatedBatchSize()
     {
-        // Ensure batch size is at least 1
-        if ($this->batchSize < 1) {
-            $this->batchSize = 1;
+        // Just ensure it's a valid number, but don't force immediate validation
+        if ($this->batchSize !== null && $this->batchSize !== '' && is_numeric($this->batchSize)) {
+            $this->batchSize = (int) max(1, $this->batchSize);
         }
     }
 
     public function getCalculatedIngredientsProperty()
     {
-        return $this->recipe->calculateIngredientsForBatch($this->batchSize);
+        $effectiveBatchSize = $this->batchSize > 0 ? $this->batchSize : 1;
+        return $this->recipe->calculateIngredientsForBatch($effectiveBatchSize);
     }
 
     public function getTotalCostProperty()
     {
-        return $this->recipe->calculateTotalCostForBatch($this->batchSize);
+        $effectiveBatchSize = $this->batchSize > 0 ? $this->batchSize : 1;
+        return $this->recipe->calculateTotalCostForBatch($effectiveBatchSize);
     }
 
     public function getTotalYieldProperty()
     {
-        return $this->recipe->calculateYieldForBatch($this->batchSize);
+        $effectiveBatchSize = $this->batchSize > 0 ? $this->batchSize : 1;
+        return $this->recipe->calculateYieldForBatch($effectiveBatchSize);
     }
 
     public function getCostPerUnitProperty()
     {
         return $this->recipe->calculateCostPerUnit();
+    }
+
+    public function calculateBatch()
+    {
+        // Validate batch size to ensure it's at least 1
+        if (empty($this->batchSize) || $this->batchSize < 1) {
+            $this->batchSize = 1;
+        } else {
+            $this->batchSize = (int) $this->batchSize;
+        }
+        
+        // The getters will automatically recalculate with the new batch size
     }
 
     public function getInstructionsProperty()

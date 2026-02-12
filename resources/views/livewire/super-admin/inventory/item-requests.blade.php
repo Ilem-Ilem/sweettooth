@@ -158,7 +158,7 @@
                         </td>
                         <td class="px-3 py-2 text-xs">
                         <div class="flex space-x-2">
-                        @can('approve-item-requests')
+                        @can('manage-inventory')
                         @if ($request->status === 'pending')
                         <button wire:click="openApprovalModal({{ $request->id }})"
                         class="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300">

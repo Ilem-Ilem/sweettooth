@@ -24,6 +24,12 @@ Route::middleware(['auth', 'accounting'])->prefix('accounting')->group(function 
             ->name('accounting.gl-accounts.index');
     });
 
+    // Bank Accounts Management
+    Route::prefix('bank-accounts')->group(function () {
+        Route::get('/', App\Livewire\BranchDashboard\Accounting\BankAccounts::class)
+            ->name('accounting.bank-accounts.index');
+    });
+
     // Journal Entries - Use branch dashboard components with proper layout
     Route::prefix('journal-entries')->group(function () {
         Route::get('/', App\Livewire\BranchDashboard\Accounting\ManualJournalEntry::class)

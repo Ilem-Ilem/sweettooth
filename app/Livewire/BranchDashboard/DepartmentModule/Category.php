@@ -7,6 +7,7 @@ use App\Models\DepartmentCategory;
 use App\Livewire\Concerns\CachesDepartmentCategories;
 use App\Models\Department;
 use App\Services\DepartmentCategoryApprovalService;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Livewire\Attributes\{Layout};
@@ -23,8 +24,8 @@ class Category extends BaseComponent
     public ?string $dateTo = null;
 
     //selected category delete modal functionality
-    public ?DepartmentCategory $selectedCategoryDeprtament = null;
-    public ?int $selectedCategoryId = null;
+    public ?Collection $selectedCategoryDeprtament = null;
+    public ?string $selectedCategoryId = null;
     // Modal states
     public bool $showCategoryModal = false;
     public ?string $selectedId = null;
@@ -33,7 +34,7 @@ class Category extends BaseComponent
     // Delete reason modal state
     public bool $showDeleteReasonModal = false;
     public string $deleteReason = '';
-    public ?int $categoryToDelete = null;
+    public ?string $categoryToDelete = null;
 
     protected function getModelClass(): string
     {
@@ -61,6 +62,9 @@ class Category extends BaseComponent
     public function initiateDelete($id)
     {
         $this->categoryToDelete = $id;
+
+        // Close the Alpine delete modal once the backend knows which item to delete
+        $this->dispatch('close-delete-modal');
         
         if (is_super_admin()) {
             $this->dialog()
@@ -172,7 +176,7 @@ class Category extends BaseComponent
                 $q->where('department_categories.id', $id);
             })
             ->get();
-        
+
         $this->selectedCategoryDeprtament = $departments;
     }
     

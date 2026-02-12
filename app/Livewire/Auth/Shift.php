@@ -327,8 +327,20 @@ class Shift extends Component
      */
     private function isSalesDepartment($user): bool
     {
-        // In unified system, determine sales department by role
-        return $user->hasAnyRole(['cashier', 'sales-manager']);
+        if (! $user) {
+            return false;
+        }
+
+        $category = $user->department?->category?->name;
+        if ($category === 'Sales') {
+            return true;
+        }
+
+        if ($user->can('view-sales') || $user->can('process-sales')) {
+            return true;
+        }
+
+        return \App\Services\SidebarVisibilityService::canSeeSalesManagement($user);
     }
 
     /**
@@ -393,14 +405,17 @@ class Shift extends Component
      */
     private function getDepartmentIdForUser($user): ?string
     {
-        // In unified system, department is determined by role
-        // This is a simplified mapping - adjust based on your needs
-        if ($user->hasRole('cashier')) {
-            // Find sales department
-            return \App\Models\Department::where('name', 'like', '%sales%')->value('id');
+        if (! $user) {
+            return null;
         }
 
-        return null;
+        if ($user->department_id) {
+            return $user->department_id;
+        }
+
+        return \App\Models\Department::where('branch_id', $user->branch_id)
+            ->whereHas('category', fn ($q) => $q->where('name', 'Sales'))
+            ->value('id');
     }
 
     public function getAvailableShiftsProperty()

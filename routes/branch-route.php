@@ -21,13 +21,13 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
         ->name('dashboards.supervisor');
 
     // Legacy Role-Specific Dashboards (kept for backward compatibility)
-    Route::middleware('role_or_permission:view_inventory_dashboard')->get('/dashboard/inventory', App\Livewire\Dashboards\InventoryDashboard::class)->name('dashboard.inventory');
-    Route::middleware('role_or_permission:view_production_dashboard')->get('/dashboard/production/{deptSlug?}', App\Livewire\Dashboards\ProductionDashboard::class)->name('dashboard.production');
-    Route::middleware('role_or_permission:view-sales-dashboard')->get('/dashboard/sales/{salesDeptSlug?}', App\Livewire\Dashboards\SalesDashboard::class)->name('dashboard.sales');
-    Route::middleware('role_or_permission:view-sales-dashboard')->get('/dashboard/corner-store', App\Livewire\Dashboards\CornerStoreDashboard::class)->name('dashboard.corner-store');
-    Route::middleware('role_or_permission:manage_organization')->get('/dashboard/hr', \App\Livewire\Dashboards\HRDashboard::class)->name('dashboard.hr');
-    Route::middleware('role_or_permission:manage_branches')->get('/dashboard/admin', \App\Livewire\Dashboards\BranchAdminDashboard::class)->name('dashboard.admin');
-    Route::middleware('role_or_permission:manage_system')->get('/dashboard/super-admin', \App\Livewire\Dashboards\SuperAdminDashboard::class)->name('dashboard.super-admin');
+    Route::middleware('role_or_permission:view-inventory')->get('/dashboard/inventory', App\Livewire\Dashboards\InventoryDashboard::class)->name('dashboard.inventory');
+    Route::middleware('role_or_permission:view-production')->get('/dashboard/production/{deptSlug?}', App\Livewire\Dashboards\ProductionDashboard::class)->name('dashboard.production');
+    Route::middleware('role_or_permission:view-sales')->get('/dashboard/sales/{salesDeptSlug?}', App\Livewire\Dashboards\SalesDashboard::class)->name('dashboard.sales');
+    Route::middleware('role_or_permission:view-sales')->get('/dashboard/corner-store', App\Livewire\Dashboards\CornerStoreDashboard::class)->name('dashboard.corner-store');
+    Route::middleware('role_or_permission:manage-organization')->get('/dashboard/hr', \App\Livewire\Dashboards\HRDashboard::class)->name('dashboard.hr');
+    Route::middleware('role_or_permission:manage-branches')->get('/dashboard/admin', \App\Livewire\Dashboards\BranchAdminDashboard::class)->name('dashboard.admin');
+    Route::middleware('role.level:5')->get('/dashboard/super-admin', \App\Livewire\Dashboards\SuperAdminDashboard::class)->name('dashboard.super-admin');
 
     // Root dashboard path - redirect to router for role-based redirect
     Route::get('/', function () {
@@ -40,7 +40,7 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
     })->name('index');
 
     // ====== ORGANIZATION SECTION (HR Manager, HR Officer, Admin) ======
-    Route::middleware('role_or_permission:manage_organization')->group(function () {
+    Route::middleware('role_or_permission:manage-organization')->group(function () {
         // Employee Management
         Route::get('/employees', App\Livewire\BranchDashboard\EmployeeModule\Index::class)->name('employee.index');
         Route::get('employee/create', App\Livewire\BranchDashboard\EmployeeModule\Create::class)->name('employee.create');
@@ -73,7 +73,7 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
             // Route::get('/feedback-requests', App\Livewire\BranchDashboard\FeedbackRequests::class)->name('feedback-requests');
 
             Route::prefix('reports')->name('reports.')->group(function () {
-                Route::middleware('role_or_permission:manage_organization')->get(
+                Route::middleware('role_or_permission:manage-organization')->get(
                     '/workforce-overview',
                     \App\Livewire\BranchDashboard\HR\Reports\WorkforceOverview\Index::class
                 )->name('workforce-overview');
@@ -104,20 +104,24 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
     });
 
     // ROLE MANAGEMENT (Super Admin Only - Level 5)
-    Route::middleware(['role_or_permission:manage_roles', 'role.level:5'])
+    Route::middleware(['role_or_permission:manage-roles', 'role.level:5'])
         ->get('roles', \App\Livewire\BranchDashboard\Roles\Index::class)
         ->name('roles.index');
 
     // BRANCH MANAGEMENT (Super Admin Only - Level 5)
-    Route::middleware(['role_or_permission:manage_branches', 'role.level:5'])->group(function () {
+    Route::middleware(['role_or_permission:manage-branches', 'role.level:5'])->group(function () {
         Route::get('branches', \App\Livewire\BranchDashboard\Branches\Index::class)->name('branches.index');
         Route::get('deleted-branches', \App\Livewire\BranchDashboard\Branches\DeleteBranch::class)->name('branches.deleted');
     });
 
     // SETTINGS (Super Admin Only - Level 5)
-    Route::middleware(['role_or_permission:manage_settings', 'role.level:5'])
+    Route::middleware(['role_or_permission:manage-settings', 'role.level:5'])
         ->get('settings', \App\Livewire\BranchDashboard\Settings\Index::class)
         ->name('settings.index');
+    
+    // PROFILE SETTINGS (All authenticated users)
+    Route::get('profile', \App\Livewire\BranchDashboard\Settings\Profile::class)
+        ->name('profile');
 
     // MD REPORTS (Super Admin Only)
     Route::middleware('role_or_permission:view_reports')->prefix('md-reports')->name('md-reports.')->group(function () {
@@ -168,15 +172,6 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
                 Route::get('/', \App\Livewire\BranchDashboard\Inventory\Callbacks\ApproveCallbacks::class)->name('index');
             });
 
-            // Inventory Reports
-            Route::prefix('reports')->name('reports.')->group(function () {
-                Route::get('/stock-levels', \App\Livewire\BranchDashboard\Inventory\Reports\StockLevels\Index::class)->name('stock-levels');
-                Route::get('/stock-movement', \App\Livewire\BranchDashboard\Inventory\Reports\StockMovement\Index::class)->name('stock-movement');
-                Route::get('/turnover', \App\Livewire\BranchDashboard\Inventory\Reports\StockTurnover\Index::class)->name('turnover');
-                Route::get('/stock-turnover', \App\Livewire\BranchDashboard\Inventory\Reports\StockTurnover\Index::class)->name('stock-turnover');
-                Route::get('/reorder', \App\Livewire\BranchDashboard\Inventory\Reports\Reorder\Index::class)->name('reorder');
-                Route::get('/variance', \App\Livewire\BranchDashboard\Inventory\Reports\Variance\Index::class)->name('variance');
-            });
         });
 
         // Supplier Management routes
@@ -201,12 +196,16 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
                 Route::prefix('request')->name('request.')->group(function () {
                     Route::get('/{deptSlug?}', \App\Livewire\BranchDashboard\Production\Request\Index::class)->name('index');
                     Route::get('/{deptSlug}/create', \App\Livewire\BranchDashboard\Production\Request\Create::class)->name('create');
+                    Route::get('/{deptSlug}/progress/{requestId}', \App\Livewire\BranchDashboard\Production\Request\ProductionProgressTracker::class)->name('progress');
                 });
 
                 // Daily Produce
                 Route::prefix('daily-produce')->name('daily-produce.')->group(function () {
                     Route::get('/{deptSlug}', \App\Livewire\BranchDashboard\Production\DailyProduce\Index::class)->name('index');
                 });
+
+                // Sales daily produce (sales requests to production)
+                Route::get('sales-daily-produce/{deptSlug}', \App\Livewire\BranchDashboard\Production\SalesDailyProduce\Index::class)->name('sales-daily-produce');
 
                 // Shift Closing - Production (department-based)
                 Route::prefix('shift-closing')->name('shift-closing.')->group(function () {
@@ -302,6 +301,11 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
                 Route::get('/accounts', \App\Livewire\BranchDashboard\Accounting\GlAccountList::class)->name('accounts');
             });
 
+            // Bank Accounts Management
+            Route::middleware('role_or_permission:view_bank_accounts,create_bank_accounts,edit_bank_accounts')->group(function () {
+                Route::get('/bank-accounts', \App\Livewire\BranchDashboard\Accounting\BankAccounts::class)->name('bank-accounts');
+            });
+
             // Accounting Period Management (Super Admin, MD, Admin)
             Route::middleware('role_or_permission:manage_periods')->group(function () {
                 Route::get('/periods', \App\Livewire\BranchDashboard\Accounting\PeriodManagement::class)->name('periods');
@@ -369,6 +373,12 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
                 Route::prefix('shift-closing')->name('shift-closing.')->middleware(['validate-sales-workflow'])->group(function () {
                     Route::get('/{salesDeptSlug?}', \App\Livewire\BranchDashboard\SalesDashboard\ShiftClosing\Index::class)->name('index');
                 });
+
+                // Callbacks - Sales callbacks management
+                Route::prefix('callbacks')->name('callbacks.')->group(function () {
+                    Route::get('/{salesDeptSlug?}', \App\Livewire\BranchDashboard\SalesDashboard\Callbacks\Index::class)->name('index');
+                    Route::get('/dispatch-callbacks/{salesDeptSlug?}', \App\Livewire\BranchDashboard\SalesDashboard\Callbacks\CreateDispatchCallback::class)->name('dispatch-callbacks');
+                });
             };
 
             // Expiry Alerts - shown after clock-in
@@ -383,9 +393,8 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
                 Route::get('/{salesDeptSlug?}', \App\Livewire\BranchDashboard\SalesDashboard\Dispatches\Index::class)->name('index');
             });
 
-            Route::prefix('callbacks')->name('callbacks.')->group(function () {
-                Route::get('/', \App\Livewire\BranchDashboard\SalesDashboard\Callbacks\Index::class)->name('index');
-                Route::get('/dispatch-callbacks', \App\Livewire\BranchDashboard\SalesDashboard\Callbacks\CreateDispatchCallback::class)->name('dispatch-callbacks');
+            Route::prefix('production-requests')->name('production-requests.')->group(function () {
+                Route::get('/{salesDeptSlug?}', \App\Livewire\BranchDashboard\SalesDashboard\ProductionRequests\Index::class)->name('index');
             });
 
             Route::get('/stock-monitor', \App\Livewire\BranchDashboard\SalesDashboard\StockMonitor::class)->name('stock-monitor');

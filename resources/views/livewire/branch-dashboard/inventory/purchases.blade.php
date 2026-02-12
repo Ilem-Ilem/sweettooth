@@ -199,12 +199,20 @@
                              <td class="px-3 py-2 text-xs text-gray-900 dark:text-zinc-100">{{ $purchase->supplier_name }}</td>
                              <td class="px-3 py-2 text-xs font-medium text-gray-900 dark:text-zinc-100">₦{{ number_format($purchase->landing_cost, 2) }}</td>
                              <td class="px-3 py-2 text-xs">
-                                 <span class="px-2 py-0.5 rounded-full text-xs font-medium
-                                 {{ $purchase->payment_status === 'paid' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : '' }}
-                                 {{ $purchase->payment_status === 'partial' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' : '' }}
-                                 {{ $purchase->payment_status === 'pending' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' : '' }}">
-                                     {{ ucfirst($purchase->payment_status) }}
-                                 </span>
+                                 <div class="flex items-center gap-2">
+                                     <select wire:change="updatePaymentStatus({{ $purchase->id }}, $event.target.value)"
+                                         class="px-2 py-1 text-xs rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100">
+                                         <option value="paid" {{ $purchase->payment_status === 'paid' ? 'selected' : '' }}>Paid</option>
+                                         <option value="partial" {{ $purchase->payment_status === 'partial' ? 'selected' : '' }}>Partial</option>
+                                         <option value="pending" {{ $purchase->payment_status === 'pending' ? 'selected' : '' }}>Pending</option>
+                                     </select>
+                                     <span class="px-2 py-0.5 rounded-full text-xs font-medium
+                                     {{ $purchase->payment_status === 'paid' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : '' }}
+                                     {{ $purchase->payment_status === 'partial' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' : '' }}
+                                     {{ $purchase->payment_status === 'pending' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' : '' }}">
+                                         {{ ucfirst($purchase->payment_status) }}
+                                     </span>
+                                 </div>
                              </td>
                              <td class="px-3 py-2 text-xs">
                                  <span class="px-2 py-0.5 rounded-full text-xs font-medium

@@ -195,6 +195,7 @@ class CreateProductionRequest extends Component
                     'recipe_id' => $item['recipe_id'] ?? null,
                     'priority' => $this->priority,
                     'planned_production_quantity' => $totalQuantity,
+                    'requested_units' => $totalQuantity,
                     'notes' => $this->notes . ($recipeName ? " | Product: {$recipeName} ({$batches} batches)" : ''),
                     'created_by_id' => auth()->id(),
                     'status' => 'pending',

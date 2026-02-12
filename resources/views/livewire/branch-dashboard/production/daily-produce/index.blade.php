@@ -27,7 +27,12 @@
             <div class="flex-1">
                 <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Select Shift to View/Edit</h3>
                 <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-                    @if($currentShift)
+                    @if($selectedShiftId === 'no-shift')
+                        Viewing: No Shift - Today's Requests
+                        <span class="ml-2 px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 text-xs rounded-full">
+                            {{ $noShiftRequestsCount ?? 0 }} production request(s)
+                        </span>
+                    @elseif($currentShift)
                         Viewing: {{ ucfirst($currentShift->shift_type) }} - {{ $currentShift->shift_date->format('M d, Y') }}
                         @if($productionRequestsCount > 0)
                             <span class="ml-2 px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 text-xs rounded-full">
@@ -52,12 +57,12 @@
                     <option value="">-- Select Shift --</option>
                     @if($selectedShiftId === 'no-shift')
                     <option value="no-shift" selected>
-                        🔧 No Shift (Super Admin) - Today's Requests
+                        🔧 No Shift (Super Admin) - Today's Requests ({{ $noShiftRequestsCount ?? 0 }})
                     </option>
                     @else
-                    @if(count($availableShifts) == 0)
+                    @if(($noShiftRequestsCount ?? 0) > 0 || count($availableShifts) == 0)
                         <option value="no-shift">
-                            🔧 No Shift (Super Admin) - Today's Requests
+                            🔧 No Shift (Super Admin) - Today's Requests ({{ $noShiftRequestsCount ?? 0 }})
                         </option>
                     @endif
                     @endif
@@ -70,7 +75,7 @@
                 </select>
                 <button wire:click="saveAllQuantities" wire:loading.attr="disabled"
                         class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium flex items-center gap-2"
-                        :class="{ 'opacity-75 cursor-not-allowed': $wire.loading }">
+                        :class="{ 'opacity-75': $wire.loading }">
                     <span wire:loading.remove wire:target="saveAllQuantities" class="flex items-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
@@ -159,9 +164,26 @@
                 </div>
                 <div class="flex-1">
                     <div class="flex items-center gap-2 flex-wrap">
-                        <span class="text-xs font-mono px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded">
-                            {{ $produce['item_request_number'] }}
-                        </span>
+                        @if(!empty($produce['production_request_number']))
+                            <span class="text-xs font-mono px-2 py-1 bg-zinc-100 text-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 rounded">
+                                {{ $produce['production_request_number'] }}
+                            </span>
+                        @endif
+                        @if(!empty($produce['item_request_number']))
+                            <span class="text-xs font-mono px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded">
+                                {{ $produce['item_request_number'] }}
+                            </span>
+                        @endif
+                        @if(!empty($produce['request_source_label']))
+                            <span class="text-xs px-2 py-1 rounded {{ $produce['request_source_class'] }}">
+                                {{ $produce['request_source_label'] }}
+                            </span>
+                        @endif
+                        @if(!empty($produce['sales_department_name']) && !empty($produce['is_sales_request']))
+                            <span class="text-xs px-2 py-1 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200">
+                                To: {{ $produce['sales_department_name'] }}
+                            </span>
+                        @endif
                         <span class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                             {{ $produce['recipe_name'] }}
                         </span>
@@ -176,6 +198,14 @@
                         <span class="text-xs text-zinc-600 dark:text-zinc-400">
                             Requested: <strong>{{ number_format($produce['requested_quantity'], 2) }}</strong>
                         </span>
+                        @if(!empty($produce['requested_units']) && $produce['requested_units'] != $produce['requested_quantity'])
+                            <span class="text-xs text-orange-600 dark:text-orange-400">
+                                Sales Requested: <strong>{{ number_format($produce['requested_units'], 2) }}</strong>
+                            </span>
+                            <span class="text-xs text-emerald-600 dark:text-emerald-400">
+                                Excess to Stock: <strong>{{ number_format($produce['excess_to_stock'], 2) }}</strong>
+                            </span>
+                        @endif
                         <span class="text-xs text-blue-600 dark:text-blue-400">
                             Produced: <strong>{{ number_format($produce['produced_quantity'], 2) }}</strong>
                         </span>
@@ -280,6 +310,16 @@
                                 <span class="text-zinc-600 dark:text-zinc-400">Requested:</span>
                                 <span class="font-semibold text-blue-600 dark:text-blue-400">{{ number_format($produce['requested_quantity'], 2) }}</span>
                             </div>
+                            @if(!empty($produce['requested_units']) && $produce['requested_units'] != $produce['requested_quantity'])
+                            <div class="flex justify-between">
+                                <span class="text-zinc-600 dark:text-zinc-400">Sales Requested:</span>
+                                <span class="font-semibold text-orange-600 dark:text-orange-400">{{ number_format($produce['requested_units'], 2) }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-zinc-600 dark:text-zinc-400">Excess to Stock:</span>
+                                <span class="font-semibold text-emerald-600 dark:text-emerald-400">{{ number_format($produce['excess_to_stock'], 2) }}</span>
+                            </div>
+                            @endif
                             <div class="flex justify-between pt-2 border-t border-zinc-200 dark:border-zinc-700">
                                 <span class="text-zinc-600 dark:text-zinc-400">Produced:</span>
                                 <span class="font-bold text-blue-600 dark:text-blue-400">{{ number_format($produce['produced_quantity'], 2) }}</span>
@@ -503,12 +543,20 @@
                                                      }
                                                  }
                                                  $availableForDispatch = max(0, $batch['quantity_approved'] - $forOrderValue);
-                                             @endphp
-                                             <div class="space-y-1">
-                                                 @if(isset($batchDispatches[$batch['id']]) && count($batchDispatches[$batch['id']]) > 0)
-                                                     @php
-                                                         $runningAllocated = 0;
-                                                     @endphp
+                                         @endphp
+                                         <div class="space-y-1">
+                                             @if(!empty($batch['allowed_sales_department_id']))
+                                                 @php
+                                                     $lockedDept = collect($salesDepartments)->firstWhere('id', $batch['allowed_sales_department_id']);
+                                                 @endphp
+                                                 <p class="text-[10px] text-emerald-700 dark:text-emerald-300">
+                                                     Locked to: {{ $lockedDept['name'] ?? 'Requesting Sales Department' }}
+                                                 </p>
+                                             @endif
+                                             @if(isset($batchDispatches[$batch['id']]) && count($batchDispatches[$batch['id']]) > 0)
+                                                 @php
+                                                     $runningAllocated = 0;
+                                                 @endphp
                                                      @foreach($batchDispatches[$batch['id']] as $index => $dispatch)
                                                          @php
                                                              $currentQuantity = (float) ($dispatch['quantity'] ?? 0);
@@ -518,11 +566,22 @@
                                                          @endphp
                                                          <div class="flex items-center gap-1 text-xs">
                                                              <select wire:model.live="batchDispatches.{{ $batch['id'] }}.{{ $index }}.sales_department_id"
-                                                                     @disabled($availableForDispatch <= 0)
+                                                                     @disabled($availableForDispatch <= 0 || !empty($batch['allowed_sales_department_id']))
                                                                      class="flex-1 px-1 py-0.5 text-xs border border-green-300 dark:border-green-600 rounded bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100">
-                                                                 @foreach($salesDepartments as $dept)
-                                                                     <option value="{{ $dept['id'] }}">{{ $dept['name'] }}</option>
-                                                                 @endforeach
+                                                                 @if(!empty($batch['allowed_sales_department_id']))
+                                                                     @php
+                                                                         $allowedDept = collect($salesDepartments)->firstWhere('id', $batch['allowed_sales_department_id']);
+                                                                     @endphp
+                                                                     @if($allowedDept)
+                                                                         <option value="{{ $allowedDept['id'] }}">{{ $allowedDept['name'] }}</option>
+                                                                     @else
+                                                                         <option value="{{ $batch['allowed_sales_department_id'] }}">Sales Dept {{ $batch['allowed_sales_department_id'] }}</option>
+                                                                     @endif
+                                                                 @else
+                                                                     @foreach($salesDepartments as $dept)
+                                                                         <option value="{{ $dept['id'] }}">{{ $dept['name'] }}</option>
+                                                                     @endforeach
+                                                                 @endif
                                                              </select>
                                                              <input type="number" step="0.01" min="0" max="{{ $remainingForThisDispatch }}"
                                                                     wire:model.live="batchDispatches.{{ $batch['id'] }}.{{ $index }}.quantity"
@@ -989,7 +1048,7 @@
                         <label class="block text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">
                             Number of Batches Produced <span class="text-red-500">*</span>
                         </label>
-                        <input type="number" step="1" min="1" wire:model.live="batchesProduced"
+                        <input type="number" step="0.01" min="0.01" wire:model.live="batchesProduced"
                                placeholder="e.g., 1, 2, 3..."
                                class="w-full px-4 py-2 border border-blue-400 dark:border-blue-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500 text-lg font-semibold">
                         <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">

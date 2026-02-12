@@ -9,6 +9,37 @@
                 </div>
             </div>
         </div>
+        
+        <!-- Quick Create Appraisal Section -->
+        <div class="px-6 py-4 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                    <h3 class="text-lg font-medium text-blue-800 dark:text-blue-200">Start New Appraisal</h3>
+                    <p class="text-sm text-blue-700 dark:text-blue-300 mt-1">Select an employee to begin their performance evaluation</p>
+                </div>
+                <div class="flex flex-col sm:flex-row gap-2">
+                    @if($employees->count() > 0)
+                        <select wire:model="selectedEmployeeForAppraisal" 
+                                class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 min-w-[200px]">
+                            <option value="">Select Employee</option>
+                            @foreach($employees as $employee)
+                                <option value="{{ $employee->id }}">{{ $employee->name }} ({{ $employee->email }})</option>
+                            @endforeach
+                        </select>
+                        <button wire:click="startAppraisal" 
+                                :disabled="!selectedEmployeeForAppraisal"
+                                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                            Start Appraisal
+                        </button>
+                    @else
+                        <p class="text-sm text-blue-700 dark:text-blue-300 italic">No employees available to appraise</p>
+                    @endif
+                </div>
+            </div>
+        </div>
 
         <!-- Filters -->
         <div class="px-6 py-4 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-700">
@@ -108,7 +139,7 @@
                             </div>
 
                              <div class="mt-6 flex gap-2">
-                                 @can('manage_organization')
+                                @can('manage-organization')
                                  <a href="{{ route('branch-dashboard.appraise-employee', ['employee' => $employee->id, 'b_id' => request()->query('b_id')]) }}" class="flex-1 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition text-center">
                                      Appraise
                                  </a>

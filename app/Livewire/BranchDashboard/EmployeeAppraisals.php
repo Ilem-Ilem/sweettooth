@@ -17,6 +17,7 @@ class EmployeeAppraisals extends Component
     public $departmentFilter = '';
     public $selectedEmployee = null;
     public $showAppraisalModal = false;
+    public $selectedEmployeeForAppraisal = null;
 
     // Appraisal form data
     public $appraisalData = [
@@ -78,6 +79,38 @@ class EmployeeAppraisals extends Component
         } catch (\Exception $e) {
             session()->flash('error', 'Unable to open appraisal form. Please try again.');
         }
+    }
+
+    public function startAppraisal()
+    {
+        if (!$this->selectedEmployeeForAppraisal) {
+            session()->flash('error', 'Please select an employee first.');
+            return;
+        }
+
+        $branchId = request()->query('b_id')
+                  ?? auth()->user()->branch_id
+                  ?? auth()->user()->last_accessed_branch_id;
+
+        // Check if appraisal already exists for this employee in active cycle
+        $existingAppraisal = Appraisal::where('employee_id', $this->selectedEmployeeForAppraisal)
+            ->whereHas('appraisalCycle', function($q) {
+                $q->where('status', 'active');
+            })
+            ->first();
+
+        if ($existingAppraisal) {
+            return redirect()->route('branch-dashboard.appraise-employee', [
+                'employee' => $this->selectedEmployeeForAppraisal,
+                'b_id' => $branchId,
+                'appraisal' => $existingAppraisal->id
+            ]);
+        }
+
+        return redirect()->route('branch-dashboard.appraise-employee', [
+            'employee' => $this->selectedEmployeeForAppraisal,
+            'b_id' => $branchId
+        ]);
     }
 
     public function submitAppraisal()

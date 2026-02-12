@@ -3,6 +3,7 @@
 namespace App\Livewire\BranchDashboard\Accounting\Reports;
 
 use App\Models\DepartmentReport;
+use App\Models\GlEntry;
 use App\Services\Reports\ReportRegistry;
 use Carbon\Carbon;
 use Livewire\Attributes\Layout;
@@ -32,6 +33,8 @@ class Unified extends Component
     public $savedReports = [];
 
     public $availableReports = [];
+    public bool $hasPostedEntries = false;
+    public bool $hasReportRows = false;
 
     public function mount(): void
     {
@@ -125,6 +128,7 @@ class Unified extends Component
             $this->summaryMetrics = $payload['summary_metrics'] ?? ($this->reportData['summary_metrics'] ?? []);
             $this->tablesData = $payload['tables'] ?? [];
             $this->narrative = $payload['narrative'] ?? [];
+            $this->updateDiagnostics();
 
             $this->toast()->success('Accounting report generated successfully')->send();
         } catch (\Exception $e) {
@@ -235,6 +239,30 @@ class Unified extends Component
         $this->tablesData = [];
         $this->narrative = [];
         $this->generatedReport = null;
+        $this->hasPostedEntries = false;
+        $this->hasReportRows = false;
+    }
+
+    private function updateDiagnostics(): void
+    {
+        $query = GlEntry::query()->where('status', 'posted');
+
+        if ($this->branchId) {
+            $query->where('branch_id', $this->branchId);
+        }
+
+        if ($this->customDateFrom) {
+            $query->whereDate('entry_date', '>=', $this->customDateFrom);
+        }
+
+        if ($this->customDateTo) {
+            $query->whereDate('entry_date', '<=', $this->customDateTo);
+        }
+
+        $this->hasPostedEntries = $query->exists();
+
+        $this->hasReportRows = collect($this->tablesData)
+            ->some(fn ($table) => !empty($table['rows']));
     }
 
     public function render()

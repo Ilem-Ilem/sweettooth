@@ -18,13 +18,9 @@ class HRWorkforceOverviewDefinition implements ReportDefinition
             'category' => 'hr',
             'requires_department' => false,
             'permissions' => [
-                'manage_organization',
-                'manage-hr',
-                'manage_hr',
+                'manage-organization',
                 'manage-employees',
-                'manage_employees',
                 'view-hr-reports',
-                'view_hr_reports',
             ],
             'order' => 1,
         ];

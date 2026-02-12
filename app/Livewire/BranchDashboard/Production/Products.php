@@ -9,6 +9,7 @@ use App\Models\Employee;
 use App\Models\Product;
 use App\Models\ProductType;
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 use function is_super_admin;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
@@ -76,6 +77,8 @@ class Products extends BaseComponent
 
     public User|Employee|null $employee = null;
 
+    private int $cacheTtlMinutes = 5;
+
     // Audit modal for approval requests
     public bool $showAuditModal = false;
 
@@ -114,7 +117,7 @@ class Products extends BaseComponent
 
     protected function getAllSelectableIds(): array
     {
-        return $this->getFilteredQuery()->select('id')->pluck('id')->toArray();
+        return $this->getFilteredQuery()->select('products.id')->pluck('id')->toArray();
     }
 
     public function getBranchId()
@@ -126,8 +129,7 @@ protected function getFilteredQuery()
     {
         $departmentId = null;
         if ($this->dept_slug) {
-            // Cache department lookup to avoid repeated queries
-            $department = cache()->remember("department_by_slug_{$this->dept_slug}", 3600, function() {
+            $department = Cache::remember("department_by_slug_{$this->dept_slug}", 3600, function () {
                 return Department::where('slug', $this->dept_slug)->first();
             });
 
@@ -137,12 +139,31 @@ protected function getFilteredQuery()
         }
 
         return Product::query()
-            ->select('products.*') // Explicitly select products table to avoid ambiguity
-            ->with(['productType.department', 'unitOfMeasure', 'recipes'])
+            ->select([
+                'products.id',
+                'products.name',
+                'products.sku',
+                'products.price',
+                'products.is_active',
+                'products.is_available',
+                'products.shelf_life_days',
+                'products.product_type_id',
+                'products.uom_id',
+                'products.created_at',
+                'products.branch_id',
+            ])
+            ->with([
+                'productType:id,name,code,department_id',
+                'productType.department:id,name,slug',
+                'unitOfMeasure:id,name,symbol',
+            ])
+            ->withCount('recipes')
             ->when($this->search, function ($query) {
-                $query->where('name', 'like', '%'.$this->search.'%')
-                    ->orWhere('sku', 'like', '%'.$this->search.'%')
-                    ->orWhere('description', 'like', '%'.$this->search.'%');
+                $query->where(function ($q) {
+                    $q->where('products.name', 'like', '%'.$this->search.'%')
+                        ->orWhere('products.sku', 'like', '%'.$this->search.'%')
+                        ->orWhere('products.description', 'like', '%'.$this->search.'%');
+                });
             })
             ->when($this->filterProductType, function ($query) {
                 $query->where('product_type_id', $this->filterProductType);
@@ -235,19 +256,45 @@ protected function getFilteredQuery()
 
     public function render()
     {
-        $rows = $this->getFilteredQuery()->paginate($this->quantity ?? 10);
+        $rows = Cache::remember($this->getListCacheKey(), now()->addMinutes($this->cacheTtlMinutes), function () {
+            return $this->getFilteredQuery()->paginate($this->quantity ?? 10);
+        });
 
-        // For Super Admin, show all product types, otherwise filter by department
-        if (is_super_admin()) {
-            $productTypes = ProductType::with('department')->active()->ordered()->get();
-        } else {
-            $department = Department::where('slug', $this->dept_slug)->first();
-            $productTypes = ProductType::with('department')->where('department_id', $department->id)->active()->ordered()->get();
-        }
-        $departments = Department::whereHas('category', function ($q) {
-            $q->where('name', 'Production');
-        })->orderBy('name')->get();
-        $unitOfMeasures = \App\Models\UnitOfMeasure::orderBy('name')->get();
+        $dropdownCacheKey = 'products_dropdowns_' . ($this->dept_slug ?? 'all');
+        [
+            'productTypes' => $productTypes,
+            'departments' => $departments,
+            'unitOfMeasures' => $unitOfMeasures,
+        ] = Cache::remember($dropdownCacheKey, now()->addHour(), function () {
+            if (is_super_admin()) {
+                $productTypes = ProductType::with('department:id,name')
+                    ->active()
+                    ->ordered()
+                    ->select('id', 'name', 'code', 'department_id')
+                    ->get();
+            } else {
+                $department = Department::where('slug', $this->dept_slug)->first();
+                $productTypes = ProductType::with('department:id,name')
+                    ->where('department_id', $department?->id)
+                    ->active()
+                    ->ordered()
+                    ->select('id', 'name', 'code', 'department_id')
+                    ->get();
+            }
+
+            $departments = Department::whereHas('category', function ($q) {
+                $q->where('name', 'Production');
+            })
+                ->orderBy('name')
+                ->select('id', 'name', 'slug')
+                ->get();
+
+            $unitOfMeasures = \App\Models\UnitOfMeasure::orderBy('name')
+                ->select('id', 'name', 'symbol')
+                ->get();
+
+            return compact('productTypes', 'departments', 'unitOfMeasures');
+        });
 
         // Determine employee's department
         if (is_super_admin()) {
@@ -383,6 +430,7 @@ protected function getFilteredQuery()
             }
 
             $this->closeModal();
+            $this->clearCache();
             // Refresh the component to show updated data
             $this->dispatch('refresh');
         } catch (\Exception $e) {
@@ -426,6 +474,7 @@ protected function getFilteredQuery()
 
                 // Clear selection after successful deletion
                 $this->resetBulkSelection();
+                $this->clearCache();
             } catch (\Exception $e) {
                 $this->dialog()->error('Error', 'Failed to delete product: '.$e->getMessage())->send();
             }
@@ -489,6 +538,7 @@ protected function getFilteredQuery()
 
         // Clear selection after successful deletion
         $this->resetBulkSelection();
+        $this->clearCache();
     }
 
     public function cancelledBulkDelete(string $message): void
@@ -570,5 +620,50 @@ protected function getFilteredQuery()
         $this->auditAction = null;
         $this->pendingItemId = null;
         $this->pendingItemData = [];
+    }
+
+    private function cacheVersionKey(): string
+    {
+        return 'products_cache_version_' . auth()->id();
+    }
+
+    private function getCacheVersion(): int
+    {
+        return Cache::get($this->cacheVersionKey(), 1);
+    }
+
+    private function incrementCacheVersion(): void
+    {
+        Cache::put($this->cacheVersionKey(), $this->getCacheVersion() + 1, now()->addDay());
+    }
+
+    private function getListCacheKey(): string
+    {
+        $key = implode('_', [
+            'products_list',
+            auth()->id(),
+            $this->getCacheVersion(),
+            $this->getBranchId(),
+            $this->dept_slug,
+            $this->quantity,
+            $this->search,
+            $this->filterProductType,
+            $this->filterDepartment,
+            $this->filterStatus,
+            $this->currentPage(),
+        ]);
+
+        return md5($key);
+    }
+
+    private function clearCache(): void
+    {
+        $this->incrementCacheVersion();
+        Cache::forget('products_dropdowns_' . ($this->dept_slug ?? 'all'));
+    }
+
+    private function currentPage(): int
+    {
+        return (int) $this->getPage();
     }
 }

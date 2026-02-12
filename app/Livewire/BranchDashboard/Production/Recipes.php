@@ -9,6 +9,7 @@ use App\Models\Item;
 use App\Models\Product;
 use App\Models\Recipe;
 use App\Services\ProductionAuditService;
+use Illuminate\Support\Facades\Cache;
 use function is_super_admin;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
@@ -56,6 +57,8 @@ class Recipes extends BaseComponent
     public string $auditReason = '';
 
     public ?int $pendingRecipeId = null;
+
+    private int $cacheTtlMinutes = 5;
 
     public function mount($deptSlug = null)
     {
@@ -113,20 +116,40 @@ class Recipes extends BaseComponent
         $branchId = $this->getBranchId();
 
         return Recipe::query()
+            ->select([
+                'id',
+                'product_name',
+                'sku',
+                'department_id',
+                'product_type_id',
+                'yield_quantity',
+                'uom_id',
+                'cost_per_unit',
+                'preparation_time',
+                'status',
+                'branch_id',
+                'created_at',
+            ])
             ->where('branch_id', $branchId)
             ->when(!is_super_admin(), function ($query) {
                 $query->where('department_id', $this->department->id);
             })
-            ->with(['department:id,name,slug', 'createdBy:id,name,email', 'ingredients.item', 'productType:id,name']) // Select only needed columns
+            ->with([
+                'department:id,name,slug',
+                'createdBy:id,name,email',
+                'productType:id,name',
+                'unitOfMeasure:id,symbol',
+            ])
+            ->withCount('ingredients')
             ->when($this->search, function ($query) {
                 $searchTerm = trim($this->search);
                 if (!empty($searchTerm)) {
-                    $query->where(function($q) use ($searchTerm) {
+                    $query->where(function ($q) use ($searchTerm) {
                         $q->where('product_name', 'like', '%'.$searchTerm.'%')
-                          ->orWhere('sku', 'like', '%'.$searchTerm.'%')
-                          ->orWhereHas('productType', function($subQuery) use ($searchTerm) {
-                              $subQuery->where('name', 'like', '%'.$searchTerm.'%');
-                          });
+                            ->orWhere('sku', 'like', '%'.$searchTerm.'%')
+                            ->orWhereHas('productType', function ($subQuery) use ($searchTerm) {
+                                $subQuery->where('name', 'like', '%'.$searchTerm.'%');
+                            });
                     });
                 }
             })
@@ -169,20 +192,29 @@ class Recipes extends BaseComponent
 
     public function render()
     {
-        $rows = $this->getFilteredQuery()->paginate($this->quantity ?? 10);
-        $branchId = $this->getBranchId();
+        $rows = Cache::remember($this->getCacheKey(), now()->addMinutes($this->cacheTtlMinutes), function () {
+            return $this->getFilteredQuery()->paginate($this->quantity ?? 10);
+        });
 
-        // Filter products by department
-        $products = Product::active()
-            ->whereHas('productType', function ($q) {
-                $q->where('department_id', $this->department->id);
-            })
-            ->orderBy('name')
-            ->pluck('id')
-            ->pluck('name')
-            ->toArray();
+        $dropdownCacheKey = 'recipes_dropdowns_' . ($this->dept_slug ?? 'all');
+        [
+            'products' => $products,
+            'items' => $items,
+        ] = Cache::remember($dropdownCacheKey, now()->addHour(), function () {
+            $products = Product::active()
+                ->whereHas('productType', function ($q) {
+                    $q->where('department_id', $this->department->id);
+                })
+                ->orderBy('name')
+                ->select('id', 'name')
+                ->get();
 
-        $items = Item::orderBy('name')->get();
+            $items = Item::orderBy('name')
+                ->select('id', 'name')
+                ->get();
+
+            return compact('products', 'items');
+        });
 
         return view('livewire.branch-dashboard.production.recipes', [
             'headers' => [
@@ -268,6 +300,7 @@ class Recipes extends BaseComponent
                 $recipe->delete();
                 $this->dialog()->success('Success', 'Recipe deleted successfully!')->send();
                 $this->recipeId = null;
+                $this->clearCache();
             } catch (\Exception $e) {
                 $this->dialog()->error('Error', 'Failed to delete recipe: '.$e->getMessage())->send();
             }
@@ -331,6 +364,7 @@ class Recipes extends BaseComponent
         }
         $this->dialog()->success('Success', 'Recipes deleted successfully!')->send();
         $this->selectedIds = [];
+        $this->clearCache();
     }
 
     public function cancelledBulkDelete(string $message): void
@@ -381,5 +415,48 @@ class Recipes extends BaseComponent
         $this->auditReason = '';
         $this->auditAction = null;
         $this->pendingRecipeId = null;
+    }
+
+    private function cacheVersionKey(): string
+    {
+        return 'recipes_cache_version_' . auth()->id();
+    }
+
+    private function getCacheVersion(): int
+    {
+        return Cache::get($this->cacheVersionKey(), 1);
+    }
+
+    private function incrementCacheVersion(): void
+    {
+        Cache::put($this->cacheVersionKey(), $this->getCacheVersion() + 1, now()->addDay());
+    }
+
+    private function getCacheKey(): string
+    {
+        $key = implode('_', [
+            'recipes_list',
+            auth()->id(),
+            $this->getCacheVersion(),
+            $this->getBranchId(),
+            $this->dept_slug,
+            $this->quantity,
+            $this->search,
+            $this->filterStatus,
+            $this->currentPage(),
+        ]);
+
+        return md5($key);
+    }
+
+    private function clearCache(): void
+    {
+        $this->incrementCacheVersion();
+        Cache::forget('recipes_dropdowns_' . ($this->dept_slug ?? 'all'));
+    }
+
+    private function currentPage(): int
+    {
+        return (int) $this->getPage();
     }
 }

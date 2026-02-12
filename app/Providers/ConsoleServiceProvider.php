@@ -23,6 +23,10 @@ class ConsoleServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 \App\Console\Commands\ImportInventoryData::class,
+                \App\Console\Commands\PurgeLegacyRoles::class,
+                \App\Console\Commands\GrantAllPermissionsToUser::class,
+                \App\Console\Commands\GrantSuperAdminRoleToUser::class,
+                \App\Console\Commands\GrantRoleAndPermissionsToUser::class,
             ]);
         }
     }

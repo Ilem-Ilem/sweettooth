@@ -27,8 +27,8 @@ class BranchMiddleware
         $b_id = $request->query('b_id');
         $user = Auth::user();
 
-        // Use the unified AuthService to check for super admin status
-        $isSuperAdmin = AuthService::isSuperAdmin();
+        // Use the unified helper to check for super admin status (most robust)
+        $isSuperAdmin = function_exists('is_super_admin') ? is_super_admin() : AuthService::isSuperAdmin();
 
         if ($isSuperAdmin) {
             // MD and other super admins can access all branches
@@ -53,15 +53,17 @@ class BranchMiddleware
             // Branch-specific users (Admin) - restricted to their assigned branch
             if (empty($b_id)) {
                 // No branch specified - use their assigned branch
-                if ($user->branch_id) {
-                    $b_id = $user->branch_id;
+                $resolvedBranchId = function_exists('get_user_branch_id') ? get_user_branch_id() : ($user->branch_id ?? null);
+                if ($resolvedBranchId) {
+                    $b_id = $resolvedBranchId;
                     set_current_branch($b_id);
                 } else {
                     abort(403, 'Branch parameter required');
                 }
             } else {
                 // User specified a branch - it must match their assigned branch
-                if ($user->branch_id !== $b_id) {
+                $resolvedBranchId = function_exists('get_user_branch_id') ? get_user_branch_id() : ($user->branch_id ?? null);
+                if ($resolvedBranchId !== $b_id) {
                     abort(403, 'Cannot access this branch');
                 }
                 set_current_branch($b_id);

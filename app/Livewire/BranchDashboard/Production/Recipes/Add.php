@@ -166,9 +166,13 @@ class Add extends Component
                 $this->yield_quantity = $product->recipe_yield ?? 1;
                 $this->uom = $product->unitOfMeasure?->symbol ?? 'grams';
                 
+                // Get preparation time from the first recipe associated with the product
+                $primaryRecipe = $product->recipes()->first();
+                $this->preparation_time = $primaryRecipe?->preparation_time ?? null;
+
                 // Auto-generate SKU
                 $this->generateSku();
-                
+
                 // Auto-populate product type from product's actual ProductType relationship
                 if ($product->productType) {
                     // Store the product_type_id for later use in validation

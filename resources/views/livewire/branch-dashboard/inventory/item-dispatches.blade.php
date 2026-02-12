@@ -361,6 +361,21 @@
 
             <div class="flex-1 overflow-y-auto px-6 py-4 scrollbar-thin">
                 <div class="space-y-4">
+                    @if(!empty($modalError))
+                        <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-200 text-sm px-4 py-3 rounded">
+                            {{ $modalError }}
+                        </div>
+                    @endif
+                    @if(!empty($modalWarning))
+                        <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-200 text-sm px-4 py-3 rounded">
+                            {{ $modalWarning }}
+                        </div>
+                    @endif
+                    @if(!empty($modalSuccess))
+                        <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-200 text-sm px-4 py-3 rounded">
+                            {{ $modalSuccess }}
+                        </div>
+                    @endif
                     @if(!empty($dispatchedItems))
                     <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden">
                         <div class="overflow-x-auto">
@@ -378,7 +393,9 @@
                                 </thead>
                                 <tbody>
                                     @foreach($dispatchedItems as $index => $item)
-                                    <tr class="border-t border-zinc-200 dark:border-zinc-700 {{ $item['is_fully_dispatched'] && $item['is_fully_approved'] ? 'bg-green-50 dark:bg-green-900/10' : '' }}">
+                                    <tr class="border-t border-zinc-200 dark:border-zinc-700
+                                        {{ $item['is_fully_dispatched'] && $item['is_fully_approved'] ? 'bg-green-50 dark:bg-green-900/10' : '' }}
+                                        {{ !empty($approvalBlockers[$item['detail_id']] ?? false) ? 'bg-red-50 dark:bg-red-900/20' : '' }}">
                                         <!-- Item Name -->
                                         <td class="px-3 py-3">
                                             <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $item['item_name'] }}</div>

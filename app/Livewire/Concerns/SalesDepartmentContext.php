@@ -25,6 +25,12 @@ trait SalesDepartmentContext
         $this->loadBranchContext();
 
         if (!$this->salesDeptSlug) {
+            $this->salesDeptSlug = request()->query('sales_dept_slug')
+                ?? request()->query('dept_slug')
+                ?? request()->query('deptSlug');
+        }
+
+        if (!$this->salesDeptSlug) {
             $this->salesDeptSlug = $this->getEmployeeDepartmentSlug();
         }
 
@@ -242,28 +248,7 @@ trait SalesDepartmentContext
             return false;
         }
 
-        // Check if department name contains sales-related terms
-        $salesTerms = ['sales', 'store', 'till', 'pos', 'corner', 'retail', 'counter', 'service'];
-        $deptName = strtolower($department->name ?? '');
-        $deptSlug = strtolower($department->slug ?? '');
-
-        foreach ($salesTerms as $term) {
-            if (str_contains($deptName, $term) || str_contains($deptSlug, $term)) {
-                return true;
-            }
-        }
-
-        // Check if department category is sales-related
-        if ($department->category) {
-            $categoryName = strtolower($department->category->name ?? '');
-            foreach ($salesTerms as $term) {
-                if (str_contains($categoryName, $term)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        return strtolower($department->category?->name ?? '') === 'sales';
     }
 
     /**
@@ -272,32 +257,8 @@ trait SalesDepartmentContext
     protected function getAvailableSalesDepartments(): \Illuminate\Support\Collection
     {
         return Department::where('branch_id', $this->branchId)
-            ->where(function($query) {
-                $query->where('name', 'like', '%Sales%')
-                      ->orWhere('name', 'like', '%Store%')
-                      ->orWhere('name', 'like', '%Till%')
-                      ->orWhere('name', 'like', '%POS%')
-                      ->orWhere('name', 'like', '%Corner%')
-                      ->orWhere('name', 'like', '%Retail%')
-                      ->orWhere('name', 'like', '%Counter%')
-                      ->orWhere('name', 'like', '%Service%')
-                      ->orWhere('slug', 'like', '%sales%')
-                      ->orWhere('slug', 'like', '%store%')
-                      ->orWhere('slug', 'like', '%till%')
-                      ->orWhere('slug', 'like', '%pos%')
-                      ->orWhere('slug', 'like', '%corner%')
-                      ->orWhere('slug', 'like', '%retail%')
-                      ->orWhere('slug', 'like', '%counter%')
-                      ->orWhere('slug', 'like', '%service%');
-            })
-            ->orWhere(function($query) {
-                // Or departments that have 'sales' in their category
-                $query->whereHas('category', function($subQuery) {
-                    $subQuery->where('name', 'like', '%Sales%')
-                             ->orWhere('name', 'like', '%Retail%')
-                             ->orWhere('name', 'like', '%POS%')
-                             ->orWhere('name', 'like', '%Service%');
-                });
+            ->whereHas('category', function($subQuery) {
+                $subQuery->where('name', 'Sales');
             })
             ->get();
     }

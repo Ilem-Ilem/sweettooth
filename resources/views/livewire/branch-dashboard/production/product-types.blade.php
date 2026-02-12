@@ -143,8 +143,8 @@
 
         @interact('column_department', $row)
             <div>
-                <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $row->department->name }}</div>
-                <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $row->department->category->name }}</div>
+                <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $row->department?->name ?? 'N/A' }}</div>
+                <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $row->department?->category?->name ?? 'N/A' }}</div>
             </div>
         @endinteract
 

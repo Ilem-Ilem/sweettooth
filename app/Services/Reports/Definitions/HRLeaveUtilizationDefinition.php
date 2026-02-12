@@ -17,13 +17,9 @@ class HRLeaveUtilizationDefinition implements ReportDefinition
             'category' => 'hr',
             'requires_department' => false,
             'permissions' => [
-                'manage_organization',
-                'manage-hr',
-                'manage_hr',
+                'manage-organization',
                 'manage-leave',
-                'manage_leave',
                 'view-hr-reports',
-                'view_hr_reports',
             ],
             'order' => 2,
         ];

@@ -13,6 +13,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Livewire\WithPagination;
 use TallStackUi\Traits\Interactions;
+use function is_super_admin;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class CreateDispatchCallback extends BaseComponent
@@ -36,6 +37,7 @@ class CreateDispatchCallback extends BaseComponent
     public ?string $selectedSalesShiftId = null;
     public $availableShifts = [];
     public $stockDate;
+    public bool $isSuperAdmin = false;
 
     // Callback form
     public $showCallbackModal = false;
@@ -95,6 +97,7 @@ class CreateDispatchCallback extends BaseComponent
     public function mount()
     {
         $this->stockDate = \Carbon\Carbon::today()->format('Y-m-d');
+        $this->isSuperAdmin = is_super_admin();
         $this->loadBranchAndDepartment();
         $this->loadAvailableShifts();
         $this->loadCurrentSalesShift();
@@ -145,6 +148,10 @@ class CreateDispatchCallback extends BaseComponent
 
     protected function loadCurrentSalesShift()
     {
+        if ($this->isSuperAdmin) {
+            return;
+        }
+
         $employee = auth()->user();
 
         // First try to find active sales shift for this employee

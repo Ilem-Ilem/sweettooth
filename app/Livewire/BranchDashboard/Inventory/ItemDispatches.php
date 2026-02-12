@@ -43,6 +43,10 @@ class ItemDispatches extends Component
     public $requestId;
 
     public $dispatchedItems = [];
+    public ?string $modalError = null;
+    public ?string $modalWarning = null;
+    public ?string $modalSuccess = null;
+    public array $approvalBlockers = [];
 
     protected $rules = [
         'dispatchedItems.*.approve_quantity' => 'nullable|numeric|min:0',
@@ -115,6 +119,12 @@ class ItemDispatches extends Component
         // $this->authorize('dispatch-items'); // TODO: Enable permissions after testing
         $branchId = $this->getBranchId();
 
+        if (! $this->showDispatchModal) {
+            $this->modalError = null;
+            $this->modalWarning = null;
+            $this->modalSuccess = null;
+            $this->approvalBlockers = [];
+        }
         $request = ItemRequest::with('requestDetails.item')
             ->where('id', $requestId)
             ->firstOrFail();
@@ -175,23 +185,56 @@ class ItemDispatches extends Component
         $this->validate();
 
         $branchId = $this->getBranchId();
+        $this->modalError = null;
+        $this->modalWarning = null;
+        $this->modalSuccess = null;
+        $this->approvalBlockers = [];
 
         if (empty($this->dispatchedItems) || ! is_array($this->dispatchedItems)) {
-            session()->flash('error', 'No items to approve.');
+            $this->modalError = 'No items to approve.';
 
             return;
         }
 
+        // If any item is not fully approvable, block all approvals
+        $insufficientItems = [];
+        foreach ($this->dispatchedItems as $item) {
+            $remainingToApprove = (float) ($item['remaining_to_approve'] ?? 0);
+            if ($remainingToApprove <= 0) {
+                continue;
+            }
+
+            $stock = Stock::forBranch($branchId)
+                ->where('item_id', $item['item_id'])
+                ->first();
+
+            if (! $stock) {
+                $insufficientItems[] = "{$item['item_name']}: stock not found.";
+                $this->approvalBlockers[$item['detail_id']] = true;
+                continue;
+            }
+
+            if ((float) $stock->quantity_available < $remainingToApprove) {
+                $insufficientItems[] = "{$item['item_name']}: needs {$remainingToApprove} {$item['uom']}, available {$stock->quantity_available} {$item['uom']}.";
+                $this->approvalBlockers[$item['detail_id']] = true;
+            }
+        }
+
+        if (! empty($insufficientItems)) {
+            $this->modalError = 'Approval blocked. All items must be fully approvable. Issues: '.implode(' | ', $insufficientItems);
+            return;
+        }
+
+        $approvedCount = 0;
+
         try {
-            DB::transaction(function () use ($branchId) {
+            DB::transaction(function () use ($branchId, &$approvedCount) {
                 // Verify request belongs to this branch
                 $request = ItemRequest::where('id', $this->requestId)
                     ->where('branch_id', $branchId)
                     ->firstOrFail();
 
-                $approvedCount = 0;
                 $approvalTotals = [];
-
                 foreach ($this->dispatchedItems as $item) {
                     $approveQty = (float) ($item['approve_quantity'] ?? 0);
 
@@ -266,9 +309,14 @@ class ItemDispatches extends Component
                         'completed'
                     );
                 }
+
             });
 
-            session()->flash('success', 'Items approved successfully. You can now dispatch them.');
+            if ($approvedCount > 0) {
+                $this->modalSuccess = 'Items approved successfully. You can now dispatch them.';
+            } else {
+                $this->modalWarning = 'No items were approved. Check quantities and stock.';
+            }
 
             // Refresh the modal data to show updated approval status
             $this->openDispatchModal($this->requestId);
@@ -282,7 +330,7 @@ class ItemDispatches extends Component
                 'items' => $this->dispatchedItems ?? [],
             ]);
 
-            session()->flash('error', 'Error approving items: '.$e->getMessage());
+            $this->modalError = 'Error approving items: '.$e->getMessage();
         }
     }
 
@@ -549,6 +597,10 @@ class ItemDispatches extends Component
         $this->showDispatchModal = false;
         $this->requestId = null;
         $this->dispatchedItems = [];
+        $this->modalError = null;
+        $this->modalWarning = null;
+        $this->modalSuccess = null;
+        $this->approvalBlockers = [];
         $this->resetValidation();
     }
 

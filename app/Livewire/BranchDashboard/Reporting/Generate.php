@@ -133,31 +133,7 @@ class Generate extends Component
             return false;
         }
 
-        $salesTerms = ['sales', 'till', 'pos'];
-        $excludeTerms = ['inventory', 'stock', 'store', 'warehouse'];
-        $deptName = strtolower($department->name ?? '');
-        $deptSlug = strtolower($department->slug ?? '');
-
-        foreach ($excludeTerms as $term) {
-            if (str_contains($deptName, $term) || str_contains($deptSlug, $term)) {
-                return false;
-            }
-        }
-
-        if ($department->category) {
-            $categoryName = strtolower($department->category->name ?? '');
-            if (str_contains($categoryName, 'sales')) {
-                return true;
-            }
-        }
-
-        foreach ($salesTerms as $term) {
-            if (str_contains($deptName, $term) || str_contains($deptSlug, $term)) {
-                return true;
-            }
-        }
-
-        return false;
+        return strtolower($department->category?->name ?? '') === 'sales';
     }
 
     private function filterDepartmentsForCategory($departments, ?string $category)
@@ -174,37 +150,22 @@ class Generate extends Component
 
         if ($category === 'production') {
             return $departments->filter(function ($department) {
-                $deptName = strtolower($department->name ?? '');
                 $categoryName = strtolower($department->category?->name ?? '');
-
-                return str_contains($categoryName, 'production')
-                    || str_contains($deptName, 'production')
-                    || str_contains($deptName, 'kitchen')
-                    || str_contains($deptName, 'gelato')
-                    || str_contains($deptName, 'confection')
-                    || str_contains($deptName, 'bakery');
+                return $categoryName === 'production';
             });
         }
 
         if ($category === 'inventory') {
             return $departments->filter(function ($department) {
-                $deptName = strtolower($department->name ?? '');
                 $categoryName = strtolower($department->category?->name ?? '');
-
-                return str_contains($categoryName, 'inventory')
-                    || str_contains($deptName, 'inventory')
-                    || str_contains($deptName, 'stock');
+                return $categoryName === 'support';
             });
         }
 
         if ($category === 'accounting') {
             return $departments->filter(function ($department) {
-                $deptName = strtolower($department->name ?? '');
                 $categoryName = strtolower($department->category?->name ?? '');
-
-                return str_contains($categoryName, 'account')
-                    || str_contains($deptName, 'account')
-                    || str_contains($deptName, 'finance');
+                return $categoryName === 'support';
             });
         }
 

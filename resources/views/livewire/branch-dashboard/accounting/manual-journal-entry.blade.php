@@ -188,7 +188,7 @@
             </a>
             <button 
                 type="submit"
-                disabled="{{ !$this->isBalanced }}"
+                @disabled(! $this->isBalanced)
                 class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-zinc-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition"
             >
                 {{ $status === 'posted' ? 'Create & Post' : 'Create as Draft' }}

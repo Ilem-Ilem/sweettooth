@@ -148,12 +148,12 @@ class User extends Authenticatable
     public function canManageUser(User $targetUser): bool
     {
         // Super admins can manage anyone
-        if ($this->hasRole('super-admin')) {
+        if (function_exists('is_super_admin') && is_super_admin()) {
             return true;
         }
 
-        // Branch managers can manage users in their branch
-        if ($this->hasRole('branch-manager') &&
+        // Admins can manage users in their branch
+        if ($this->hasRole('Admin') &&
             $targetUser->branch_id === $this->branch_id) {
             return true;
         }
@@ -163,7 +163,7 @@ class User extends Authenticatable
 
     public function getAccessibleBranches()
     {
-        if ($this->hasRole('super-admin')) {
+        if (function_exists('is_super_admin') && is_super_admin()) {
             return Branch::all();
         }
 
@@ -176,7 +176,7 @@ class User extends Authenticatable
             return false;
         }
 
-        if ($this->hasRole('super-admin')) {
+        if (function_exists('is_super_admin') && is_super_admin()) {
             return true;
         }
 

@@ -19,6 +19,9 @@ class Index extends BaseComponent
     #[Url(keep: true)]
     public ?string $b_id = null;
 
+    #[Url(keep: true)]
+    public ?string $sales_dept_slug;
+
     public ?int $quantity = 20;
     public ?string $search = null;
     public ?string $filterStatus = null;

@@ -150,7 +150,7 @@
 
         @interact('column_yield_quantity', $row)
             <span class="text-zinc-900 dark:text-zinc-100 font-medium">
-                {{ number_format($row->yield_quantity, 2) }} {{ $row->uom }}
+                {{ number_format($row->yield_quantity, 2) }} {{ $row->unitOfMeasure->symbol ?? 'N/A' }}
             </span>
         @endinteract
 

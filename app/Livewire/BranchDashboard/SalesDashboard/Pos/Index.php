@@ -456,7 +456,8 @@ class Index extends BaseComponent
                 'branch_id' => $this->branchId,
                 'department_id' => $this->departmentId,
                 'table_id' => $this->selectedTableId,
-                'sold_by' => auth()->id(),
+                'sold_by_id' => auth()->id(),
+                'sold_by_type' => \App\Models\User::class,
                 'sale_number' => 'POS-' . Carbon::now()->format('Ymd-His'),
                 'sale_time' => Carbon::now(),
                 'subtotal' => $this->subtotal,
@@ -577,7 +578,8 @@ class Index extends BaseComponent
             'branch_id' => $this->branchId,
             'department_id' => $this->departmentId,
             'table_id' => $this->selectedTableId,
-            'sold_by' => auth()->id(),
+            'sold_by_id' => auth()->id(),
+            'sold_by_type' => \App\Models\User::class,
             'sale_number' => 'HOLD-' . Carbon::now()->format('Ymd-His'),
             'sale_time' => Carbon::now(),
             'subtotal' => $this->subtotal,
@@ -637,7 +639,38 @@ class Index extends BaseComponent
 
         // CRITICAL: Filter by department - only show products assigned to this department unless super admin
         if (!is_super_admin() && $this->departmentId) {
-            $q->forDepartment($this->departmentId);
+            // Check if this is a sales department that corresponds to a production department
+            $department = Department::find($this->departmentId);
+            
+            if ($department) {
+                // Look for a corresponding production department with similar name
+                $productionDepartment = Department::where('branch_id', $this->branchId)
+                    ->whereHas('category', function($query) {
+                        $query->where('name', 'Production');
+                    })
+                    ->where(function($query) use ($department) {
+                        // Match production departments that correspond to sales departments
+                        // For example: if sales department is "Kitchen", look for "Kitchen Production" or "Kitchen" in production
+                        $query->where('name', 'LIKE', '%' . $department->name . '%')
+                              ->orWhere('name', $department->name . ' Production')
+                              ->orWhere('name', 'Production ' . $department->name)
+                              ->orWhere('slug', $department->slug . '-production')
+                              ->orWhere('slug', 'production-' . $department->slug);
+                    })
+                    ->first();
+                
+                if ($productionDepartment) {
+                    // If a corresponding production department exists, get products by product type
+                    $q->whereHas('productType', function($query) use ($productionDepartment) {
+                        $query->where('department_id', $productionDepartment->id);
+                    });
+                } else {
+                    // Fall back to the original department filtering
+                    $q->forDepartment($this->departmentId);
+                }
+            } else {
+                $q->forDepartment($this->departmentId);
+            }
         }
 
         // Search filter
@@ -656,6 +689,11 @@ class Index extends BaseComponent
         $q = ProductStock::query()
             ->whereDate('stock_date', Carbon::today())
             ->where('product_id', $productId);
+
+        if ($this->departmentId && \Illuminate\Support\Facades\Schema::hasColumn('product_stocks', 'department_id')) {
+            $q->where('department_id', $this->departmentId);
+        }
+
         if ($forUpdate) {
             $q->lockForUpdate();
         }
@@ -668,6 +706,11 @@ class Index extends BaseComponent
         // available is closing quantity; if not up to date, compute
         $stock->updateCalculatedFields();
         return max(0, (float)$stock->closing_quantity);
+    }
+
+    public function getAvailableForProduct(string $productId): float
+    {
+        return $this->availableQuantity($this->getTodayStockForProduct($productId));
     }
 
     protected function buildReceiptHtml(Sale $sale): string
@@ -768,7 +811,8 @@ class Index extends BaseComponent
                     'branch_id' => $this->branchId,
                     'department_id' => $this->departmentId,
                     'table_id' => $table->id,
-                    'sold_by' => auth()->id(),
+                    'sold_by_id' => auth()->id(),
+                    'sold_by_type' => \App\Models\User::class,
                     'sale_number' => 'TAB-' . $table->table_number . '-' . Carbon::now()->format('Ymd-His'),
                     'sale_time' => Carbon::now(),
                     'subtotal' => $this->subtotal,

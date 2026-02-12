@@ -32,16 +32,18 @@ return [
 
         'local' => [
             'driver' => 'local',
-            'root' => storage_path('app/private'),
+            'root' =>  public_path('uploads'),
             'serve' => true,
             'throw' => false,
             'report' => false,
         ],
 
+        // Override the default "public" disk to store directly in the public directory
+        // so assets are web-accessible without relying on the storage symlink.
         'public' => [
             'driver' => 'local',
-            'root' => storage_path('app/public'),
-            'url' => env('APP_URL').'/storage',
+            'root' => public_path('uploads'),
+            'url' => env('APP_URL').'/uploads',
             'visibility' => 'public',
             'throw' => false,
             'report' => false,
@@ -73,8 +75,7 @@ return [
     |
     */
 
-    'links' => [
-        public_path('storage') => storage_path('app/public'),
-    ],
+    // No symlink needed when writing directly to public_path('uploads')
+    'links' => [],
 
 ];

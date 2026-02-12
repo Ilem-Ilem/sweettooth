@@ -22,27 +22,12 @@ class CornerStoreDashboard extends BaseDashboard
     private function verifyAccess(): void
     {
         $user = auth()->user();
-        $role = $this->getUserRoleName();
-        $normalizedRole = strtolower(str_replace(' ', '_', $role ?? ''));
-        
-        $allowedRoles = [
-            'corner_store_manager',
-            'corner_store_staff',
-            'admin',
-        ];
-
-        // Allow access if user has allowed role OR is super admin
-        $isAllowed = in_array($normalizedRole, $allowedRoles) || is_super_admin();
-        
-        // Fallback: check using hasRole method
-        if (!$isAllowed && $user && is_object($user)) {
-            $isAllowed = $user->hasRole('Corner Store Manager') 
-                || $user->hasRole('Corner Store Staff')
-                || $user->hasRole('Admin');
-        }
+        $isAllowed = \App\Services\SidebarVisibilityService::canSeeSalesManagement($user)
+            || \App\Services\SidebarVisibilityService::isAdmin($user)
+            || \App\Services\SidebarVisibilityService::isSuperAdmin($user);
         
         if (!$isAllowed) {
-            abort(403, 'Unauthorized access to corner store dashboard. Your role (' . ($role ?? 'none') . ') does not have access.');
+            abort(403, 'Unauthorized access to corner store dashboard.');
         }
     }
 

@@ -280,19 +280,6 @@
                             @enderror
                         </div>
 
-                        <!-- Position -->
-                        <div>
-                            <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                                Position *
-                            </label>
-                            <input type="text" wire:model="position"
-                                class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500"
-                                placeholder="e.g., Senior Developer" required>
-                            @error('position')
-                                <span class="text-red-500 text-sm mt-1">{{ $message }}</span>
-                            @enderror
-                        </div>
-
                         <!-- Hire Date -->
                         <div>
                             <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">

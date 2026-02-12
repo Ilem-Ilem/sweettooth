@@ -21,7 +21,8 @@ class AdminDashboard extends Component
     {
         // Check if user has admin role
         $currentUser = get_user_auth();
-        if (!($currentUser->hasRole('admin') || $currentUser->hasRole('md'))) {
+        if (!\App\Services\SidebarVisibilityService::isAdmin($currentUser)
+            && !\App\Services\SidebarVisibilityService::isSuperAdmin($currentUser)) {
             abort(403, 'Only Admins can access this dashboard');
         }
     }

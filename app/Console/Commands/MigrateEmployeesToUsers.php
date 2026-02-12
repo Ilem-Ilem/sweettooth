@@ -29,11 +29,11 @@ class MigrateEmployeesToUsers extends Command
         'supervisor' => 'Sales Manager',
         'lead' => 'Sales Manager',
         'senior' => 'Sales Manager',
-        'employee' => 'Cashier',
-        'staff' => 'Cashier',
+        'employee' => 'Sales Staff',
+        'staff' => 'Sales Staff',
         'admin' => 'Admin',
         'administrator' => 'Admin',
-        'default' => 'Cashier', // Default role
+        'default' => 'Sales Staff', // Default role
     ];
 
     public function handle()

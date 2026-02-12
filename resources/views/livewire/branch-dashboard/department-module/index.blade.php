@@ -189,8 +189,9 @@
     </div>
 
     <!-- Table -->
-    <x-table :$headers :$rows selectable wire:model="selectedIds" striped paginate persist :filter="['quantity' => 'quantity', 'search' => 'search']"
-        :quantity="[10, 25, 50, 100]">
+    <x-table :$headers :$rows selectable wire:model="selectedIds" striped
+        :paginate="true" :simple-pagination="true" :persistent="true"
+        :filter="['quantity' => 'quantity', 'search' => 'search']" :quantity="[10, 25, 50, 100]">
         @interact('column_branch', $row)
             <span class="text-zinc-900 dark:text-zinc-100">
                 {{ $row->branch ? $row->branch->name : '(general)' }}

@@ -17,7 +17,7 @@
                     <div class="relative">
                         <div class="w-32 h-32 rounded-full bg-white/20 flex items-center justify-center overflow-hidden border-4 border-white/30">
                             @if($profilePhotoUrl)
-                                <img src="{{ $profilePhotoUrl }}" alt="{{ $employee->name }}" class="w-full h-full object-cover">
+                                <img src="/uploads/{{ $profilePhotoUrl }}" alt="{{ $employee->name }}" class="w-full h-full object-cover">
                             @else
                                 <svg class="w-20 h-20 text-white/80" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />

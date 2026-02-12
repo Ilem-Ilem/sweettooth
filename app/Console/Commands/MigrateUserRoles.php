@@ -9,53 +9,59 @@ use Spatie\Permission\Models\Role;
 class MigrateUserRoles extends Command
 {
     protected $signature = 'users:migrate-roles {--dry-run : Show what would be changed without making changes}';
-    protected $description = 'Migrate existing users from old roles to simplified role system';
+    protected $description = 'Migrate existing users from legacy roles to department-independent roles';
 
     protected array $roleMapping = [
         // Old roles -> New roles
         'Super Admin' => 'Super Admin',
-        'MD' => 'Super Admin',
-        'Managing Director' => 'Super Admin',
-        'Admin' => 'Super Admin',
+        'MD' => 'MD',
+        'Managing Director' => 'Managing Director',
+        'Admin' => 'Admin',
 
-        // Department Heads -> Manager
-        'Head of Production' => 'Manager',
-        'Sales Manager' => 'Manager',
-        'HR Manager' => 'Manager',
-        'Inventory Manager' => 'Manager',
+        // Department heads/managers
+        'Head of Production' => 'Head of Production',
+        'Sales Manager' => 'Sales Manager',
+        'HR Manager' => 'HR Manager',
+        'Inventory Manager' => 'Inventory Manager',
+        'Accounting Manager' => 'Accounting Manager',
 
-        // Supervisors -> Supervisor
-        'Supervisor' => 'Supervisor',
-        'Till Supervisor' => 'Supervisor',
-        'Sales Supervisor' => 'Supervisor',
+        // Supervisors
+        'Sales Supervisor' => 'Sales Supervisor',
+        'Till Supervisor' => 'Sales Supervisor',
 
-        // Specialists -> Specialist
-        'Chef' => 'Specialist',
-        'Head of Gelato' => 'Specialist',
-        'Confectionaries Manager' => 'Specialist',
+        // Production specialists -> Production Supervisor
+        'Chef' => 'Production Supervisor',
+        'Head of Gelato' => 'Production Supervisor',
+        'Confectionaries Manager' => 'Production Supervisor',
 
-        // Production Staff -> Production Staff
+        // Production Staff
         'Kitchen Staff' => 'Production Staff',
         'Gelato Production Staff' => 'Production Staff',
         'Confectionaries Production Staff' => 'Production Staff',
 
-        // Sales Staff -> Sales Staff
+        // Sales Staff
         'Cashier' => 'Sales Staff',
         'Sales Associate' => 'Sales Staff',
         'Junior Cashier' => 'Sales Staff',
         'Corner Store Staff' => 'Sales Staff',
-        'Corner Store Manager' => 'Sales Staff', // Downgrade to staff level
+        'Corner Store Manager' => 'Sales Staff',
+        'Confectionaries Sales Staff' => 'Sales Staff',
 
-        // Inventory -> Inventory Staff
-        'Stock Controller' => 'Inventory Staff',
+        // Inventory Staff
+        'Stock Controller' => 'Inventory Supervisor',
         'Store Keeper' => 'Inventory Staff',
+        'Inventory Clerk' => 'Inventory Staff',
+        'Warehouse Manager' => 'Inventory Supervisor',
+        'Store Supervisor' => 'Inventory Supervisor',
+        'Store Manager' => 'Inventory Supervisor',
 
-        // HR -> HR Staff
-        'HR Officer' => 'HR Staff',
+        // HR / Accounting
+        'HR Officer' => 'HR Officer',
+        'Accountant' => 'Accountant',
 
         // Generic
-        'Employee' => 'Employee',
-        'Viewer' => 'Viewer',
+        'Employee' => 'Sales Staff',
+        'Viewer' => 'Sales Staff',
     ];
 
     public function handle()
@@ -73,7 +79,7 @@ class MigrateUserRoles extends Command
 
         foreach ($users as $user) {
             $oldRoles = $user->roles->pluck('name')->toArray();
-            $newRoles = $this->mapRoles($oldRoles);
+            $newRoles = $this->mapRoles($oldRoles, $user);
 
             if ($this->rolesChanged($oldRoles, $newRoles)) {
                 $changes[] = [
@@ -125,7 +131,7 @@ class MigrateUserRoles extends Command
         );
     }
 
-    private function mapRoles(array $oldRoles): array
+    private function mapRoles(array $oldRoles, User $user): array
     {
         $newRoles = [];
 
@@ -135,7 +141,22 @@ class MigrateUserRoles extends Command
                 if (!in_array($newRole, $newRoles)) {
                     $newRoles[] = $newRole;
                 }
+                continue;
             }
+
+            if ($oldRole === 'Supervisor') {
+                $newRoles[] = $this->mapSupervisorByDepartment($user);
+            }
+
+            if ($oldRole === 'Manager') {
+                $newRoles[] = $this->mapManagerByDepartment($user);
+            }
+        }
+
+        $newRoles = array_filter(array_unique($newRoles));
+
+        if (empty($newRoles)) {
+            $newRoles[] = $this->defaultRoleForUser($user);
         }
 
         return array_unique($newRoles);
@@ -154,5 +175,45 @@ class MigrateUserRoles extends Command
         sort($mappedOldRoles);
 
         return $mappedOldRoles !== $newRoles;
+    }
+
+    private function mapSupervisorByDepartment(User $user): string
+    {
+        $deptName = $user->department?->name ?? '';
+        $category = $user->department?->category?->name ?? '';
+
+        if ($category === 'Production') return 'Production Supervisor';
+        if ($category === 'Sales') return 'Sales Supervisor';
+        if ($category === 'Inventory') return 'Inventory Supervisor';
+        if ($category === 'Support' && str_contains($deptName, 'Account')) return 'Accountant';
+        if ($category === 'Support' && str_contains($deptName, 'HR')) return 'HR Officer';
+
+        return 'Sales Supervisor';
+    }
+
+    private function mapManagerByDepartment(User $user): string
+    {
+        $deptName = $user->department?->name ?? '';
+        $category = $user->department?->category?->name ?? '';
+
+        if ($category === 'Production') return 'Head of Production';
+        if ($category === 'Sales') return 'Sales Manager';
+        if ($category === 'Inventory') return 'Inventory Manager';
+        if ($category === 'Support' && str_contains($deptName, 'Account')) return 'Accounting Manager';
+        if ($category === 'Support' && str_contains($deptName, 'HR')) return 'HR Manager';
+
+        return 'Sales Manager';
+    }
+
+    private function defaultRoleForUser(User $user): string
+    {
+        $category = $user->department?->category?->name ?? '';
+
+        return match ($category) {
+            'Production' => 'Production Staff',
+            'Sales' => 'Sales Staff',
+            'Inventory' => 'Inventory Staff',
+            default => 'Sales Staff',
+        };
     }
 }

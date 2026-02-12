@@ -24,25 +24,10 @@ class InventoryDashboard extends BaseDashboard
      */
     private function verifyAccess(): void
     {
-        $role = $this->getUserRoleName();
-        $allowedRoles = [
-            'Inventory Manager',
-            'Stock Controller',
-            'Store Keeper',
-            'Store Manager',
-            'Admin',
-        ];
-
-        // Allow access if user has allowed role OR is super admin
-        $isAllowed = in_array($role, $allowedRoles) || is_super_admin();
-
-        // If not allowed by primary role, check if user has any of the allowed roles
-        if (! $isAllowed && Auth::check()) {
-            $user = Auth::user();
-            if ($user && method_exists($user, 'hasAnyRole')) {
-                $isAllowed = $user->hasAnyRole($allowedRoles);
-            }
-        }
+        $user = Auth::user();
+        $isAllowed = \App\Services\SidebarVisibilityService::canSeeInventory($user)
+            || \App\Services\SidebarVisibilityService::isAdmin($user)
+            || \App\Services\SidebarVisibilityService::isSuperAdmin($user);
 
         if (! $isAllowed) {
             abort(403, 'Unauthorized access to inventory dashboard');

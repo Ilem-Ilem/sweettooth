@@ -10,7 +10,7 @@
     <div class="flex justify-between items-center">
         <button wire:click="openCreateModal" wire:loading.attr="disabled" wire:target="openCreateModal"
             class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center shadow-sm relative"
-            :class="{ 'opacity-75 cursor-not-allowed': $wire.loading }">
+            :class="{ 'opacity-75': $wire.loading }">
             <span wire:loading.remove wire:target="openCreateModal" class="flex items-center">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -162,7 +162,7 @@
             <div class="flex flex-wrap gap-2 justify-end pt-2.5 border-t border-zinc-200 dark:border-zinc-700">
                 <button wire:click="resetFilters" wire:target="resetFilters"
                     class="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-200 rounded-lg font-medium transition-colors duration-200 flex items-center"
-                    :class="{ 'opacity-75 cursor-not-allowed': $wire.loading }">
+                    :class="{ 'opacity-75': $wire.loading }">
                     <span wire:loading.remove wire:target="resetFilters" class="flex items-center">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -224,7 +224,7 @@
             @endinteract
 
             @interact('column_recipe_status', $row)
-                @if($row->recipes && $row->recipes->count() > 0)
+                @if(($row->recipes_count ?? 0) > 0)
                     <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                         Recipe Ready
                     </span>
@@ -255,8 +255,8 @@
             @interact('column_action', $row)
                 <div class="flex items-center space-x-2">
                     <button wire:click="openEditModal('{{ $row->id }}')" wire:loading.attr="disabled" wire:target="openEditModal('{{ $row->id }}')"
-                        class="p-2 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        :class="{ 'opacity-50 cursor-not-allowed': $wire.loading }"
+                        class="p-2 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors disabled:opacity-50"
+                        :class="{ 'opacity-50': $wire.loading }"
                         title="Edit">
                         <svg wire:loading.remove wire:target="openEditModal('{{ $row->id }}')" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -268,8 +268,8 @@
                         </svg>
                     </button>
                     <button wire:click="delete('{{ $row->id }}')" wire:loading.attr="disabled" wire:target="delete('{{ $row->id }}')"
-                        class="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        :class="{ 'opacity-50 cursor-not-allowed': $wire.loading }"
+                        class="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50"
+                        :class="{ 'opacity-50': $wire.loading }"
                         title="Delete">
                         <svg wire:loading.remove wire:target="delete('{{ $row->id }}')" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

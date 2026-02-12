@@ -36,6 +36,7 @@ class Index extends Component
     public $showRecordModal = false;
     public $recordingProduceId = null;
     public $showHelpModal = false;
+    public int $noShiftRequestsCount = 0;
 
     // For editing quantities
     public $editingQuantities = [];
@@ -45,6 +46,8 @@ class Index extends Component
     public $batchQuantities = []; // Stores sent_out and order quantities for each batch
     public $batchSalesDepartments = []; // Stores sales_department_id for each batch (legacy)
     public $batchDispatches = []; // Stores multiple dispatch allocations per batch: [[sales_dept_id, quantity], ...]
+    public $batchAllowedSalesDepartments = []; // batch_id => allowed sales_department_id (if restricted)
+    public $salesRequestLimits = []; // daily_produce_id => requested_units (if sales request)
 
     // For recording production batches
     public $batchesProduced = 1; // Number of batches made
@@ -142,9 +145,8 @@ class Index extends Component
             $this->loadDailyProduces();
         } else {
             // Check if there are production requests without a shift (created by super admins)
-            $hasNoShiftRequests = ProductionRequest::forBranch($branchId)
-                ->whereNull('shift_id')
-                ->where('created_at', '>=', today())
+            $hasNoShiftRequests = ProductionRequest::where('production_department_id', $this->department->id)
+                ->whereDate('created_at', today())
                 ->exists();
 
             if ($hasNoShiftRequests) {
@@ -206,28 +208,51 @@ class Index extends Component
 
         // Handle "no-shift" production requests (created by super admins)
         if ($this->selectedShiftId === 'no-shift') {
-            $branchId = $this->getBranchId();
-            
             // Load production requests without a shift
-            $productionRequests = ProductionRequest::forBranch($branchId)
-                ->whereNull('shift_id')
-                ->where('created_at', '>=', today())
-                ->with(['recipe', 'itemRequest.requestDetails.item'])
+            $productionRequests = ProductionRequest::where('production_department_id', $this->department->id)
+                ->whereNull('sales_department_id')
+                ->whereDate('created_at', today())
+                ->with(['recipe', 'itemRequest.requestDetails.item', 'salesDepartment'])
                 ->get();
             
             $this->dailyProduces = $productionRequests->map(function ($prodRequest) {
                 $recipe = $prodRequest->recipe;
                 $itemRequest = $prodRequest->itemRequest;
+                $isSalesRequest = (bool) $prodRequest->sales_department_id && $prodRequest->item_request_id === null;
+                $isStoreRequest = (bool) $prodRequest->item_request_id;
+                $requestedUnits = $isSalesRequest
+                    ? (float) ($prodRequest->requested_units ?? $prodRequest->planned_production_quantity ?? 0)
+                    : null;
+
+                $sourceLabel = $isSalesRequest ? 'Sales Request' : ($isStoreRequest ? 'Store Request' : 'Direct Request');
+                $sourceClass = $isSalesRequest
+                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
+                    : ($isStoreRequest
+                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                        : 'bg-zinc-100 text-zinc-800 dark:bg-zinc-900 dark:text-zinc-200');
                 
                 $produced = 0;
                 $damaged = 0;
                 $netAvailable = $produced - $damaged;
+                $producability = $this->calculateProducableFromRequest($prodRequest);
+                $canProduce = ($producability['producable_quantity'] ?? 0) > 0;
+                $canProduceFull = (bool) ($producability['can_produce_full_batch'] ?? false);
+                $computedStatus = $canProduceFull ? 'Ready to Produce' : ($canProduce ? 'Partially Ready' : 'Not Started - Awaiting Ingredients');
+                $statusBadge = $canProduceFull
+                    ? 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200'
+                    : ($canProduce
+                        ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
+                        : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200');
                 
                 return [
                     'id' => $prodRequest->id,
-                    'recipe_id' => $recipe->id,
-                    'recipe_name' => $recipe->product_name,
-                    'item_request_number' => $itemRequest->request_number ?? 'N/A',
+                    'recipe_id' => $recipe?->id,
+                    'recipe_name' => $recipe?->product_name ?? 'Unknown Product',
+                    'sales_department_id' => $prodRequest->sales_department_id,
+                    'sales_department_name' => $prodRequest->salesDepartment?->name,
+                    'requested_units' => $requestedUnits,
+                    'production_request_number' => $prodRequest->id ? 'PR-' . $prodRequest->id : null,
+                    'item_request_number' => $itemRequest->request_number ?? null,
                     'requested_quantity' => $prodRequest->planned_production_quantity,
                     'produced_quantity' => $produced,
                     'opening_quantity' => 0,
@@ -241,18 +266,20 @@ class Index extends Component
                     'variance' => 0,
                     'variance_quantity' => 0,
                     'variance_percentage' => 0,
-                    'uom' => $recipe->unitOfMeasure?->symbol ?? 'unit',
+                    'uom' => $recipe?->unitOfMeasure?->symbol ?? 'unit',
                     'status' => 'not_started',
-                    'computed_status' => 'Not Started - Awaiting Ingredients',
-                    'status_badge_color' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+                    'computed_status' => $computedStatus,
+                    'status_badge_color' => $statusBadge,
                     'production_records_count' => 0,
                     'manual_status' => null,
+                    'is_no_shift' => true,
+                    'request_source_label' => $sourceLabel,
+                    'request_source_class' => $sourceClass,
+                    'is_sales_request' => $isSalesRequest,
+                    'is_store_request' => $isStoreRequest,
+                    'excess_to_stock' => $requestedUnits !== null ? max(0, (float) $prodRequest->planned_production_quantity - $requestedUnits) : 0,
                     'has_variance_issue' => false,
-                    'producability' => [
-                        'producable_quantity' => 0,
-                        'requested_quantity' => $prodRequest->planned_production_quantity,
-                        'limiting_ingredient' => 'Awaiting ingredients dispatch',
-                    ],
+                    'producability' => $producability,
                 ];
             })->toArray();
             
@@ -264,6 +291,13 @@ class Index extends Component
         if (!$shift) {
             return;
         }
+
+        // Attach any unassigned production requests for today to this shift
+        ProductionRequest::whereNull('shift_id')
+            ->where('production_department_id', $this->department->id)
+            ->whereNull('sales_department_id')
+            ->whereDate('created_at', $shift->shift_date)
+            ->update(['shift_id' => $shift->id]);
 
         // Auto-create DailyProduce records from ProductionRequests if they don't exist
         DailyProduce::autoCreateFromProductionRequests($shift);
@@ -278,16 +312,26 @@ class Index extends Component
             'productionRecords.producedBy:id,name,email'
         ])
         ->where('shift_id', $this->selectedShiftId)
+        ->orderBy('production_request_id')
         ->orderBy('recipe_id')
         ->get();
         
 
         $this->dailyProduces = $produces->map(function ($produce) use ($shift) {
-            // Get the production request for this recipe and shift (department-wide, not user-specific)
-            $productionRequest = ProductionRequest::where('shift_id', $shift->id)
-                ->where('recipe_id', $produce->recipe_id)
-                ->with(['itemRequest.requestDetails.item', 'itemRequest'])
-                ->first();
+            $productionRequest = $produce->production_request_id
+                ? ProductionRequest::with(['itemRequest.requestDetails.item', 'itemRequest', 'salesDepartment'])->find($produce->production_request_id)
+                : ProductionRequest::where('shift_id', $shift->id)
+                    ->where('recipe_id', $produce->recipe_id)
+                    ->whereNull('sales_department_id')
+                    ->with(['itemRequest.requestDetails.item', 'itemRequest', 'salesDepartment'])
+                    ->first();
+            $allowedSalesDeptId = $productionRequest?->sales_department_id;
+            $requestedUnits = $allowedSalesDeptId
+                ? (float) ($productionRequest?->requested_units ?? $productionRequest?->planned_production_quantity ?? $produce->requested_quantity)
+                : null;
+            if ($allowedSalesDeptId) {
+                $this->salesRequestLimits[$produce->id] = $requestedUnits;
+            }
 
             // Get item request status from ItemRequest model (not ProductionRequest)
             $itemRequestStatus = 'N/A';
@@ -298,6 +342,17 @@ class Index extends Component
                 // Use the ItemRequest status field directly
                 $itemRequestStatus = $productionRequest->itemRequest->status ?? 'pending';
             }
+            $isSalesRequest = (bool) ($productionRequest?->sales_department_id && ! $productionRequest?->item_request_id);
+            $isStoreRequest = (bool) ($productionRequest?->item_request_id);
+            if ($isSalesRequest) {
+                return null;
+            }
+            $sourceLabel = $isSalesRequest ? 'Sales Request' : ($isStoreRequest ? 'Store Request' : 'Production Request');
+            $sourceClass = $isSalesRequest
+                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
+                : ($isStoreRequest
+                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                    : 'bg-zinc-100 text-zinc-800 dark:bg-zinc-900 dark:text-zinc-200');
 
             // Get dispatched items for this request
             $dispatchedItems = [];
@@ -323,7 +378,7 @@ class Index extends Component
             }
 
             // Get production records (batches) with details
-            $batchesData = $produce->productionRecords->map(function ($batch) {
+            $batchesData = $produce->productionRecords->map(function ($batch) use ($allowedSalesDeptId) {
                 // Load existing dispatches for this batch
                 $existingDispatches = \App\Models\ProductDispatch::where('production_record_id', $batch->id)
                     ->with('salesDepartment')
@@ -337,6 +392,8 @@ class Index extends Component
                             'status' => $dispatch->status,
                         ];
                     })->toArray();
+
+                $this->batchAllowedSalesDepartments[$batch->id] = $allowedSalesDeptId;
 
                 return [
                     'id' => $batch->id,
@@ -352,6 +409,7 @@ class Index extends Component
                     'production_time' => $batch->production_time->format('M d, h:i A'),
                     'produced_by' => $batch->producedBy->name ?? 'N/A',
                     'dispatches' => $existingDispatches,
+                    'allowed_sales_department_id' => $allowedSalesDeptId,
                 ];
             })->toArray();
 
@@ -362,6 +420,8 @@ class Index extends Component
                 'uom' => $produce->recipe->unitOfMeasure?->symbol ?? '',
                 'opening_quantity' => (float) $produce->opening_quantity,
                 'requested_quantity' => (float) $produce->requested_quantity,
+                'requested_units' => $requestedUnits,
+                'excess_to_stock' => $requestedUnits !== null ? max(0, (float) $produce->requested_quantity - $requestedUnits) : 0,
                 'produced_quantity' => (float) $actualProducedQty,
                 'net_available' => (float) $produce->getNetAvailable(),
                 'sent_out_quantity' => (float) $produce->sent_out_quantity,
@@ -391,8 +451,15 @@ class Index extends Component
                 'item_request_number' => $itemRequestNumber,
                 'dispatched_items' => $dispatchedItems,
                 'production_request_id' => $productionRequest?->id,
+                'sales_department_id' => $allowedSalesDeptId,
+                'sales_department_name' => $productionRequest?->salesDepartment?->name,
+                'production_request_number' => $productionRequest?->id ? 'PR-' . $productionRequest->id : null,
+                'request_source_label' => $sourceLabel,
+                'request_source_class' => $sourceClass,
+                'is_sales_request' => $isSalesRequest,
+                'is_store_request' => $isStoreRequest,
             ];
-        })->toArray();
+        })->filter()->toArray();
 
         // Initialize editing quantities if not set (ONLY editable fields)
         if (empty($this->editingQuantities)) {
@@ -434,6 +501,128 @@ class Index extends Component
         }
     }
 
+    /**
+     * Calculate producable quantity for no-shift production requests
+     */
+    private function calculateProducableFromRequest(ProductionRequest $productionRequest): array
+    {
+        $recipe = $productionRequest->recipe;
+        if (! $recipe) {
+            return [
+                'producable_quantity' => 0,
+                'requested_quantity' => (float) $productionRequest->planned_production_quantity,
+                'shortage' => (float) $productionRequest->planned_production_quantity,
+                'shortage_percentage' => 100,
+                'limiting_ingredient' => 'No recipe found',
+                'ingredient_analysis' => [],
+                'can_produce_full_batch' => false,
+            ];
+        }
+
+        $requestedQty = (float) $productionRequest->planned_production_quantity;
+        $recipeYield = (float) $recipe->yield_quantity;
+        if ($recipeYield <= 0) {
+            return [
+                'producable_quantity' => 0,
+                'requested_quantity' => $requestedQty,
+                'shortage' => $requestedQty,
+                'shortage_percentage' => 100,
+                'limiting_ingredient' => 'Invalid recipe yield',
+                'ingredient_analysis' => [],
+                'can_produce_full_batch' => false,
+            ];
+        }
+
+        $itemRequest = $productionRequest->itemRequest;
+        if (! $itemRequest) {
+            return [
+                'producable_quantity' => 0,
+                'requested_quantity' => $requestedQty,
+                'shortage' => $requestedQty,
+                'shortage_percentage' => 100,
+                'limiting_ingredient' => 'No item request',
+                'ingredient_analysis' => [],
+                'can_produce_full_batch' => false,
+            ];
+        }
+
+        $requestedBatches = $requestedQty / $recipeYield;
+        $ingredientAnalysis = [];
+        $minProducableBatches = PHP_FLOAT_MAX;
+        $limitingIngredient = null;
+        $hasLimitingIngredient = false;
+
+        foreach ($recipe->ingredients as $recipeIngredient) {
+            $itemId = $recipeIngredient->item_id;
+            $qtyNeededPerBatch = (float) $recipeIngredient->quantity;
+
+            $requestDetail = $itemRequest->requestDetails->firstWhere('item_id', $itemId);
+            $requested = $requestDetail ? (float) $requestDetail->quantity_requested : 0;
+            $approved = $requestDetail ? (float) $requestDetail->quantity_approved : 0;
+            $dispatched = $requestDetail ? (float) $requestDetail->quantity_dispatched : 0;
+
+            $producableBatchesFromThisIngredient = 0;
+            $neededForRequestedBatches = $qtyNeededPerBatch * $requestedBatches;
+
+            if ($qtyNeededPerBatch > 0) {
+                if ($dispatched >= $neededForRequestedBatches) {
+                    $producableBatchesFromThisIngredient = $requestedBatches;
+                } else {
+                    $producableBatchesFromThisIngredient = $dispatched / $qtyNeededPerBatch;
+                }
+            }
+
+            $isLimiting = $producableBatchesFromThisIngredient < $requestedBatches;
+
+            $ingredientAnalysis[] = [
+                'item_name' => $recipeIngredient->item->name ?? 'Unknown',
+                'quantity_per_batch' => $qtyNeededPerBatch,
+                'total_needed_for_request' => $neededForRequestedBatches,
+                'quantity_requested' => $requested,
+                'quantity_approved' => $approved,
+                'quantity_dispatched' => $dispatched,
+                'quantity_used' => min($dispatched, $neededForRequestedBatches),
+                'quantity_remaining' => max(0, $dispatched - $neededForRequestedBatches),
+                'producable_batches' => $producableBatchesFromThisIngredient,
+                'is_limiting' => $isLimiting,
+                'shortage' => max(0, $neededForRequestedBatches - $dispatched),
+                'uom' => $recipeIngredient->item->unitOfMeasure?->symbol ?? '',
+            ];
+
+            if ($producableBatchesFromThisIngredient < $minProducableBatches) {
+                $minProducableBatches = $producableBatchesFromThisIngredient;
+                $limitingIngredient = $recipeIngredient->item->name ?? 'Unknown';
+                $hasLimitingIngredient = true;
+            }
+        }
+
+        if ($minProducableBatches === PHP_FLOAT_MAX) {
+            $minProducableBatches = 0;
+        }
+
+        $minProducableBatches = min($minProducableBatches, $requestedBatches);
+        $producableUnits = $minProducableBatches * $recipeYield;
+
+        if (! $hasLimitingIngredient || $minProducableBatches >= $requestedBatches) {
+            foreach ($ingredientAnalysis as &$analysis) {
+                $analysis['is_limiting'] = false;
+            }
+        }
+
+        $shortage = max(0, $requestedQty - $producableUnits);
+        $shortagePercentage = $requestedQty > 0 ? ($shortage / $requestedQty) * 100 : 0;
+
+        return [
+            'producable_quantity' => $producableUnits,
+            'requested_quantity' => $requestedQty,
+            'shortage' => $shortage,
+            'shortage_percentage' => round($shortagePercentage, 2),
+            'limiting_ingredient' => $limitingIngredient,
+            'ingredient_analysis' => $ingredientAnalysis,
+            'can_produce_full_batch' => $producableUnits >= $requestedQty,
+        ];
+    }
+
 
     public function updateQuantity($produceId, $field)
     {
@@ -452,6 +641,10 @@ class Index extends Component
             if ($field === 'sent_out_quantity') {
                 $netAvailable = $produce->getNetAvailable();
                 $requestedQty = (float) $produce->requested_quantity;
+                $salesRequestedUnits = $this->getSalesRequestedUnitsLimit($produce);
+                if ($salesRequestedUnits !== null) {
+                    $requestedQty = $salesRequestedUnits;
+                }
 
                 // Check 1: Cannot send out more than requested
                 if ($newValue > $requestedQty) {
@@ -564,21 +757,53 @@ class Index extends Component
 
     public function openRecordModal($produceId)
     {
+        if ($this->selectedShiftId === 'no-shift') {
+            $productionRequest = ProductionRequest::with('recipe')->find($produceId);
+            if (! $productionRequest) {
+                $this->toast()->error('Production request not found.')->send();
+                return;
+            }
+
+            $produce = $this->ensureDailyProduceFromRequest($productionRequest);
+            if (! $produce) {
+                return;
+            }
+
+            $produce->loadMissing('shift');
+            $this->currentShift = $produce->shift;
+            $this->selectedShiftId = $produce->shift_id;
+            $produceId = $produce->id;
+        }
+
         $this->recordingProduceId = $produceId;
 
         // Load the produce record with recipe details
         $this->recordingProduce = DailyProduce::with('recipe')->find($produceId);
 
-        // Reset form fields
-        $this->batchesProduced = 1; // Default to 1 batch
-        $this->batchQuantityProduced = 0;
-        $this->batchQuantityApproved = 0;
-        $this->batchQuantityRejected = 0;
+        if (! $this->recordingProduce) {
+            $this->toast()->error('Daily produce record not found.')->send();
+            return;
+        }
+
+        // Reset form fields with smart defaults based on requested quantity and recipe yield
+        $requestedQty = (float) ($this->recordingProduce->requested_quantity ?? 0);
+        $yieldPerBatch = (float) ($this->recordingProduce->recipe->yield_quantity ?? 0);
+        if ($requestedQty > 0 && $yieldPerBatch > 0) {
+            $this->batchesProduced = max(0.01, $requestedQty / $yieldPerBatch);
+            $this->batchQuantityProduced = $requestedQty;
+            $this->batchQuantityApproved = $requestedQty;
+            $this->batchQuantityRejected = 0;
+        } else {
+            $this->batchesProduced = 1;
+            $this->batchQuantityProduced = 0;
+            $this->batchQuantityApproved = 0;
+            $this->batchQuantityRejected = 0;
+        }
         $this->batchQualityStatus = 'good';
         $this->batchRejectionReason = '';
         $this->batchNotes = '';
 
-        // Calculate initial quantity based on 1 batch
+        // Calculate initial quantity based on batch count (keeps yield in sync)
         $this->calculateQuantityFromBatches();
 
         $this->showRecordModal = true;
@@ -605,7 +830,7 @@ class Index extends Component
         }
 
         $yieldPerBatch = (float) $this->recordingProduce->recipe->yield_quantity;
-        $this->batchQuantityProduced = $this->batchesProduced * $yieldPerBatch;
+        $this->batchQuantityProduced = (float) $this->batchesProduced * $yieldPerBatch;
 
         // Auto-set approved quantity to produced quantity by default
         if ($this->batchQuantityProduced > 0 && $this->batchQuantityApproved == 0 && $this->batchQuantityRejected == 0) {
@@ -615,6 +840,13 @@ class Index extends Component
 
     public function updatedBatchQuantityProduced()
     {
+        if ($this->recordingProduce && $this->recordingProduce->recipe) {
+            $yieldPerBatch = (float) $this->recordingProduce->recipe->yield_quantity;
+            if ($yieldPerBatch > 0) {
+                $this->batchesProduced = max(0.01, (float) $this->batchQuantityProduced / $yieldPerBatch);
+            }
+        }
+
         // Auto-set approved quantity to produced quantity by default
         if ($this->batchQuantityProduced > 0 && $this->batchQuantityApproved == 0 && $this->batchQuantityRejected == 0) {
             $this->batchQuantityApproved = $this->batchQuantityProduced;
@@ -646,14 +878,14 @@ class Index extends Component
         }
 
         $this->validate([
-            'batchesProduced' => 'required|numeric|min:1',
+            'batchesProduced' => 'required|numeric|min:0.01',
             'batchQuantityProduced' => 'required|numeric|min:0.01',
             'batchQuantityApproved' => 'required|numeric|min:0',
             'batchQuantityRejected' => 'required|numeric|min:0',
             'batchQualityStatus' => 'required|in:excellent,good,acceptable,rejected',
         ], [
             'batchesProduced.required' => 'Number of batches is required',
-            'batchesProduced.min' => 'Number of batches must be at least 1',
+            'batchesProduced.min' => 'Number of batches must be greater than 0',
             'batchQuantityProduced.required' => 'Quantity produced is required',
             'batchQuantityProduced.min' => 'Quantity produced must be greater than 0',
         ]);
@@ -669,6 +901,12 @@ class Index extends Component
             }
 
             $produce = DailyProduce::find($this->recordingProduceId);
+            if (! $produce && $this->selectedShiftId === 'no-shift') {
+                $produce = $this->resolveDailyProduceForAction($this->recordingProduceId);
+                if ($produce) {
+                    $this->recordingProduceId = $produce->id;
+                }
+            }
 
             if (!$produce) {
                 $this->toast()->error('Daily produce record not found.')->send();
@@ -757,7 +995,7 @@ class Index extends Component
     public function markComplete($produceId)
     {
         try {
-            $produce = DailyProduce::find($produceId);
+            $produce = $this->resolveDailyProduceForAction($produceId);
 
             if (!$produce) {
                 $this->toast()->error('Daily produce record not found.')->send();
@@ -790,7 +1028,7 @@ class Index extends Component
     public function markInProgress($produceId)
     {
         try {
-            $produce = DailyProduce::find($produceId);
+            $produce = $this->resolveDailyProduceForAction($produceId);
 
             if (!$produce) {
                 $this->toast()->error('Daily produce record not found.')->send();
@@ -834,9 +1072,11 @@ class Index extends Component
             $this->batchDispatches[$batchId] = [];
         }
 
+        $restrictedDeptId = $this->batchAllowedSalesDepartments[$batchId] ?? null;
+
         // Add new empty dispatch entry
         $this->batchDispatches[$batchId][] = [
-            'sales_department_id' => $this->salesDepartments[0]['id'] ?? null,
+            'sales_department_id' => $restrictedDeptId ?? ($this->salesDepartments[0]['id'] ?? null),
             'quantity' => 0,
             'status' => 'pending',
         ];
@@ -903,8 +1143,15 @@ class Index extends Component
         $availableForDispatch = max(0, $approvedQuantity - $forOrder);
         $totalDispatched = 0;
 
+        $restrictedDeptId = $this->batchAllowedSalesDepartments[$batchId] ?? null;
+
         if (isset($this->batchDispatches[$batchId])) {
             foreach ($this->batchDispatches[$batchId] as $index => $dispatch) {
+                if ($restrictedDeptId && (int) ($dispatch['sales_department_id'] ?? 0) !== (int) $restrictedDeptId) {
+                    $this->batchDispatches[$batchId][$index]['sales_department_id'] = $restrictedDeptId;
+                    $this->toast()->error('This production can only be dispatched to the requesting sales department.')->send();
+                }
+
                 $quantity = (float) ($dispatch['quantity'] ?? 0);
 
                 // Validate individual dispatch doesn't exceed remaining
@@ -1056,7 +1303,23 @@ class Index extends Component
                 return;
             }
 
-            DB::transaction(function () use ($produce) {
+            $salesRequestedUnits = $this->getSalesRequestedUnitsLimit($produce);
+
+            DB::transaction(function () use ($produce, $salesRequestedUnits) {
+                if ($salesRequestedUnits !== null) {
+                    $totalAcrossBatches = 0;
+                    foreach ($produce->productionRecords as $batch) {
+                        if (isset($this->batchDispatches[$batch->id])) {
+                            foreach ($this->batchDispatches[$batch->id] as $dispatchData) {
+                                $totalAcrossBatches += (float) ($dispatchData['quantity'] ?? 0);
+                            }
+                        }
+                    }
+                    if ($totalAcrossBatches > $salesRequestedUnits) {
+                        throw new \RuntimeException("Total dispatched ({$totalAcrossBatches}) cannot exceed sales request ({$salesRequestedUnits}).");
+                    }
+                }
+
                 foreach ($produce->productionRecords as $batch) {
                     // Update batch quantities (legacy support)
                     if (isset($this->batchQuantities[$batch->id])) {
@@ -1071,8 +1334,13 @@ class Index extends Component
                         $forOrder = (float) ($this->batchQuantities[$batch->id]['quantity_for_order'] ?? $batch->quantity_for_order);
                         $availableForDispatch = max(0, $approvedQuantity - $forOrder);
 
+                        $restrictedDeptId = $this->batchAllowedSalesDepartments[$batch->id] ?? null;
+
                         $totalDispatched = 0;
                         foreach ($this->batchDispatches[$batch->id] as $dispatchData) {
+                            if ($restrictedDeptId && (int) ($dispatchData['sales_department_id'] ?? 0) !== (int) $restrictedDeptId) {
+                                throw new \RuntimeException('This production can only be dispatched to the requesting sales department.');
+                            }
                             $totalDispatched += (float) ($dispatchData['quantity'] ?? 0);
                         }
 
@@ -1193,10 +1461,12 @@ class Index extends Component
         }
 
         // Get the production request to find dispatched quantities
-        $productionRequest = \App\Models\ProductionRequest::where('shift_id', $produce->shift_id)
-            ->where('recipe_id', $produce->recipe_id)
-            ->with('itemRequest.requestDetails')
-            ->first();
+        $productionRequest = $produce->production_request_id
+            ? \App\Models\ProductionRequest::with('itemRequest.requestDetails')->find($produce->production_request_id)
+            : \App\Models\ProductionRequest::where('shift_id', $produce->shift_id)
+                ->where('recipe_id', $produce->recipe_id)
+                ->with('itemRequest.requestDetails')
+                ->first();
 
         if (!$productionRequest || !$productionRequest->itemRequest) {
             return;
@@ -1251,9 +1521,114 @@ class Index extends Component
         }
     }
 
+    /**
+     * Get sales-requested unit limit for a daily produce (if applicable).
+     */
+    private function getSalesRequestedUnitsLimit(DailyProduce $produce): ?float
+    {
+        $productionRequest = $produce->production_request_id
+            ? ProductionRequest::find($produce->production_request_id)
+            : ProductionRequest::where('shift_id', $produce->shift_id)
+                ->where('recipe_id', $produce->recipe_id)
+                ->first();
+
+        if (! $productionRequest || ! $productionRequest->sales_department_id) {
+            return null;
+        }
+
+        return (float) ($productionRequest->requested_units ?? $productionRequest->planned_production_quantity ?? $produce->requested_quantity);
+    }
+
+    /**
+     * Resolve daily produce from a no-shift production request, creating shift/produce if needed.
+     */
+    private function ensureDailyProduceFromRequest(ProductionRequest $productionRequest): ?DailyProduce
+    {
+        if (! $productionRequest->recipe_id) {
+            $this->toast()->error('Cannot proceed: request has no recipe.')->send();
+            return null;
+        }
+
+        $branchId = $this->getBranchId();
+        $shift = $productionRequest->shift_id ? Shift::find($productionRequest->shift_id) : null;
+
+        if (! $shift) {
+            $shiftType = $this->currentShift?->shift_type ?? 'morning';
+            $shift = Shift::firstOrCreate([
+                'branch_id' => $branchId,
+                'department_id' => $this->department->id,
+                'shift_date' => today(),
+                'shift_type' => $shiftType,
+            ], [
+                'employee_id' => Auth::id(),
+                'shift_number' => Shift::where('shift_date', today())->count() + 1,
+                'status' => 'active',
+            ]);
+        }
+
+        if (! $productionRequest->shift_id) {
+            $productionRequest->update(['shift_id' => $shift->id]);
+        }
+
+        $openingQty = DailyProduce::getOpeningQuantityFromPreviousShift(
+            $productionRequest->recipe_id,
+            $shift->branch_id,
+            $shift->shift_date,
+            $shift->shift_type
+        );
+
+        return DailyProduce::firstOrCreate([
+            'shift_id' => $shift->id,
+            'recipe_id' => $productionRequest->recipe_id,
+            'production_request_id' => $productionRequest->id,
+        ], [
+            'produce_date' => $shift->shift_date,
+            'shift_type' => $shift->shift_type,
+            'opening_quantity' => $openingQty,
+            'requested_quantity' => $productionRequest->planned_production_quantity,
+            'produced_quantity' => 0,
+            'sent_out_quantity' => 0,
+            'order_quantity' => 0,
+            'callback_quantity' => 0,
+            'closing_quantity' => $openingQty,
+            'expected_closing' => $openingQty,
+            'variance' => 0,
+        ]);
+    }
+
+    /**
+     * Resolve a DailyProduce record for actions, supporting no-shift production requests.
+     */
+    private function resolveDailyProduceForAction($produceId): ?DailyProduce
+    {
+        if ($this->selectedShiftId !== 'no-shift') {
+            return DailyProduce::find($produceId);
+        }
+
+        $productionRequest = ProductionRequest::with('recipe')->find($produceId);
+        if (! $productionRequest) {
+            $this->toast()->error('Production request not found.')->send();
+            return null;
+        }
+
+        $produce = $this->ensureDailyProduceFromRequest($productionRequest);
+        if (! $produce) {
+            return null;
+        }
+
+        $produce->loadMissing('shift');
+        $this->currentShift = $produce->shift;
+        $this->selectedShiftId = $produce->shift_id;
+
+        return $produce;
+    }
+
     public function render()
     {
         $branchId = $this->getBranchId();
+        $this->noShiftRequestsCount = ProductionRequest::where('production_department_id', $this->department->id)
+            ->whereDate('created_at', today())
+            ->count();
 
         // Get available shifts for this department - cache for performance
         $cacheKey = "available_shifts_{$branchId}_{$this->department->id}";
@@ -1284,6 +1659,7 @@ class Index extends Component
         return view('livewire.branch-dashboard.production.daily-produce.index', [
             'availableShifts' => $availableShifts,
             'productionRequestsCount' => $productionRequestsCount,
+            'noShiftRequestsCount' => $this->noShiftRequestsCount,
         ]);
     }
 }

@@ -204,7 +204,7 @@
     <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700">
     <div class="px-3 py-2 border-b border-zinc-200 dark:border-zinc-700 flex justify-between items-center">
     <h3 class="text-sm font-medium text-zinc-800 dark:text-zinc-100">Purchases List</h3>
-             @can('create-purchases')
+             @can('manage-purchases')
                  <button wire:click="openCreateModal"
                      class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md text-xs font-medium">
                      New Purchase
@@ -249,7 +249,7 @@
                              </td>
                              <td class="px-3 py-2 text-xs text-gray-600 dark:text-gray-400">{{ $purchase->purchaseItems->count() }}</td>
                              <td class="px-3 py-2 text-xs">
-                                 @can('delete-purchases')
+                                 @can('manage-purchases')
                                      <button wire:click="delete({{ $purchase->id }})"
                                          onclick="return confirm('Are you sure you want to delete this purchase?')"
                                          class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">

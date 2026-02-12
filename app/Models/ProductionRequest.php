@@ -15,6 +15,7 @@ class ProductionRequest extends Model
         'item_request_id',
         'recipe_id',
         'planned_production_quantity',
+        'requested_units',
         'notes',
         'sales_department_id',
         'production_department_id',
@@ -23,10 +24,13 @@ class ProductionRequest extends Model
         'created_by_id',
         'started_at',
         'completed_at',
+        'eta_override_minutes',
     ];
 
     protected $casts = [
         'planned_production_quantity' => 'decimal:2',
+        'requested_units' => 'decimal:2',
+        'eta_override_minutes' => 'integer',
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
     ];

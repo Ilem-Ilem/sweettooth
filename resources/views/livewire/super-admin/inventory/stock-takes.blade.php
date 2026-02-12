@@ -118,7 +118,7 @@
                                 </span>
                             </td>
                             <td class="px-3 py-2 text-xs">
-                                @can('verify-stock-takes')
+                                @can('manage-stock-takes')
                                     @if ($stockTake->status === 'completed')
                                         <button wire:click="openVerificationModal({{ $stockTake->id }})"
                                             class="text-green-600 hover:text-green-800">

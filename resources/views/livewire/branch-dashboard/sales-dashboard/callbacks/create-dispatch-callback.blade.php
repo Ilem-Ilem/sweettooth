@@ -18,7 +18,7 @@
     </div>
 
     <!-- Shift Selector and Info -->
-    @if (count($availableShifts) === 0)
+    @if (!$isSuperAdmin && count($availableShifts) === 0)
         <div class="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-4 rounded">
             <div class="flex items-center">
                 <svg class="w-5 h-5 text-yellow-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -31,7 +31,7 @@
                 </div>
             </div>
         </div>
-    @else
+    @elseif(!$isSuperAdmin)
         <!-- Shift Selector -->
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

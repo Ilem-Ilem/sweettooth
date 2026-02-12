@@ -753,6 +753,40 @@ class Purchases extends Component
     }
 
     /**
+     * Quickly update the payment status of an existing purchase from the table view.
+     */
+    public function updatePaymentStatus($purchaseId, $status)
+    {
+        try {
+            if (! in_array($status, ['paid', 'partial', 'pending'], true)) {
+                throw new \Exception('Invalid payment status.');
+            }
+
+            $purchase = Purchase::findOrFail($purchaseId);
+
+            if ($purchase->branch_id !== $this->getBranchId()) {
+                throw new \Exception('Unauthorized action.');
+            }
+
+            $purchase->update(['payment_status' => $status]);
+
+            if ($actor = current_actor()) {
+                AuditService::log(
+                    $actor,
+                    'update',
+                    $purchase,
+                    "Updated purchase #{$purchase->purchase_number} payment status to ".ucfirst($status),
+                    'completed'
+                );
+            }
+
+            $this->toast()->success('Payment status updated to '.ucfirst($status).'.')->send();
+        } catch (\Exception $e) {
+            $this->toast()->error($e->getMessage())->send();
+        }
+    }
+
+    /**
      * Format currency value for inventory pricing
      */
     protected function formatCurrency(float $amount): string

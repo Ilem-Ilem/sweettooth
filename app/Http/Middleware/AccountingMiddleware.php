@@ -38,17 +38,16 @@ class AccountingMiddleware
      */
     private function hasAccountingAccess($user): bool
     {
-        // Check if user has any accounting role
-        $accountingRoles = [
-            'Accountant',
-            'Accounting Manager',
-            'accountant',
-            'accounting_manager',
-            'finance_director',
-            'cfo',
-        ];
+        if (! $user) {
+            return false;
+        }
 
-        // If using Spatie Roles
+        if ($user->can('view-accounting') || $user->can('manage-accounting')) {
+            return true;
+        }
+
+        $accountingRoles = ['Accountant', 'Accounting Manager', 'Admin', 'Super Admin'];
+
         if (method_exists($user, 'hasAnyRole')) {
             return $user->hasAnyRole($accountingRoles);
         }

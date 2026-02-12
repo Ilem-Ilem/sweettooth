@@ -6,9 +6,11 @@ use App\Livewire\BaseComponent;
 use Livewire\WithPagination;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
+use Illuminate\Validation\Rule;
 use TallStackUi\Traits\Interactions;
 use App\Services\RolePermissionService;
 use App\Traits\Exportable;
+use Illuminate\Support\Facades\Cache;
 
 class Index extends BaseComponent
 {
@@ -43,6 +45,8 @@ class Index extends BaseComponent
     public string $standalonePermissionName = '';
     public string $standalonePermissionGuard = 'employee';
 
+    private int $cacheTtlMinutes = 5;
+
     protected array $bulkActions = [
         'delete' => ['label' => 'Delete Selected', 'method' => 'bulkDelete'],
     ];
@@ -71,13 +75,14 @@ class Index extends BaseComponent
     protected function getFilteredQuery()
     {
         return Role::query()
+            ->withCount('users')
+            ->select(['roles.id', 'roles.name', 'roles.guard_name', 'roles.created_at'])
             ->when($this->search, function ($query) {
                 $query->where('name', 'like', '%' . $this->search . '%');
             })
             ->when($this->advancedSearch, function ($query) {
                 $query->where(function ($q) {
-                    $q->where('name', 'like', '%' . $this->advancedSearch . '%')
-                      ->orWhere('guard_name', 'like', '%' . $this->advancedSearch . '%');
+                    $q->where('name', 'like', '%' . $this->advancedSearch . '%');
                 });
             })
             ->when($this->dateFrom, function ($query) {
@@ -91,6 +96,7 @@ class Index extends BaseComponent
     public function applyFilters()
     {
         $this->resetPage();
+        $this->clearCache();
     }
 
     public function resetFilters()
@@ -100,6 +106,7 @@ class Index extends BaseComponent
         $this->dateFrom = null;
         $this->dateTo = null;
         $this->resetPage();
+        $this->clearCache();
     }
 
     // Export methods
@@ -118,7 +125,11 @@ class Index extends BaseComponent
     // Modal methods
     public function viewPermissions($roleId)
     {
-        $role = Role::with('permissions')->findOrFail($roleId);
+        $cacheKey = "role_permissions_{$roleId}_" . auth()->id();
+        $role = Cache::remember($cacheKey, now()->addMinutes($this->cacheTtlMinutes), function () use ($roleId) {
+            return Role::with('permissions:id,name')->findOrFail($roleId);
+        });
+
         $this->selectedRoleId = $roleId;
         $this->rolePermissions = $role->permissions->toArray();
         $this->showPermissionsModal = true;
@@ -144,7 +155,7 @@ class Index extends BaseComponent
         $this->isEditing = true;
         $this->selectedRoleId = $roleId;
         $this->roleName = $role->name;
-        $this->roleGuard = $role->guard_name;
+        $this->roleGuard = 'web';
         $this->selectedPermissions = $role->permissions->pluck('id')->toArray();
         $this->showRoleModal = true;
     }
@@ -167,21 +178,28 @@ class Index extends BaseComponent
 
     public function saveRole()
     {
-        $this->validate([
-            'roleName' => 'required|string|max:255',
-            'roleGuard' => 'required|string',
+        $rules = [
+            'roleName' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+        ];
+
+        if (!$this->isEditing) {
+            $rules['roleName'][] = Rule::unique('roles', 'name')->where('guard_name', 'web');
+        }
+
+        $this->validate($rules, [
+            'roleName.unique' => 'The role name already exists.',
         ]);
 
         if ($this->isEditing && $this->selectedRoleId) {
             try {
-                RolePermissionService::updateRole(
-                    $this->selectedRoleId,
-                    [
-                        'name' => $this->roleName,
-                        'guard_name' => $this->roleGuard,
-                    ]
-                );
-                $message = 'Role updated successfully!';
+                $role = Role::findOrFail($this->selectedRoleId);
+                // Prevent renaming: always keep current name
+                $this->roleName = $role->name;
+                $message = 'Permissions updated successfully!';
             } catch (\Exception $e) {
                 $this->toast()->error($e->getMessage())->send();
                 return;
@@ -189,14 +207,14 @@ class Index extends BaseComponent
         } else {
             $role = Role::create([
                 'name' => $this->roleName,
-                'guard_name' => $this->roleGuard,
+                'guard_name' => 'web',
             ]);
             $message = 'Role created successfully!';
         }
 
         // Sync permissions - only permissions with matching guard
         $permissions = Permission::whereIn('id', $this->selectedPermissions)
-            ->where('guard_name', $this->roleGuard)
+            ->where('guard_name', 'web')
             ->get();
         
         if ($this->isEditing) {
@@ -205,6 +223,7 @@ class Index extends BaseComponent
         $role->syncPermissions($permissions);
 
         $this->toast()->success($message)->send();
+        $this->clearCache();
         $this->closeRoleModal();
     }
 
@@ -226,6 +245,7 @@ class Index extends BaseComponent
             try {
                 RolePermissionService::deleteRole($this->selectedRoleId);
                 $this->dialog()->success('Success', 'Role deleted successfully!')->send();
+                $this->clearCache();
             } catch (\Exception $e) {
                 $this->dialog()->error('Error', $e->getMessage())->send();
             }
@@ -256,6 +276,7 @@ class Index extends BaseComponent
                 RolePermissionService::deleteRole($roleId);
             }
             $this->dialog()->success('Success', count($this->selectedIds) . ' role(s) deleted successfully!')->send();
+            $this->clearCache();
         } catch (\Exception $e) {
             $this->dialog()->error('Error', $e->getMessage())->send();
         }
@@ -319,6 +340,7 @@ class Index extends BaseComponent
 
         $this->toast()->success('Permission created and added to role!')->send();
         $this->closeCreatePermissionModal();
+        $this->clearCache();
     }
 
     // Standalone permission methods
@@ -350,35 +372,86 @@ class Index extends BaseComponent
 
         $this->toast()->success('Permission created successfully!')->send();
         $this->closeStandalonePermissionModal();
+        $this->clearCache();
     }
 
     public function render()
     {
-        $rows = $this->getFilteredQuery()->paginate($this->quantity ?? 10);
+        $cacheKey = $this->getCacheKey();
+        $rows = Cache::remember($cacheKey, now()->addMinutes($this->cacheTtlMinutes), function () {
+            return $this->getFilteredQuery()->paginate($this->quantity ?? 10);
+        });
+
+        // Add sequential numbers to the rows
+        $currentPage = $rows->currentPage();
+        $perPage = $rows->perPage();
+        $startIndex = ($currentPage - 1) * $perPage + 1;
+
+        $rows->getCollection()->each(function ($item, $index) use ($startIndex) {
+            $item->setAttribute('sequential_number', $startIndex + $index);
+        });
 
         // Only load permissions when role modal is open to avoid loading on every render
         $allPermissions = collect();
         if ($this->showRoleModal) {
-            $allPermissionsQuery = Permission::where('guard_name', $this->roleGuard)
-                ->select('id', 'name', 'guard_name');
+            $permissionsCacheKey = 'all_permissions_web_' . auth()->id() . '_' . md5($this->permissionSearch ?? '');
+            $allPermissions = Cache::remember($permissionsCacheKey, now()->addMinutes(30), function () {
+                $query = Permission::where('guard_name', 'web')
+                    ->select('id', 'name', 'guard_name');
 
-            if ($this->permissionSearch) {
-                $allPermissionsQuery->where('name', 'like', '%' . $this->permissionSearch . '%');
-            }
+                if ($this->permissionSearch) {
+                    $query->where('name', 'like', '%' . $this->permissionSearch . '%');
+                }
 
-            $allPermissions = $allPermissionsQuery->get();
+                return $query->get();
+            });
         }
 
         return view('livewire.branch-dashboard.roles.index', [
             'headers' => [
-                ['index' => 'id', 'label' => '#'],
+                ['index' => 'sequential_number', 'label' => '#'],
                 ['index' => 'name', 'label' => 'Role Name'],
-                ['index' => 'guard_name', 'label' => 'Guard'],
                 ['index' => 'created_at', 'label' => 'Created At'],
                 ['index' => 'action', 'label' => 'Actions', 'display' => true],
             ],
             'rows' => $rows,
             'allPermissions' => $allPermissions,
         ])->layout('components.layouts.app.branch-dashboard');
+    }
+
+    private function getCacheVersion(): int
+    {
+        return Cache::get('roles_cache_version_' . auth()->id(), 1);
+    }
+
+    private function incrementCacheVersion(): void
+    {
+        $versionKey = 'roles_cache_version_' . auth()->id();
+        Cache::put($versionKey, $this->getCacheVersion() + 1, now()->addDay());
+    }
+
+    private function getCacheKey(): string
+    {
+        $currentPage = $this->getPage();
+
+        $key = implode('_', [
+            'roles_list',
+            auth()->id(),
+            $this->getCacheVersion(),
+            $this->quantity,
+            $this->search,
+            $this->advancedSearch,
+            $this->dateFrom,
+            $this->dateTo,
+            $currentPage,
+        ]);
+
+        return md5($key);
+    }
+
+    private function clearCache(): void
+    {
+        $this->incrementCacheVersion();
+        Cache::flush();
     }
 }

@@ -56,6 +56,7 @@ class PosDocumentService
         $tax = $this->currencyService->formatAmount($sale->tax);
         $total = $this->currencyService->formatAmount($sale->total);
         $date = $sale->created_at->format('Y-m-d H:i:s');
+        $orderType = ucfirst(str_replace('-', ' ', $sale->order_type ?? 'dine-in'));
 
         $discountRow = $sale->discount > 0 ? "
             <tr>
@@ -68,6 +69,8 @@ class PosDocumentService
                 <td colspan=\"3\" style=\"text-align: right; padding: 4px 8px;\">Tax:</td>
                 <td style=\"text-align: right; padding: 4px 0;\">{$symbol}{$tax}</td>
             </tr>" : '';
+
+        $receiptNumber = $sale->receipt_number ?? 'N/A';
 
         return <<<HTML
         <div style="font-family: monospace; max-width: 400px; margin: 0 auto; padding: 20px; background: white;">
@@ -88,7 +91,7 @@ class PosDocumentService
             <div style="font-size: 12px; margin-bottom: 12px;">
                 <div style="display: flex; justify-content: space-between;">
                     <span>Receipt #:</span>
-                    <span>{$sale->receipt_number ?? 'N/A'}</span>
+                    <span>{$receiptNumber}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between;">
                     <span>Date:</span>
@@ -96,7 +99,7 @@ class PosDocumentService
                 </div>
                 <div style="display: flex; justify-content: space-between;">
                     <span>Order Type:</span>
-                    <span>{{ ucfirst(str_replace('-', ' ', $sale->order_type ?? 'dine-in')) }}</span>
+                    <span>{$orderType}</span>
                 </div>
             </div>
             

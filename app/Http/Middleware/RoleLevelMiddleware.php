@@ -76,13 +76,12 @@ class RoleLevelMiddleware
         if ($user->hasRole('Admin')) return 4;
 
         $managerRoles = [
-            'Manager', 'Head of Production', 'Chef', 'Head of Gelato',
-            'Confectionaries Manager', 'Sales Manager', 'HR Manager',
-            'Inventory Manager', 'Corner Store Manager', 'MD', 'Managing Director'
+            'Head of Production', 'Sales Manager', 'HR Manager',
+            'Inventory Manager', 'Accounting Manager', 'MD', 'Managing Director'
         ];
         if ($user->hasAnyRole($managerRoles)) return 3;
 
-        $supervisorRoles = ['Supervisor', 'Till Supervisor', 'Sales Supervisor', 'Stock Controller'];
+        $supervisorRoles = ['Production Supervisor', 'Sales Supervisor', 'Inventory Supervisor', 'HR Officer', 'Accountant'];
         if ($user->hasAnyRole($supervisorRoles)) return 2;
 
         return 1;

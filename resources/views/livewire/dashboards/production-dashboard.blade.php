@@ -1,4 +1,9 @@
 <div class="space-y-6">
+    @php
+        $productionDepartments = \App\Services\SidebarVisibilityService::getProductionDepartments(auth()->user());
+        $defaultProductionSlug = $deptSlug ?? ($userDepartment?->slug ?? ($productionDepartments->first()?->slug ?? null));
+    @endphp
+
     <!-- Page Title with Department Badge -->
     <div>
         <div class="flex items-center gap-3">
@@ -19,21 +24,9 @@
                 <label class="block text-sm font-medium text-gray-700 mb-1">Production Department</label>
                 <select wire:model="deptSlug" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
                     <option value="">My Department</option>
-                    @if(is_super_admin() || auth()->user()->hasRole(['head_of_production', 'admin'], 'web'))
-                        <option value="kitchen">Kitchen</option>
-                        <option value="gelato-production">Gelato Production</option>
-                        <option value="confectionaries-production">Confectionaries Production</option>
-                    @else
-                        @if(auth()->user()->hasRole('Chef') || auth()->user()->hasRole('Kitchen Staff'))
-                            <option value="kitchen">Kitchen</option>
-                        @endif
-                        @if(auth()->user()->hasRole('Head of Gelato') || auth()->user()->hasRole('Gelato Production Staff'))
-                            <option value="gelato-production">Gelato Production</option>
-                        @endif
-                        @if(auth()->user()->hasRole('Confectionaries Manager') || auth()->user()->hasRole('Confectionaries Production Staff'))
-                            <option value="confectionaries-production">Confectionaries Production</option>
-                        @endif
-                    @endif
+                    @foreach($productionDepartments as $dept)
+                        <option value="{{ $dept->slug }}">{{ $dept->name }}</option>
+                    @endforeach
                 </select>
             </div>
         </div>
@@ -45,7 +38,7 @@
     </div>
 
     <!-- Department Navigation Links -->
-    @if($deptSlug || $userDepartment)
+    @if($defaultProductionSlug)
         <div class="bg-white rounded-lg border border-gray-200 p-6">
             <h2 class="text-xl font-bold text-gray-900 mb-6">
                 {{ ucwords(str_replace('-', ' ', $deptSlug ?? ($userDepartment?->name ?? 'Production'))) }} Module
@@ -53,7 +46,7 @@
             
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <!-- Products -->
-                <a href="{{ route('branch-dashboard.production.products', $deptSlug ?? ($userDepartment?->slug ?? 'kitchen')) }}" 
+                <a href="{{ route('branch-dashboard.production.products', $defaultProductionSlug) }}" 
                    class="p-4 border border-gray-200 rounded-lg hover:shadow-md hover:border-blue-300 transition flex items-center gap-3">
                     <div class="p-2 bg-blue-100 rounded-lg">
                         <svg class="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
@@ -67,7 +60,7 @@
                 </a>
 
                 <!-- Product Types -->
-                <a href="{{ route('branch-dashboard.production.product-types', $deptSlug ?? ($userDepartment?->slug ?? 'kitchen')) }}" 
+                <a href="{{ route('branch-dashboard.production.product-types', $defaultProductionSlug) }}" 
                    class="p-4 border border-gray-200 rounded-lg hover:shadow-md hover:border-blue-300 transition flex items-center gap-3">
                     <div class="p-2 bg-purple-100 rounded-lg">
                         <svg class="w-5 h-5 text-purple-600" fill="currentColor" viewBox="0 0 20 20">

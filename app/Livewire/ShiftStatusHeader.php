@@ -191,19 +191,7 @@ class ShiftStatusHeader extends Component
             return false;
         }
 
-        // Primary check: category name
-        if ($department->category && strtolower($department->category->name) === 'sales') {
-            return true;
-        }
-
-        // Fallback: check department slug or name contains 'sales'
-        $deptName = strtolower($department->name ?? '');
-        $deptSlug = strtolower($department->slug ?? '');
-        if (str_contains($deptSlug, 'sales') || str_contains($deptName, 'sales')) {
-            return true;
-        }
-
-        return false;
+        return $department->category && strtolower($department->category->name) === 'sales';
     }
 
     /**

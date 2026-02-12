@@ -206,27 +206,12 @@ abstract class BaseDashboard extends Component
      */
     protected function getRoleLevel(): int
     {
-        $roleName = $this->getUserRoleName();
+        $user = auth()->user();
+        if (!$user || !is_object($user)) {
+            return 0;
+        }
 
-        return match ($roleName) {
-            // Level 5: Executive
-            'super_admin', 'managing_director' => 5,
-
-            // Level 4: Management
-            'admin', 'branch_admin', 'head_of_production', 'sales_manager', 'hr_manager', 'inventory_manager' => 4,
-
-            // Level 3: Supervisor
-            'chef', 'head_of_gelato', 'confectionaries_manager', 'till_supervisor', 'corner_store_manager' => 3,
-
-            // Level 2: Officer
-            'hr_officer', 'stock_controller', 'store_keeper' => 2,
-
-            // Level 1: Staff
-            'kitchen_staff', 'gelato_production_staff', 'confectionaries_production_staff', 'cashier', 'corner_store_staff', 'confectionaries_sales_staff' => 1,
-
-            // Default
-            default => 0,
-        };
+        return \App\Services\SidebarVisibilityService::getRoleLevel($user);
     }
 
     /**

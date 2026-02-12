@@ -8,6 +8,7 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Models\Branch;
 use App\Models\Department;
+use App\Services\SidebarVisibilityService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\Eloquent\Model;
@@ -60,8 +61,8 @@ class ContextualAccessControlService
             return false;
         }
 
-        // Department heads have extended permissions in their department
-        if ($user->hasAnyRole(['Chef', 'Head of Gelato', 'Confectionaries Manager', 'Head of Production'])) {
+        // Managers have extended permissions in their department
+        if (SidebarVisibilityService::getRoleLevel($user) >= SidebarVisibilityService::LEVEL_MANAGER) {
             return self::departmentHeadCanPermission($user, $permission, $department);
         }
 
@@ -88,7 +89,7 @@ class ContextualAccessControlService
         }
 
         // Supervisors have extended permissions during their shifts
-        if ($user->hasAnyRole(['Till Supervisor', 'Corner Store Manager'])) {
+        if (SidebarVisibilityService::getRoleLevel($user) >= SidebarVisibilityService::LEVEL_SUPERVISOR) {
             return self::supervisorCanPermission($user, $permission, $shift);
         }
 
@@ -161,21 +162,6 @@ class ContextualAccessControlService
         string $permission,
         Department $department
     ): bool {
-        // Department heads can manage staff in their department
-        if ($permission === 'manage-department-staff') {
-            return true;
-        }
-
-        // Department heads can view their department reports
-        if ($permission === 'view-department-reports') {
-            return true;
-        }
-
-        // Department heads can approve production in their department
-        if ($permission === 'approve-production') {
-            return true;
-        }
-
         return $user->can($permission);
     }
 
@@ -187,16 +173,6 @@ class ContextualAccessControlService
         string $permission,
         $shift
     ): bool {
-        // Supervisors can close registers during their shift
-        if ($permission === 'close-register') {
-            return true;
-        }
-
-        // Supervisors can approve callbacks during their shift
-        if ($permission === 'approve-callbacks') {
-            return true;
-        }
-
         return $user->can($permission);
     }
 
@@ -226,13 +202,6 @@ class ContextualAccessControlService
         }
 
         $basePermissions = $user->getAllPermissions()->pluck('name')->toArray();
-
-        // Add department-head-specific permissions
-        if ($user->hasAnyRole(['Chef', 'Head of Gelato', 'Confectionaries Manager', 'Head of Production'])) {
-            $basePermissions[] = 'manage-department-staff';
-            $basePermissions[] = 'view-department-reports';
-            $basePermissions[] = 'approve-production';
-        }
 
         return array_unique($basePermissions);
     }

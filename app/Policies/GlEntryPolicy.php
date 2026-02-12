@@ -27,10 +27,9 @@ class GlEntryPolicy
     public function viewAny(User $user): bool
     {
         return $user->hasAnyPermission([
-            'view-gl-entries',
-            'view-journal-entries',
+            'view-accounting',
             'manage-accounting',
-        ]) || $user->hasAnyRole(['Accountant', 'Finance Manager', 'Manager', 'Admin', 'Super Admin']);
+        ]) || $user->hasAnyRole(['Accountant', 'Accounting Manager', 'Admin', 'Super Admin']);
     }
 
     /**
@@ -62,10 +61,8 @@ class GlEntryPolicy
     public function create(User $user): bool
     {
         return $user->hasAnyPermission([
-            'create-gl-entries',
-            'create-journal-entries',
             'manage-accounting',
-        ]) || $user->hasAnyRole(['Accountant', 'Senior Accountant', 'Finance Manager', 'Admin', 'Super Admin']);
+        ]) || $user->hasAnyRole(['Accountant', 'Accounting Manager', 'Admin', 'Super Admin']);
     }
 
     /**
@@ -85,10 +82,8 @@ class GlEntryPolicy
 
         // Check permission
         if (!$user->hasAnyPermission([
-            'edit-gl-entries',
-            'edit-journal-entries',
             'manage-accounting',
-        ]) && !$user->hasAnyRole(['Accountant', 'Senior Accountant', 'Finance Manager'])) {
+        ]) && !$user->hasAnyRole(['Accountant', 'Accounting Manager'])) {
             return false;
         }
 
@@ -117,10 +112,8 @@ class GlEntryPolicy
 
         // Only finance managers and above can delete
         if (!$user->hasAnyPermission([
-            'delete-gl-entries',
-            'delete-journal-entries',
             'manage-accounting',
-        ]) && !$user->hasAnyRole(['Finance Manager', 'Admin'])) {
+        ]) && !$user->hasAnyRole(['Accounting Manager', 'Admin'])) {
             return false;
         }
 
@@ -152,18 +145,16 @@ class GlEntryPolicy
 
         // Check basic posting permission
         if (!$user->hasAnyPermission([
-            'post-gl-entries',
-            'post-journal-entries',
             'manage-accounting',
-        ]) && !$user->hasAnyRole(['Accountant', 'Senior Accountant', 'Finance Manager'])) {
+        ]) && !$user->hasAnyRole(['Accountant', 'Accounting Manager'])) {
             return false;
         }
 
         // Segregation of duties check
         if ($entry->entered_by_id == $user->id) {
             // Same user can only post their own entries if they have special permission
-            if (!$user->hasAnyPermission(['post-own-entries']) &&
-                !$user->hasAnyRole(['Senior Accountant', 'Finance Manager', 'Admin'])) {
+            if (!$user->hasAnyPermission(['manage-accounting']) &&
+                !$user->hasAnyRole(['Accounting Manager', 'Admin'])) {
                 return false;
             }
         }
@@ -193,9 +184,8 @@ class GlEntryPolicy
 
         // Only senior staff can reverse entries
         if (!$user->hasAnyPermission([
-            'reverse-gl-entries',
-            'reverse-journal-entries',
-        ]) && !$user->hasAnyRole(['Senior Accountant', 'Finance Manager', 'Admin'])) {
+            'manage-accounting',
+        ]) && !$user->hasAnyRole(['Accounting Manager', 'Admin'])) {
             return false;
         }
 
@@ -229,9 +219,8 @@ class GlEntryPolicy
 
         // Check approval permission
         if (!$user->hasAnyPermission([
-            'approve-gl-entries',
-            'approve-journal-entries',
-        ]) && !$user->hasAnyRole(['Senior Accountant', 'Finance Manager', 'Admin'])) {
+            'manage-accounting',
+        ]) && !$user->hasAnyRole(['Accounting Manager', 'Admin'])) {
             return false;
         }
 

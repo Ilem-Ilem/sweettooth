@@ -10,6 +10,7 @@ class ProductStock extends Model
 {
     protected $fillable = [
         'sales_shift_id',
+        'department_id',
         'product_id',
         'stock_date',
         'shift_type',

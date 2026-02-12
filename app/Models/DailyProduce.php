@@ -10,6 +10,7 @@ class DailyProduce extends Model
 {
     protected $fillable = [
         'shift_id',
+        'production_request_id',
         'recipe_id',
         'produce_date',
         'shift_type',
@@ -43,6 +44,11 @@ class DailyProduce extends Model
     public function shift(): BelongsTo
     {
         return $this->belongsTo(Shift::class);
+    }
+
+    public function productionRequest(): BelongsTo
+    {
+        return $this->belongsTo(ProductionRequest::class);
     }
 
     public function recipe(): BelongsTo
@@ -143,7 +149,7 @@ class DailyProduce extends Model
         $created = [];
 
         foreach ($productionRequests as $request) {
-            if (! $request->recipe) {
+            if (! $request->recipe_id || ! $request->recipe) {
                 continue;
             }
 
@@ -158,6 +164,7 @@ class DailyProduce extends Model
             $dailyProduce = static::firstOrCreate([
                 'shift_id' => $shift->id,
                 'recipe_id' => $request->recipe_id,
+                'production_request_id' => $request->id,
             ], [
                 'produce_date' => $shift->shift_date,
                 'shift_type' => $shift->shift_type,
@@ -225,10 +232,12 @@ class DailyProduce extends Model
     public function getComputedProductionStatus(): string
     {
         // Get the production request for this produce
-        $productionRequest = \App\Models\ProductionRequest::where('shift_id', $this->shift_id)
-            ->where('recipe_id', $this->recipe_id)
-            ->with('itemRequest.requestDetails')
-            ->first();
+        $productionRequest = $this->production_request_id
+            ? \App\Models\ProductionRequest::with('itemRequest.requestDetails')->find($this->production_request_id)
+            : \App\Models\ProductionRequest::where('shift_id', $this->shift_id)
+                ->where('recipe_id', $this->recipe_id)
+                ->with('itemRequest.requestDetails')
+                ->first();
 
         if (! $productionRequest || ! $productionRequest->itemRequest) {
             return 'no_request';
@@ -335,13 +344,18 @@ class DailyProduce extends Model
     public function calculateProducableQuantity(): array
     {
         // Get the production request
-        $productionRequest = \App\Models\ProductionRequest::where('shift_id', $this->shift_id)
-            ->where('recipe_id', $this->recipe_id)
-            ->with([
+        $productionRequest = $this->production_request_id
+            ? \App\Models\ProductionRequest::with([
                 'recipe.ingredients.item',
                 'itemRequest.requestDetails.item',
-            ])
-            ->first();
+            ])->find($this->production_request_id)
+            : \App\Models\ProductionRequest::where('shift_id', $this->shift_id)
+                ->where('recipe_id', $this->recipe_id)
+                ->with([
+                    'recipe.ingredients.item',
+                    'itemRequest.requestDetails.item',
+                ])
+                ->first();
 
         if (! $productionRequest || ! $productionRequest->recipe) {
             return [
@@ -403,8 +417,8 @@ class DailyProduce extends Model
                     // Can produce all requested batches
                     $producableBatchesFromThisIngredient = $requestedBatches;
                 } else {
-                    // Can only produce partial batches
-                    $producableBatchesFromThisIngredient = floor($dispatched / $qtyNeededPerBatch);
+                    // Allow fractional batches based on dispatched quantity
+                    $producableBatchesFromThisIngredient = $dispatched / $qtyNeededPerBatch;
                 }
             }
 
@@ -442,6 +456,8 @@ class DailyProduce extends Model
         }
 
         // Convert to final producable units
+        // Cap producable batches at requested batches
+        $minProducableBatches = min($minProducableBatches, $requestedBatches);
         $producableUnits = $minProducableBatches * $recipeYield;
 
         // Only mark ingredients as limiting if they actually limit production

@@ -14,6 +14,12 @@
                 </p>
             </div>
             <div class="text-right">
+                <a href="{{ branch_route('branch-dashboard.sales-dashboard.stock-opening.index', ['b_id' => $b_id, 'salesDeptSlug' => $salesDeptSlug]) }}"
+                   class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/20 hover:bg-white/30 transition">
+                    Open Stock Opening Link
+                </a>
+            </div>
+            <div class="text-right">
                 @if ($isVerified || $this->checkVerificationStatus())
                     <div class="flex items-center bg-green-500 px-4 py-2 rounded-lg">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -111,6 +117,55 @@
             </div>
         </div>
     </div>
+    <div class="flex justify-end">
+        <a href="#unclosed-products"
+           class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-100 text-amber-900 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-100 dark:hover:bg-amber-900/50 transition">
+            View Unclosed Products
+        </a>
+    </div>
+    <div id="unclosed-products" class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="text-sm font-semibold text-amber-900 dark:text-amber-100">Unclosed Products</h3>
+                    <p class="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                        These products have a previous closing but none for {{ \Carbon\Carbon::parse($stockDate)->subDay()->format('M d, Y') }}.
+                        Review and carry forward if needed.
+                    </p>
+                </div>
+            </div>
+            @if(!empty($unclosedProducts))
+                <div class="mt-3 overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead>
+                            <tr class="text-left text-amber-900 dark:text-amber-100">
+                                <th class="py-2 pr-4">Product</th>
+                                <th class="py-2 pr-4">SKU</th>
+                                <th class="py-2 pr-4">Last Closing</th>
+                                <th class="py-2 pr-4">Last Stock Date</th>
+                                <th class="py-2 pr-4">Shift</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-amber-900 dark:text-amber-100">
+                            @foreach($unclosedProducts as $item)
+                                <tr class="border-t border-amber-200 dark:border-amber-800">
+                                    <td class="py-2 pr-4">{{ $item['product_name'] }}</td>
+                                    <td class="py-2 pr-4 text-xs text-amber-700 dark:text-amber-300">{{ $item['product_sku'] }}</td>
+                                    <td class="py-2 pr-4 font-semibold">
+                                        {{ number_format($item['last_closing'], 2) }} {{ $item['product_uom'] }}
+                                    </td>
+                                    <td class="py-2 pr-4">{{ $item['last_stock_date'] ?? '-' }}</td>
+                                    <td class="py-2 pr-4">{{ ucfirst($item['last_shift_type'] ?? '-') }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @else
+                <div class="mt-3 text-xs text-amber-700 dark:text-amber-300">
+                    No unclosed products found for this date.
+                </div>
+            @endif
+        </div>
     <!-- Stock Opening Table -->
     <x-table :$headers :$rows striped paginate persist collapsible
         :filter="['quantity' => 'quantity', 'search' => 'search']"

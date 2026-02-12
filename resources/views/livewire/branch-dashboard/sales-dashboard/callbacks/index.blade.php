@@ -18,11 +18,18 @@
                 <button wire:click="exportCSV" 
                     class="px-4 py-2 bg-white text-green-600 rounded-lg font-medium hover:bg-green-50 transition-colors flex items-center gap-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        <path stroke-linecap="rou nd" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                     Export CSV
                 </button>
-                <a href="{{ branch_route('branch-dashboard.sales-dashboard.callbacks.dispatch-callbacks') }}"
+                @php
+                    $deptSlug = $sales_dept_slug ?? request()->query('salesDeptSlug') ?? request()->query('sales_dept_slug');
+                @endphp
+                <a href="{{ branch_route('branch-dashboard.sales-dashboard.callbacks.dispatch-callbacks', [
+                        'salesDeptSlug' => $deptSlug,
+                        'sales_dept_slug' => $deptSlug,
+                        'page' => $deptSlug ? 'Callbacks_' . $deptSlug : null,
+                    ]) }}"
                     class="px-4 py-2 bg-white text-orange-600 rounded-lg font-medium hover:bg-orange-50 transition-colors flex items-center gap-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

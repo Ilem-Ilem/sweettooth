@@ -59,7 +59,10 @@ class DepartmentScopeMiddleware
         // Level 4: Admin can access any department in their branch
         if ($roleLevel >= self::LEVEL_ADMIN) {
             $dept = Department::where('slug', $deptSlug)
-                ->where('branch_id', $user->branch_id)
+                ->where(function($query) use ($user) {
+                    $query->where('branch_id', $user->branch_id)
+                          ->orWhereNull('branch_id');
+                })
                 ->first();
 
             if (!$dept) {
@@ -84,9 +87,9 @@ class DepartmentScopeMiddleware
                 abort(404, 'Department not found.');
             }
 
-            // Same category AND same branch
+            // Same category AND (same branch OR department belongs to all branches)
             if ($targetDept->category_id === $userDept->category_id
-                && $targetDept->branch_id === $user->branch_id) {
+                && ($targetDept->branch_id === $user->branch_id || is_null($targetDept->branch_id))) {
                 $this->setDepartmentContext($request, $deptSlug, $targetDept);
                 return $next($request);
             }
@@ -103,6 +106,12 @@ class DepartmentScopeMiddleware
 
         if ($userDept->slug !== $deptSlug) {
             abort(403, 'You can only access your own department.');
+        }
+
+        // Verify the department belongs to the user's branch (or is a global department)
+        $targetDept = Department::where('slug', $deptSlug)->first();
+        if ($targetDept && $targetDept->branch_id && $targetDept->branch_id !== $user->branch_id) {
+            abort(403, 'This department is not in your branch.');
         }
 
         $this->setDepartmentContext($request, $deptSlug, $userDept);
@@ -136,14 +145,13 @@ class DepartmentScopeMiddleware
 
         // Manager-level roles (old names)
         $managerRoles = [
-            'Manager', 'Head of Production', 'Chef', 'Head of Gelato',
-            'Confectionaries Manager', 'Sales Manager', 'HR Manager',
-            'Inventory Manager', 'Corner Store Manager', 'MD', 'Managing Director'
+            'Head of Production', 'Sales Manager', 'HR Manager',
+            'Inventory Manager', 'Accounting Manager', 'MD', 'Managing Director'
         ];
         if ($user->hasAnyRole($managerRoles)) return 3;
 
         // Supervisor-level roles (old names)
-        $supervisorRoles = ['Supervisor', 'Till Supervisor', 'Sales Supervisor', 'Stock Controller'];
+        $supervisorRoles = ['Production Supervisor', 'Sales Supervisor', 'Inventory Supervisor', 'HR Officer', 'Accountant'];
         if ($user->hasAnyRole($supervisorRoles)) return 2;
 
         return 1; // Staff level

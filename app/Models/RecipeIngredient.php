@@ -110,4 +110,20 @@ class RecipeIngredient extends Model
     {
         return $this->getActualQuantityNeeded() * $batchSize;
     }
+
+    /**
+     * Calculate ingredient cost for a fractional batch factor
+     */
+    public function getCostForBatchFactor(float $batchFactor): float
+    {
+        return $this->getTotalCost() * $batchFactor;
+    }
+
+    /**
+     * Calculate quantity needed for a fractional batch factor
+     */
+    public function getQuantityForBatchFactor(float $batchFactor): float
+    {
+        return $this->getActualQuantityNeeded() * $batchFactor;
+    }
 }

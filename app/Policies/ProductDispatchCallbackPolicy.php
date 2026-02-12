@@ -26,9 +26,10 @@ class ProductDispatchCallbackPolicy
     public function viewAny(User $user): bool
     {
         return $user->hasAnyPermission([
-            'view-callbacks',
-            'view-production-callbacks',
+            'view-production',
             'manage-production',
+            'view-sales',
+            'manage-sales',
         ]) || SidebarVisibilityService::canSeeProduction($user);
     }
 
@@ -77,12 +78,7 @@ class ProductDispatchCallbackPolicy
         }
 
         // Check specific permission
-        if ($user->hasAnyPermission(['approve-callbacks', 'manage-production'])) {
-            return $this->view($user, $callback);
-        }
-
-        // Check if user has production management role
-        if ($user->hasAnyRole(['Manager', 'Supervisor', 'Admin'])) {
+        if ($user->hasAnyPermission(['manage-production'])) {
             return $this->view($user, $callback);
         }
 
@@ -102,19 +98,7 @@ class ProductDispatchCallbackPolicy
         }
 
         // Check specific permission
-        if ($user->hasAnyPermission(['receive-callbacks', 'manage-production'])) {
-            return $this->view($user, $callback);
-        }
-
-        // Check if user has production access role
-        if ($user->hasAnyRole(['Manager', 'Supervisor', 'Admin', 'Staff'])) {
-            // Staff must be in production department
-            if ($user->hasRole('Staff') && $user->department) {
-                $isProductionDept = $user->department->category?->name === 'Production';
-                if (!$isProductionDept) {
-                    return false;
-                }
-            }
+        if ($user->hasAnyPermission(['manage-production', 'view-production'])) {
             return $this->view($user, $callback);
         }
 
@@ -140,12 +124,7 @@ class ProductDispatchCallbackPolicy
         }
 
         // Check specific permission
-        if ($user->hasAnyPermission(['complete-callbacks', 'manage-production'])) {
-            return $this->view($user, $callback);
-        }
-
-        // Check if user has production management role
-        if ($user->hasAnyRole(['Manager', 'Admin'])) {
+        if ($user->hasAnyPermission(['manage-production'])) {
             return $this->view($user, $callback);
         }
 
@@ -158,8 +137,9 @@ class ProductDispatchCallbackPolicy
     public function create(User $user): bool
     {
         return $user->hasAnyPermission([
-            'create-callbacks',
             'manage-sales',
+            'process-sales',
+            'view-sales',
             'manage-production',
         ]) || SidebarVisibilityService::canSeeSalesManagement($user);
     }

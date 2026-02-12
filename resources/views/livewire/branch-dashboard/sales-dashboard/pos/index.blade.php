@@ -311,15 +311,7 @@
             <div x-show="productView === 'grid'" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 @foreach($this->products as $product)
                     @php
-                        $stock = \App\Models\ProductStock::query()
-                            ->whereDate('stock_date', \Carbon\Carbon::today())
-                            ->where('product_id', $product->id)
-                            ->first();
-                        $available = 0;
-                        if ($stock) {
-                            $stock->updateCalculatedFields();
-                            $available = max(0, (float)$stock->closing_quantity);
-                        }
+                        $available = $this->getAvailableForProduct($product->id);
                     @endphp
                     <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 flex flex-col gap-2 bg-white dark:bg-zinc-900">
                         <div class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ $product->name }}</div>
@@ -347,15 +339,7 @@
             <div x-show="productView === 'list'" class="space-y-2">
                 @foreach($this->products as $product)
                     @php
-                        $stock = \App\Models\ProductStock::query()
-                            ->whereDate('stock_date', \Carbon\Carbon::today())
-                            ->where('product_id', $product->id)
-                            ->first();
-                        $available = 0;
-                        if ($stock) {
-                            $stock->updateCalculatedFields();
-                            $available = max(0, (float)$stock->closing_quantity);
-                        }
+                        $available = $this->getAvailableForProduct($product->id);
                     @endphp
                     <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3 flex items-center gap-4">
                         <div class="flex-1">

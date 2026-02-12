@@ -51,14 +51,32 @@ class Index extends Component
 
     public function mount($deptSlug = null)
     {
+        $deptSlug = $deptSlug
+            ?? request()->query('dept_slug')
+            ?? request()->query('deptSlug')
+            ?? request()->query('sales_dept_slug');
+
         // Super Admin can access all departments, so deptSlug is optional
         if (!is_super_admin() && !$deptSlug) {
-            abort(403, 'Department access required');
+            $userDept = auth()->user()?->department;
+            if ($userDept && strtolower($userDept->category?->name ?? '') === 'production') {
+                $deptSlug = $userDept->slug;
+            } else {
+                abort(403, 'Department access required');
+            }
         }
 
         if ($deptSlug) {
             $this->dept_slug = $deptSlug;
-            $this->department = Department::where('slug', $deptSlug)->first();
+            $branchId = $this->getBranchId();
+            $this->department = Department::where('slug', $deptSlug)
+                ->when($branchId, function ($q) use ($branchId) {
+                    $q->where(function ($sub) use ($branchId) {
+                        $sub->where('branch_id', $branchId)
+                            ->orWhereNull('branch_id');
+                    });
+                })
+                ->first();
 
             if (!$this->department) {
                 abort(404, 'Department not found');
@@ -133,14 +151,13 @@ class Index extends Component
                 ];
             }
         } else {
-            // POS request - we don't have detailed item breakdown
-            // Show the total quantity as a single line item
+            // POS request - show based on recipe/product when available
             $this->requestItems[] = [
-                'item_name' => 'POS Production Request',
+                'item_name' => $request->recipe?->product_name ?? 'POS Production Request',
                 'quantity_requested' => $request->planned_production_quantity,
                 'quantity_approved' => $request->planned_production_quantity,
                 'quantity_dispatched' => 0, // Would need to calculate from dispatches
-                'uom' => 'units',
+                'uom' => $request->recipe?->unitOfMeasure?->symbol ?? 'units',
                 'status' => [
                     'label' => 'POS Request',
                     'class' => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
@@ -278,12 +295,15 @@ class Index extends Component
                     throw new \Exception('Request must be approved first.');
                 }
 
-                // Calculate ingredients needed based on recipe and planned quantity
-                $yieldQuantity = (float) ($request->recipe->yield_quantity ?: 1);
+                // Calculate ingredients needed based on recipe and planned quantity (batch-first)
+                $yieldQuantity = (float) ($request->recipe->yield_quantity ?: 0);
                 if ($yieldQuantity <= 0) {
                     throw new \Exception('Recipe yield quantity must be greater than 0.');
                 }
-                
+                if ((float) $request->planned_production_quantity <= 0) {
+                    throw new \Exception('Planned production quantity must be greater than 0.');
+                }
+
                 $batchSize = (int) ceil($request->planned_production_quantity / $yieldQuantity);
                 $ingredientsNeeded = $request->recipe->calculateIngredientsForBatch($batchSize);
 

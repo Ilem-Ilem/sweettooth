@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\BankAccount;
+use App\Models\BankReconciliation;
+use App\Models\BankReconciliationDetail;
 use App\Models\DailyBankTransaction;
 use App\Models\DailyBankPosition;
 use App\Models\GlEntry;
@@ -13,6 +15,278 @@ use Illuminate\Support\Collection;
 
 class BankReconciliationService
 {
+    /**
+     * Create a new reconciliation session
+     */
+    public function createReconciliation(
+        int $bankAccountId,
+        Carbon $reconciliationDate,
+        float $bankBalance,
+        string $branchId
+    ): BankReconciliation {
+        $account = BankAccount::findOrFail($bankAccountId);
+
+        $bookBalance = $this->getGlClosingBalance($account, $reconciliationDate);
+        $difference = floatval($bankBalance) - floatval($bookBalance);
+
+        return BankReconciliation::create([
+            'branch_id' => $branchId,
+            'bank_account_id' => $account->id,
+            'reconciliation_date' => $reconciliationDate->toDateString(),
+            'bank_balance' => $bankBalance,
+            'book_balance' => $bookBalance,
+            'difference' => $difference,
+            'status' => 'in_progress',
+        ]);
+    }
+
+    /**
+     * Get unreconciled GL entries for a bank account as of a date
+     */
+    public function getUnreconciledGlEntries(int $bankAccountId, Carbon $asOfDate): Collection
+    {
+        $account = BankAccount::findOrFail($bankAccountId);
+        $reconciliation = $this->getActiveReconciliationForAccount($bankAccountId);
+
+        return GlEntry::query()
+            ->where('gl_account_id', $account->gl_account_id)
+            ->where('status', 'posted')
+            ->where('entry_date', '<=', $asOfDate)
+            ->where(function ($query) {
+                $query->whereNull('reconciled')->orWhere('reconciled', false);
+            })
+            ->whereNotIn('id', function ($sub) use ($reconciliation) {
+                $sub->select('gl_entry_id')
+                    ->from('bank_reconciliation_details')
+                    ->where('bank_reconciliation_id', $reconciliation->id)
+                    ->whereNull('deleted_at')
+                    ->whereNotNull('gl_entry_id');
+            })
+            ->orderBy('entry_date')
+            ->get();
+    }
+
+    /**
+     * Get unreconciled bank transactions for a bank account as of a date
+     */
+    public function getUnreconciledBankTransactions(int $bankAccountId, Carbon $asOfDate): Collection
+    {
+        $reconciliation = $this->getActiveReconciliationForAccount($bankAccountId);
+
+        return DailyBankTransaction::query()
+            ->where('bank_account_id', $bankAccountId)
+            ->where('transaction_date', '<=', $asOfDate)
+            ->where(function ($query) {
+                $query->whereNull('reconciled')->orWhere('reconciled', false);
+            })
+            ->whereNotIn('id', function ($sub) use ($reconciliation) {
+                $sub->select('daily_bank_transaction_id')
+                    ->from('bank_reconciliation_details')
+                    ->where('bank_reconciliation_id', $reconciliation->id)
+                    ->whereNull('deleted_at')
+                    ->whereNotNull('daily_bank_transaction_id');
+            })
+            ->orderBy('transaction_date')
+            ->get();
+    }
+
+    /**
+     * Get reconciliation stats for UI display
+     */
+    public function getReconciliationStats(int $reconciliationId): array
+    {
+        $reconciliation = BankReconciliation::findOrFail($reconciliationId);
+        $asOfDate = Carbon::parse($reconciliation->reconciliation_date);
+        $account = BankAccount::findOrFail($reconciliation->bank_account_id);
+
+        // Recalculate balances in case GL entries were posted after reconciliation started
+        $bookBalance = $this->getGlClosingBalance($account, $asOfDate);
+        $difference = floatval($reconciliation->bank_balance) - floatval($bookBalance);
+
+        $unmatchedGlEntries = $this->getUnreconciledGlEntries($account->id, $asOfDate);
+        $unmatchedBankTransactions = $this->getUnreconciledBankTransactions($account->id, $asOfDate);
+
+        $unmatchedGlTotal = $unmatchedGlEntries->sum(function ($entry) {
+            return floatval($entry->debit) - floatval($entry->credit);
+        });
+
+        $unmatchedBankTotal = $unmatchedBankTransactions->sum(function ($tx) {
+            $amount = floatval($tx->amount);
+            return $tx->transaction_type === 'outflow' ? -$amount : $amount;
+        });
+
+        $matchedCount = $reconciliation->details()->count();
+        $matchedAmount = floatval($reconciliation->details()->sum('matched_amount'));
+
+        // Keep reconciliation snapshot in sync for reporting
+        $reconciliation->update([
+            'book_balance' => $bookBalance,
+            'difference' => $difference,
+        ]);
+
+        return [
+            'bank_balance' => floatval($reconciliation->bank_balance),
+            'book_balance' => floatval($bookBalance),
+            'difference' => $difference,
+            'matched_count' => $matchedCount,
+            'matched_amount' => $matchedAmount,
+            'unmatched_gl_count' => $unmatchedGlEntries->count(),
+            'unmatched_bank_count' => $unmatchedBankTransactions->count(),
+            'unmatched_gl_total' => floatval($unmatchedGlTotal),
+            'unmatched_bank_total' => floatval($unmatchedBankTotal),
+            'is_balanced' => abs($difference) < 0.01
+                && $unmatchedGlEntries->isEmpty()
+                && $unmatchedBankTransactions->isEmpty(),
+        ];
+    }
+
+    /**
+     * Manually match a GL entry and bank transaction
+     */
+    public function matchTransaction(int $glEntryId, int $bankTransactionId): BankReconciliationDetail
+    {
+        $glEntry = GlEntry::findOrFail($glEntryId);
+        $bankTransaction = DailyBankTransaction::findOrFail($bankTransactionId);
+
+        $accountId = $bankTransaction->bank_account_id;
+        $reconciliation = $this->getActiveReconciliationForAccount($accountId);
+
+        if ($glEntry->gl_account_id !== $bankTransaction->bankAccount?->gl_account_id) {
+            throw new \InvalidArgumentException('GL entry does not match bank account.');
+        }
+
+        $alreadyMatched = BankReconciliationDetail::query()
+            ->where('bank_reconciliation_id', $reconciliation->id)
+            ->where(function ($q) use ($glEntryId, $bankTransactionId) {
+                $q->where('gl_entry_id', $glEntryId)
+                    ->orWhere('daily_bank_transaction_id', $bankTransactionId);
+            })
+            ->whereNull('deleted_at')
+            ->exists();
+
+        if ($alreadyMatched) {
+            throw new \InvalidArgumentException('One of the selected items is already matched.');
+        }
+
+        $matchedAmount = floatval($bankTransaction->amount);
+
+        return BankReconciliationDetail::create([
+            'bank_reconciliation_id' => $reconciliation->id,
+            'gl_entry_id' => $glEntry->id,
+            'daily_bank_transaction_id' => $bankTransaction->id,
+            'matched_amount' => $matchedAmount,
+            'matched_at' => now(),
+            'matched_by_id' => auth()->id(),
+            'match_type' => 'manual',
+        ]);
+    }
+
+    /**
+     * Remove a match
+     */
+    public function unmatchTransaction(int $detailId): void
+    {
+        $detail = BankReconciliationDetail::findOrFail($detailId);
+        $detail->delete();
+
+        if ($detail->gl_entry_id) {
+            GlEntry::where('id', $detail->gl_entry_id)->update([
+                'reconciled' => false,
+                'reconciled_at' => null,
+                'reconciled_by_id' => null,
+            ]);
+        }
+
+        if ($detail->daily_bank_transaction_id) {
+            DailyBankTransaction::where('id', $detail->daily_bank_transaction_id)->update([
+                'reconciled' => false,
+                'reconciled_at' => null,
+                'reconciled_by_id' => null,
+            ]);
+        }
+    }
+
+    /**
+     * Auto-match transactions for a bank account
+     */
+    public function autoMatchTransactions(int $bankAccountId): int
+    {
+        $reconciliation = $this->getActiveReconciliationForAccount($bankAccountId);
+        $glEntries = $this->getUnreconciledGlEntries($bankAccountId, $reconciliation->reconciliation_date);
+        $bankTransactions = $this->getUnreconciledBankTransactions($bankAccountId, $reconciliation->reconciliation_date);
+
+        $matchedCount = 0;
+
+        foreach ($bankTransactions as $bankTx) {
+            $glEntry = $glEntries->first(function ($gl) use ($bankTx) {
+                $glAmount = $bankTx->transaction_type === 'inflow'
+                    ? floatval($gl->debit)
+                    : floatval($gl->credit);
+
+                if ($glAmount <= 0) {
+                    $glAmount = floatval($gl->debit) + floatval($gl->credit);
+                }
+
+                $dateDiff = $gl->entry_date->diffInDays($bankTx->transaction_date);
+
+                return abs(floatval($bankTx->amount) - $glAmount) < 0.01 && $dateDiff <= 5;
+            });
+
+            if ($glEntry) {
+                BankReconciliationDetail::create([
+                    'bank_reconciliation_id' => $reconciliation->id,
+                    'gl_entry_id' => $glEntry->id,
+                    'daily_bank_transaction_id' => $bankTx->id,
+                    'matched_amount' => floatval($bankTx->amount),
+                    'matched_at' => now(),
+                    'matched_by_id' => auth()->id(),
+                    'match_type' => 'auto',
+                ]);
+
+                $glEntries = $glEntries->reject(fn ($g) => $g->id === $glEntry->id);
+                $matchedCount++;
+            }
+        }
+
+        return $matchedCount;
+    }
+
+    /**
+     * Complete reconciliation
+     */
+    public function completeReconciliation(int $reconciliationId): void
+    {
+        $reconciliation = BankReconciliation::findOrFail($reconciliationId);
+
+        if ($reconciliation->status !== 'in_progress') {
+            throw new \InvalidArgumentException('Reconciliation is not in progress.');
+        }
+
+        $reconciliation->markCompleted(auth()->id());
+
+        $detailIds = $reconciliation->details()->pluck('id');
+        $details = BankReconciliationDetail::whereIn('id', $detailIds)->get();
+
+        $glEntryIds = $details->pluck('gl_entry_id')->filter()->unique()->values();
+        $bankTransactionIds = $details->pluck('daily_bank_transaction_id')->filter()->unique()->values();
+
+        if ($glEntryIds->isNotEmpty()) {
+            GlEntry::whereIn('id', $glEntryIds)->update([
+                'reconciled' => true,
+                'reconciled_at' => now(),
+                'reconciled_by_id' => auth()->id(),
+            ]);
+        }
+
+        if ($bankTransactionIds->isNotEmpty()) {
+            DailyBankTransaction::whereIn('id', $bankTransactionIds)->update([
+                'reconciled' => true,
+                'reconciled_at' => now(),
+                'reconciled_by_id' => auth()->id(),
+            ]);
+        }
+    }
+
     /**
      * Perform bank reconciliation for a specific account and date range
      */
@@ -399,5 +673,20 @@ class BankReconciliationService
         return floatval($transactions
             ->filter(fn($t) => $t['bank_transaction']->transaction_type === 'outflow')
             ->sum('gl_amount'));
+    }
+
+    private function getActiveReconciliationForAccount(int $bankAccountId): BankReconciliation
+    {
+        $reconciliation = BankReconciliation::query()
+            ->where('bank_account_id', $bankAccountId)
+            ->where('status', 'in_progress')
+            ->orderByDesc('id')
+            ->first();
+
+        if (! $reconciliation) {
+            throw new \InvalidArgumentException('No active reconciliation found for this account.');
+        }
+
+        return $reconciliation;
     }
 }

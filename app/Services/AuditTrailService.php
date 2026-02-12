@@ -332,8 +332,15 @@ class AuditTrailService
      */
     private function isAccountingUser($user): bool
     {
-        // Check user role - can be customized based on your role system
-        return $user->hasRole(['accountant', 'accounting_manager', 'finance_director']);
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->can('view-accounting') || $user->can('manage-accounting')) {
+            return true;
+        }
+
+        return $user->hasAnyRole(['Accountant', 'Accounting Manager', 'Admin', 'Super Admin']);
     }
 
     /**

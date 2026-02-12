@@ -93,11 +93,6 @@ class Router extends Component
      */
     private function routeSales(string $branchId, ?string $deptSlug)
     {
-        // Check for Corner Store specifically
-        if ($deptSlug && str_contains(strtolower($deptSlug), 'corner')) {
-            return Redirect::route('branch-dashboard.dashboard.corner-store', ['b_id' => $branchId]);
-        }
-
         return Redirect::route('branch-dashboard.dashboard.sales', ['b_id' => $branchId]);
     }
 
@@ -106,20 +101,15 @@ class Router extends Component
      */
     private function routeSupport(string $branchId, $user)
     {
-        $deptName = $user->department?->name ?? '';
-
-        // HR Department
-        if ($deptName === 'HR') {
+        if (SidebarVisibilityService::canSeeEmployeeManagement($user)) {
             return Redirect::route('branch-dashboard.dashboard.hr', ['b_id' => $branchId]);
         }
 
-        // Inventory/Store Department
-        if (str_contains($deptName, 'Inventory') || str_contains($deptName, 'Store')) {
+        if (SidebarVisibilityService::canSeeInventory($user)) {
             return Redirect::route('branch-dashboard.dashboard.inventory', ['b_id' => $branchId]);
         }
 
-        // Accounting Department
-        if (str_contains($deptName, 'Account')) {
+        if (SidebarVisibilityService::canSeeAccounting($user)) {
             return Redirect::route('branch-dashboard.accounting.dashboard', ['b_id' => $branchId]);
         }
 

@@ -24,6 +24,8 @@ class RoleSeeder extends Seeder
             'guard_name' => $guard,
             'description' => 'Full system access with all permissions',
             'display_order' => 1,
+            'level' => 5,
+            'is_protected' => true,
         ]);
 
         $md = Role::create([
@@ -31,6 +33,8 @@ class RoleSeeder extends Seeder
             'guard_name' => $guard,
             'description' => 'Managing Director - Executive level',
             'display_order' => 2,
+            'level' => 5,
+            'is_protected' => true,
         ]);
 
         $managingDirector = Role::create([
@@ -38,6 +42,8 @@ class RoleSeeder extends Seeder
             'guard_name' => $guard,
             'description' => 'Managing Director with full operational control',
             'display_order' => 3,
+            'level' => 5,
+            'is_protected' => true,
         ]);
 
         $admin = Role::create([
@@ -45,75 +51,69 @@ class RoleSeeder extends Seeder
             'guard_name' => $guard,
             'description' => 'Administrative access',
             'display_order' => 4,
+            'level' => 4,
+            'is_protected' => true,
         ]);
 
         // Give super admin roles ALL permissions
         $allPermissions = Permission::where('guard_name', $guard)->get();
         foreach ([$superAdmin, $md, $managingDirector, $admin] as $role) {
-            $role->givePermissionTo($allPermissions);
+            $role->syncPermissions($allPermissions);
         }
 
-        // ===== DEPARTMENT HEAD ROLES =====
+        // ===== DEPARTMENT MANAGERS =====
         $headOfProduction = Role::create([
             'name' => 'Head of Production',
             'guard_name' => $guard,
-            'description' => 'Head of Production department',
+            'description' => 'Production department manager',
             'display_order' => 10,
+            'level' => 3,
         ]);
-        $headOfProduction->givePermissionTo([
-            'view-production-queue', 'create-production-order', 'start-production',
-            'complete-production', 'approve-production', 'manage-recipes', 'view-recipes',
-            'view-production-reports', 'manage-quality-control', 'view-batch-history',
-            'edit-production-order', 'cancel-production', 'view-production-cost',
-            'view-stock-levels', 'view-employees', 'view-departments',
-            'manage-staff-schedule', 'view-analytics', 'view-dashboard',
-            'view-department-reports', 'view-hr-reports',
+        $headOfProduction->syncPermissions([
+            'view-production', 'manage-production', 'manage-recipes', 'manage-quality',
+            'view-production-reports', 'view-inventory',
+            'view-reports', 'view-analytics',
         ]);
 
         $salesManager = Role::create([
             'name' => 'Sales Manager',
             'guard_name' => $guard,
-            'description' => 'Sales Manager',
+            'description' => 'Sales department manager',
             'display_order' => 11,
+            'level' => 3,
         ]);
-        $salesManager->givePermissionTo([
-            'view-sales-dashboard', 'process-sale', 'issue-refund', 'view-daily-sales', 'close-register',
-            'view-sales-reports', 'manage-sales-discounts', 'view-sales-transactions',
-            'edit-sales-transactions', 'void-sales-transactions', 'manage-payment-methods',
-            'view-till-records', 'view-stock-levels', 'view-employees', 'view-departments',
-            'manage-staff-schedule', 'view-analytics', 'view-dashboard',
-            'view-department-reports', 'view-hr-reports',
+        $salesManager->syncPermissions([
+            'view-sales', 'process-sales', 'manage-sales', 'manage-refunds', 'manage-discounts',
+            'view-sales-reports', 'view-inventory',
+            'view-reports', 'view-analytics',
         ]);
 
         $hrManager = Role::create([
             'name' => 'HR Manager',
             'guard_name' => $guard,
-            'description' => 'Human Resources Manager',
+            'description' => 'Human Resources manager',
             'display_order' => 12,
+            'level' => 3,
         ]);
-        $hrManager->givePermissionTo([
-            'view-employees', 'create-employees', 'edit-employees', 'delete-employees',
-            'view-departments', 'create-departments', 'edit-departments', 'delete-departments',
-            'manage-staff-schedule', 'manage-leave', 'approve-leave', 'view-payroll',
-            'manage-payroll', 'view-hr-reports', 'manage-roles-assignments',
-            'view-employee-details', 'view-analytics', 'view-dashboard',
-            'view-department-reports', 'view-branches', 'manage_organization',
+        $hrManager->syncPermissions([
+            'manage-organization', 'view-employees', 'manage-employees',
+            'view-departments', 'manage-departments',
+            'manage-roles-assignments', 'manage-staff-schedule',
+            'manage-leave', 'manage-payroll', 'view-hr-reports',
+            'view-reports', 'view-analytics',
         ]);
 
         $inventoryManager = Role::create([
             'name' => 'Inventory Manager',
             'guard_name' => $guard,
-            'description' => 'Inventory and Stock Management',
+            'description' => 'Inventory and stock management',
             'display_order' => 13,
+            'level' => 3,
         ]);
-        $inventoryManager->givePermissionTo([
-            'view-stock-levels', 'receive-stock', 'transfer-stock', 'adjust-inventory',
-            'create-purchase-order', 'approve-purchase-order', 'view-inventory-reports',
-            'manage-suppliers', 'view-suppliers', 'create-suppliers', 'edit-suppliers', 'delete-suppliers',
-            'view-stock-valuation', 'manage-stock-categories',
-            'view-reorder-levels', 'manage-reorder-levels', 'write-off-stock',
-            'view-stock-history', 'view-production-queue', 'view-sales-transactions',
-            'view-analytics', 'view-dashboard', 'view-department-reports',
+        $inventoryManager->syncPermissions([
+            'view-inventory', 'manage-inventory', 'manage-suppliers',
+            'manage-purchases', 'manage-stock-takes', 'view-inventory-reports',
+            'view-reports', 'view-analytics',
         ]);
 
         $accountingManager = Role::create([
@@ -121,267 +121,104 @@ class RoleSeeder extends Seeder
             'guard_name' => $guard,
             'description' => 'Accounting and financial management',
             'display_order' => 14,
+            'level' => 3,
         ]);
-        $accountingManager->givePermissionTo([
-            'access_accounting', 'view_financial_reports',
-            'manage_accounts', 'manage_periods', 'create_journal_entries', 'reconcile_bank_accounts',
-            'view-chart-accounts', 'create-accounts', 'edit-accounts',
-            'view-gl-entries', 'create-gl-entries', 'post-gl-entries', 'reverse-gl-entries',
-            'view-accounting-reports', 'reconcile-accounts', 'manage-bank-accounts',
-            'view-trial-balance', 'view-financial-statements',
-            'manage-accounting-period', 'view-account-reconciliation',
-            'view-dashboard', 'view-analytics',
+        $accountingManager->syncPermissions([
+            'view-accounting', 'manage-accounting', 'reconcile-accounts',
+            'manage-bank-accounts', 'manage-accounting-periods', 'view-financial-reports',
+            'view-reports', 'view-analytics',
         ]);
 
-        $accountant = Role::create([
-            'name' => 'Accountant',
+        // ===== SUPERVISORS =====
+        $productionSupervisor = Role::create([
+            'name' => 'Production Supervisor',
             'guard_name' => $guard,
-            'description' => 'Accounting operations and reporting',
-            'display_order' => 15,
-        ]);
-        $accountant->givePermissionTo([
-            'access_accounting', 'view_financial_reports',
-            'create_journal_entries', 'reconcile_bank_accounts',
-            'view-chart-accounts', 'view-gl-entries',
-            'view-accounting-reports', 'reconcile-accounts', 'manage-bank-accounts',
-            'view-trial-balance', 'view-financial-statements',
-            'view-account-reconciliation',
-            'view-dashboard',
-        ]);
-
-        // ===== SUPERVISOR/TEAM LEAD ROLES =====
-        $supervisor = Role::create([
-            'name' => 'Supervisor',
-            'guard_name' => $guard,
-            'description' => 'Team Supervisor',
+            'description' => 'Production team supervisor',
             'display_order' => 20,
+            'level' => 2,
         ]);
-        $supervisor->givePermissionTo([
-            'view-employees', 'view-departments', 'manage-staff-schedule',
-            'view-production-queue', 'start-production', 'complete-production',
-            'view-recipes', 'view-stock-levels', 'view-sales-transactions',
-            'view-analytics', 'view-dashboard', 'view-department-reports',
-        ]);
-
-        $tillSupervisor = Role::create([
-            'name' => 'Till Supervisor',
-            'guard_name' => $guard,
-            'description' => 'Till/Register Supervisor',
-            'display_order' => 21,
-        ]);
-        $tillSupervisor->givePermissionTo([
-            'view-sales-dashboard', 'process-sale', 'issue-refund', 'view-daily-sales', 'close-register',
-            'view-sales-transactions', 'manage-payment-methods', 'view-till-records',
-            'view-analytics', 'view-dashboard',
-        ]);
-
-        // ===== SPECIALIST ROLES =====
-        $chef = Role::create([
-            'name' => 'Chef',
-            'guard_name' => $guard,
-            'description' => 'Production Chef',
-            'display_order' => 30,
-        ]);
-        $chef->givePermissionTo([
-            'view-production-queue', 'start-production', 'complete-production',
-            'view-recipes', 'manage-recipes', 'view-batch-history',
-            'view-stock-levels', 'manage-quality-control',
-        ]);
-
-        $headOfGelato = Role::create([
-            'name' => 'Head of Gelato',
-            'guard_name' => $guard,
-            'description' => 'Gelato Production Lead',
-            'display_order' => 31,
-        ]);
-        $headOfGelato->givePermissionTo([
-            'view-production-queue', 'create-production-order', 'start-production',
-            'complete-production', 'approve-production', 'manage-recipes', 'view-recipes',
-            'view-production-reports', 'manage-quality-control', 'view-batch-history',
-            'view-stock-levels',
-        ]);
-
-        $confectionariesManager = Role::create([
-            'name' => 'Confectionaries Manager',
-            'guard_name' => $guard,
-            'description' => 'Confectionaries Production Manager',
-            'display_order' => 32,
-        ]);
-        $confectionariesManager->givePermissionTo([
-            'view-production-queue', 'create-production-order', 'start-production',
-            'complete-production', 'approve-production', 'manage-recipes', 'view-recipes',
-            'view-production-reports', 'manage-quality-control', 'view-batch-history',
-            'view-stock-levels',
-        ]);
-
-        // ===== STANDARD EMPLOYEE ROLES =====
-        $productionStaff = Role::create([
-            'name' => 'Kitchen Staff',
-            'guard_name' => $guard,
-            'description' => 'Kitchen/Production Staff',
-            'display_order' => 40,
-        ]);
-        $productionStaff->givePermissionTo([
-            'view-production-queue', 'start-production', 'complete-production',
-            'view-recipes',
-        ]);
-
-        $gelatoStaff = Role::create([
-            'name' => 'Gelato Production Staff',
-            'guard_name' => $guard,
-            'description' => 'Gelato Production Staff',
-            'display_order' => 41,
-        ]);
-        $gelatoStaff->givePermissionTo([
-            'view-production-queue', 'start-production', 'complete-production',
-            'view-recipes',
-        ]);
-
-        $confectionariesStaff = Role::create([
-            'name' => 'Confectionaries Production Staff',
-            'guard_name' => $guard,
-            'description' => 'Confectionaries Production Staff',
-            'display_order' => 42,
-        ]);
-        $confectionariesStaff->givePermissionTo([
-            'view-production-queue', 'start-production', 'complete-production',
-            'view-recipes',
-        ]);
-
-        $confectionariesSalesStaff = Role::create([
-            'name' => 'Confectionaries Sales Staff',
-            'guard_name' => $guard,
-            'description' => 'Confectionaries Sales Staff',
-            'display_order' => 43,
-        ]);
-        $confectionariesSalesStaff->givePermissionTo([
-            'view-sales-dashboard', 'process-sale', 'view-daily-sales',
-            'view-sales-transactions', 'view-till-records', 'view-stock-levels',
-        ]);
-
-        $cashier = Role::create([
-            'name' => 'Cashier',
-            'guard_name' => $guard,
-            'description' => 'Sales Cashier',
-            'display_order' => 43,
-        ]);
-        $cashier->givePermissionTo([
-            'view-sales-dashboard', 'process-sale', 'view-daily-sales', 'view-sales-transactions',
-            'view-till-records', 'view-stock-levels',
-        ]);
-
-        $cornerStoreManager = Role::create([
-            'name' => 'Corner Store Manager',
-            'guard_name' => $guard,
-            'description' => 'Corner Store Manager',
-            'display_order' => 44,
-        ]);
-        $cornerStoreManager->givePermissionTo([
-            'view-sales-dashboard', 'process-sale', 'issue-refund', 'view-daily-sales', 'close-register',
-            'view-sales-reports', 'view-sales-transactions', 'manage-payment-methods',
-            'view-till-records', 'view-stock-levels', 'receive-stock',
-        ]);
-
-        $cornerStoreStaff = Role::create([
-            'name' => 'Corner Store Staff',
-            'guard_name' => $guard,
-            'description' => 'Corner Store Staff',
-            'display_order' => 45,
-        ]);
-        $cornerStoreStaff->givePermissionTo([
-            'view-sales-dashboard', 'process-sale', 'view-daily-sales', 'view-stock-levels',
+        $productionSupervisor->syncPermissions([
+            'view-production', 'manage-production', 'view-production-reports', 'view-inventory',
+            'view-reports',
         ]);
 
         $salesSupervisor = Role::create([
             'name' => 'Sales Supervisor',
             'guard_name' => $guard,
-            'description' => 'Sales Department Supervisor',
-            'display_order' => 46,
+            'description' => 'Sales team supervisor',
+            'display_order' => 21,
+            'level' => 2,
         ]);
-        $salesSupervisor->givePermissionTo([
-            'view-sales-dashboard', 'process-sale', 'issue-refund', 'view-daily-sales', 'close-register',
-            'view-sales-reports', 'view-sales-transactions', 'manage-payment-methods',
-            'view-till-records', 'view-stock-levels', 'manage-staff-schedule',
-            'view-analytics', 'view-dashboard',
-        ]);
-
-        $salesAssociate = Role::create([
-            'name' => 'Sales Associate',
-            'guard_name' => $guard,
-            'description' => 'Sales Associate',
-            'display_order' => 47,
-        ]);
-        $salesAssociate->givePermissionTo([
-            'view-sales-dashboard', 'process-sale', 'view-daily-sales', 'view-sales-transactions',
-            'view-stock-levels', 'view-till-records',
+        $salesSupervisor->syncPermissions([
+            'view-sales', 'process-sales', 'view-sales-reports', 'view-inventory',
+            'view-reports',
         ]);
 
-        $juniorCashier = Role::create([
-            'name' => 'Junior Cashier',
+        $inventorySupervisor = Role::create([
+            'name' => 'Inventory Supervisor',
             'guard_name' => $guard,
-            'description' => 'Junior Cashier',
-            'display_order' => 48,
+            'description' => 'Inventory team supervisor',
+            'display_order' => 22,
+            'level' => 2,
         ]);
-        $juniorCashier->givePermissionTo([
-            'view-sales-dashboard', 'process-sale', 'view-daily-sales', 'view-stock-levels',
-        ]);
-
-        $stockController = Role::create([
-            'name' => 'Stock Controller',
-            'guard_name' => $guard,
-            'description' => 'Stock/Inventory Controller',
-            'display_order' => 49,
-        ]);
-        $stockController->givePermissionTo([
-            'view-stock-levels', 'receive-stock', 'transfer-stock', 'adjust-inventory',
-            'view-inventory-reports', 'view-reorder-levels', 'view-stock-history',
-            'view-stock-valuation', 'view-suppliers',
-        ]);
-
-        $storeKeeper = Role::create([
-            'name' => 'Store Keeper',
-            'guard_name' => $guard,
-            'description' => 'Store Keeper/Warehouse Staff',
-            'display_order' => 50,
-        ]);
-        $storeKeeper->givePermissionTo([
-            'view-stock-levels', 'receive-stock', 'transfer-stock',
-            'view-inventory-reports',
+        $inventorySupervisor->syncPermissions([
+            'view-inventory', 'manage-inventory', 'view-inventory-reports', 'view-reports',
         ]);
 
         $hrOfficer = Role::create([
             'name' => 'HR Officer',
             'guard_name' => $guard,
-            'description' => 'HR Officer',
-            'display_order' => 51,
+            'description' => 'HR officer',
+            'display_order' => 23,
+            'level' => 2,
         ]);
-        $hrOfficer->givePermissionTo([
-            'view-employees', 'view-departments', 'view-payroll',
-            'view-hr-reports', 'manage-leave', 'view-employee-details',
-        ]);
-
-        // ===== GENERIC EMPLOYEE ROLE =====
-        $employee = Role::create([
-            'name' => 'Employee',
-            'guard_name' => $guard,
-            'description' => 'Standard Employee',
-            'display_order' => 52,
-        ]);
-        $employee->givePermissionTo([
-            'view-dashboard', 'view-activity-timeline',
+        $hrOfficer->syncPermissions([
+            'view-employees', 'manage-employees', 'manage-leave', 'view-hr-reports',
         ]);
 
-        // ===== VIEWER/REPORTING ONLY ROLE =====
-        $viewer = Role::create([
-            'name' => 'Viewer',
+        $accountant = Role::create([
+            'name' => 'Accountant',
             'guard_name' => $guard,
-            'description' => 'Read-only access to reports and dashboards',
-            'display_order' => 99,
+            'description' => 'Accounting operations',
+            'display_order' => 24,
+            'level' => 2,
         ]);
-        $viewer->givePermissionTo([
-            'view-dashboard', 'view-analytics', 'view-sales-reports',
-            'view-inventory-reports', 'view-hr-reports', 'view-department-reports',
-            'export-reports', 'view-kpi-metrics',
+        $accountant->syncPermissions([
+            'view-accounting', 'reconcile-accounts', 'view-financial-reports', 'view-reports',
+        ]);
+
+        // ===== STAFF =====
+        $productionStaff = Role::create([
+            'name' => 'Production Staff',
+            'guard_name' => $guard,
+            'description' => 'Production staff',
+            'display_order' => 30,
+            'level' => 1,
+        ]);
+        $productionStaff->syncPermissions([
+            'view-production', 'view-production-reports',
+        ]);
+
+        $salesStaff = Role::create([
+            'name' => 'Sales Staff',
+            'guard_name' => $guard,
+            'description' => 'Sales staff',
+            'display_order' => 31,
+            'level' => 1,
+        ]);
+        $salesStaff->syncPermissions([
+            'view-sales', 'process-sales',
+        ]);
+
+        $inventoryStaff = Role::create([
+            'name' => 'Inventory Staff',
+            'guard_name' => $guard,
+            'description' => 'Inventory staff',
+            'display_order' => 32,
+            'level' => 1,
+        ]);
+        $inventoryStaff->syncPermissions([
+            'view-inventory',
         ]);
 
         echo '✅ '.Role::where('guard_name', $guard)->count()." roles created successfully with permissions assigned.\n";

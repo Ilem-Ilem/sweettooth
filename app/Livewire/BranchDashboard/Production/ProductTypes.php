@@ -7,6 +7,7 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\ProductType;
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
@@ -51,11 +52,11 @@ class ProductTypes extends BaseComponent
 
     public string $status = 'active';
 
-    public int $sort_order = 0;
-
     public User|Employee|null $employees_department = null;
 
     public ?Department $department = null;
+
+    private int $cacheTtlMinutes = 5;
 
     protected array $bulkActions = [
         'delete' => ['label' => 'Delete Selected', 'method' => 'bulkDelete'],
@@ -90,10 +91,11 @@ class ProductTypes extends BaseComponent
     protected function getFilteredQuery()
     {
         return ProductType::query()
+            ->select(['id', 'department_id', 'name', 'code', 'description', 'status', 'created_at'])
             ->when(!is_super_admin(), function ($query) {
                 $query->where('department_id', $this->department->id);
             })
-            ->with(['department:id,name,slug', 'department.category:id,name']) // Select only needed columns
+            ->with(['department:id,name,slug,category_id', 'department.category:id,name']) // Select only needed columns
             ->withCount('products') // Use withCount instead of with and counting separately
             ->when($this->search, function ($query) {
                 $query->where('name', 'like', '%'.$this->search.'%')
@@ -103,8 +105,7 @@ class ProductTypes extends BaseComponent
             ->when($this->filterStatus, function ($query) {
                 $query->where('status', $this->filterStatus);
             })
-            ->orderBy('sort_order', 'asc')
-            ->orderBy('name', 'asc');
+            ->orderBy('id', 'desc');
     }
 
     public function updatedSearch()
@@ -132,11 +133,33 @@ class ProductTypes extends BaseComponent
 
     public function render()
     {
-        $rows = $this->getFilteredQuery()->paginate($this->quantity ?? 10);
+        $rows = Cache::remember($this->getCacheKey(), now()->addMinutes($this->cacheTtlMinutes), function () {
+            return $this->getFilteredQuery()->paginate($this->quantity ?? 10);
+        });
+
+        // Add sequential numbers to the rows
+        $currentPage = $rows->currentPage();
+        $perPage = $rows->perPage();
+        $startIndex = ($currentPage - 1) * $perPage + 1;
+
+        $rows->getCollection()->each(function ($item, $index) use ($startIndex) {
+            $item->setAttribute('sequential_number', $startIndex + $index);
+        });
+
+        // Get all production departments for the modal
+        $productionDepartments = [];
+        if (is_super_admin()) {
+            $productionDepartments = Department::whereHas('category', function ($q) {
+                $q->where('name', 'Production');
+            })
+            ->orderBy('name')
+            ->select('id', 'name')
+            ->get();
+        }
 
         return view('livewire.branch-dashboard.production.product-types', [
             'headers' => [
-                ['index' => 'id', 'label' => '#'],
+                ['index' => 'sequential_number', 'label' => '#'],
                 ['index' => 'code', 'label' => 'Code'],
                 ['index' => 'name', 'label' => 'Name'],
                 ['index' => 'department', 'label' => 'Department'],
@@ -147,6 +170,7 @@ class ProductTypes extends BaseComponent
             ],
             'rows' => $rows,
             'department' => $this->department,
+            'productionDepartments' => $productionDepartments,
         ]);
     }
 
@@ -184,7 +208,6 @@ class ProductTypes extends BaseComponent
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'status' => 'required|in:active,inactive',
-            'sort_order' => 'required|integer|min:0',
         ];
 
         if ($this->isEditing) {
@@ -201,7 +224,6 @@ class ProductTypes extends BaseComponent
             'code' => strtoupper($this->code),
             'description' => $this->description,
             'status' => $this->status,
-            'sort_order' => $this->sort_order,
         ];
 
         if ($this->isEditing && $this->productTypeId) {
@@ -214,6 +236,7 @@ class ProductTypes extends BaseComponent
         }
 
         $this->toast()->success($message)->send();
+        $this->clearCache();
         $this->closeModal();
     }
 
@@ -257,6 +280,7 @@ class ProductTypes extends BaseComponent
 
             // Clear selection after successful deletion
             $this->resetBulkSelection();
+            $this->clearCache();
         }
     }
 
@@ -300,6 +324,7 @@ class ProductTypes extends BaseComponent
 
         // Clear selection after successful deletion
         $this->resetBulkSelection();
+        $this->clearCache();
     }
 
     public function cancelledBulkDelete(string $message): void
@@ -322,7 +347,48 @@ class ProductTypes extends BaseComponent
         $this->code = '';
         $this->description = '';
         $this->status = 'active';
-        $this->sort_order = 0;
         $this->isEditing = false;
+    }
+
+    private function cacheVersionKey(): string
+    {
+        return 'product_types_cache_version_' . auth()->id();
+    }
+
+    private function getCacheVersion(): int
+    {
+        return Cache::get($this->cacheVersionKey(), 1);
+    }
+
+    private function incrementCacheVersion(): void
+    {
+        Cache::put($this->cacheVersionKey(), $this->getCacheVersion() + 1, now()->addDay());
+    }
+
+    private function getCacheKey(): string
+    {
+        $key = implode('_', [
+            'product_types',
+            auth()->id(),
+            $this->getCacheVersion(),
+            $this->dept_slug,
+            $this->quantity,
+            $this->search,
+            $this->filterStatus,
+            $this->filterDepartment,
+            $this->currentPage(),
+        ]);
+
+        return md5($key);
+    }
+
+    private function currentPage(): int
+    {
+        return (int) $this->getPage();
+    }
+
+    private function clearCache(): void
+    {
+        $this->incrementCacheVersion();
     }
 }

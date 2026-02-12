@@ -52,18 +52,40 @@ class SidebarVisibilityService
             return (int) $role->level;
         }
 
-        // Fallback: check by role name (old system compatibility)
-        if ($user->hasRole('Super Admin')) return self::LEVEL_SUPER_ADMIN;
-        if ($user->hasRole('Admin')) return self::LEVEL_ADMIN;
+        // Fallback: check by role name (old system compatibility + common variants)
+        $superAdminRoles = [
+            'Super Admin',
+            'super-admin',
+            'super_admin',
+            'SuperAdmin',
+            'MD',
+            'Managing Director',
+            'admin',
+            'Admin',
+        ];
+        if ($user->hasAnyRole($superAdminRoles)) return self::LEVEL_SUPER_ADMIN;
+
+        $adminRoles = ['Admin', 'admin'];
+        if ($user->hasAnyRole($adminRoles)) return self::LEVEL_ADMIN;
 
         $managerRoles = [
-            'Manager', 'Head of Production', 'Chef', 'Head of Gelato',
-            'Confectionaries Manager', 'Sales Manager', 'HR Manager',
-            'Inventory Manager', 'Corner Store Manager', 'MD', 'Managing Director'
+            'Head of Production',
+            'Sales Manager',
+            'HR Manager',
+            'Inventory Manager',
+            'Accounting Manager',
+            'MD',
+            'Managing Director',
         ];
         if ($user->hasAnyRole($managerRoles)) return self::LEVEL_MANAGER;
 
-        $supervisorRoles = ['Supervisor', 'Till Supervisor', 'Sales Supervisor', 'Stock Controller'];
+        $supervisorRoles = [
+            'Production Supervisor',
+            'Sales Supervisor',
+            'Inventory Supervisor',
+            'HR Officer',
+            'Accountant',
+        ];
         if ($user->hasAnyRole($supervisorRoles)) return self::LEVEL_SUPERVISOR;
 
         return self::LEVEL_STAFF;
@@ -107,7 +129,33 @@ class SidebarVisibilityService
     public static function getDepartmentCategory(?User $user = null): ?string
     {
         $user = $user ?? auth()->user();
-        return $user?->department?->category?->name;
+        $category = $user?->department?->category?->name;
+
+        // Fallback mapping when department exists but category was not set (common after recreating departments)
+        if (!$category && $user?->department) {
+            $deptName = strtolower($user->department->name ?? '');
+
+            // Support-like departments
+            if (str_contains($deptName, 'hr') ||
+                str_contains($deptName, 'human resource') ||
+                str_contains($deptName, 'inventory') ||
+                str_contains($deptName, 'warehouse') ||
+                str_contains($deptName, 'account')) {
+                return 'Support';
+            }
+
+            // Production
+            if (str_contains($deptName, 'production') || str_contains($deptName, 'factory')) {
+                return 'Production';
+            }
+
+            // Sales
+            if (str_contains($deptName, 'sales') || str_contains($deptName, 'marketing')) {
+                return 'Sales';
+            }
+        }
+
+        return $category;
     }
 
     /**
@@ -179,27 +227,25 @@ class SidebarVisibilityService
         }
 
         $level = self::getRoleLevel($user);
-        $category = self::getDepartmentCategory($user);
-        $deptName = $user->department?->name;
 
         return [
             // Dashboard - everyone
             'dashboard' => true,
 
-            // Department-specific sections (based on category)
-            'production' => $category === 'Production' || $level >= self::LEVEL_ADMIN,
-            'sales' => $category === 'Sales' || $level >= self::LEVEL_ADMIN,
-            'inventory' => ($category === 'Support' && str_contains($deptName ?? '', 'Inventory')) || $level >= self::LEVEL_ADMIN,
-            'hr' => ($category === 'Support' && $deptName === 'HR') || $level >= self::LEVEL_ADMIN,
-            'accounting' => ($category === 'Support' && str_contains($deptName ?? '', 'Account')) || $level >= self::LEVEL_ADMIN,
+            // Department-specific sections (permissions + category)
+            'production' => self::canSeeProduction($user) || $level >= self::LEVEL_ADMIN,
+            'sales' => self::canSeeSalesManagement($user) || $level >= self::LEVEL_ADMIN,
+            'inventory' => self::canSeeInventory($user) || $level >= self::LEVEL_ADMIN,
+            'hr' => self::canSeeEmployeeManagement($user) || $level >= self::LEVEL_ADMIN,
+            'accounting' => self::canSeeAccounting($user) || $level >= self::LEVEL_ADMIN,
 
             // Role-level sections
-            'reports' => $level >= self::LEVEL_SUPERVISOR,
-            'analytics' => $level >= self::LEVEL_SUPERVISOR,
-            'staff_schedule' => $level >= self::LEVEL_SUPERVISOR,
+            'reports' => self::canSeeReporting($user),
+            'analytics' => self::canSeeAnalytics($user),
+            'staff_schedule' => self::hasAnyPermission($user, ['manage-staff-schedule']) || $level >= self::LEVEL_SUPERVISOR,
 
             // Admin sections (level 4+)
-            'organization' => $level >= self::LEVEL_ADMIN,
+            'organization' => self::canSeeOrganization($user),
             'administration' => $level >= self::LEVEL_ADMIN,
             'user_management' => $level >= self::LEVEL_ADMIN,
             'department_management' => $level >= self::LEVEL_ADMIN,
@@ -226,10 +272,25 @@ class SidebarVisibilityService
     {
         $user = $user ?? auth()->user();
         $level = self::getRoleLevel($user);
+        $category = self::getDepartmentCategory($user);
 
-        // Admin+ OR HR roles can see organization
-        return $level >= self::LEVEL_ADMIN
-            || ($user && $user->hasAnyRole(['HR Manager', 'HR Officer']));
+        // Super admins can see organization regardless of department
+        if (self::isSuperAdmin($user)) {
+            return true;
+        }
+
+        // Admins can see organization
+        if ($level >= self::LEVEL_ADMIN) {
+            return true;
+        }
+
+        // Managers can only see organization if they are in HR department
+        if ($level >= self::LEVEL_MANAGER && $category === 'HR') {
+            return true;
+        }
+
+        // Others need specific permissions
+        return self::hasAnyPermission($user, ['manage-organization', 'view-employees', 'manage-employees', 'manage-departments']);
     }
 
     public static function canSeeEmployeeManagement($user = null): bool
@@ -238,10 +299,23 @@ class SidebarVisibilityService
         $level = self::getRoleLevel($user);
         $category = self::getDepartmentCategory($user);
 
-        // HR department, HR roles, or Admin+
-        return ($category === 'Support' && $user?->department?->name === 'HR')
-            || ($user && $user->hasAnyRole(['HR Manager', 'HR Officer']))
-            || $level >= self::LEVEL_ADMIN;
+        // Super admins can see employee management regardless of department
+        if (self::isSuperAdmin($user)) {
+            return true;
+        }
+
+        // Admins can see employee management
+        if ($level >= self::LEVEL_ADMIN) {
+            return true;
+        }
+
+        // Managers can only see employee management if they are in HR department
+        if ($level >= self::LEVEL_MANAGER && $category === 'HR') {
+            return true;
+        }
+
+        // Others need specific permissions
+        return self::hasAnyPermission($user, ['manage-organization', 'view-employees', 'manage-employees', 'manage-leave', 'view-hr-reports']);
     }
 
     public static function canSeeDepartments($user = null): bool
@@ -253,9 +327,9 @@ class SidebarVisibilityService
     {
         $user = $user ?? auth()->user();
         $level = self::getRoleLevel($user);
-        $category = self::getDepartmentCategory($user);
 
-        return ($category === 'Support' && $user?->department?->name === 'HR') || $level >= self::LEVEL_ADMIN;
+        return $level >= self::LEVEL_ADMIN
+            || self::hasAnyPermission($user, ['manage-leave', 'view-hr-reports']);
     }
 
     public static function canSeeAuditManagement($user = null): bool
@@ -267,16 +341,42 @@ class SidebarVisibilityService
     {
         $user = $user ?? auth()->user();
         $level = self::getRoleLevel($user);
-        $category = self::getDepartmentCategory($user);
-        $deptName = $user?->department?->name ?? '';
 
         // Super admins can see inventory regardless of department
         if (self::isSuperAdmin($user)) {
             return true;
         }
 
-        return (str_contains($deptName, 'Inventory') || str_contains($deptName, 'Store'))
-            || $level >= self::LEVEL_ADMIN;
+        // Admins can see inventory
+        if ($level >= self::LEVEL_ADMIN) {
+            return true;
+        }
+
+        if (! $user) {
+            return false;
+        }
+
+        $category = self::getDepartmentCategory($user);
+        $departmentName = strtolower((string) ($user->department?->name ?? ''));
+
+        // Users in inventory context can see inventory links.
+        if ($category === 'Inventory' || str_contains($departmentName, 'inventory') || str_contains($departmentName, 'store') || str_contains($departmentName, 'warehouse')) {
+            return true;
+        }
+
+        // Inventory-related roles can see inventory links even if category mapping is incomplete.
+        if ($user->hasAnyRole([
+            'Inventory Manager',
+            'Inventory Supervisor',
+            'Inventory Staff',
+            'Stock Controller',
+            'Store Keeper',
+            'Store Clerk',
+        ])) {
+            return true;
+        }
+
+        return false;
     }
 
     public static function canSeeInventoryManagement($user = null): bool
@@ -296,7 +396,27 @@ class SidebarVisibilityService
 
     public static function canSeeAnalytics($user = null): bool
     {
-        return self::getRoleLevel($user) >= self::LEVEL_SUPERVISOR;
+        $user = $user ?? auth()->user();
+        $level = self::getRoleLevel($user);
+        $category = self::getDepartmentCategory($user);
+
+        // Super admins can see analytics regardless of department
+        if (self::isSuperAdmin($user)) {
+            return true;
+        }
+
+        // Admins can see analytics
+        if ($level >= self::LEVEL_ADMIN) {
+            return true;
+        }
+
+        // Managers can only see analytics if they are in relevant departments (support, hr, inventory, production, sales)
+        if ($level >= self::LEVEL_MANAGER && in_array($category, ['Support', 'HR', 'Inventory', 'Production', 'Sales'])) {
+            return true;
+        }
+
+        // Others need specific permissions
+        return self::hasAnyPermission($user, ['view-analytics']);
     }
 
     public static function canSeeProduction($user = null): bool
@@ -305,7 +425,23 @@ class SidebarVisibilityService
         $level = self::getRoleLevel($user);
         $category = self::getDepartmentCategory($user);
 
-        return $category === 'Production' || $level >= self::LEVEL_ADMIN;
+        // Super admins can see production regardless of department
+        if (self::isSuperAdmin($user)) {
+            return true;
+        }
+
+        // Admins can see production
+        if ($level >= self::LEVEL_ADMIN) {
+            return true;
+        }
+
+        // Managers can only see production if they are in production department
+        if ($level >= self::LEVEL_MANAGER && $category === 'Production') {
+            return true;
+        }
+
+        // Others need specific permissions
+        return self::hasAnyPermission($user, ['view-production', 'manage-production', 'view-production-reports']);
     }
 
     public static function canSeeProductionCallbacks($user = null): bool
@@ -329,7 +465,18 @@ class SidebarVisibilityService
             return true;
         }
 
-        return $category === 'Sales' || $level >= self::LEVEL_ADMIN;
+        // Admins can see sales management
+        if ($level >= self::LEVEL_ADMIN) {
+            return true;
+        }
+
+        // Managers can only see sales management if they are in sales department
+        if ($level >= self::LEVEL_MANAGER && $category === 'Sales') {
+            return true;
+        }
+
+        // Others need specific permissions
+        return self::hasAnyPermission($user, ['view-sales', 'process-sales', 'manage-sales', 'view-sales-reports']);
     }
 
     public static function canSeeInventoryDashboard($user = null): bool
@@ -344,16 +491,52 @@ class SidebarVisibilityService
 
     public static function canSeeReporting($user = null): bool
     {
-        return self::getRoleLevel($user) >= self::LEVEL_SUPERVISOR;
+        $user = $user ?? auth()->user();
+        $level = self::getRoleLevel($user);
+        $category = self::getDepartmentCategory($user);
+
+        // Super admins can see reporting regardless of department
+        if (self::isSuperAdmin($user)) {
+            return true;
+        }
+
+        // Admins can see reporting
+        if ($level >= self::LEVEL_ADMIN) {
+            return true;
+        }
+
+        // Managers can only see reporting if they are in relevant departments
+        if ($level >= self::LEVEL_MANAGER && in_array($category, ['Support', 'HR', 'Inventory', 'Production', 'Sales', 'Accounting'])) {
+            return true;
+        }
+
+        // Others need specific permissions
+        return self::hasAnyPermission($user, ['view-reports', 'export-reports']);
     }
 
     public static function canSeeAccounting($user = null): bool
     {
         $user = $user ?? auth()->user();
         $level = self::getRoleLevel($user);
-        $deptName = $user?->department?->name ?? '';
+        $category = self::getDepartmentCategory($user);
 
-        return str_contains($deptName, 'Account') || $level >= self::LEVEL_ADMIN;
+        // Super admins can see accounting regardless of department
+        if (self::isSuperAdmin($user)) {
+            return true;
+        }
+
+        // Admins can see accounting
+        if ($level >= self::LEVEL_ADMIN) {
+            return true;
+        }
+
+        // Managers can only see accounting if they are in accounting department
+        if ($level >= self::LEVEL_MANAGER && $category === 'Accounting') {
+            return true;
+        }
+
+        // Others need specific permissions
+        return self::hasAnyPermission($user, ['view-accounting', 'manage-accounting', 'view-financial-reports']);
     }
 
     public static function canSeeRoleAssignments($user = null): bool
@@ -443,5 +626,27 @@ class SidebarVisibilityService
     {
         return self::getAccessibleDepartments($user)
             ->filter(fn($d) => $d->category?->name === 'Sales');
+    }
+
+    /**
+     * Safe permission check helper
+     */
+    private static function hasAnyPermission(?User $user, array $permissions): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        if (method_exists($user, 'hasAnyPermission')) {
+            return $user->hasAnyPermission($permissions);
+        }
+
+        foreach ($permissions as $permission) {
+            if (method_exists($user, 'can') && $user->can($permission)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

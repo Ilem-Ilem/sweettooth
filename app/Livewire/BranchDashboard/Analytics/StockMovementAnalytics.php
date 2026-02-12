@@ -32,6 +32,8 @@ class StockMovementAnalytics extends Component
     #[Url(keep: true)]
     public ?string $b_id = null;
 
+    public ?string $branchId = null;
+
     protected array $bulkActions = [
         'export' => ['label' => 'Export Selected', 'method' => 'exportSelected'],
     ];
@@ -42,13 +44,28 @@ class StockMovementAnalytics extends Component
         'dateFrom',
         'dateTo',
         'movementType',
-        'selectedItem'
+        'selectedItem',
+        'b_id',
+        'viewMode'
     ];
 
     public function mount()
     {
+        $this->branchId = request()->get('b_id')
+            ?? Auth::guard('web')->user()?->branch_id
+            ?? current_branch_id();
+        $this->b_id = $this->branchId;
         $this->dateFrom = now()->subDays(30)->format('Y-m-d');
         $this->dateTo = now()->format('Y-m-d');
+    }
+
+    public function hydrate()
+    {
+        $this->branchId = $this->branchId
+            ?? $this->b_id
+            ?? Auth::guard('web')->user()?->branch_id
+            ?? current_branch_id();
+        $this->b_id = $this->branchId;
     }
 
     public function setViewMode($mode)
@@ -56,7 +73,7 @@ class StockMovementAnalytics extends Component
         $this->viewMode = $mode;
 
         return redirect()->route('branch-dashboard.analytics.stock-movement', [
-            'b_id' => $this->b_id ?? request()->get('b_id'),
+            'b_id' => $this->branchId,
             'movementType' => $this->movementType,
             'viewMode' => $this->viewMode
         ]);
@@ -114,7 +131,7 @@ class StockMovementAnalytics extends Component
 
     protected function getAllSelectableIds(): array
     {
-        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
+        $branchId = $this->branchId;
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo   = Carbon::parse($this->dateTo)->endOfDay();
 
@@ -296,7 +313,7 @@ class StockMovementAnalytics extends Component
 
     public function getAvailableItems()
     {
-        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
+        $branchId = $this->branchId;
 
         return Stock::with('item')
             ->where('branch_id', $branchId)
@@ -316,7 +333,7 @@ class StockMovementAnalytics extends Component
      */
     private function getFilteredMovements()
     {
-        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
+        $branchId = $this->branchId;
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo   = Carbon::parse($this->dateTo)->endOfDay();
 
@@ -375,7 +392,7 @@ class StockMovementAnalytics extends Component
     // FIXED: CSV export — safe, no more crashes
     public function exportCsv()
     {
-        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
+        $branchId = $this->branchId;
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo   = Carbon::parse($this->dateTo)->endOfDay();
 
@@ -436,7 +453,7 @@ class StockMovementAnalytics extends Component
 
     public function getTopMovedItems()
     {
-        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
+        $branchId = $this->branchId;
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
@@ -454,7 +471,7 @@ class StockMovementAnalytics extends Component
 
     public function getVelocityAnalysis()
     {
-        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
+        $branchId = $this->branchId;
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
@@ -478,7 +495,7 @@ class StockMovementAnalytics extends Component
 
     public function render()
     {
-        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
+        $branchId = $this->branchId;
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo   = Carbon::parse($this->dateTo)->endOfDay();
 

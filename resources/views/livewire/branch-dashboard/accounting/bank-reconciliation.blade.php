@@ -136,6 +136,12 @@
 
     <!-- STEP 2: MATCH TRANSACTIONS -->
     @if($activeTab === 'matching' && $selectedReconciliationId)
+    <div class="mb-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 text-amber-900 dark:text-amber-100 text-sm">
+        <div class="font-semibold mb-1">How this works</div>
+        <div>Bank Balance is your statement balance. Book Balance is the GL balance for the linked bank account as of the reconciliation date.</div>
+        <div>Match transactions to clear items on both sides. Reconciliation completes only when the Bank and Book balances match and all items are matched.</div>
+    </div>
+
     <!-- Statistics Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div class="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/20 dark:to-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
@@ -197,10 +203,20 @@
                     <p class="text-xs @if($isBalanced) text-green-600 dark:text-green-400 @else text-red-600 dark:text-red-400 @endif font-medium">
                         @if($isBalanced) ✓ Balanced @else ✗ Unbalanced @endif
                     </p>
+                    <p class="text-xs mt-1 text-zinc-600 dark:text-zinc-400">
+                        Unmatched: Bank {{ $stats['unmatched_bank_count'] ?? 0 }} ({{ $this->formatCurrency(abs($stats['unmatched_bank_total'] ?? 0)) }}),
+                        GL {{ $stats['unmatched_gl_count'] ?? 0 }} ({{ $this->formatCurrency(abs($stats['unmatched_gl_total'] ?? 0)) }})
+                    </p>
                 </div>
             </div>
         </div>
     </div>
+
+    @if (count($glEntries) === 0 && count($bankTransactions) === 0)
+        <div class="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 text-blue-900 dark:text-blue-100 text-sm">
+            No GL entries or bank transactions were found for the selected date. Add posted GL entries or import bank transactions, then refresh this reconciliation.
+        </div>
+    @endif
 
     <!-- Auto Match Section -->
     <div class="mb-6">

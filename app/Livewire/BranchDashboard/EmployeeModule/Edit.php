@@ -26,9 +26,9 @@ class Edit extends BaseComponent
     public $b_id;
 
     // Employee form fields
-    public ?string $branch_id = null;
+    public string|int|null $branch_id = null;
 
-    public ?string $department_id = null;
+    public string|int|null $department_id = null;
 
     public string $employee_number = '';
 
@@ -60,9 +60,9 @@ class Edit extends BaseComponent
 
     public ?string $shift_preference = null;
 
-    public ?float $salary = null;
+    public ?string $salary = null;
 
-    public ?float $hourly_rate = null;
+    public ?string $hourly_rate = null;
 
     public ?string $tax_id = null;
 
@@ -76,7 +76,7 @@ class Edit extends BaseComponent
 
     public ?string $last_performance_review_date = null;
 
-    public ?float $performance_rating = null;
+    public ?string $performance_rating = null;
 
     public array $selectedRoles = [];
 
@@ -138,15 +138,15 @@ class Edit extends BaseComponent
         $this->email = $employee->email;
         $this->phone = $employee->phone;
         $this->address = $employee->address;
-        $this->date_of_birth = $employee->date_of_birth;
+        $this->date_of_birth = $employee->date_of_birth ? $employee->date_of_birth->format('Y-m-d') : null;
         $this->gender = $employee->gender;
         $this->nationality = $employee->nationality ?? 'Nigerian';
         $this->emergency_contact_name = $employee->emergency_contact_name;
         $this->emergency_contact_phone = $employee->emergency_contact_phone;
-        $this->hire_date = $employee->hire_date;
-        $this->termination_date = $employee->termination_date;
+        $this->hire_date = $employee->hire_date ? $employee->hire_date->format('Y-m-d') : null;
+        $this->termination_date = $employee->termination_date ? $employee->termination_date->format('Y-m-d') : null;
         $this->status = $employee->status ?? 'active';
-        $this->probation_end_date = $employee->probation_end_date;
+        $this->probation_end_date = $employee->probation_end_date ? $employee->probation_end_date->format('Y-m-d') : null;
         $this->shift_preference = $employee->shift_preference;
         $this->salary = $employee->salary;
         $this->hourly_rate = $employee->hourly_rate;
@@ -154,7 +154,7 @@ class Edit extends BaseComponent
         $this->bank_account = $employee->bank_account;
         $this->allergies = $employee->allergies;
         $this->existing_photo = $employee->profile_photo;
-        $this->last_performance_review_date = $employee->last_performance_review_date;
+        $this->last_performance_review_date = $employee->last_performance_review_date ? $employee->last_performance_review_date->format('Y-m-d') : null;
         $this->performance_rating = $employee->performance_rating;
         $this->selectedRoles = $employee->roles->pluck('id')->map(fn ($id) => (string) $id)->toArray();
     }
@@ -353,11 +353,16 @@ class Edit extends BaseComponent
 
             if (! is_super_admin()) {
                 // EMPLOYEE: Create approval request using EmployeeApprovalService
+                $selectedRolesNames = Role::where('guard_name', 'web')
+                    ->whereIn('id', (array) $this->selectedRoles)
+                    ->pluck('name')
+                    ->toArray();
+
                 EmployeeApprovalService::requestUpdate(
                     $employee,
                     $data,
                     $this->updateReason,
-                    ['roles' => $this->selectedRoles]
+                    ['roles' => $selectedRolesNames]
                 );
 
                 $this->toast()->success('Employee update request submitted for approval!')->send();
@@ -378,15 +383,20 @@ class Edit extends BaseComponent
                 }
             }
 
-            // Sync roles with audit
+            // Sync roles with audit (selectedRoles comes as IDs; syncRoles expects names)
             $oldRoles = $employee->roles->pluck('name')->toArray();
-            $employee->syncRoles($this->selectedRoles);
+            $selectedRolesNames = Role::where('guard_name', 'web')
+                ->whereIn('id', (array) $this->selectedRoles)
+                ->pluck('name')
+                ->toArray();
 
-            if ($oldRoles != $this->selectedRoles) {
+            $employee->syncRoles($selectedRolesNames);
+
+            if ($oldRoles != $selectedRolesNames) {
                 EmployeeAuditService::logRoleChange(
                     $employee,
                     $oldRoles,
-                    $this->selectedRoles,
+                    $selectedRolesNames,
                     'Roles updated during employee edit',
                     $user
                 );

@@ -35,29 +35,15 @@ class HRDashboard extends BaseDashboard
             'all_roles_from_getRoleNames' => $allRoles,
         ]);
         
-        $allowedRoles = [
-            'HR Manager',
-            'HR Officer',
-            'Admin',
-        ];
-
-        // Allow access if user has allowed role OR is super admin
-        // Check both by string matching and by hasRole method as fallback
-        $isAllowed = in_array($role, $allowedRoles) || is_super_admin();
-        
-        if (!$isAllowed && $user && is_object($user)) {
-            // Fallback: check using hasRole method
-            $isAllowed = $user->hasRole('HR Manager') 
-                || $user->hasRole('HR Officer')
-                || $user->hasRole('Admin');
-        }
+        $isAllowed = \App\Services\SidebarVisibilityService::canSeeEmployeeManagement($user)
+            || \App\Services\SidebarVisibilityService::isAdmin($user)
+            || \App\Services\SidebarVisibilityService::isSuperAdmin($user);
         
         if (!$isAllowed) {
             \Log::warning('Unauthorized HR dashboard access', [
                 'user_id' => $user?->id ?? 'null',
                 'primary_role' => $role,
                 'all_roles' => $allRoles,
-                'allowed_roles' => $allowedRoles,
             ]);
             abort(403, 'Unauthorized access to HR dashboard');
         }

@@ -55,6 +55,16 @@
     </div>
 
     @if($reportData)
+        @if(!$hasPostedEntries)
+            <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 text-amber-900 dark:text-amber-100 text-sm">
+                No posted GL entries were found for this branch in the selected date range. Reports will show zeros until entries are posted.
+            </div>
+        @elseif(!$hasReportRows)
+            <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 text-blue-900 dark:text-blue-100 text-sm">
+                Report generated, but no rows matched the current filters. Try a wider date range or verify account activity.
+            </div>
+        @endif
+
         {{-- Summary Metrics --}}
         @if(!empty($summaryMetrics))
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

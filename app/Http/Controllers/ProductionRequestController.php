@@ -21,6 +21,7 @@ class ProductionRequestController extends Controller
             'sales_department_id' => ['required', 'exists:departments,id'],
             'priority' => ['required', Rule::in(['normal', 'urgent'])],
             'planned_production_quantity' => ['required', 'numeric', 'min:0.01'],
+            'requested_units' => ['nullable', 'numeric', 'min:0.01'],
             'notes' => ['nullable', 'string'],
             'shift_id' => ['nullable', 'exists:shifts,id'],
             'recipe_id' => ['nullable', 'exists:recipes,id'],
@@ -29,6 +30,9 @@ class ProductionRequestController extends Controller
 
         $validated['created_by_id'] = auth()->id();
         $validated['status'] = 'pending';
+        if (!isset($validated['requested_units'])) {
+            $validated['requested_units'] = $validated['planned_production_quantity'];
+        }
 
         $request = ProductionRequest::create($validated);
 
