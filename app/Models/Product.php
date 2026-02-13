@@ -146,6 +146,14 @@ class Product extends Model
     }
 
     /**
+     * Sales request line items that requested this product.
+     */
+    public function salesProductionRequestItems(): HasMany
+    {
+        return $this->hasMany(SalesProductionRequestItem::class);
+    }
+
+    /**
      * Get the departments that this product belongs to
      */
     public function departments(): BelongsToMany

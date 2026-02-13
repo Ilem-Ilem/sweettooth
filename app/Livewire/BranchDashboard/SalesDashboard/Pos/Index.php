@@ -22,6 +22,7 @@ use App\Services\SalesStockVerificationService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Attributes\{Layout, Url, Computed, On};
 
 #[Layout('components.layouts.app.branch-dashboard')]
@@ -686,11 +687,16 @@ class Index extends BaseComponent
 
     protected function getTodayStockForProduct(string $productId, bool $forUpdate = false): ?ProductStock
     {
+        $hasDepartmentColumn = Schema::hasColumn('product_stocks', 'department_id');
+        if ($hasDepartmentColumn && !$this->departmentId) {
+            return null;
+        }
+
         $q = ProductStock::query()
             ->whereDate('stock_date', Carbon::today())
             ->where('product_id', $productId);
 
-        if ($this->departmentId && \Illuminate\Support\Facades\Schema::hasColumn('product_stocks', 'department_id')) {
+        if ($hasDepartmentColumn) {
             $q->where('department_id', $this->departmentId);
         }
 

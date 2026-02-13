@@ -183,7 +183,7 @@ class Index extends Component
         $query = DepartmentReport::query()
             ->with(['department', 'generatedBy', 'reviewedBy'])
             ->forBranch($branchId)
-            ->whereIn('status', ['pending_review', 'reviewed', 'rejected']);
+            ->whereIn('status', $this->visibleStatuses());
 
         if ($this->filterCategory !== 'all') {
             $query->byCategory($this->filterCategory);
@@ -203,6 +203,9 @@ class Index extends Component
             ->get();
 
         $statusCounts = [
+            'draft' => DepartmentReport::forBranch($branchId)
+                ->where('status', 'draft')
+                ->count(),
             'pending_review' => DepartmentReport::forBranch($branchId)
                 ->where('status', 'pending_review')
                 ->count(),
@@ -219,5 +222,17 @@ class Index extends Component
             'departments' => $departments,
             'statusCounts' => $statusCounts,
         ]);
+    }
+
+    private function visibleStatuses(): array
+    {
+        return [
+            'draft',
+            'pending_review',
+            'reviewed',
+            'rejected',
+            'compiled',
+            'sent_to_md',
+        ];
     }
 }

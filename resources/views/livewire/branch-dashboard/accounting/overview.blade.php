@@ -1,4 +1,17 @@
 <div class="space-y-6">
+    <!-- Custom styles for select dropdown -->
+    <style>
+        select.custom-select option {
+            background-color: white !important;
+            color: #171717 !important; /* zinc-900 */
+        }
+        
+        .dark select.custom-select option {
+            background-color: #3f3f46 !important; /* zinc-700 */
+            color: white !important;
+        }
+    </style>
+    
     <!-- Header -->
     <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-md p-6">
         <h1 class="text-3xl font-bold text-zinc-900 dark:text-white mb-2">Accounting Overview</h1>

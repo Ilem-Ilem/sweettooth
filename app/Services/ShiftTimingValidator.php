@@ -17,7 +17,7 @@ class ShiftTimingValidator
     public function validateStrictTimeWindows(
         string $shiftType,
         ?string $branchId = null,
-        Carbon $requestedTime = null
+        ?Carbon $requestedTime = null
     ): ValidationResult {
         $currentTime = $requestedTime ?? Carbon::now();
 
@@ -128,7 +128,7 @@ class ShiftTimingValidator
         string $employeeId,
         string $shiftType,
         string $branchId,
-        Carbon $requestedTime = null
+        ?Carbon $requestedTime = null
     ): ValidationResult {
         $currentTime = $requestedTime ?? Carbon::now();
 
@@ -136,6 +136,7 @@ class ShiftTimingValidator
         $activeShift = \App\Models\Shift::where('employee_id', $employeeId)
             ->where('shift_date', $currentTime->toDateString())
             ->where('status', 'active')
+            ->whereNull('clock_out')
             ->first();
 
         if ($activeShift) {
@@ -144,7 +145,8 @@ class ShiftTimingValidator
             );
         }
 
-        // Check for shifts that would overlap
+        // Check for shifts that would overlap.
+        // Only consider open/active shifts; closed shifts should not block a new clock-in.
         $config = ShiftConfiguration::forBranchAndType($branchId, $shiftType)->first();
 
         if ($config) {
@@ -152,6 +154,7 @@ class ShiftTimingValidator
 
             $overlappingShift = \App\Models\Shift::where('employee_id', $employeeId)
                 ->where('shift_date', $currentTime->toDateString())
+                ->where('status', 'active')
                 ->where(function ($query) use ($currentTime, $shiftEnd) {
                     $query->whereBetween('clock_in', [$currentTime, $shiftEnd])
                           ->orWhereBetween('clock_out', [$currentTime, $shiftEnd])

@@ -59,6 +59,11 @@ class Unified extends Component
             return ($report['meta']['category'] ?? null) === 'accounting';
         }));
 
+        if (empty($this->availableReports)) {
+            $this->reportKey = null;
+            return;
+        }
+
         if (!$this->reportKey && !empty($this->availableReports)) {
             $this->reportKey = $this->availableReports[0]['key'] ?? null;
         }

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class ItemRequest extends Model
@@ -138,6 +139,11 @@ class ItemRequest extends Model
     public function productionRequests(): HasMany
     {
         return $this->hasMany(ProductionRequest::class);
+    }
+
+    public function salesMaterialLink(): HasOne
+    {
+        return $this->hasOne(SalesProductionItemMaterialRequest::class);
     }
 
     /**

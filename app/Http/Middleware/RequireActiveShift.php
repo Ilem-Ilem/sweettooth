@@ -71,7 +71,8 @@ class RequireActiveShift
         // Skip for shift-related routes (to prevent infinite loops)
         $shiftRoutes = [
             'branch-dashboard.select_shift',
-            'livewire/auth/shift'
+            'livewire/auth/shift',
+            'branch-dashboard.sales-dashboard.shift-closing.index',
         ];
 
         if ($request->routeIs($shiftRoutes)) {
@@ -89,6 +90,7 @@ class RequireActiveShift
         return Shift::where('employee_id', $employee->id)
             ->where('shift_date', Carbon::today())
             ->where('status', 'active')
+            ->whereNull('clock_out')
             ->with('branch:id,name') // Eager load for performance
             ->first();
     }

@@ -36,7 +36,7 @@ class Shift extends Component
 
     public function mount()
     {
-        $this->b_id = session('selected_branch_id');
+        $this->b_id = request()->query('b_id') ?? session('selected_branch_id');
         if (! $this->b_id) {
             // Fallback to first active branch
             $defaultBranch = \App\Models\Branch::where('is_active', 1)->first();
@@ -44,6 +44,9 @@ class Shift extends Component
                 $this->b_id = $defaultBranch->id;
                 session(['selected_branch_id' => $this->b_id]);
             }
+        } else {
+            // Keep session in sync with explicit URL branch selection.
+            session(['selected_branch_id' => $this->b_id]);
         }
         $this->loadCurrentShift();
     }
@@ -52,10 +55,21 @@ class Shift extends Component
     {
         $user_id = Auth::id();
 
+        // Auto-heal stale records: shifts that were clocked out but status remained active.
+        ShiftModel::where('employee_id', $user_id)
+            ->where('shift_date', Carbon::today())
+            ->where('status', 'active')
+            ->whereNotNull('clock_out')
+            ->update([
+                'status' => 'closed',
+                'workflow_state' => 'completed',
+            ]);
+
         // Get today's active shift for this user
         $this->currentShift = ShiftModel::where('employee_id', $user_id)
             ->where('shift_date', Carbon::today())
             ->where('status', 'active')
+            ->whereNull('clock_out')
             ->first();
 
         $this->hasActiveShift = $this->currentShift !== null;
@@ -208,7 +222,7 @@ class Shift extends Component
 
             if ($autoClockOutMinutes > 0) {
                 // Calculate expected end time from shift configuration
-                $expectedEndTime = Carbon::parse($this->currentShift->shift_date . ' ' . data_get($this->currentShift->metadata, 'end_time', '23:59:59'));
+                $expectedEndTime = $this->resolveExpectedEndTime();
 
                 // Calculate auto-clock-out time (end time + auto-clock-out minutes)
                 $autoClockOutTime = $expectedEndTime->copy()->addMinutes($autoClockOutMinutes);
@@ -227,8 +241,9 @@ class Shift extends Component
             $this->currentShift->save();
 
             // Calculate total hours worked
-            $totalHours = $this->currentShift->clock_in->diffInHours($this->currentShift->clock_out);
-            $totalMinutes = $this->currentShift->clock_in->diffInMinutes($this->currentShift->clock_out) % 60;
+            $workedMinutes = (int) floor($this->currentShift->clock_in->diffInMinutes($this->currentShift->clock_out));
+            $totalHours = (int) floor($workedMinutes / 60);
+            $totalMinutes = $workedMinutes % 60;
 
             $this->toast()->success("Clocked out successfully! Total time: {$totalHours}h {$totalMinutes}m")->send();
 
@@ -308,8 +323,8 @@ class Shift extends Component
         }
 
         $endTime = $this->currentShift->clock_out ?? Carbon::now();
-        $totalMinutes = $this->currentShift->clock_in->diffInMinutes($endTime);
-        $hours = floor($totalMinutes / 60);
+        $totalMinutes = (int) floor($this->currentShift->clock_in->diffInMinutes($endTime));
+        $hours = (int) floor($totalMinutes / 60);
         $minutes = $totalMinutes % 60;
 
         return "{$hours}h {$minutes}m";
@@ -318,6 +333,20 @@ class Shift extends Component
     public function continueToWork()
     {
         $branch = Branch::findOrFail($this->b_id);
+        $user = Auth::user();
+
+        // If user is still clocked in and belongs to sales, continue directly to POS.
+        if ($this->hasActiveShift && $this->currentShift && $this->isSalesDepartment($user)) {
+            $salesDeptSlug = $this->getSalesDepartmentSlugForUser($user);
+
+            return $this->redirect(
+                route('branch-dashboard.sales-dashboard.pos.index', [
+                    'salesDeptSlug' => $salesDeptSlug,
+                    'b_id' => $branch->id,
+                ]),
+                navigate: true
+            );
+        }
 
         return $this->redirectToDashboard($branch);
     }
@@ -357,7 +386,7 @@ class Shift extends Component
 
         $salesShift = SalesShift::create([
             'branch_id' => $branch->id,
-            'department_id' => null, // Department determined by role in unified system
+            'department_id' => $shift->department_id ?? $this->getDepartmentIdForUser($user),
             'employee_id' => $user->id,
             'shift_number' => $shiftNumber,
             'shift_date' => Carbon::today(),
@@ -418,6 +447,21 @@ class Shift extends Component
             ->value('id');
     }
 
+    private function getSalesDepartmentSlugForUser($user): ?string
+    {
+        if (! $user) {
+            return null;
+        }
+
+        if ($user->department?->slug) {
+            return $user->department->slug;
+        }
+
+        return \App\Models\Department::where('branch_id', $this->b_id)
+            ->whereHas('category', fn ($q) => $q->where('name', 'Sales'))
+            ->value('slug');
+    }
+
     public function getAvailableShiftsProperty()
     {
         if (!$this->b_id) {
@@ -436,5 +480,26 @@ class Shift extends Component
         return view('livewire.auth.shift', [
             'availableShifts' => $this->availableShifts
         ]);
+    }
+
+    private function resolveExpectedEndTime(): Carbon
+    {
+        $shiftDate = $this->currentShift->shift_date instanceof Carbon
+            ? $this->currentShift->shift_date->toDateString()
+            : Carbon::parse($this->currentShift->shift_date)->toDateString();
+
+        $endTimeRaw = (string) data_get($this->currentShift->metadata, 'end_time', '23:59:59');
+
+        try {
+            // Plain clock time (HH:MM or HH:MM:SS)
+            if (preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $endTimeRaw) === 1) {
+                return Carbon::parse($shiftDate . ' ' . $endTimeRaw);
+            }
+
+            // Full datetime/ISO value
+            return Carbon::parse($endTimeRaw);
+        } catch (\Throwable $e) {
+            return Carbon::parse($shiftDate . ' 23:59:59');
+        }
     }
 }

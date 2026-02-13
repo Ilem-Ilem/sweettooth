@@ -89,15 +89,29 @@ class Generate extends Component
     {
         $this->reportsByCategory = ReportRegistry::groupedByCategory(auth()->user());
 
+        if (empty($this->reportsByCategory)) {
+            $this->reportCategory = null;
+            $this->reportKey = null;
+            return;
+        }
+
         if (!$this->reportCategory || !isset($this->reportsByCategory[$this->reportCategory])) {
             $this->reportCategory = array_key_first($this->reportsByCategory);
         }
 
-        $this->reportKey = $this->reportKey ?? ($this->reportsByCategory[$this->reportCategory][0]['key'] ?? null);
+        $currentCategoryReports = $this->reportsByCategory[$this->reportCategory] ?? [];
+        $this->reportKey = $this->reportKey ?? ($currentCategoryReports[0]['key'] ?? null);
     }
 
     public function updatedReportCategory()
     {
+        if (empty($this->reportsByCategory)) {
+            $this->reportKey = null;
+            $this->clearReportData();
+            $this->refreshSavedReports();
+            return;
+        }
+
         if (!$this->reportCategory || empty($this->reportsByCategory[$this->reportCategory])) {
             $this->reportKey = null;
         } else {

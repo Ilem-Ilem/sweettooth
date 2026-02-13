@@ -15,6 +15,8 @@ use App\Models\Product;
 use App\Models\Callback;
 use App\Services\SalesWorkflowService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Carbon\Carbon;
@@ -121,6 +123,9 @@ class Index extends BaseComponent
 
         $stocks = ProductStock::where('stock_date', $this->shiftDate)
             ->where('shift_type', $this->shiftType)
+            ->when(Schema::hasColumn('product_stocks', 'department_id'), function ($query) {
+                $query->where('department_id', $this->departmentId);
+            })
             ->whereHas('product', function($q) {
                 $q->whereHas('departments', function($dq) {
                     $dq->where('department_id', $this->departmentId);
@@ -399,11 +404,17 @@ class Index extends BaseComponent
                 throw new \Exception('Shift not found');
             }
 
+            $shiftStart = $shift->clock_in ?? Carbon::parse($this->shiftDate)->startOfDay();
+            $shiftEnd = now();
+
             // 1. UPDATE STOCK CLOSING
             foreach ($this->closingStocks as $stockData) {
                 $productStock = ProductStock::where('stock_date', $this->shiftDate)
                     ->where('shift_type', $this->shiftType)
                     ->where('product_id', $stockData['product_id'])
+                    ->when(Schema::hasColumn('product_stocks', 'department_id'), function ($query) {
+                        $query->where('department_id', $this->departmentId);
+                    })
                     ->first();
 
                 if ($productStock) {
@@ -479,6 +490,36 @@ class Index extends BaseComponent
 
             // Update workflow metadata
             $metadata = $shift->metadata ?? [];
+            $salesScope = Sale::where('branch_id', $this->branchId)
+                ->where('department_id', $this->departmentId)
+                ->whereBetween('sale_time', [$shiftStart, $shiftEnd]);
+
+            // Finalize any pending sales that are fully paid.
+            $finalizedPendingSales = 0;
+            $pendingSales = (clone $salesScope)
+                ->where('status', 'pending')
+                ->with('payments')
+                ->get();
+
+            foreach ($pendingSales as $pendingSale) {
+                if ($pendingSale->isFullyPaid()) {
+                    $pendingSale->status = 'completed';
+                    $pendingSale->save();
+                    $finalizedPendingSales++;
+                }
+            }
+
+            $metadata['sales_summary'] = [
+                'captured_at' => now()->toIso8601String(),
+                'total_orders' => (clone $salesScope)->count(),
+                'completed_orders' => (clone $salesScope)->where('status', 'completed')->count(),
+                'hold_orders' => (clone $salesScope)->where('status', 'hold')->count(),
+                'cancelled_orders' => (clone $salesScope)->where('status', 'cancelled')->count(),
+                'gross_sales' => (clone $salesScope)->where('status', 'completed')->sum('total'),
+                'total_discount' => (clone $salesScope)->where('status', 'completed')->sum('discount'),
+                'total_tax' => (clone $salesScope)->where('status', 'completed')->sum('tax'),
+                'finalized_pending_sales' => $finalizedPendingSales,
+            ];
             $metadata['shift_closing_completed'] = true;
             $metadata['shift_closed_at'] = now()->toIso8601String();
             $metadata['closed_by'] = auth()->id() ?? auth()->id();
@@ -498,12 +539,12 @@ class Index extends BaseComponent
             }
 
             DB::commit();
-            $this->toast()->success('Shift closed successfully!')->send();
-            $this->isVerified = true;
-            $this->loadClosingData(); // Reload to reflect changes
+            Auth::guard('web')->logout();
+            request()->session()->invalidate();
+            request()->session()->regenerateToken();
+            session()->flash('status', 'Shift closed successfully. Your stock and sales data were saved.');
 
-            // Emit event to update workflow progress in other components
-            $this->dispatch('workflow-state-changed');
+            return $this->redirect(route('login'), navigate: true);
         } catch (\Exception $e) {
             DB::rollBack();
             $this->toast()->error('Error closing shift: ' . $e->getMessage())->send();

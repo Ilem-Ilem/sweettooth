@@ -2,12 +2,18 @@
 
 namespace App\Livewire\BranchDashboard\Production\Request;
 
+use App\Enums\ProductionRequestSourceType;
 use App\Models\ProductionRequest;
+use App\Models\SalesProductionRequestItem;
+use DomainException;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Component;
 use Livewire\WithPagination;
+use TallStackUi\Traits\Interactions;
 
 class ProductionRequestBoard extends Component
 {
+    use Interactions;
     use WithPagination;
 
     public $statusFilter = '';
@@ -59,7 +65,7 @@ class ProductionRequestBoard extends Component
             $query->where('production_department_id', $this->userDepartmentId);
         }
 
-        $query->with(['salesDepartment', 'createdBy', 'progressFeedback']);
+        $query->with(['productionDepartment', 'recipe', 'createdBy', 'progressFeedback']);
 
         if ($this->statusFilter) {
             $query->where('status', $this->statusFilter);
@@ -89,13 +95,19 @@ class ProductionRequestBoard extends Component
 
     public function startProduction($requestId)
     {
-        $request = ProductionRequest::find($requestId);
-        if ($request) {
-            $request->update([
-                'status' => 'in_progress',
-                'started_at' => now(),
-            ]);
-            $this->dispatch('requestUpdated');
+        try {
+            $request = ProductionRequest::find($requestId);
+            if ($request) {
+                $this->assertMaterialsApprovedForSalesDemand($request);
+
+                $request->update([
+                    'status' => 'in_progress',
+                    'started_at' => now(),
+                ]);
+                $this->dispatch('requestUpdated');
+            }
+        } catch (\Throwable $e) {
+            $this->toast()->error($e->getMessage())->send();
         }
     }
 
@@ -140,5 +152,41 @@ class ProductionRequestBoard extends Component
         return view('livewire.branch-dashboard.production.request.production-request-board', [
             'requests' => $this->requests,
         ]);
+    }
+
+    private function assertMaterialsApprovedForSalesDemand(ProductionRequest $request): void
+    {
+        if (
+            ! Schema::hasColumn('production_requests', 'source_type')
+            || ! Schema::hasColumn('production_requests', 'source_id')
+        ) {
+            return;
+        }
+
+        if ($request->source_type !== ProductionRequestSourceType::SALES_DEMAND->value) {
+            return;
+        }
+
+        if (! $request->source_id) {
+            throw new DomainException('Sales-demand request is missing source linkage.');
+        }
+
+        $salesItem = SalesProductionRequestItem::query()->find((int) $request->source_id);
+        if (! $salesItem) {
+            throw new DomainException('Linked sales request item was not found.');
+        }
+
+        $allowedStatuses = [
+            'materials_approved',
+            'processing',
+            'completed',
+            'dispatched',
+            'received_by_sales',
+        ];
+
+        $salesStatus = is_string($salesItem->status) ? $salesItem->status : $salesItem->status->value;
+        if (! in_array($salesStatus, $allowedStatuses, true)) {
+            throw new DomainException('Cannot start production before inventory materials are approved.');
+        }
     }
 }

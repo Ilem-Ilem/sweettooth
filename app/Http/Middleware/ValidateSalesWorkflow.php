@@ -41,7 +41,7 @@ class ValidateSalesWorkflow
         $requiredState = $this->getRequiredWorkflowState($currentRoute);
 
         if ($requiredState) {
-            $activeShift = $this->getActiveShift($employee);
+            $activeShift = $this->getActiveShift($employee, $requiredState);
 
             if (!$activeShift) {
                 // No active shift - redirect to clock-in
@@ -138,12 +138,23 @@ class ValidateSalesWorkflow
     /**
      * Get active shift for employee
      */
-    protected function getActiveShift($employee): ?Shift
+    protected function getActiveShift($employee, ?string $requiredState = null): ?Shift
     {
-        return Shift::where('employee_id', $employee->id)
+        $query = Shift::where('employee_id', $employee->id)
             ->where('shift_date', Carbon::today())
-            ->where('status', 'active')
-            ->first();
+            ->where(function ($q) use ($requiredState) {
+                $q->where(function ($active) {
+                    $active->where('status', 'active')
+                        ->whereNull('clock_out');
+                });
+
+                // Allow employees who already clocked out to access shift closing.
+                if ($requiredState === 'shift_closing') {
+                    $q->orWhere('workflow_state', 'shift_closing');
+                }
+            });
+
+        return $query->latest('clock_in')->first();
     }
 
     /**

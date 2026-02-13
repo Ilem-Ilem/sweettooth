@@ -162,6 +162,7 @@ class Items extends BaseComponent
         $this->showAuditModal = true;
     }
 
+   
     private function itemValidationRules(): array
     {
         $rules = [
@@ -794,6 +795,19 @@ class Items extends BaseComponent
                 }
             })
             ->latest();
+    }
+
+    public function applyFilters()
+    {
+        // Filters are applied automatically via wire:model.live, so this is a no-op
+        // But we need this method to exist to prevent the MethodNotFoundException
+        $this->resetPage();
+    }
+
+    public function resetFilters()
+    {
+        $this->reset(['search', 'filterCategory', 'filterStatus', 'filterStockLevel']);
+        $this->resetPage();
     }
 
     public function exportExcel()

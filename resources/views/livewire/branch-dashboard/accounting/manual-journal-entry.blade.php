@@ -17,21 +17,29 @@
         </div>
     @endif
 
+    @error('general')
+        <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+            <p class="text-red-800 dark:text-red-300">{{ $message }}</p>
+        </div>
+    @enderror
+
     <!-- Entry Form -->
     <form wire:submit="submit" class="space-y-6">
         <!-- Header Fields -->
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-md p-6 space-y-4">
             <h2 class="text-lg font-semibold text-zinc-900 dark:text-white mb-4">Entry Details</h2>
+            <p class="text-sm text-zinc-600 dark:text-zinc-400 -mt-2">Complete the header, then add line items. Each line should be either debit or credit, not both.</p>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-zinc-900 dark:text-white mb-2">Reference *</label>
+                    <label class="block text-sm font-medium text-zinc-900 dark:text-white mb-2">Reference (Auto-generated)</label>
                     <input 
                         wire:model="reference" 
                         type="text" 
-                        placeholder="e.g., JE-2024-001"
-                        class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white placeholder-zinc-500 dark:placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        readonly
+                        class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-zinc-100 dark:bg-zinc-700/60 text-zinc-900 dark:text-white focus:outline-none"
                     >
+                    <p class="text-xs text-zinc-500 mt-1">Generated automatically for consistency.</p>
                     @error('reference') <span class="text-red-600 text-xs mt-1 block">{{ $message }}</span> @enderror
                 </div>
 
@@ -48,6 +56,7 @@
                             <option disabled>No open periods available</option>
                         @endforelse
                     </select>
+                    <p class="text-xs text-zinc-500 mt-1">Only open periods are available.</p>
                     @error('periodId') <span class="text-red-600 text-xs mt-1 block">{{ $message }}</span> @enderror
                 </div>
 
@@ -59,6 +68,19 @@
                         class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
                     @error('entryDate') <span class="text-red-600 text-xs mt-1 block">{{ $message }}</span> @enderror
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-zinc-900 dark:text-white mb-2">Posting *</label>
+                    <select
+                        wire:model="status"
+                        class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                        <option value="draft">Save as Draft</option>
+                        <option value="posted">Create and Post</option>
+                    </select>
+                    <p class="text-xs text-zinc-500 mt-1">Choose whether to post immediately.</p>
+                    @error('status') <span class="text-red-600 text-xs mt-1 block">{{ $message }}</span> @enderror
                 </div>
             </div>
 
@@ -83,9 +105,10 @@
                     wire:click="addLine"
                     class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition"
                 >
-                    + Add Line
+                    + Add Another Line
                 </button>
             </div>
+            <p class="text-sm text-zinc-600 dark:text-zinc-400">Tip: every line needs an account and amount. Use debit or credit only on each line.</p>
 
             <div class="overflow-x-auto">
                 <table class="w-full">
@@ -123,23 +146,25 @@
                                 </td>
                                 <td class="px-4 py-3">
                                     <input 
-                                        wire:model.number="lines.{{ $index }}.debit" 
+                                        wire:model.live="lines.{{ $index }}.debit" 
                                         type="number"
                                         step="0.01"
                                         min="0"
                                         placeholder="0.00"
                                         class="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white text-sm text-right placeholder-zinc-500 dark:placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                     >
+                                    @error('lines.' . $index . '.debit') <span class="text-red-600 text-xs">{{ $message }}</span> @enderror
                                 </td>
                                 <td class="px-4 py-3">
                                     <input 
-                                        wire:model.number="lines.{{ $index }}.credit" 
+                                        wire:model.live="lines.{{ $index }}.credit" 
                                         type="number"
                                         step="0.01"
                                         min="0"
                                         placeholder="0.00"
                                         class="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white text-sm text-right placeholder-zinc-500 dark:placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                     >
+                                    @error('lines.' . $index . '.credit') <span class="text-red-600 text-xs">{{ $message }}</span> @enderror
                                 </td>
                                 <td class="px-4 py-3 text-center">
                                     @if (count($lines) > 2)
@@ -172,6 +197,11 @@
                                 </span>
                             </td>
                         </tr>
+                        <tr>
+                            <td colspan="5" class="px-4 pb-4 text-sm text-right {{ $this->imbalanceAmount > 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-600 dark:text-zinc-400' }}">
+                                Difference: {{ $this->formatCurrency($this->imbalanceAmount) }}
+                            </td>
+                        </tr>
                     </tfoot>
                 </table>
             </div>
@@ -188,11 +218,14 @@
             </a>
             <button 
                 type="submit"
-                @disabled(! $this->isBalanced)
+                @disabled(! $this->canSubmit)
                 class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-zinc-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition"
             >
                 {{ $status === 'posted' ? 'Create & Post' : 'Create as Draft' }}
             </button>
         </div>
+        @if (! $this->canSubmit)
+            <p class="text-sm text-zinc-600 dark:text-zinc-400 text-right">To submit: add amounts on lines, include at least one debit and one credit, and keep totals balanced.</p>
+        @endif
     </form>
 </div>

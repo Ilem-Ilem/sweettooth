@@ -1,6 +1,5 @@
 <div
     x-data="{
-        showKitchenModal: false,
         productView: 'grid',
         showReceipt: false,
         receiptContent: ''
@@ -111,25 +110,6 @@
         </div>
     </div>
     @endif
-
-    <!-- Kitchen Request Bar (Above Everything) -->
-    <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 p-4">
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-full bg-orange-600 text-white flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6"><path d="M13.5 2.25a.75.75 0 0 1 .75.75v2.75a.75.75 0 0 0 .75.75h2.75a.75.75 0 0 1 0 1.5H15a.75.75 0 0 0-.75.75v2.75a.75.75 0 0 1-1.5 0V9.5A.75.75 0 0 0 12 8.75H9.25a.75.75 0 0 1 0-1.5H12a.75.75 0 0 0 .75-.75V3a.75.75 0 0 1 .75-.75Z"/><path fill-rule="evenodd" d="M2.25 13.875a5.625 5.625 0 0 1 9.823-3.75.75.75 0 0 1-.041 1.082 3.374 3.374 0 0 0 1.55 5.904.75.75 0 0 1 .418 1.148 4.875 4.875 0 1 0 2.96-7.47.75.75 0 1 1-.32-1.46 6.375 6.375 0 1 1-8.62 7.42A5.625 5.625 0 0 1 2.25 13.875Z" clip-rule="evenodd"/></svg>
-                </div>
-                <div>
-                    <div class="font-semibold text-zinc-900 dark:text-zinc-100">Kitchen Request</div>
-                    <div class="text-sm text-zinc-600 dark:text-zinc-400">Request ingredients or products from production</div>
-                </div>
-            </div>
-            <button type="button" @click="$dispatch('openKitchenRequestModal')" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-600 text-white hover:bg-orange-500 font-medium shadow-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M12 4.5a.75.75 0 0 1 .75.75v6h6a.75.75 0 0 1 0 1.5h-6v6a.75.75 0 0 1-1.5 0v-6h-6a.75.75 0 0 1 0-1.5h6v-6A.75.75 0 0 1 12 4.5Z" clip-rule="evenodd"/></svg>
-                New Request
-            </button>
-        </div>
-    </div>
 
     <!-- Table Management Toggle & Section -->
     <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
@@ -580,8 +560,6 @@
             </div>
         </div>
     </div>
-
-    <livewire:branch-dashboard.componets.pos.request-model key="request-model">
 
     <!-- Receipt Print Modal -->
     <div x-show="showReceipt" x-cloak class="fixed inset-0 z-50 flex items-center justify-center" @pos-receipt-ready.window="showReceipt = true">

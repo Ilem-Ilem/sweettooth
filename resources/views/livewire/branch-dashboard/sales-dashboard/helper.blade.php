@@ -488,7 +488,7 @@
                             </li>
                             <li class="flex items-start">
                                 <span class="w-2 h-2 bg-yellow-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                                Delayed kitchen dispatch notifications
+                                Delayed production dispatch notifications
                             </li>
                             <li class="flex items-start">
                                 <span class="w-2 h-2 bg-yellow-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>

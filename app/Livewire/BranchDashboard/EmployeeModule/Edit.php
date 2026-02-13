@@ -9,6 +9,7 @@ use App\Models\Employee;
 use App\Services\EmployeeApprovalService;
 use App\Services\EmployeeAuditService;
 use App\Traits\AuditableSyncTrait;
+use Carbon\Carbon;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
@@ -24,6 +25,9 @@ class Edit extends BaseComponent
 
     #[Url(keep: true)]
     public $b_id;
+
+    public string $bank_name;
+
 
     // Employee form fields
     public string|int|null $branch_id = null;
@@ -138,15 +142,15 @@ class Edit extends BaseComponent
         $this->email = $employee->email;
         $this->phone = $employee->phone;
         $this->address = $employee->address;
-        $this->date_of_birth = $employee->date_of_birth ? $employee->date_of_birth->format('Y-m-d') : null;
+        $this->date_of_birth = $employee->date_of_birth ? (is_string($employee->date_of_birth) ? Carbon::parse($employee->date_of_birth)->format('Y-m-d') : $employee->date_of_birth->format('Y-m-d')) : null;
         $this->gender = $employee->gender;
         $this->nationality = $employee->nationality ?? 'Nigerian';
         $this->emergency_contact_name = $employee->emergency_contact_name;
         $this->emergency_contact_phone = $employee->emergency_contact_phone;
-        $this->hire_date = $employee->hire_date ? $employee->hire_date->format('Y-m-d') : null;
-        $this->termination_date = $employee->termination_date ? $employee->termination_date->format('Y-m-d') : null;
+        $this->hire_date = $employee->hire_date ? (is_string($employee->hire_date) ? Carbon::parse($employee->hire_date)->format('Y-m-d') : $employee->hire_date->format('Y-m-d')) : null;
+        $this->termination_date = $employee->termination_date ? (is_string($employee->termination_date) ? Carbon::parse($employee->termination_date)->format('Y-m-d') : $employee->termination_date->format('Y-m-d')) : null;
         $this->status = $employee->status ?? 'active';
-        $this->probation_end_date = $employee->probation_end_date ? $employee->probation_end_date->format('Y-m-d') : null;
+        $this->probation_end_date = $employee->probation_end_date ? (is_string($employee->probation_end_date) ? Carbon::parse($employee->probation_end_date)->format('Y-m-d') : $employee->probation_end_date->format('Y-m-d')) : null;
         $this->shift_preference = $employee->shift_preference;
         $this->salary = $employee->salary;
         $this->hourly_rate = $employee->hourly_rate;
@@ -154,7 +158,7 @@ class Edit extends BaseComponent
         $this->bank_account = $employee->bank_account;
         $this->allergies = $employee->allergies;
         $this->existing_photo = $employee->profile_photo;
-        $this->last_performance_review_date = $employee->last_performance_review_date ? $employee->last_performance_review_date->format('Y-m-d') : null;
+        $this->last_performance_review_date = $employee->last_performance_review_date ? (is_string($employee->last_performance_review_date) ? Carbon::parse($employee->last_performance_review_date)->format('Y-m-d') : $employee->last_performance_review_date->format('Y-m-d')) : null;
         $this->performance_rating = $employee->performance_rating;
         $this->selectedRoles = $employee->roles->pluck('id')->map(fn ($id) => (string) $id)->toArray();
     }
@@ -244,7 +248,8 @@ class Edit extends BaseComponent
                 'salary' => 'nullable|numeric|min:0',
                 'hourly_rate' => 'nullable|numeric|min:0',
                 'tax_id' => 'nullable|string|max:50',
-                'bank_account' => 'nullable|string|max:100',
+                'bank_account' => 'nullable|string|max:11',
+                'bank_name'=>'nullable|string',
                 'allergies' => 'nullable|string',
                 'profile_photo' => 'nullable|image|max:2048',
                 'last_performance_review_date' => 'nullable|date',
@@ -308,7 +313,8 @@ class Edit extends BaseComponent
                 'salary' => 'nullable|numeric|min:0',
                 'hourly_rate' => 'nullable|numeric|min:0',
                 'tax_id' => 'nullable|string|max:50',
-                'bank_account' => 'nullable|string|max:100',
+                'bank_account' => 'nullable|string|max:11',
+                'bank_name'=>'nullable|string',
                 'allergies' => 'nullable|string',
                 'profile_photo' => 'nullable|image|max:2048',
                 'last_performance_review_date' => 'nullable|date',
@@ -340,6 +346,7 @@ class Edit extends BaseComponent
                 'hourly_rate' => $this->hourly_rate,
                 'tax_id' => $this->tax_id,
                 'bank_account' => $this->bank_account,
+                'bank_name' => $this->bank_name, 
                 'allergies' => $this->allergies,
                 'last_performance_review_date' => $this->last_performance_review_date,
                 'performance_rating' => $this->performance_rating,

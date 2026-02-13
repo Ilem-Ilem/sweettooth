@@ -1,17 +1,17 @@
 <div class="p-3 space-y-3" x-data="{ open: false }">
-    <x-breadcrumb title="Kitchen Dispatches" :items="[
+    <x-breadcrumb title="Production Dispatches" :items="[
         ['label' => 'Dashboard', 'url' => branch_route('branch-dashboard.index')],
         ['label' => 'Sales Dashboard'],
-        ['label' => 'Kitchen Dispatches'],
+        ['label' => 'Production Dispatches'],
     ]" :compact="false" :with-icons="true" />
 
     <!-- Header -->
     <div class="bg-gradient-to-r from-green-600 to-green-700 rounded-lg p-4 text-white shadow-lg">
         <div class="flex justify-between items-center">
             <div>
-                <h2 class="text-xl font-bold">Kitchen Dispatch Receiving</h2>
+                <h2 class="text-xl font-bold">Production Dispatch Receiving</h2>
                 <p class="text-sm opacity-90 mt-1">
-                    Receive products dispatched from the kitchen
+                    Receive products dispatched from production departments
                 </p>
             </div>
             <div class="text-right">
@@ -91,6 +91,9 @@
                                 Dispatch Time
                             </th>
                             <th class="px-4 py-3 text-center text-xs font-semibold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">
+                                From Department
+                            </th>
+                            <th class="px-4 py-3 text-center text-xs font-semibold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">
                                 Dispatched By
                             </th>
                             <th class="px-4 py-3 text-center text-xs font-semibold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">
@@ -135,6 +138,11 @@
                                 </td>
                                 <td class="px-4 py-3 text-center">
                                     <div class="text-sm text-zinc-700 dark:text-zinc-300">
+                                        {{ $dispatch->productionRequest?->productionDepartment?->name ?? 'Production' }}
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    <div class="text-sm text-zinc-700 dark:text-zinc-300">
                                         {{ $dispatch->dispatchedBy->first_name ?? 'N/A' }} {{ $dispatch->dispatchedBy->last_name ?? '' }}
                                     </div>
                                 </td>
@@ -167,7 +175,7 @@
                             </tr>
                             @if($dispatch->notes)
                                 <tr class="bg-zinc-50 dark:bg-zinc-900/50">
-                                    <td colspan="6" class="px-4 py-2">
+                                    <td colspan="7" class="px-4 py-2">
                                         <div class="text-xs text-zinc-600 dark:text-zinc-400">
                                             <span class="font-semibold">Notes:</span> {{ $dispatch->notes }}
                                         </div>
@@ -191,7 +199,7 @@
                 </svg>
                 <h3 class="mt-2 text-sm font-medium text-zinc-900 dark:text-zinc-100">No dispatches found</h3>
                 <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                    There are no kitchen dispatches matching your filters.
+                    There are no production dispatches matching your filters.
                 </p>
             </div>
         @endif

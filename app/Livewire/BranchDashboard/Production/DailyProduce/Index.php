@@ -2,12 +2,15 @@
 
 namespace App\Livewire\BranchDashboard\Production\DailyProduce;
 
+use App\Enums\ProductionRequestSourceType;
 use App\Models\DailyProduce;
-use App\Models\Shift;
-use App\Models\ProductionRequest;
-use App\Models\ProductDispatch;
 use App\Models\Department;
+use App\Models\ProductDispatch;
+use App\Models\ProductionRequest;
+use App\Models\SalesProductionRequestItem;
+use App\Models\Shift;
 use App\Services\ProductionAuditService;
+use App\Services\SalesProductionDispatchService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
@@ -48,6 +51,7 @@ class Index extends Component
     public $batchDispatches = []; // Stores multiple dispatch allocations per batch: [[sales_dept_id, quantity], ...]
     public $batchAllowedSalesDepartments = []; // batch_id => allowed sales_department_id (if restricted)
     public $salesRequestLimits = []; // daily_produce_id => requested_units (if sales request)
+    private array $salesDemandContextCache = [];
 
     // For recording production batches
     public $batchesProduced = 1; // Number of batches made
@@ -206,25 +210,25 @@ class Index extends Component
             return;
         }
 
+        $this->salesRequestLimits = [];
+
         // Handle "no-shift" production requests (created by super admins)
         if ($this->selectedShiftId === 'no-shift') {
             // Load production requests without a shift
             $productionRequests = ProductionRequest::where('production_department_id', $this->department->id)
-                ->whereNull('sales_department_id')
                 ->whereDate('created_at', today())
-                ->with(['recipe', 'itemRequest.requestDetails.item', 'salesDepartment'])
+                ->with(['recipe', 'itemRequest.requestDetails.item'])
                 ->get();
             
             $this->dailyProduces = $productionRequests->map(function ($prodRequest) {
                 $recipe = $prodRequest->recipe;
                 $itemRequest = $prodRequest->itemRequest;
-                $isSalesRequest = (bool) $prodRequest->sales_department_id && $prodRequest->item_request_id === null;
+                $salesDemandContext = $this->resolveSalesDemandContext($prodRequest);
+                $isSalesRequest = $salesDemandContext['is_sales_request'];
                 $isStoreRequest = (bool) $prodRequest->item_request_id;
-                $requestedUnits = $isSalesRequest
-                    ? (float) ($prodRequest->requested_units ?? $prodRequest->planned_production_quantity ?? 0)
-                    : null;
+                $requestedUnits = $salesDemandContext['requested_units'];
 
-                $sourceLabel = $isSalesRequest ? 'Sales Request' : ($isStoreRequest ? 'Store Request' : 'Direct Request');
+                $sourceLabel = $isSalesRequest ? 'Sales Demand' : ($isStoreRequest ? 'Store Request' : 'Direct Request');
                 $sourceClass = $isSalesRequest
                     ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
                     : ($isStoreRequest
@@ -248,8 +252,8 @@ class Index extends Component
                     'id' => $prodRequest->id,
                     'recipe_id' => $recipe?->id,
                     'recipe_name' => $recipe?->product_name ?? 'Unknown Product',
-                    'sales_department_id' => $prodRequest->sales_department_id,
-                    'sales_department_name' => $prodRequest->salesDepartment?->name,
+                    'sales_department_id' => $salesDemandContext['sales_department_id'],
+                    'sales_department_name' => $salesDemandContext['sales_department_name'],
                     'requested_units' => $requestedUnits,
                     'production_request_number' => $prodRequest->id ? 'PR-' . $prodRequest->id : null,
                     'item_request_number' => $itemRequest->request_number ?? null,
@@ -295,7 +299,6 @@ class Index extends Component
         // Attach any unassigned production requests for today to this shift
         ProductionRequest::whereNull('shift_id')
             ->where('production_department_id', $this->department->id)
-            ->whereNull('sales_department_id')
             ->whereDate('created_at', $shift->shift_date)
             ->update(['shift_id' => $shift->id]);
 
@@ -319,16 +322,14 @@ class Index extends Component
 
         $this->dailyProduces = $produces->map(function ($produce) use ($shift) {
             $productionRequest = $produce->production_request_id
-                ? ProductionRequest::with(['itemRequest.requestDetails.item', 'itemRequest', 'salesDepartment'])->find($produce->production_request_id)
+                ? ProductionRequest::with(['itemRequest.requestDetails.item', 'itemRequest'])->find($produce->production_request_id)
                 : ProductionRequest::where('shift_id', $shift->id)
                     ->where('recipe_id', $produce->recipe_id)
-                    ->whereNull('sales_department_id')
-                    ->with(['itemRequest.requestDetails.item', 'itemRequest', 'salesDepartment'])
+                    ->with(['itemRequest.requestDetails.item', 'itemRequest'])
                     ->first();
-            $allowedSalesDeptId = $productionRequest?->sales_department_id;
-            $requestedUnits = $allowedSalesDeptId
-                ? (float) ($productionRequest?->requested_units ?? $productionRequest?->planned_production_quantity ?? $produce->requested_quantity)
-                : null;
+            $salesDemandContext = $this->resolveSalesDemandContext($productionRequest);
+            $allowedSalesDeptId = $salesDemandContext['sales_department_id'];
+            $requestedUnits = $salesDemandContext['requested_units'];
             if ($allowedSalesDeptId) {
                 $this->salesRequestLimits[$produce->id] = $requestedUnits;
             }
@@ -342,12 +343,9 @@ class Index extends Component
                 // Use the ItemRequest status field directly
                 $itemRequestStatus = $productionRequest->itemRequest->status ?? 'pending';
             }
-            $isSalesRequest = (bool) ($productionRequest?->sales_department_id && ! $productionRequest?->item_request_id);
+            $isSalesRequest = $salesDemandContext['is_sales_request'];
             $isStoreRequest = (bool) ($productionRequest?->item_request_id);
-            if ($isSalesRequest) {
-                return null;
-            }
-            $sourceLabel = $isSalesRequest ? 'Sales Request' : ($isStoreRequest ? 'Store Request' : 'Production Request');
+            $sourceLabel = $isSalesRequest ? 'Sales Demand' : ($isStoreRequest ? 'Store Request' : 'Production Request');
             $sourceClass = $isSalesRequest
                 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
                 : ($isStoreRequest
@@ -452,14 +450,14 @@ class Index extends Component
                 'dispatched_items' => $dispatchedItems,
                 'production_request_id' => $productionRequest?->id,
                 'sales_department_id' => $allowedSalesDeptId,
-                'sales_department_name' => $productionRequest?->salesDepartment?->name,
+                'sales_department_name' => $salesDemandContext['sales_department_name'],
                 'production_request_number' => $productionRequest?->id ? 'PR-' . $productionRequest->id : null,
                 'request_source_label' => $sourceLabel,
                 'request_source_class' => $sourceClass,
                 'is_sales_request' => $isSalesRequest,
                 'is_store_request' => $isStoreRequest,
             ];
-        })->filter()->toArray();
+        })->toArray();
 
         // Initialize editing quantities if not set (ONLY editable fields)
         if (empty($this->editingQuantities)) {
@@ -1306,6 +1304,20 @@ class Index extends Component
             $salesRequestedUnits = $this->getSalesRequestedUnitsLimit($produce);
 
             DB::transaction(function () use ($produce, $salesRequestedUnits) {
+                $productionRequest = $produce->production_request_id
+                    ? ProductionRequest::find($produce->production_request_id)
+                    : ProductionRequest::where('shift_id', $produce->shift_id)
+                        ->where('recipe_id', $produce->recipe_id)
+                        ->first();
+
+                $salesDemandContext = $this->resolveSalesDemandContext($productionRequest);
+                $linkedSalesItem = ! empty($salesDemandContext['sales_request_item_id'])
+                    ? SalesProductionRequestItem::find((int) $salesDemandContext['sales_request_item_id'])
+                    : null;
+                /** @var SalesProductionDispatchService $dispatchService */
+                $dispatchService = app(SalesProductionDispatchService::class);
+                $hasLinkedDispatches = false;
+
                 if ($salesRequestedUnits !== null) {
                     $totalAcrossBatches = 0;
                     foreach ($produce->productionRecords as $batch) {
@@ -1355,6 +1367,8 @@ class Index extends Component
                         foreach ($this->batchDispatches[$batch->id] as $dispatchData) {
                             if ((float) ($dispatchData['quantity'] ?? 0) > 0) {
                                 \App\Models\ProductDispatch::create([
+                                    'production_request_id' => $productionRequest?->id,
+                                    'sales_production_request_item_id' => $linkedSalesItem?->id,
                                     'branch_id' => $this->getBranchId(),
                                     'daily_produce_id' => $produce->id,
                                     'production_record_id' => $batch->id,
@@ -1371,9 +1385,17 @@ class Index extends Component
                                     'status' => 'pending_verification',
                                     'notes' => "Dispatched from batch {$batch->batch_number}",
                                 ]);
+
+                                if ($linkedSalesItem) {
+                                    $hasLinkedDispatches = true;
+                                }
                             }
                         }
                     }
+                }
+
+                if ($linkedSalesItem && $hasLinkedDispatches) {
+                    $dispatchService->markItemAsDispatched($linkedSalesItem);
                 }
 
                 // Update aggregate quantities in daily produce (now based on actual dispatches)
@@ -1413,9 +1435,27 @@ class Index extends Component
      * @param int $salesDepartmentId Sales department receiving the dispatch
      * @param int|null $productionRecordId Batch ID (optional)
      */
-    private function createProductDispatch($produce, $quantity, $salesDepartmentId, $productionRecordId = null)
+    private function createProductDispatch($produce, $quantity, $salesDepartmentId = null, $productionRecordId = null)
     {
         if ($quantity <= 0) {
+            return;
+        }
+
+        $productionRequest = $produce->production_request_id
+            ? ProductionRequest::find($produce->production_request_id)
+            : ProductionRequest::where('shift_id', $produce->shift_id)
+                ->where('recipe_id', $produce->recipe_id)
+                ->first();
+        $salesDemandContext = $this->resolveSalesDemandContext($productionRequest);
+        $linkedSalesItem = ! empty($salesDemandContext['sales_request_item_id'])
+            ? SalesProductionRequestItem::find((int) $salesDemandContext['sales_request_item_id'])
+            : null;
+
+        if (!$salesDepartmentId) {
+            $salesDepartmentId = $salesDemandContext['sales_department_id'] ?? ($this->salesDepartments[0]['id'] ?? null);
+        }
+
+        if (! $salesDepartmentId) {
             return;
         }
 
@@ -1433,6 +1473,8 @@ class Index extends Component
         $salesDeptName = $salesDept?->name ?? 'Unknown Department';
 
         ProductDispatch::create([
+            'production_request_id' => $productionRequest?->id,
+            'sales_production_request_item_id' => $linkedSalesItem?->id,
             'branch_id' => $this->getBranchId(),
             'daily_produce_id' => $produce->id,
             'production_record_id' => $productionRecordId,
@@ -1447,8 +1489,14 @@ class Index extends Component
             'shift_type' => $produce->shift_type,
             'dispatch_date' => $produce->produce_date,
             'status' => 'pending_verification',
-            'notes' => "Dispatched from kitchen to {$salesDeptName} - {$produce->recipe->product_name}",
+            'notes' => "Dispatched from production to {$salesDeptName} - {$produce->recipe->product_name}",
         ]);
+
+        if ($linkedSalesItem) {
+            /** @var SalesProductionDispatchService $dispatchService */
+            $dispatchService = app(SalesProductionDispatchService::class);
+            $dispatchService->markItemAsDispatched($linkedSalesItem);
+        }
     }
 
     private function trackRawMaterialUtilization($produce, $unitsProduced)
@@ -1532,11 +1580,71 @@ class Index extends Component
                 ->where('recipe_id', $produce->recipe_id)
                 ->first();
 
-        if (! $productionRequest || ! $productionRequest->sales_department_id) {
-            return null;
+        $salesDemandContext = $this->resolveSalesDemandContext($productionRequest);
+
+        return $salesDemandContext['requested_units'];
+    }
+
+    /**
+     * Resolve sales-demand context for a production request using source linkage.
+     *
+     * @return array{
+     *   is_sales_request: bool,
+     *   sales_request_item_id: int|null,
+     *   sales_department_id: int|null,
+     *   sales_department_name: string|null,
+     *   requested_units: float|null
+     * }
+     */
+    private function resolveSalesDemandContext(?ProductionRequest $productionRequest): array
+    {
+        $default = [
+            'is_sales_request' => false,
+            'sales_request_item_id' => null,
+            'sales_department_id' => null,
+            'sales_department_name' => null,
+            'requested_units' => null,
+        ];
+
+        if (! $productionRequest) {
+            return $default;
         }
 
-        return (float) ($productionRequest->requested_units ?? $productionRequest->planned_production_quantity ?? $produce->requested_quantity);
+        if (
+            $productionRequest->source_type !== ProductionRequestSourceType::SALES_DEMAND->value
+            || empty($productionRequest->source_id)
+        ) {
+            return $default;
+        }
+
+        $cacheKey = (string) $productionRequest->source_id;
+        if (array_key_exists($cacheKey, $this->salesDemandContextCache)) {
+            return $this->salesDemandContextCache[$cacheKey];
+        }
+
+        $salesItem = SalesProductionRequestItem::query()
+            ->with('request.salesDepartment:id,name')
+            ->find((int) $productionRequest->source_id);
+
+        if (! $salesItem || ! $salesItem->request) {
+            return $this->salesDemandContextCache[$cacheKey] = [
+                'is_sales_request' => true,
+                'sales_request_item_id' => null,
+                'sales_department_id' => null,
+                'sales_department_name' => null,
+                'requested_units' => (float) $salesItem?->quantity_requested ?: null,
+            ];
+        }
+
+        return $this->salesDemandContextCache[$cacheKey] = [
+            'is_sales_request' => true,
+            'sales_request_item_id' => (int) $salesItem->id,
+            'sales_department_id' => $salesItem->request->sales_department_id
+                ? (int) $salesItem->request->sales_department_id
+                : null,
+            'sales_department_name' => $salesItem->request->salesDepartment?->name,
+            'requested_units' => (float) $salesItem->quantity_requested,
+        ];
     }
 
     /**

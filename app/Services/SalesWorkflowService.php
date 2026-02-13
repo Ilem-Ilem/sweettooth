@@ -284,6 +284,7 @@ class SalesWorkflowService
         return Shift::where('employee_id', $employeeId)
             ->where('shift_date', Carbon::today())
             ->where('status', 'active')
+            ->whereNull('clock_out')
             ->first();
     }
 

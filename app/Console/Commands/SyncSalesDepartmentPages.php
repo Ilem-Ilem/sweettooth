@@ -93,7 +93,7 @@ class SyncSalesDepartmentPages extends Command
                 'order' => 1,
             ],
             [
-                'name' => 'Kitchen Dispatches',
+                'name' => 'Production Dispatches',
                 'slug' => 'kitchen-dispatches',
                 'route_name' => "branch-dashboard.sales-dashboard.dispatches.index",
                 'icon' => 'truck',

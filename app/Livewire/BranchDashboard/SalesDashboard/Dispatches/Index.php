@@ -9,7 +9,9 @@ use App\Models\Product;
 use App\Models\Department;
 use App\Models\Branch;
 use App\Models\Shift;
+use App\Services\SalesProductionDispatchService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Livewire\WithPagination;
@@ -29,7 +31,7 @@ class Index extends BaseComponent
 
     public ?string $branchId = null;
     public ?int $departmentId = null;
-    public string $departmentName = 'Dispatch Receiving';
+    public string $departmentName = 'Production Dispatch Receiving';
     public string $branchName = '';
 
     // Filter options
@@ -102,7 +104,7 @@ class Index extends BaseComponent
 
             if ($department) {
                 $this->departmentId = $department->id;
-                $this->departmentName = $department->name . ' - Dispatch Receiving';
+                $this->departmentName = $department->name . ' - Production Dispatch Receiving';
             } else {
                 $this->toast()->error('Department not found.')->send();
             }
@@ -112,7 +114,7 @@ class Index extends BaseComponent
             if ($employee && $employee->department_id) {
                 $this->departmentId = $employee->department_id;
                 $department = Department::find($employee->department_id);
-                $this->departmentName = ($department?->name ?? 'Dispatch Receiving') . ' - Dispatch Receiving';
+                $this->departmentName = ($department?->name ?? 'Production Dispatch Receiving') . ' - Production Dispatch Receiving';
             }
         }
 
@@ -142,7 +144,7 @@ class Index extends BaseComponent
                       ->orWhere('sku', 'like', '%' . $this->search . '%');
                 });
             })
-            ->with(['product', 'dispatchedBy', 'receivedBy', 'dailyProduce'])
+            ->with(['product', 'dispatchedBy', 'receivedBy', 'dailyProduce', 'productionRequest.productionDepartment'])
             ->orderBy('dispatch_time', 'desc');
     }
 
@@ -188,16 +190,36 @@ class Index extends BaseComponent
         DB::beginTransaction();
         try {
             $employee = auth()->user();
-            $dispatch = $this->selectedDispatch;
+            /** @var ProductDispatch|null $dispatch */
+            $dispatch = ProductDispatch::with('productionRequest')
+                ->lockForUpdate()
+                ->find($this->selectedDispatch->id);
+
+            if (! $dispatch) {
+                throw new \RuntimeException('Dispatch no longer exists.');
+            }
+
+            if (!in_array($dispatch->status, ['pending_verification', 'accepted'], true)) {
+                throw new \RuntimeException('This dispatch has already been processed.');
+            }
+
+            /** @var SalesProductionDispatchService $dispatchService */
+            $dispatchService = app(SalesProductionDispatchService::class);
 
             // Update dispatch status
             $dispatch->update([
                 'status' => 'received',
                 'received_quantity' => $this->receivedQuantity,
-                'received_by' => $employee->id,
+                'received_by_id' => $employee->id,
+                'received_by_type' => $employee ? get_class($employee) : null,
                 'received_at' => now(),
                 'notes' => $this->receivingNotes,
             ]);
+
+            $linkedSalesItem = $dispatchService->attachSalesItemLink($dispatch);
+            if ($linkedSalesItem) {
+                $dispatchService->markItemAsReceivedBySales($linkedSalesItem);
+            }
 
             // Get current active shift for the sales department
             $currentShift = Shift::where('employee_id', $employee->id)
@@ -217,10 +239,19 @@ class Index extends BaseComponent
             // Update or create ProductStock record
             $stockDate = Carbon::parse($dispatch->dispatch_date);
             $shiftType = $dispatch->shift_type ?? 'morning';
+            $hasDepartmentColumn = Schema::hasColumn('product_stocks', 'department_id');
+            $salesDepartmentId = (int) ($dispatch->sales_department_id ?: $this->departmentId);
+
+            if ($hasDepartmentColumn && $salesDepartmentId <= 0) {
+                throw new \RuntimeException('Sales department is required for stock receiving.');
+            }
 
             $productStock = ProductStock::where('product_id', $dispatch->product_id)
                 ->where('stock_date', $stockDate->format('Y-m-d'))
                 ->where('shift_type', $shiftType)
+                ->when($hasDepartmentColumn, function ($query) use ($salesDepartmentId) {
+                    $query->where('department_id', $salesDepartmentId);
+                })
                 ->first();
 
             if ($productStock) {
@@ -228,10 +259,13 @@ class Index extends BaseComponent
                 $productStock->addition_quantity = ($productStock->addition_quantity ?? 0) + $this->receivedQuantity;
                 $productStock->production_date = $productionDate;
                 $productStock->expiry_date = $expiryDate;
+                if ($hasDepartmentColumn) {
+                    $productStock->department_id = $salesDepartmentId;
+                }
                 $productStock->save();
             } else {
                 // Create new stock record
-                ProductStock::create([
+                $payload = [
                     'sales_shift_id' => $currentShift?->id,
                     'product_id' => $dispatch->product_id,
                     'stock_date' => $stockDate->format('Y-m-d'),
@@ -247,8 +281,14 @@ class Index extends BaseComponent
                     'glovo_quantity' => 0,
                     'quantity_sold' => 0,
                     'closing_quantity' => $this->receivedQuantity,
-                    'notes' => 'Received from kitchen dispatch',
-                ]);
+                    'notes' => 'Received from production dispatch',
+                ];
+
+                if ($hasDepartmentColumn) {
+                    $payload['department_id'] = $salesDepartmentId;
+                }
+
+                ProductStock::create($payload);
             }
 
             DB::commit();
@@ -297,7 +337,8 @@ class Index extends BaseComponent
             $dispatch->update([
                 'status' => 'rejected',
                 'received_quantity' => 0,
-                'received_by' => $employee->id,
+                'received_by_id' => $employee->id,
+                'received_by_type' => $employee ? get_class($employee) : null,
                 'received_at' => now(),
                 'notes' => 'Rejected: ' . $reason,
             ]);

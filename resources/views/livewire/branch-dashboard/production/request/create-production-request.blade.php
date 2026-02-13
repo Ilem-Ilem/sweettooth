@@ -164,7 +164,7 @@
                         </div>
                     @else
                         <div class="text-center py-8 text-zinc-500 dark:text-zinc-400">
-                            <p class="text-sm">No recipes available for this kitchen</p>
+                            <p class="text-sm">No recipes available for this production department</p>
                             <p class="text-xs mt-1">Please ensure recipes are set up for this department</p>
                         </div>
                     @endif

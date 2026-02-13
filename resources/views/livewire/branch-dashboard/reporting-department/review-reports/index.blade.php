@@ -42,17 +42,17 @@
                 </div>
             </div>
 
-            <!-- Rejected -->
+            <!-- Draft -->
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-sm text-gray-600 dark:text-gray-400">Rejected</p>
-                        <p class="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">
-                            {{ $statusCounts['rejected'] }}
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Draft Reports</p>
+                        <p class="text-2xl font-bold text-gray-700 dark:text-gray-200 mt-1">
+                            {{ $statusCounts['draft'] }}
                         </p>
                     </div>
-                    <div class="p-3 bg-red-100 dark:bg-red-900/30 rounded-xl">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-red-600 dark:text-red-400">
+                    <div class="p-3 bg-gray-100 dark:bg-gray-700/50 rounded-xl">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-gray-600 dark:text-gray-300">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                     </div>
@@ -142,14 +142,21 @@
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                        {{ $report->status === 'draft' ? 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300' : '' }}
                                         {{ $report->status === 'pending_review' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' : '' }}
                                         {{ $report->status === 'reviewed' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : '' }}
-                                        {{ $report->status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' : '' }}">
+                                        {{ $report->status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' : '' }}
+                                        {{ $report->status === 'compiled' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' : '' }}
+                                        {{ $report->status === 'sent_to_md' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' : '' }}">
                                         {{ str_replace('_', ' ', ucfirst($report->status)) }}
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                    @if($report->status === 'pending_review')
+                                    @if($report->status === 'draft')
+                                        <span class="text-gray-600 dark:text-gray-300 text-xs">
+                                            Waiting for submission
+                                        </span>
+                                    @elseif($report->status === 'pending_review')
                                         <button wire:click="openReviewModal('{{ $report->id }}')"
                                                 class="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700">
                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 mr-1">
@@ -165,6 +172,14 @@
                                     @elseif($report->status === 'rejected')
                                         <span class="text-red-600 dark:text-red-400 text-xs">
                                             ✗ Rejected
+                                        </span>
+                                    @elseif($report->status === 'compiled')
+                                        <span class="text-blue-600 dark:text-blue-400 text-xs">
+                                            Compiled
+                                        </span>
+                                    @elseif($report->status === 'sent_to_md')
+                                        <span class="text-purple-600 dark:text-purple-400 text-xs">
+                                            Sent to MD
                                         </span>
                                     @endif
                                 </td>

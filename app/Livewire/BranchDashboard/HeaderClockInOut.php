@@ -37,6 +37,7 @@ class HeaderClockInOut extends Component
         $this->currentShift = ShiftModel::where('employee_id', $employee_id)
             ->where('shift_date', Carbon::today())
             ->where('status', 'active')
+            ->whereNull('clock_out')
             ->first();
 
         $this->hasActiveShift = $this->currentShift !== null;
@@ -54,8 +55,8 @@ class HeaderClockInOut extends Component
         }
 
         $now = Carbon::now();
-        $totalMinutes = $this->currentShift->clock_in->diffInMinutes($now);
-        $hours = floor($totalMinutes / 60);
+        $totalMinutes = (int) floor($this->currentShift->clock_in->diffInMinutes($now));
+        $hours = (int) floor($totalMinutes / 60);
         $minutes = $totalMinutes % 60;
 
         $this->timeWorked = "{$hours}h {$minutes}m";
@@ -111,8 +112,9 @@ class HeaderClockInOut extends Component
             $this->currentShift->save();
 
             // Calculate total hours worked
-            $totalHours = Carbon::parse($this->currentShift->clock_in)->diffInHours($this->currentShift->clock_out);
-            $totalMinutes = Carbon::parse($this->currentShift->clock_in)->diffInMinutes($this->currentShift->clock_out) % 60;
+            $workedMinutes = (int) floor(Carbon::parse($this->currentShift->clock_in)->diffInMinutes($this->currentShift->clock_out));
+            $totalHours = (int) floor($workedMinutes / 60);
+            $totalMinutes = $workedMinutes % 60;
 
             // Dispatch event to update other components
             $this->dispatch('shift-updated');

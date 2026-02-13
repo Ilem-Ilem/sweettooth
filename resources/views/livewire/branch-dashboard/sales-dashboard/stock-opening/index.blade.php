@@ -195,26 +195,50 @@
                     <div class="mt-2 space-y-1">
                         @foreach($row->addition_sources as $source)
                             <div class="text-xs bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded border border-blue-200 dark:border-blue-800">
-                                <div class="font-semibold text-blue-900 dark:text-blue-100">{{ $source['batch'] }}</div>
-                                <div class="text-zinc-600 dark:text-zinc-400 mt-0.5">
-                                    Sent: <span class="font-medium">{{ number_format($source['quantity_sent'], 2) }}</span> {{ $row->product_uom }}
-                                </div>
-                                <div class="text-zinc-600 dark:text-zinc-400">
-                                    Yield: <span class="font-medium text-green-700 dark:text-green-400">{{ number_format($source['quantity_approved'], 2) }}</span>
-                                    / {{ number_format($source['quantity_produced'], 2) }}
-                                    @if($source['quantity_rejected'] > 0)
-                                        <span class="text-red-600 dark:text-red-400">({{ number_format($source['quantity_rejected'], 2) }} rejected)</span>
+                                @if(isset($source['dispatch_id']))
+                                    <div class="font-semibold text-blue-900 dark:text-blue-100">
+                                        Dispatch #{{ $source['dispatch_id'] }}
+                                    </div>
+                                    <div class="text-zinc-600 dark:text-zinc-400 mt-0.5">
+                                        Received:
+                                        <span class="font-medium text-green-700 dark:text-green-400">
+                                            {{ number_format($source['quantity_received'], 2) }}
+                                        </span>
+                                        {{ $source['uom'] ?? $row->product_uom }}
+                                    </div>
+                                    <div class="text-zinc-600 dark:text-zinc-400">
+                                        Received At: {{ $source['received_time'] ?? 'N/A' }}
+                                        @if(!empty($source['shift']))
+                                            <span class="text-xs">({{ ucfirst($source['shift']) }} shift)</span>
+                                        @endif
+                                    </div>
+                                    @if(!empty($source['notes']))
+                                        <div class="text-zinc-500 dark:text-zinc-400">
+                                            Notes: {{ $source['notes'] }}
+                                        </div>
                                     @endif
-                                </div>
-                                <div class="text-zinc-600 dark:text-zinc-400">
-                                    Yield %:
-                                    <span class="font-semibold {{ $source['actual_yield_percentage'] >= 90 ? 'text-green-600 dark:text-green-400' : ($source['actual_yield_percentage'] >= 70 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400') }}">
-                                        {{ $source['actual_yield_percentage'] }}%
-                                    </span>
-                                    @if($source['recipe_yield'] > 0)
-                                        <span class="text-xs">(Expected: {{ number_format($source['recipe_yield'], 2) }})</span>
-                                    @endif
-                                </div>
+                                @else
+                                    <div class="font-semibold text-blue-900 dark:text-blue-100">{{ $source['batch'] }}</div>
+                                    <div class="text-zinc-600 dark:text-zinc-400 mt-0.5">
+                                        Sent: <span class="font-medium">{{ number_format($source['quantity_sent'], 2) }}</span> {{ $row->product_uom }}
+                                    </div>
+                                    <div class="text-zinc-600 dark:text-zinc-400">
+                                        Yield: <span class="font-medium text-green-700 dark:text-green-400">{{ number_format($source['quantity_approved'], 2) }}</span>
+                                        / {{ number_format($source['quantity_produced'], 2) }}
+                                        @if($source['quantity_rejected'] > 0)
+                                            <span class="text-red-600 dark:text-red-400">({{ number_format($source['quantity_rejected'], 2) }} rejected)</span>
+                                        @endif
+                                    </div>
+                                    <div class="text-zinc-600 dark:text-zinc-400">
+                                        Yield %:
+                                        <span class="font-semibold {{ $source['actual_yield_percentage'] >= 90 ? 'text-green-600 dark:text-green-400' : ($source['actual_yield_percentage'] >= 70 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400') }}">
+                                            {{ $source['actual_yield_percentage'] }}%
+                                        </span>
+                                        @if($source['recipe_yield'] > 0)
+                                            <span class="text-xs">(Expected: {{ number_format($source['recipe_yield'], 2) }})</span>
+                                        @endif
+                                    </div>
+                                @endif
                             </div>
                         @endforeach
                     </div>
@@ -334,7 +358,7 @@
                 <h4 class="font-semibold mb-1">Stock Opening Instructions:</h4>
                 <ul class="list-disc list-inside space-y-1">
                     <li><strong>Previous Closing:</strong> Stock from previous shift/day's closing count</li>
-                    <li><strong>Production Sent:</strong> Products sent from production (from production_records table)</li>
+                    <li><strong>Production Sent:</strong> Products received from production dispatches (received-only)</li>
                     <li><strong>Expected Opening:</strong> Previous closing + Production sent</li>
                     <li><strong>Actual Opening:</strong> Physically count and enter the actual quantity you have at START of shift</li>
                     <li><strong>Variance:</strong> Difference between expected and actual opening (investigate if significant)</li>

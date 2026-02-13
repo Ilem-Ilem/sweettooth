@@ -4,6 +4,7 @@ namespace App\Livewire\BranchDashboard\SalesDashboard\StockOpening;
 use App\Livewire\BaseComponent;
 use App\Livewire\Concerns\SalesDepartmentContext;
 use App\Models\Product;
+use App\Models\ProductDispatch;
 use App\Models\ProductStock;
 use App\Models\Shift;
 use App\Services\SalesWorkflowService;
@@ -231,60 +232,43 @@ class Index extends BaseComponent
                 }
             }
 
-            // Get today's additions from production records (quantity_sent_out)
-            // This pulls from production_records table where batches were marked as sent to sales
+            // Get today's additions strictly from received dispatches (sales-confirmed only).
             $todayAdditions = 0;
             $additionSources = [];
 
-            try {
-                // Get production records for this product (match by product name from recipe)
-                $productionRecords = DB::table('production_records')
-                    ->join('daily_produces', 'production_records.daily_produce_id', '=', 'daily_produces.id')
-                    ->join('shifts', 'daily_produces.shift_id', '=', 'shifts.id')
-                    ->join('recipes', 'daily_produces.recipe_id', '=', 'recipes.id')
-                    ->where('recipes.product_name', $product->name) // Match by product name
-                    ->whereDate('shifts.shift_date', $this->stockDate)
-                    ->where('shifts.shift_type', $this->shiftType)
-                    ->select(
-                        'production_records.quantity_sent_out',
-                        'production_records.batch_number',
-                        'production_records.quantity_approved',
-                        'production_records.quantity_produced',
-                        'production_records.quantity_rejected',
-                        'recipes.yield_quantity',
-                        'shifts.shift_type',
-                        'shifts.shift_date'
-                    )
-                    ->get();
+            $receivedDispatches = ProductDispatch::query()
+                ->where('product_id', $product->id)
+                ->where('status', 'received')
+                ->whereDate('received_at', $this->stockDate)
+                ->where('sales_department_id', $this->departmentId)
+                ->orderBy('received_at')
+                ->get([
+                    'id',
+                    'quantity',
+                    'received_quantity',
+                    'dispatch_time',
+                    'received_at',
+                    'shift_type',
+                    'uom',
+                    'notes',
+                ]);
 
-                foreach ($productionRecords as $record) {
-                    // Use yield produced (quantity_approved) not batch
-                    $todayAdditions += $record->quantity_approved ?? 0;
-                    if ($record->quantity_approved > 0) {
-                        // Calculate yield percentage
-                        $yieldPercentage = 0;
-                        if ($record->quantity_produced > 0) {
-                            $yieldPercentage = ($record->quantity_approved / $record->quantity_produced) * 100;
-                        }
-
-                        $additionSources[] = [
-                            'batch' => $record->batch_number,
-                            'quantity_sent' => $record->quantity_sent_out,
-                            'quantity_produced' => $record->quantity_produced,
-                            'quantity_approved' => $record->quantity_approved,
-                            'quantity_rejected' => $record->quantity_rejected,
-                            'recipe_yield' => $record->yield_quantity ?? 0,
-                            'actual_yield_percentage' => round($yieldPercentage, 2),
-                            'shift' => $record->shift_type,
-                            'date' => $record->shift_date,
-                        ];
-                    }
+            foreach ($receivedDispatches as $dispatch) {
+                $receivedQty = (float) ($dispatch->received_quantity ?? $dispatch->quantity ?? 0);
+                if ($receivedQty <= 0) {
+                    continue;
                 }
-            } catch (\Exception $e) {
-                // Table might not exist yet or query error - log for debugging
-                $todayAdditions = 0;
-                $additionSources = [];
-                // Uncomment for debugging: \Log::error('Stock opening query error: ' . $e->getMessage());
+
+                $todayAdditions += $receivedQty;
+                $additionSources[] = [
+                    'dispatch_id' => $dispatch->id,
+                    'quantity_received' => $receivedQty,
+                    'uom' => $dispatch->uom,
+                    'shift' => $dispatch->shift_type,
+                    'dispatch_time' => $dispatch->dispatch_time?->format('H:i'),
+                    'received_time' => $dispatch->received_at?->format('H:i'),
+                    'notes' => $dispatch->notes,
+                ];
             }
 
             // Get today's existing stock record
@@ -406,15 +390,22 @@ class Index extends BaseComponent
                 // Use shift_id from shifts table (sales department shift)
                 // sales_shift_id can be null since we're using the general shifts table
                 // addition_quantity represents the total quantity yield (approved quantity sent from production)
+                $hasDepartmentColumn = \Illuminate\Support\Facades\Schema::hasColumn('product_stocks', 'department_id');
+                $lookup = [
+                    'product_id'     => $stockOpening['product_id'],
+                    'stock_date'     => $this->stockDate,
+                    'shift_type'     => $this->shiftType,
+                ];
+
+                if ($hasDepartmentColumn) {
+                    $lookup['department_id'] = $this->departmentId;
+                }
+
                 ProductStock::updateOrCreate(
-                    [
-                        'product_id'     => $stockOpening['product_id'],
-                        'stock_date'     => $this->stockDate,
-                        'shift_type'     => $this->shiftType,
-                    ],
+                    $lookup,
                     [
                         'sales_shift_id'    => null, // Nullable - we use shifts table instead
-                        'department_id'     => \Illuminate\Support\Facades\Schema::hasColumn('product_stocks', 'department_id')
+                        'department_id'     => $hasDepartmentColumn
                             ? $this->departmentId
                             : null,
                         'opening_quantity'  => $stockOpening['actual_opening'],

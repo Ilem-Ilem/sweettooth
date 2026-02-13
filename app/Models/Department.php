@@ -134,4 +134,20 @@ class Department extends Model
             ->withTimestamps()
             ->orderByPivot('sort_order');
     }
+
+    /**
+     * Sales-owned production requests submitted from this sales department.
+     */
+    public function salesProductionRequests()
+    {
+        return $this->hasMany(SalesProductionRequest::class, 'sales_department_id');
+    }
+
+    /**
+     * Sales request line items assigned to this production department.
+     */
+    public function salesProductionRequestItems()
+    {
+        return $this->hasMany(SalesProductionRequestItem::class, 'production_department_id');
+    }
 }

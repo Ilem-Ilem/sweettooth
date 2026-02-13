@@ -25,6 +25,8 @@ class Create extends BaseComponent
     #[Url(keep: true)]
     public $b_id;
 
+    public string $bank_name;
+
     public ?string $branch_id = null;
 
     public ?string $department_id = null;
@@ -245,6 +247,7 @@ class Create extends BaseComponent
                 'hourly_rate' => 'nullable|numeric|min:0',
                 'tax_id' => 'nullable|string|max:50',
                 'bank_account' => 'nullable|string|max:100',
+                'bank_nme' => 'nullable|string|max:100',
                 'allergies' => 'nullable|string',
                 'profile_photo' => 'nullable|image|max:2048',
                 'last_performance_review_date' => 'nullable|date',
@@ -317,7 +320,9 @@ class Create extends BaseComponent
                 'salary' => 'nullable|numeric|min:0',
                 'hourly_rate' => 'nullable|numeric|min:0',
                 'tax_id' => 'nullable|string|max:50',
-                'bank_account' => 'nullable|string|max:100',
+                'bank_account' => 'nullable|string|max:11',                
+                'bank_nme' => 'nullable|string|max:100',
+
                 'allergies' => 'nullable|string',
                 'profile_photo' => 'nullable|image|max:2048',
                 'last_performance_review_date' => 'nullable|date',
@@ -348,6 +353,7 @@ class Create extends BaseComponent
                 'hourly_rate' => $this->hourly_rate,
                 'tax_id' => $this->tax_id,
                 'bank_account' => $this->bank_account,
+                'bank_name' => $this->bank_name, 
                 'allergies' => $this->allergies,
                 'last_performance_review_date' => $this->last_performance_review_date,
                 'performance_rating' => $this->performance_rating,

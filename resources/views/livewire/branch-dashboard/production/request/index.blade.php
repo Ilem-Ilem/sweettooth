@@ -117,13 +117,6 @@
             <input type="text" wire:model.live="search" placeholder="Search requests or recipes..."
                    class="px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-sm">
 
-            <select wire:model.live="requestTypeFilter"
-                    class="px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-sm">
-                <option value="all">All Types</option>
-                <option value="sales_to_production">Sales to Production</option>
-                <option value="production_to_store">Production to Store</option>
-            </select>
-
             <select wire:model.live="statusFilter"
                     class="px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-sm">
                 <option value="all">All Status</option>
@@ -172,42 +165,17 @@
                 </thead>
                 <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
                     @forelse($requests as $request)
-                    @php
-                        $requestType = $this->getRequestType($request);
-                        $isSalesToProduction = $requestType === 'sales_to_production';
-                        $isProductionToStore = $requestType === 'production_to_store';
-                    @endphp
                     <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-900/50">
                         <td class="px-4 py-3 text-sm">
-                            @if($isSalesToProduction)
-                                <span class="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                                    Sales Request
-                                </span>
-                            @elseif($isProductionToStore)
-                                <span class="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
-                                    Store Request
-                                </span>
-                            @else
-                                <span class="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200">
-                                    Other
-                                </span>
-                            @endif
+                            <span class="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
+                                Store Request
+                            </span>
                         </td>
                         <td class="px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100">
-                            @if($request->itemRequest)
-                                {{ $request->itemRequest->request_number ?? 'N/A' }}
-                            @else
-                                <span class="font-mono">PR-{{ $request->id }}</span>
-                            @endif
+                            {{ $request->itemRequest->request_number ?? 'N/A' }}
                         </td>
                         <td class="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400">
-                            @if($isSalesToProduction)
-                                {{ $request->salesDepartment->name ?? 'Sales' }}
-                            @elseif($isProductionToStore)
-                                {{ $request->productionDepartment->name ?? 'Production' }}
-                            @else
-                                {{ $request->createdBy->name ?? 'Unknown' }}
-                            @endif
+                            {{ $request->productionDepartment->name ?? 'Production' }}
                         </td>
                         <td class="px-4 py-3 text-sm">
                             @if($request->recipe)
@@ -263,18 +231,6 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                                     </svg>
                                 </button>
-
-                                <!-- Approve (only for pending sales requests) -->
-                                @if($isSalesToProduction && $request->status === 'pending')
-                                <button wire:click="approveRequest({{ $request->id }})"
-                                        wire:confirm="Approve this production request?"
-                                        class="p-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
-                                        title="Approve">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                                    </svg>
-                                </button>
-                                @endif
 
                                 <!-- Send to Store (only for approved requests with recipe) -->
                                 @if($request->recipe && in_array($request->status, ['approved', 'pending']) && !$request->item_request_id)
@@ -371,11 +327,7 @@
                         <div>
                             <p class="text-xs text-zinc-500 dark:text-zinc-400 font-medium">Type</p>
                             <p class="text-sm text-zinc-900 dark:text-zinc-100 mt-1">
-                                @if($viewingRequest->sales_department_id && !$viewingRequest->item_request_id)
-                                    <span class="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                                        Sales to Production
-                                    </span>
-                                @elseif($viewingRequest->item_request_id)
+                                @if($viewingRequest->item_request_id)
                                     <span class="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
                                         Production to Store
                                     </span>
@@ -423,7 +375,7 @@
                         <div>
                             <p class="text-xs text-zinc-500 dark:text-zinc-400 font-medium">From Department</p>
                             <p class="text-sm text-zinc-900 dark:text-zinc-100 mt-1">
-                                {{ $viewingRequest->salesDepartment->name ?? $viewingRequest->productionDepartment->name ?? 'N/A' }}
+                                {{ $viewingRequest->productionDepartment->name ?? 'N/A' }}
                             </p>
                         </div>
                         <div>
@@ -510,14 +462,6 @@
                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">
                         Track Progress
                     </a>
-                    @endif
-
-                    @if($viewingRequest->status === 'pending' && $viewingRequest->sales_department_id)
-                    <button wire:click="approveRequest({{ $viewingRequest->id }})"
-                            wire:confirm="Approve this production request?"
-                            class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium">
-                        Approve Request
-                    </button>
                     @endif
 
                     @if($viewingRequest->recipe && in_array($viewingRequest->status, ['approved', 'pending']) && !$viewingRequest->item_request_id)

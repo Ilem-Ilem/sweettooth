@@ -12,7 +12,6 @@ use Livewire\Component;
 class CreateProductionRequest extends Component
 {
     public $productionDepartmentId;
-    public $salesDepartmentId;
     public $priority = 'normal';
     public $notes = '';
     public $selectedProducts = []; // Array of ['product_id' => id, 'batches' => qty]
@@ -24,12 +23,6 @@ class CreateProductionRequest extends Component
     public function mount()
     {
         $this->loadDepartments();
-        $user = auth()->user();
-        
-        // Set sales department if user has one
-        if ($user && $user->department) {
-            $this->salesDepartmentId = $user->department->id;
-        }
     }
 
     public function loadDepartments()
@@ -167,7 +160,6 @@ class CreateProductionRequest extends Component
     {
         $this->validate([
             'productionDepartmentId' => 'required|exists:departments,id',
-            'salesDepartmentId' => 'required|exists:departments,id',
             'priority' => 'required|in:normal,urgent',
             'selectedProducts' => 'required|array|min:1',
             'selectedProducts.*.batches' => 'required|numeric|min:1',
@@ -191,7 +183,6 @@ class CreateProductionRequest extends Component
 
                 $request = ProductionRequest::create([
                     'production_department_id' => $this->productionDepartmentId,
-                    'sales_department_id' => $this->salesDepartmentId,
                     'recipe_id' => $item['recipe_id'] ?? null,
                     'priority' => $this->priority,
                     'planned_production_quantity' => $totalQuantity,

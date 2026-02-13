@@ -506,7 +506,7 @@ class SidebarVisibilityService
         }
 
         // Managers can only see reporting if they are in relevant departments
-        if ($level >= self::LEVEL_MANAGER && in_array($category, ['Support', 'HR', 'Inventory', 'Production', 'Sales', 'Accounting'])) {
+        if ($level >= self::LEVEL_MANAGER && in_array($category, ['Support', 'HR'])) {
             return true;
         }
 
@@ -536,7 +536,7 @@ class SidebarVisibilityService
         }
 
         // Others need specific permissions
-        return self::hasAnyPermission($user, ['view-accounting', 'manage-accounting', 'view-financial-reports']);
+        return self::hasAnyPermission($user, ['view-accounting', 'manage-accounting', 'view-financial-reports', 'access_accounting', 'view_financial_reports']);
     }
 
     public static function canSeeRoleAssignments($user = null): bool

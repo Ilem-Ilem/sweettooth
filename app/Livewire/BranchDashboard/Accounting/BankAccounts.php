@@ -131,12 +131,12 @@ class BankAccounts extends Component
     {
         $user = auth()->user();
         if ($this->editingId) {
-            if (! $user || ! $user->can('edit_bank_accounts')) {
+            if (! $this->canEditBankAccounts($user)) {
                 $this->addError('form', 'Unauthorized to edit bank accounts.');
                 return;
             }
         } else {
-            if (! $user || ! $user->can('create_bank_accounts')) {
+            if (! $this->canCreateBankAccounts($user)) {
                 $this->addError('form', 'Unauthorized to create bank accounts.');
                 return;
             }
@@ -161,7 +161,7 @@ class BankAccounts extends Component
     public function toggleActive(int $bankAccountId): void
     {
         $user = auth()->user();
-        if (! $user || ! $user->can('edit_bank_accounts')) {
+        if (! $this->canEditBankAccounts($user)) {
             $this->addError('form', 'Unauthorized to edit bank accounts.');
             return;
         }
@@ -173,9 +173,31 @@ class BankAccounts extends Component
 
     private function normalizeFormValues(): void
     {
-        $this->opening_balance = $this->opening_balance === '' ? null : $this->opening_balance;
-        $this->interest_rate = $this->interest_rate === '' ? null : $this->interest_rate;
+        // DB columns are non-nullable decimals with default 0; send 0 when inputs are left blank.
+        $this->opening_balance = $this->opening_balance === '' || $this->opening_balance === null ? '0' : $this->opening_balance;
+        $this->interest_rate = $this->interest_rate === '' || $this->interest_rate === null ? '0' : $this->interest_rate;
         $this->gl_account_id = $this->gl_account_id === '' ? null : $this->gl_account_id;
+    }
+
+    private function canCreateBankAccounts($user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        return $user->hasAnyRole(['Super Admin', 'MD', 'Managing Director', 'Admin', 'Accountant', 'Accounting Manager'])
+            || $user->can('create_bank_accounts')
+            || $user->can('edit_bank_accounts');
+    }
+
+    private function canEditBankAccounts($user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        return $user->hasAnyRole(['Super Admin', 'MD', 'Managing Director', 'Admin', 'Accountant', 'Accounting Manager'])
+            || $user->can('edit_bank_accounts');
     }
 
     public function render()

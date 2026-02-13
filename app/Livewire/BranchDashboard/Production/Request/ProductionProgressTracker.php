@@ -2,11 +2,15 @@
 
 namespace App\Livewire\BranchDashboard\Production\Request;
 
+use App\Enums\ProductionRequestSourceType;
 use App\Events\ProductionRequest\ProgressUpdated;
+use App\Models\Department;
 use App\Models\ProductionProgressFeedback;
 use App\Models\ProductionRequest;
 use App\Models\ProductDispatch;
-use App\Models\Department;
+use App\Models\SalesProductionRequestItem;
+use App\Services\SalesProductionDispatchService;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -22,6 +26,8 @@ class ProductionProgressTracker extends Component
     public $showForm = false;
     public $dispatchQuantity = null;
     public $dispatchSalesDepartmentName = null;
+    public $dispatchSalesDepartmentId = null;
+    public array $availableSalesDepartments = [];
     public $milestones = [
         'started' => 'Production Started',
         'in_production' => 'In Production',
@@ -31,6 +37,8 @@ class ProductionProgressTracker extends Component
 
     public function mount($requestId = null)
     {
+        $this->loadAvailableSalesDepartments();
+
         if ($requestId) {
             $this->productionRequestId = $requestId;
             $this->loadRequest();
@@ -43,9 +51,33 @@ class ProductionProgressTracker extends Component
             ->find($this->productionRequestId);
         $this->etaOverrideMinutes = $this->request?->eta_override_minutes;
 
-        if ($this->request?->sales_department_id) {
-            $dept = Department::find($this->request->sales_department_id);
-            $this->dispatchSalesDepartmentName = $dept?->name ?? 'Sales Dept';
+        $this->dispatchSalesDepartmentId = null;
+        $this->dispatchSalesDepartmentName = null;
+
+        if (! $this->request) {
+            return;
+        }
+
+        // Resolve dispatch target from sales-demand source linkage.
+        if (
+            $this->request->source_type === ProductionRequestSourceType::SALES_DEMAND->value
+            && ! empty($this->request->source_id)
+        ) {
+            $salesItem = SalesProductionRequestItem::query()
+                ->with('request.salesDepartment')
+                ->find((int) $this->request->source_id);
+
+            $salesDept = $salesItem?->request?->salesDepartment;
+            if ($salesDept) {
+                $this->dispatchSalesDepartmentId = (int) $salesDept->id;
+                $this->dispatchSalesDepartmentName = $salesDept->name;
+                return;
+            }
+        }
+
+        if (! empty($this->availableSalesDepartments)) {
+            $this->dispatchSalesDepartmentId = (int) $this->availableSalesDepartments[0]['id'];
+            $this->dispatchSalesDepartmentName = (string) $this->availableSalesDepartments[0]['name'];
         }
     }
 
@@ -107,6 +139,7 @@ class ProductionProgressTracker extends Component
     {
         $this->validate([
             'dispatchQuantity' => 'required|numeric|min:0.01',
+            'dispatchSalesDepartmentId' => 'required|exists:departments,id',
         ]);
 
         if (!$this->request) {
@@ -123,26 +156,77 @@ class ProductionProgressTracker extends Component
 
         $branchId = request()->query('b_id') ?? current_branch_id();
         $uomSymbol = $this->request->recipe?->unitOfMeasure?->symbol ?? null;
+        /** @var SalesProductionDispatchService $dispatchService */
+        $dispatchService = app(SalesProductionDispatchService::class);
+        $linkedSalesItem = $dispatchService->resolveLinkedSalesItemFromProductionRequest($this->request);
+        try {
+            DB::transaction(function () use (
+                $branchId,
+                $uomSymbol,
+                $dispatchService,
+                $linkedSalesItem
+            ) {
+                ProductDispatch::create([
+                    'production_request_id' => $this->request->id,
+                    'sales_production_request_item_id' => $linkedSalesItem?->id,
+                    'sales_department_id' => (int) $this->dispatchSalesDepartmentId,
+                    'branch_id' => $branchId,
+                    'production_shift_id' => $this->request->shift_id,
+                    'product_id' => $this->request->recipe?->product_id,
+                    'uom' => $uomSymbol,
+                    'quantity' => $this->dispatchQuantity,
+                    'status' => 'pending_verification',
+                    'dispatch_date' => now()->toDateString(),
+                    'dispatch_time' => now(),
+                    'shift_type' => $this->request->shift?->shift_type,
+                    'dispatched_by_id' => auth()->id(),
+                    'dispatched_by_type' => auth()->user() ? get_class(auth()->user()) : null,
+                ]);
 
-        ProductDispatch::create([
-            'production_request_id' => $this->request->id,
-            'sales_department_id' => $this->request->sales_department_id,
-            'branch_id' => $branchId,
-            'production_shift_id' => $this->request->shift_id,
-            'product_id' => $this->request->recipe?->product_id,
-            'uom' => $uomSymbol,
-            'quantity' => $this->dispatchQuantity,
-            'status' => 'pending_verification',
-            'dispatch_date' => now()->toDateString(),
-            'dispatch_time' => now(),
-            'shift_type' => $this->request->shift?->shift_type,
-            'dispatched_by_id' => auth()->id(),
-            'dispatched_by_type' => auth()->user() ? get_class(auth()->user()) : null,
-        ]);
+                if ($linkedSalesItem) {
+                    $dispatchService->markItemAsDispatched($linkedSalesItem);
+                }
+            });
+        } catch (\Throwable $e) {
+            session()->flash('error', 'Dispatch failed: ' . $e->getMessage());
+            return;
+        }
+
+        $dept = Department::find((int) $this->dispatchSalesDepartmentId);
+        $this->dispatchSalesDepartmentName = $dept?->name ?? 'Sales Dept';
 
         $this->dispatchQuantity = null;
         $this->loadRequest();
         session()->flash('success', 'Dispatched to '.$this->dispatchSalesDepartmentName.'.');
+    }
+
+    public function updatedDispatchSalesDepartmentId($value): void
+    {
+        $dept = Department::find((int) $value);
+        $this->dispatchSalesDepartmentName = $dept?->name ?? null;
+    }
+
+    private function loadAvailableSalesDepartments(): void
+    {
+        $branchId = request()->query('b_id') ?: current_branch_id();
+
+        $this->availableSalesDepartments = Department::query()
+            ->where(function ($query) use ($branchId) {
+                $query->where('branch_id', $branchId)
+                    ->orWhereNull('branch_id');
+            })
+            ->where(function ($query) {
+                $query->whereHas('category', function ($categoryQuery) {
+                    $categoryQuery->whereRaw('LOWER(name) = ?', ['sales']);
+                })->orWhereIn('slug', ['till', 'corner-store', 'confectionaries-sales']);
+            })
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (Department $department) => [
+                'id' => $department->id,
+                'name' => $department->name,
+            ])
+            ->toArray();
     }
 
     private function resetForm()

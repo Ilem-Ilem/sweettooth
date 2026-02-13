@@ -2,11 +2,6 @@
 
 namespace App\Services\Reports;
 
-use App\Services\Reports\Definitions\InventoryReorderDefinition;
-use App\Services\Reports\Definitions\InventoryStockLevelsDefinition;
-use App\Services\Reports\Definitions\InventoryStockMovementDefinition;
-use App\Services\Reports\Definitions\InventoryStockTurnoverDefinition;
-use App\Services\Reports\Definitions\InventoryStockVarianceDefinition;
 use App\Services\Reports\Definitions\SalesPerformanceDefinition;
 use App\Services\Reports\Definitions\AccountingIncomeStatementDefinition;
 use App\Services\Reports\Definitions\AccountingBalanceSheetDefinition;
@@ -29,15 +24,11 @@ use App\Services\Reports\GeneralLedgerReportService;
 use App\Services\Reports\DailyProduceReportService;
 use App\Services\Reports\ProductionEfficiencyReportService;
 use App\Services\Reports\ProductionQualityReportService;
-use App\Services\Reports\ReorderReportService;
 use App\Services\Reports\SalesPerformanceReportService;
-use App\Services\Reports\StockLevelsReportService;
-use App\Services\Reports\StockMovementReportService;
-use App\Services\Reports\StockTurnoverReportService;
-use App\Services\Reports\StockVarianceReportService;
 use App\Services\Reports\WasteAnalysisReportService;
 use App\Services\Reports\HRWorkforceOverviewReportService;
 use App\Services\Reports\HRLeaveUtilizationReportService;
+use Illuminate\Support\Facades\Log;
 
 class ReportRegistry
 {
@@ -70,26 +61,6 @@ class ReportRegistry
             [
                 'definition' => SalesPerformanceDefinition::class,
                 'service' => SalesPerformanceReportService::class,
-            ],
-            [
-                'definition' => InventoryStockMovementDefinition::class,
-                'service' => StockMovementReportService::class,
-            ],
-            [
-                'definition' => InventoryStockLevelsDefinition::class,
-                'service' => StockLevelsReportService::class,
-            ],
-            [
-                'definition' => InventoryStockTurnoverDefinition::class,
-                'service' => StockTurnoverReportService::class,
-            ],
-            [
-                'definition' => InventoryReorderDefinition::class,
-                'service' => ReorderReportService::class,
-            ],
-            [
-                'definition' => InventoryStockVarianceDefinition::class,
-                'service' => StockVarianceReportService::class,
             ],
             [
                 'definition' => AccountingIncomeStatementDefinition::class,
@@ -127,25 +98,33 @@ class ReportRegistry
         $reports = [];
 
         foreach (self::all() as $entry) {
-            $definitionClass = $entry['definition'];
-            if (!class_exists($definitionClass)) {
-                continue;
+            try {
+                $definitionClass = $entry['definition'];
+                if (!class_exists($definitionClass)) {
+                    continue;
+                }
+
+                $definition = new $definitionClass();
+                $meta = $definition->meta();
+                $key = self::keyFromMeta($meta);
+
+                if (!self::userCanAccess($user, $meta['permissions'] ?? [])) {
+                    continue;
+                }
+
+                $reports[] = [
+                    'key' => $key,
+                    'definition' => $definitionClass,
+                    'service' => $entry['service'],
+                    'meta' => $meta,
+                ];
+            } catch (\Throwable $e) {
+                Log::warning('Skipping invalid report definition entry in registry.', [
+                    'definition' => $entry['definition'] ?? null,
+                    'service' => $entry['service'] ?? null,
+                    'error' => $e->getMessage(),
+                ]);
             }
-
-            $definition = new $definitionClass();
-            $meta = $definition->meta();
-            $key = self::keyFromMeta($meta);
-
-            if (!self::userCanAccess($user, $meta['permissions'] ?? [])) {
-                continue;
-            }
-
-            $reports[] = [
-                'key' => $key,
-                'definition' => $definitionClass,
-                'service' => $entry['service'],
-                'meta' => $meta,
-            ];
         }
 
         usort($reports, function ($a, $b) {

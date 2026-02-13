@@ -41,6 +41,7 @@ class ShiftStatusHeader extends Component
         $activeShift = Shift::where('employee_id', $user->id)
             ->where('shift_date', Carbon::today())
             ->where('status', 'active')
+            ->whereNull('clock_out')
             ->with('configuration')
             ->first();
 
@@ -51,8 +52,8 @@ class ShiftStatusHeader extends Component
             // Calculate time worked
             if ($activeShift->clock_in) {
                 $endTime = $activeShift->clock_out ?? Carbon::now();
-                $totalMinutes = $activeShift->clock_in->diffInMinutes($endTime);
-                $hours = floor($totalMinutes / 60);
+                $totalMinutes = (int) floor($activeShift->clock_in->diffInMinutes($endTime));
+                $hours = (int) floor($totalMinutes / 60);
                 $minutes = $totalMinutes % 60;
                 $this->timeWorked = "{$hours}h {$minutes}m";
             }
@@ -108,6 +109,7 @@ class ShiftStatusHeader extends Component
         $activeShift = Shift::where('employee_id', $user->id)
             ->where('shift_date', Carbon::today())
             ->where('status', 'active')
+            ->whereNull('clock_out')
             ->first();
 
         if ($activeShift) {

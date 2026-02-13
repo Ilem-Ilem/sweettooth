@@ -124,4 +124,9 @@ class AccountingPeriod extends Model
         $monthName = \Carbon\Carbon::createFromFormat('n', $this->month)->format('F');
         return "{$monthName} {$this->year}";
     }
+    
+    public function getNameAttribute(): string
+    {
+        return $this->getDisplayName();
+    }
 }

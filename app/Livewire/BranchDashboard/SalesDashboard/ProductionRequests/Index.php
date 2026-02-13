@@ -4,8 +4,7 @@ namespace App\Livewire\BranchDashboard\SalesDashboard\ProductionRequests;
 
 use App\Livewire\BaseComponent;
 use App\Livewire\Concerns\SalesDepartmentContext;
-use App\Models\ProductionRequest;
-use Carbon\Carbon;
+use App\Models\SalesProductionRequest;
 use Livewire\Attributes\Layout;
 
 #[Layout('components.layouts.app.branch-dashboard')]
@@ -14,6 +13,7 @@ class Index extends BaseComponent
     use SalesDepartmentContext;
 
     public string $statusFilter = 'all';
+    public string $search = '';
     public array $requests = [];
 
     public function mount(): void
@@ -28,9 +28,14 @@ class Index extends BaseComponent
         $this->loadRequests();
     }
 
+    public function updatedSearch(): void
+    {
+        $this->loadRequests();
+    }
+
     protected function getModelClass(): string
     {
-        return ProductionRequest::class;
+        return SalesProductionRequest::class;
     }
 
     protected function getAllSelectableIds(): array
@@ -46,101 +51,69 @@ class Index extends BaseComponent
         }
 
         $query = $this->baseQuery()->with([
-            'recipe:id,product_name,yield_quantity,preparation_time',
-            'productionDepartment:id,name,slug',
-            'progressFeedback' => function ($q) {
-                $q->latest()->limit(1);
-            }
+            'items.productionDepartment:id,name',
+            'items.recipe:id,product_name,sku',
+            'items.product:id,name,sku',
         ]);
 
-        $this->requests = $query->get()->map(function ($request) {
-            $yieldPerBatch = (float) ($request->recipe?->yield_quantity ?? 0);
-            $planned = (float) ($request->planned_production_quantity ?? 0);
-            $requested = (float) ($request->requested_units ?? $planned);
-            $batchCount = $yieldPerBatch > 0 ? (int) ceil($planned / $yieldPerBatch) : 0;
+        $this->requests = $query->get()->map(function (SalesProductionRequest $request): array {
+            $items = $request->items;
+            $departments = $items->pluck('productionDepartment.name')
+                ->filter()
+                ->unique()
+                ->values()
+                ->implode(', ');
 
-            $latestProgress = $request->progressFeedback->first();
-            $progressPercent = $latestProgress?->progress_percentage ?? 0;
-            $milestone = $latestProgress?->milestone_label ?? 'Not started';
-
-            $etaData = $this->calculateEta($request, $batchCount);
+            $preview = $items->take(3)->map(function ($item) {
+                return [
+                    'name' => $item->recipe?->product_name ?? $item->product?->name ?? 'Unknown Recipe',
+                    'quantity' => (float) $item->quantity_requested,
+                ];
+            })->toArray();
 
             return [
                 'id' => $request->id,
-                'recipe_name' => $request->recipe?->product_name ?? 'N/A',
-                'status' => $request->status,
+                'request_number' => $request->request_number,
+                'status' => is_string($request->status) ? $request->status : $request->status->value,
                 'priority' => $request->priority,
-                'requested_units' => $requested,
-                'planned_units' => $planned,
-                'batch_count' => $batchCount,
-                'production_department' => $request->productionDepartment?->name ?? 'Production',
-                'created_at' => $request->created_at?->format('M d, Y H:i') ?? '',
-                'started_at' => $request->started_at?->format('M d, Y H:i') ?? null,
-                'progress_percent' => $progressPercent,
-                'milestone' => $milestone,
-                'eta_label' => $etaData['eta_label'],
-                'time_left' => $etaData['time_left'],
-                'eta_source' => $etaData['eta_source'],
+                'items_count' => $items->count(),
+                'total_quantity' => (float) $items->sum('quantity_requested'),
+                'departments' => $departments ?: 'N/A',
+                'preview' => $preview,
+                'has_more_preview' => $items->count() > 3,
+                'created_at' => $request->created_at?->format('M d, Y H:i') ?? 'N/A',
             ];
         })->toArray();
     }
 
     private function baseQuery()
     {
-        $query = ProductionRequest::query()
+        $query = SalesProductionRequest::query()
             ->where('sales_department_id', $this->departmentId)
-            ->when(!is_super_admin(), function ($q) {
-                if (request()->has('active_shift')) {
-                    $shift = request()->get('active_shift');
-                    $q->where('shift_id', $shift?->id);
-                }
-            })
+            ->when($this->branchId, fn ($q) => $q->where('branch_id', $this->branchId))
             ->orderBy('created_at', 'desc');
 
         if ($this->statusFilter !== 'all') {
             $query->where('status', $this->statusFilter);
         }
 
+        if (trim($this->search) !== '') {
+            $search = '%' . trim($this->search) . '%';
+            $query->where(function ($q) use ($search) {
+                $q->where('request_number', 'like', $search)
+                    ->orWhere('notes', 'like', $search)
+                    ->orWhereHas('items.product', function ($subQ) use ($search) {
+                        $subQ->where('name', 'like', $search)
+                            ->orWhere('sku', 'like', $search);
+                    })
+                    ->orWhereHas('items.recipe', function ($subQ) use ($search) {
+                        $subQ->where('product_name', 'like', $search)
+                            ->orWhere('sku', 'like', $search);
+                    });
+            });
+        }
+
         return $query;
-    }
-
-    private function calculateEta(ProductionRequest $request, int $batchCount): array
-    {
-        if (!$request->started_at) {
-            return [
-                'eta_label' => 'Not started',
-                'time_left' => 'N/A',
-                'eta_source' => 'none',
-            ];
-        }
-
-        $start = Carbon::parse($request->started_at);
-
-        if (!is_null($request->eta_override_minutes)) {
-            $eta = $start->copy()->addMinutes((int) $request->eta_override_minutes);
-            return [
-                'eta_label' => $eta->format('M d, Y H:i'),
-                'time_left' => $eta->isPast() ? 'Ready/Overdue' : $eta->diffForHumans(now(), ['parts' => 2, 'short' => true]),
-                'eta_source' => 'manual',
-            ];
-        }
-
-        $prepMinutesPerBatch = (int) ($request->recipe?->preparation_time ?? 0);
-        if ($prepMinutesPerBatch <= 0 || $batchCount <= 0) {
-            return [
-                'eta_label' => 'N/A',
-                'time_left' => 'N/A',
-                'eta_source' => 'auto',
-            ];
-        }
-
-        $eta = $start->copy()->addMinutes($prepMinutesPerBatch * $batchCount);
-
-        return [
-            'eta_label' => $eta->format('M d, Y H:i'),
-            'time_left' => $eta->isPast() ? 'Ready/Overdue' : $eta->diffForHumans(now(), ['parts' => 2, 'short' => true]),
-            'eta_source' => 'auto',
-        ];
     }
 
     public function render()

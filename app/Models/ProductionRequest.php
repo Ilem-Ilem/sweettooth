@@ -17,9 +17,10 @@ class ProductionRequest extends Model
         'planned_production_quantity',
         'requested_units',
         'notes',
-        'sales_department_id',
         'production_department_id',
         'status',
+        'source_type',
+        'source_id',
         'priority',
         'created_by_id',
         'started_at',
@@ -75,14 +76,6 @@ class ProductionRequest extends Model
     public function recipe(): BelongsTo
     {
         return $this->belongsTo(Recipe::class)->withDefault();
-    }
-
-    /**
-     * Get the sales department that created this request
-     */
-    public function salesDepartment(): BelongsTo
-    {
-        return $this->belongsTo(Department::class, 'sales_department_id');
     }
 
     /**
@@ -232,7 +225,7 @@ class ProductionRequest extends Model
      */
     public function canBeCancelled(): bool
     {
-        // For sales-to-production requests (no itemRequest yet)
+        // For direct production requests (no itemRequest yet)
         if (!$this->itemRequest) {
             return in_array($this->status, ['pending', 'approved']);
         }
@@ -240,14 +233,6 @@ class ProductionRequest extends Model
         // For production-to-store requests (has itemRequest)
         return $this->itemRequest->status !== 'cancelled' &&
                $this->getComputedStatus() !== 'completed';
-    }
-
-    /**
-     * Check if this is a sales-to-production request
-     */
-    public function isSalesToProductionRequest(): bool
-    {
-        return $this->sales_department_id && !$this->item_request_id;
     }
 
     /**

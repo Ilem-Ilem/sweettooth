@@ -52,6 +52,7 @@ class User extends Authenticatable
         'profile_photo',
         'last_performance_review_date',
         'performance_rating',
+        'bank_name',
     ];
 
     /**

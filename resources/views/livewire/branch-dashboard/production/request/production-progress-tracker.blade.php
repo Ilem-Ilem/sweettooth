@@ -53,7 +53,7 @@
                         </span>
                     </div>
                     <div>
-                        <p class="text-xs text-zinc-500 dark:text-zinc-400 uppercase">Sales Dept</p>
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400 uppercase">Dispatch Target</p>
                         <p class="font-semibold text-zinc-900 dark:text-white">
                             {{ $dispatchSalesDepartmentName ?? 'N/A' }}
                         </p>
@@ -174,10 +174,11 @@
                 </div>
             @endif
 
-            @if($request->sales_department_id)
+            @if($dispatchSalesDepartmentId || count($availableSalesDepartments) > 0)
                 @php
                     $dispatched = $request->dispatches->sum('quantity');
                     $remaining = max(0, ($request->planned_production_quantity ?? 0) - $dispatched);
+                    $isSalesDemand = ($request->source_type ?? null) === 'SALES_DEMAND';
                 @endphp
                 <div class="border-t border-zinc-200 dark:border-zinc-700 pt-6">
                     <h4 class="font-semibold text-zinc-900 dark:text-white mb-4">Dispatch to {{ $dispatchSalesDepartmentName ?? 'Sales Dept' }}</h4>
@@ -186,6 +187,14 @@
                         <span>Remaining: <strong>{{ number_format($remaining,2) }}</strong></span>
                     </div>
                     <form wire:submit.prevent="dispatchToSales" class="flex flex-wrap items-center gap-3">
+                        <select wire:model="dispatchSalesDepartmentId"
+                                @disabled($isSalesDemand)
+                                class="w-52 px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-700 text-sm">
+                            <option value="">Select sales department</option>
+                            @foreach($availableSalesDepartments as $dept)
+                                <option value="{{ $dept['id'] }}">{{ $dept['name'] }}</option>
+                            @endforeach
+                        </select>
                         <input type="number" min="0.01" step="0.01" wire:model="dispatchQuantity"
                                class="w-32 px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-700 text-sm"
                                placeholder="Qty">
@@ -194,6 +203,9 @@
                             Dispatch
                         </button>
                         @error('dispatchQuantity')
+                            <p class="text-red-500 text-sm">{{ $message }}</p>
+                        @enderror
+                        @error('dispatchSalesDepartmentId')
                             <p class="text-red-500 text-sm">{{ $message }}</p>
                         @enderror
                     </form>

@@ -73,7 +73,7 @@
                                 >
                                     <div class="flex justify-between items-start gap-2 mb-2">
                                         <p class="font-medium text-sm text-zinc-900 dark:text-white truncate">
-                                            Sales Dept
+                                            {{ $request->recipe?->product_name ?? 'Production Request' }}
                                         </p>
                                         @if ($request->priority === 'urgent')
                                             <span class="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 px-2 py-1 rounded text-xs font-semibold">
@@ -102,7 +102,7 @@
                     <table class="w-full">
                         <thead class="bg-zinc-50 dark:bg-zinc-700 border-b border-zinc-200 dark:border-zinc-600">
                             <tr>
-                                <th class="px-6 py-3 text-left text-sm font-semibold text-zinc-900 dark:text-white">Sales Dept</th>
+                                <th class="px-6 py-3 text-left text-sm font-semibold text-zinc-900 dark:text-white">Recipe / Department</th>
                                 <th class="px-6 py-3 text-left text-sm font-semibold text-zinc-900 dark:text-white">Quantity</th>
                                 <th class="px-6 py-3 text-left text-sm font-semibold text-zinc-900 dark:text-white">Priority</th>
                                 <th class="px-6 py-3 text-left text-sm font-semibold text-zinc-900 dark:text-white">Status</th>
@@ -115,10 +115,10 @@
                                 <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition">
                                     <td class="px-6 py-4">
                                         <p class="font-medium text-zinc-900 dark:text-white">
-                                            {{ $request->salesDepartment?->name ?? 'Unknown' }}
+                                            {{ $request->recipe?->product_name ?? 'N/A' }}
                                         </p>
                                         <p class="text-xs text-zinc-500 dark:text-zinc-400">
-                                            By: {{ $request->createdBy?->name ?? 'N/A' }}
+                                            {{ $request->productionDepartment?->name ?? 'Production' }} • By: {{ $request->createdBy?->name ?? 'N/A' }}
                                         </p>
                                     </td>
                                     <td class="px-6 py-4 text-zinc-600 dark:text-zinc-400">
@@ -182,12 +182,16 @@
                     <!-- Request Info -->
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <p class="text-sm text-zinc-500 dark:text-zinc-400">Sales Department</p>
-                            <p class="font-semibold text-zinc-900 dark:text-white">{{ $selectedRequest->salesDepartment?->name }}</p>
+                            <p class="text-sm text-zinc-500 dark:text-zinc-400">Production Department</p>
+                            <p class="font-semibold text-zinc-900 dark:text-white">{{ $selectedRequest->productionDepartment?->name ?? 'Production' }}</p>
                         </div>
                         <div>
                             <p class="text-sm text-zinc-500 dark:text-zinc-400">Requested By</p>
                             <p class="font-semibold text-zinc-900 dark:text-white">{{ $selectedRequest->createdBy?->name }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-zinc-500 dark:text-zinc-400">Recipe</p>
+                            <p class="font-semibold text-zinc-900 dark:text-white">{{ $selectedRequest->recipe?->product_name ?? 'N/A' }}</p>
                         </div>
                         <div>
                             <p class="text-sm text-zinc-500 dark:text-zinc-400">Quantity</p>

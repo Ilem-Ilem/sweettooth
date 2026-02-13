@@ -67,6 +67,14 @@ class Branch extends Model
     }
 
     /**
+     * Get sales production requests for this branch.
+     */
+    public function salesProductionRequests()
+    {
+        return $this->hasMany(SalesProductionRequest::class);
+    }
+
+    /**
      * Check if table management is enabled.
      */
     public function hasTableManagement(): bool
