@@ -163,6 +163,31 @@
                     </flux:navlist.item>
                 </flux:navlist.group>
                 @endif
+
+                <flux:navlist.group :heading="__('Units & Measure')" expandable
+                    :expanded="request()->routeIs('branch-dashboard.organization.uom.*')" class="grid">
+                    <flux:navlist.item icon="square-3-stack-3d"
+                        :href="branch_route('branch-dashboard.organization.uom.index')"
+                        :current="request()->routeIs('branch-dashboard.organization.uom.index')" wire:navigate>
+                        {{ __('UOM Overview') }}
+                    </flux:navlist.item>
+                    <flux:navlist.item icon="queue-list"
+                        :href="branch_route('branch-dashboard.organization.uom.units')"
+                        :current="request()->routeIs('branch-dashboard.organization.uom.units')" wire:navigate>
+                        {{ __('Units Catalog') }}
+                    </flux:navlist.item>
+                    <flux:navlist.item icon="arrows-right-left"
+                        :href="branch_route('branch-dashboard.organization.uom.conversions')"
+                        :current="request()->routeIs('branch-dashboard.organization.uom.conversions')" wire:navigate>
+                        {{ __('Conversion Rules') }}
+                    </flux:navlist.item>
+                    <flux:navlist.item icon="cog-6-tooth"
+                        :href="branch_route('branch-dashboard.organization.uom.manage')"
+                        :current="request()->routeIs('branch-dashboard.organization.uom.manage')" wire:navigate>
+                        {{ __('Manage Rules') }}
+                    </flux:navlist.item>
+                </flux:navlist.group>
+
                 @if ($sidebarService::canSeeEmployeeManagement($currentUser) || $sidebarService::isSuperAdmin() || $isHrRole)
                 <flux:navlist.group :heading="__('Employee Management')" expandable
                     :expanded="request()->routeIs('branch-dashboard.employees.*') || request()->routeIs('branch-dashboard.assignments.*') || request()->routeIs('branch-dashboard.clock-in-board.*')"

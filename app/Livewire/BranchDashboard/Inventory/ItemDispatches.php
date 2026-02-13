@@ -8,6 +8,7 @@ use App\Models\ItemRequestDetail;
 use App\Models\Stock;
 use App\Models\StockMovement;
 use App\Services\AuditService;
+use App\Services\UomConversionService;
 use App\Traits\Exportable;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -125,7 +126,7 @@ class ItemDispatches extends Component
             $this->modalSuccess = null;
             $this->approvalBlockers = [];
         }
-        $request = ItemRequest::with('requestDetails.item')
+        $request = ItemRequest::with(['requestDetails.item', 'requestDetails.unitOfMeasure'])
             ->where('id', $requestId)
             ->firstOrFail();
 
@@ -142,7 +143,8 @@ class ItemDispatches extends Component
                 ->where('item_id', $detail->item_id)
                 ->first();
 
-            $stockAvailable = $stock ? (float) $stock->quantity_available : 0.0;
+            $stockAvailableBase = $stock ? (float) $stock->quantity_available : 0.0;
+            $stockAvailableInRequestUom = $this->convertStockBaseQuantityToRequestUom($detail, $stockAvailableBase);
 
             $this->dispatchedItems[] = [
                 'detail_id' => $detail->id,
@@ -154,13 +156,13 @@ class ItemDispatches extends Component
                 'remaining_to_approve' => $remainingToApprove,
                 'remaining_to_dispatch' => $remainingToDispatch,
                 'approve_quantity' => 0,
-                'stock_available' => $stockAvailable,
-                'uom' => $detail->item->unitOfMeasure?->symbol,
+                'stock_available' => $stockAvailableInRequestUom,
+                'uom' => $detail->unitOfMeasure?->symbol ?? $detail->item->unitOfMeasure?->symbol,
                 'is_fully_approved' => $remainingToApprove <= 0,
                 'is_fully_dispatched' => $remainingToDispatch <= 0,
                 'is_partially_approved' => $detail->quantity_approved > 0 && $remainingToApprove > 0,
                 'is_partially_dispatched' => $detail->quantity_dispatched > 0 && $remainingToDispatch > 0,
-                'has_sufficient_stock' => $stockAvailable >= $remainingToDispatch,
+                'has_sufficient_stock' => $stockAvailableInRequestUom >= $remainingToDispatch,
             ];
         }
 
@@ -204,6 +206,13 @@ class ItemDispatches extends Component
                 continue;
             }
 
+            $detail = ItemRequestDetail::with(['item', 'itemRequest'])->find($item['detail_id']);
+            if (! $detail) {
+                $insufficientItems[] = "{$item['item_name']}: request detail not found.";
+                $this->approvalBlockers[$item['detail_id']] = true;
+                continue;
+            }
+
             $stock = Stock::forBranch($branchId)
                 ->where('item_id', $item['item_id'])
                 ->first();
@@ -214,8 +223,10 @@ class ItemDispatches extends Component
                 continue;
             }
 
-            if ((float) $stock->quantity_available < $remainingToApprove) {
-                $insufficientItems[] = "{$item['item_name']}: needs {$remainingToApprove} {$item['uom']}, available {$stock->quantity_available} {$item['uom']}.";
+            $requiredBaseQty = $this->convertRequestQuantityToStockBase($detail, $remainingToApprove);
+            if ((float) $stock->quantity_available < $requiredBaseQty) {
+                $availableInRequestUom = $this->convertStockBaseQuantityToRequestUom($detail, (float) $stock->quantity_available);
+                $insufficientItems[] = "{$item['item_name']}: needs {$remainingToApprove} {$item['uom']}, available {$availableInRequestUom} {$item['uom']}.";
                 $this->approvalBlockers[$item['detail_id']] = true;
             }
         }
@@ -243,7 +254,7 @@ class ItemDispatches extends Component
                     }
 
                     // Get the detail record
-                    $detail = ItemRequestDetail::find($item['detail_id']);
+                    $detail = ItemRequestDetail::with(['item', 'itemRequest'])->find($item['detail_id']);
                     if (! $detail) {
                         throw new \Exception("Request detail missing for {$item['item_name']}.");
                     }
@@ -264,15 +275,17 @@ class ItemDispatches extends Component
                         throw new \Exception("Stock not found for {$item['item_name']} in this branch.");
                     }
 
+                    $approveQtyBase = $this->convertRequestQuantityToStockBase($detail, $approveQty);
                     $available = (float) $stock->quantity_available;
                     $alreadyApproved = (float) ($approvalTotals[$item['item_id']] ?? 0);
                     $availableForThis = $available - $alreadyApproved;
 
-                    if ($approveQty > $availableForThis) {
-                        throw new \Exception("Cannot approve {$approveQty} {$item['uom']} of {$item['item_name']}. Only {$availableForThis} {$item['uom']} available in stock.");
+                    if ($approveQtyBase > $availableForThis) {
+                        $availableRequestUom = $this->convertStockBaseQuantityToRequestUom($detail, $availableForThis);
+                        throw new \Exception("Cannot approve {$approveQty} {$item['uom']} of {$item['item_name']}. Only {$availableRequestUom} {$item['uom']} available in stock.");
                     }
 
-                    $approvalTotals[$item['item_id']] = $alreadyApproved + $approveQty;
+                    $approvalTotals[$item['item_id']] = $alreadyApproved + $approveQtyBase;
 
                     $detail->quantity_approved += $approveQty;
                     $detail->save();
@@ -378,14 +391,15 @@ class ItemDispatches extends Component
 
                 foreach ($this->dispatchedItems as $item) {
                     // Get fresh data from database
-                    $detail = ItemRequestDetail::find($item['detail_id']);
+                    $detail = ItemRequestDetail::with(['item', 'unitOfMeasure', 'itemRequest'])->find($item['detail_id']);
                     if (! $detail) {
                         throw new \Exception("Request detail missing for {$item['item_name']}.");
                     }
 
-                    $dispatchQty = $detail->quantity_approved - $detail->quantity_dispatched;
+                    $dispatchQtyRequestUom = (float) $detail->quantity_approved - (float) $detail->quantity_dispatched;
+                    $dispatchQtyBaseUom = $this->convertRequestQuantityToStockBase($detail, $dispatchQtyRequestUom);
 
-                    if ($dispatchQty <= 0) {
+                    if ($dispatchQtyRequestUom <= 0 || $dispatchQtyBaseUom <= 0) {
                         continue; // Skip items that don't need dispatching
                     }
 
@@ -400,8 +414,9 @@ class ItemDispatches extends Component
                     }
 
                     // Check if stock is insufficient - BLOCK ALL dispatch
-                    if ($stock->quantity_available < $dispatchQty) {
-                        $insufficientItems[] = "{$item['item_name']}: Requested {$dispatchQty} {$item['uom']}, but only {$stock->quantity_available} {$item['uom']} available in stock.";
+                    if ((float) $stock->quantity_available < $dispatchQtyBaseUom) {
+                        $availableInRequestUom = $this->convertStockBaseQuantityToRequestUom($detail, (float) $stock->quantity_available);
+                        $insufficientItems[] = "{$item['item_name']}: Requested {$dispatchQtyRequestUom} {$item['uom']}, but only {$availableInRequestUom} {$item['uom']} available in stock.";
                         continue;
                     }
 
@@ -409,7 +424,8 @@ class ItemDispatches extends Component
                         'item' => $item,
                         'detail' => $detail,
                         'stock' => $stock,
-                        'dispatchQty' => $dispatchQty,
+                        'dispatchQtyRequestUom' => $dispatchQtyRequestUom,
+                        'dispatchQtyBaseUom' => $dispatchQtyBaseUom,
                     ];
                 }
 
@@ -421,75 +437,22 @@ class ItemDispatches extends Component
                     $item = $plan['item'];
                     $detail = $plan['detail'];
                     $stock = $plan['stock'];
-                    $dispatchQty = $plan['dispatchQty'];
+                    $dispatchQtyRequestUom = (float) $plan['dispatchQtyRequestUom'];
+                    $dispatchQtyBaseUom = (float) $plan['dispatchQtyBaseUom'];
 
                     // Save before and after quantities
                     $quantityBefore = $stock->quantity_available;
-                    $stock->quantity_available -= $dispatchQty;
+                    $stock->quantity_available -= $dispatchQtyBaseUom;
                     $stock->save();
                     $quantityAfter = $stock->quantity_available;
 
                     // Check if stock is now below reorder level (warn but still dispatch since we have enough)
                     if ($stock->item && $stock->item->reorder_level && $quantityAfter <= $stock->item->reorder_level) {
-                        $lowStockWarnings[] = "{$item['item_name']}: Stock level is now {$quantityAfter} {$item['uom']}, which is at or below the reorder level of {$stock->item->reorder_level} {$item['uom']}. Please restock!";
+                        $itemBaseUomSymbol = $stock->item->unitOfMeasure?->symbol ?? $item['uom'];
+                        $lowStockWarnings[] = "{$item['item_name']}: Stock level is now {$quantityAfter} {$itemBaseUomSymbol}, which is at or below the reorder level of {$stock->item->reorder_level} {$itemBaseUomSymbol}. Please restock!";
                     }
 
-                    // Get the item's unit of measure to determine the proper mapping
-                    $itemUom = \App\Models\UnitOfMeasure::where('symbol', $item['uom'])->first();
-
-                    // Default mapping based on the item's UOM name or fall back to the symbol
-                    if ($itemUom) {
-                        // Map common UOM names to the database enum values
-                        $name = strtolower($itemUom->name);
-
-                        if (str_contains($name, 'gram') || $name === 'g') {
-                            $mappedUom = 'grams';
-                        } elseif (str_contains($name, 'kilogram')) {
-                            $mappedUom = 'kg';
-                        } elseif (str_contains($name, 'liter') || $name === 'l') {
-                            $mappedUom = 'liters';
-                        } elseif (str_contains($name, 'milliliter')) {
-                            $mappedUom = 'ml';
-                        } elseif (str_contains($name, 'piece') || str_contains($name, 'pc')) {
-                            $mappedUom = 'pcs';
-                        } elseif (str_contains($name, 'unit')) {
-                            $mappedUom = 'units';
-                        } elseif (str_contains($name, 'bag')) {
-                            $mappedUom = 'bags';
-                        } elseif (str_contains($name, 'carton')) {
-                            $mappedUom = 'cartons';
-                        } else {
-                            // If no specific mapping found, use the original symbol
-                            $mappedUom = $item['uom'];
-                        }
-                    } else {
-                        // Fallback mapping for common symbols if UOM record not found
-                        $fallbackMapping = [
-                            'g' => 'grams',
-                            'gram' => 'grams',
-                            'grams' => 'grams',
-                            'kg' => 'kg',
-                            'kilogram' => 'kg',
-                            'kilograms' => 'kg',
-                            'L' => 'liters',
-                            'liter' => 'liters',
-                            'liters' => 'liters',
-                            'ml' => 'ml',
-                            'milliliter' => 'ml',
-                            'milliliters' => 'ml',
-                            'pcs' => 'pcs',
-                            'piece' => 'pcs',
-                            'pieces' => 'pcs',
-                            'unit' => 'units',
-                            'units' => 'units',
-                            'bag' => 'bags',
-                            'bags' => 'bags',
-                            'carton' => 'cartons',
-                            'cartons' => 'cartons',
-                        ];
-
-                        $mappedUom = $fallbackMapping[strtolower($item['uom'])] ?? $item['uom'];
-                    }
+                    $mappedUom = $this->resolveDispatchUomValue($detail);
 
                     // Create dispatch record
                     ItemDispatch::create([
@@ -498,21 +461,21 @@ class ItemDispatches extends Component
                         'item_id' => $item['item_id'],
                         'dispatched_by_id' => Auth::guard('web')->id(),
                         'dispatched_by_type' => \App\Models\Employee::class,
-                        'quantity' => $dispatchQty,
+                        'quantity' => $dispatchQtyRequestUom,
                         'uom' => $mappedUom,
                         'dispatch_time' => now(),
                         'shift' => $request->shift,
                     ]);
 
                     // Update request detail (track total dispatched)
-                    $detail->quantity_dispatched += $dispatchQty;
+                    $detail->quantity_dispatched += $dispatchQtyRequestUom;
                     $detail->save();
 
                     // Record stock movement
                     StockMovement::create([
                         'stock_id' => $stock->id,
                         'type' => 'out',
-                        'quantity' => -$dispatchQty,
+                        'quantity' => -$dispatchQtyBaseUom,
                         'quantity_before' => $quantityBefore,
                         'quantity_after' => $quantityAfter,
                         'movement_date' => now(),
@@ -528,7 +491,7 @@ class ItemDispatches extends Component
                     logger()->info('Item dispatched', [
                         'item_id' => $item['item_id'],
                         'item_name' => $item['item_name'],
-                        'quantity' => $dispatchQty,
+                        'quantity' => $dispatchQtyRequestUom,
                         'before' => $quantityBefore,
                         'after' => $quantityAfter,
                         'stock_id' => $stock->id,
@@ -590,6 +553,66 @@ class ItemDispatches extends Component
             ]);
             $this->toast()->error($e->getMessage())->send();
         }
+    }
+
+    protected function convertRequestQuantityToStockBase(ItemRequestDetail $detail, float $requestQuantity): float
+    {
+        $requestUomId = $detail->uom_id;
+        $itemBaseUomId = $detail->item?->uom_id;
+        if (! $requestUomId || ! $itemBaseUomId || (int) $requestUomId === (int) $itemBaseUomId) {
+            return $requestQuantity;
+        }
+
+        $converted = app(UomConversionService::class)->tryConvert(
+            $requestQuantity,
+            (int) $requestUomId,
+            (int) $itemBaseUomId,
+            [
+                'branch_id' => $detail->itemRequest?->branch_id ?? $this->getBranchId(),
+                'item_id' => (int) $detail->item_id,
+            ]
+        );
+
+        return $converted ?? $requestQuantity;
+    }
+
+    protected function convertStockBaseQuantityToRequestUom(ItemRequestDetail $detail, float $baseQuantity): float
+    {
+        $requestUomId = $detail->uom_id;
+        $itemBaseUomId = $detail->item?->uom_id;
+        if (! $requestUomId || ! $itemBaseUomId || (int) $requestUomId === (int) $itemBaseUomId) {
+            return $baseQuantity;
+        }
+
+        $converted = app(UomConversionService::class)->tryConvert(
+            $baseQuantity,
+            (int) $itemBaseUomId,
+            (int) $requestUomId,
+            [
+                'branch_id' => $detail->itemRequest?->branch_id ?? $this->getBranchId(),
+                'item_id' => (int) $detail->item_id,
+            ]
+        );
+
+        return $converted ?? $baseQuantity;
+    }
+
+    protected function resolveDispatchUomValue(ItemRequestDetail $detail): string
+    {
+        $unit = $detail->unitOfMeasure ?: $detail->item?->unitOfMeasure;
+        if (! $unit) {
+            throw new \RuntimeException("No UOM is configured for item detail #{$detail->id}.");
+        }
+
+        $legacyDispatchUom = (string) ($unit->legacy_dispatch_uom ?? '');
+        if ($legacyDispatchUom === '') {
+            throw new \RuntimeException(
+                "Dispatch UOM mapping is missing for unit '{$unit->name}' ({$unit->symbol}). ".
+                "Set legacy_dispatch_uom in Unit of Measure settings."
+            );
+        }
+
+        return $legacyDispatchUom;
     }
 
     public function closeModal()

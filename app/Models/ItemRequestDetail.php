@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\UomConversionService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -63,7 +64,26 @@ class ItemRequestDetail extends Model
             return 0;
         }
 
-        return max(0, (float) $stock->quantity_available);
+        $available = max(0, (float) $stock->quantity_available);
+        if (! $this->item || ! $this->uom_id || ! $this->item->uom_id) {
+            return $available;
+        }
+
+        if ((int) $this->uom_id === (int) $this->item->uom_id) {
+            return $available;
+        }
+
+        $converted = app(UomConversionService::class)->tryConvert(
+            $available,
+            (int) $this->item->uom_id,
+            (int) $this->uom_id,
+            [
+                'branch_id' => $this->itemRequest->branch_id,
+                'item_id' => (int) $this->item_id,
+            ]
+        );
+
+        return $converted ?? $available;
     }
 
     /**
@@ -96,5 +116,52 @@ class ItemRequestDetail extends Model
     public function isFullyDispatched(): bool
     {
         return $this->quantity_dispatched >= $this->quantity_approved;
+    }
+
+    /**
+     * Convert requested quantity from request UOM into item base UOM.
+     */
+    public function requestedQuantityInItemBaseUom(): float
+    {
+        return $this->convertQuantityToItemBase((float) $this->quantity_requested);
+    }
+
+    /**
+     * Convert approved quantity from request UOM into item base UOM.
+     */
+    public function approvedQuantityInItemBaseUom(): float
+    {
+        return $this->convertQuantityToItemBase((float) $this->quantity_approved);
+    }
+
+    /**
+     * Convert dispatched quantity from request UOM into item base UOM.
+     */
+    public function dispatchedQuantityInItemBaseUom(): float
+    {
+        return $this->convertQuantityToItemBase((float) $this->quantity_dispatched);
+    }
+
+    protected function convertQuantityToItemBase(float $quantity): float
+    {
+        if (! $this->item || ! $this->uom_id || ! $this->item->uom_id) {
+            return $quantity;
+        }
+
+        if ((int) $this->uom_id === (int) $this->item->uom_id) {
+            return $quantity;
+        }
+
+        $converted = app(UomConversionService::class)->tryConvert(
+            $quantity,
+            (int) $this->uom_id,
+            (int) $this->item->uom_id,
+            [
+                'branch_id' => $this->itemRequest?->branch_id ?? $this->item?->branch_id,
+                'item_id' => (int) $this->item_id,
+            ]
+        );
+
+        return $converted ?? $quantity;
     }
 }

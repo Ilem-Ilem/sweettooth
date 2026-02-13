@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
 
             // Shared setup
             UnitOfMeasureSeeder::class,
+            UomConversionSeeder::class,
 
             // Port Harcourt-only real data from Excel files
             PortHarcourtRealDataSeeder::class,

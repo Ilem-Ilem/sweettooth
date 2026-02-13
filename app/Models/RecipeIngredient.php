@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\UomConversionService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -88,6 +89,33 @@ class RecipeIngredient extends Model
     }
 
     /**
+     * Calculate quantity needed in the linked item's base UOM.
+     */
+    public function getActualQuantityNeededInItemUom(): float
+    {
+        $quantity = $this->getActualQuantityNeeded();
+        if (! $this->item || ! $this->uom_id || ! $this->item->uom_id) {
+            return $quantity;
+        }
+
+        if ((int) $this->uom_id === (int) $this->item->uom_id) {
+            return $quantity;
+        }
+
+        $converted = app(UomConversionService::class)->tryConvert(
+            $quantity,
+            (int) $this->uom_id,
+            (int) $this->item->uom_id,
+            [
+                'branch_id' => $this->recipe?->branch_id ?: $this->item->branch_id,
+                'item_id' => (int) $this->item_id,
+            ]
+        );
+
+        return $converted ?? $quantity;
+    }
+
+    /**
      * Calculate the total cost for this ingredient
      */
     public function getTotalCost(): float
@@ -112,6 +140,14 @@ class RecipeIngredient extends Model
     }
 
     /**
+     * Calculate quantity needed for a batch in item base UOM.
+     */
+    public function getQuantityForBatchSizeInItemUom(int $batchSize): float
+    {
+        return $this->getActualQuantityNeededInItemUom() * $batchSize;
+    }
+
+    /**
      * Calculate ingredient cost for a fractional batch factor
      */
     public function getCostForBatchFactor(float $batchFactor): float
@@ -125,5 +161,13 @@ class RecipeIngredient extends Model
     public function getQuantityForBatchFactor(float $batchFactor): float
     {
         return $this->getActualQuantityNeeded() * $batchFactor;
+    }
+
+    /**
+     * Calculate quantity needed for a fractional batch in item base UOM.
+     */
+    public function getQuantityForBatchFactorInItemUom(float $batchFactor): float
+    {
+        return $this->getActualQuantityNeededInItemUom() * $batchFactor;
     }
 }

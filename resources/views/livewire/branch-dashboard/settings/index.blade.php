@@ -39,6 +39,8 @@
                          @livewire('branch-dashboard.settings.business-configuration')
                      @elseif($activeTab === 'currency-localization')
                          @livewire('branch-dashboard.settings.currency-localization')
+                     @elseif($activeTab === 'uom-conversions')
+                         @livewire('branch-dashboard.settings.uom-conversions')
                      @elseif($activeTab === 'appearance')
                          @livewire('branch-dashboard.settings.appearance')
                      @endif

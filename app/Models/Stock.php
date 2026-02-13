@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\UomConversionService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -130,5 +131,27 @@ class Stock extends Model
             $this->average_cost = ($currentValue + $newValue) / $totalQuantity;
             $this->save();
         }
+    }
+
+    /**
+     * Get available stock converted from item base UOM to target UOM.
+     *
+     * @param  int|string|UnitOfMeasure  $toUom
+     */
+    public function getAvailableQuantityInUom(int|string|UnitOfMeasure $toUom): ?float
+    {
+        if (! $this->item || ! $this->item->uom_id) {
+            return null;
+        }
+
+        return app(UomConversionService::class)->tryConvert(
+            (float) $this->quantity_available,
+            (int) $this->item->uom_id,
+            $toUom,
+            [
+                'branch_id' => $this->branch_id,
+                'item_id' => (int) $this->item_id,
+            ]
+        );
     }
 }

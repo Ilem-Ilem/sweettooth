@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\UnitOfMeasure;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Schema;
 
 class UnitOfMeasureSeeder extends Seeder
 {
@@ -195,6 +196,27 @@ class UnitOfMeasureSeeder extends Seeder
                 'is_active' => true,
             ],
         ];
+
+        $legacyDispatchMap = [
+            'g' => 'grams',
+            'kg' => 'kg',
+            'l' => 'liters',
+            'ml' => 'ml',
+            'pcs' => 'pcs',
+            'unit' => 'units',
+            'bag' => 'bags',
+            'carton' => 'cartons',
+        ];
+
+        $hasLegacyDispatchColumn = Schema::hasColumn('units_of_measure', 'legacy_dispatch_uom');
+        foreach ($units as &$unit) {
+            if ($hasLegacyDispatchColumn) {
+                $unit['legacy_dispatch_uom'] = $legacyDispatchMap[$unit['code']] ?? null;
+            } else {
+                unset($unit['legacy_dispatch_uom']);
+            }
+        }
+        unset($unit);
 
         // Clear existing units if they exist
         UnitOfMeasure::truncate();

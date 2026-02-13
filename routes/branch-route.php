@@ -97,6 +97,14 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
         Route::get('/department/category/create', \App\Livewire\BranchDashboard\DepartmentModule\Cartegory\Create::class)->name('department.category.create');
         Route::get('department/category/{id}/edit', \App\Livewire\BranchDashboard\DepartmentModule\Cartegory\Edit::class)->name('department.category.edit');
 
+        // UOM MANAGEMENT FRONTEND (Organization)
+        Route::prefix('organization/uom')->name('organization.uom.')->group(function () {
+            Route::get('/', \App\Livewire\BranchDashboard\Organization\UomIndex::class)->name('index');
+            Route::get('/units', \App\Livewire\BranchDashboard\Organization\UomUnits::class)->name('units');
+            Route::get('/conversions', \App\Livewire\BranchDashboard\Organization\UomConversionsBrowser::class)->name('conversions');
+            Route::get('/manage', \App\Livewire\BranchDashboard\Organization\UomConversionsManager::class)->name('manage');
+        });
+
         // ROLE ASSIGNMENT (HR can manage roles within their branch)
         Route::get('role-assignments', \App\Livewire\BranchDashboard\EmployeeModule\RolePermission\AssignRole::class)->name('role-assignments.index');
         Route::get('/role-permisssion', \App\Livewire\BranchDashboard\EmployeeModule\RolePermission\Index::class)->name('role-permission');

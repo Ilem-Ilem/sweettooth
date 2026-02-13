@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\UomConversionService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -85,5 +86,27 @@ class PurchaseItem extends Model
         }
 
         return $this->calculateTotalCost() / $this->quantity;
+    }
+
+    /**
+     * Convert purchased quantity to item base UOM (if conversion exists).
+     */
+    public function quantityInItemBaseUom(): float
+    {
+        if (! $this->item || ! $this->item->uom_id || ! $this->uom) {
+            return (float) $this->quantity;
+        }
+
+        $converted = app(UomConversionService::class)->tryConvert(
+            (float) $this->quantity,
+            (string) $this->uom,
+            (int) $this->item->uom_id,
+            [
+                'branch_id' => $this->item->branch_id,
+                'item_id' => (int) $this->item_id,
+            ]
+        );
+
+        return $converted ?? (float) $this->quantity;
     }
 }

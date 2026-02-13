@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\UomConversionService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -181,5 +182,27 @@ class ProductStock extends Model
         static::saving(function (ProductStock $productStock) {
             $productStock->updateCalculatedFields();
         });
+    }
+
+    /**
+     * Get closing stock quantity converted to another UOM.
+     *
+     * @param  int|string|UnitOfMeasure  $toUom
+     */
+    public function getClosingQuantityInUom(int|string|UnitOfMeasure $toUom): ?float
+    {
+        if (! $this->product || ! $this->product->uom_id) {
+            return null;
+        }
+
+        return app(UomConversionService::class)->tryConvert(
+            (float) $this->closing_quantity,
+            (int) $this->product->uom_id,
+            $toUom,
+            [
+                'branch_id' => $this->product->branch_id,
+                'product_id' => (string) $this->product_id,
+            ]
+        );
     }
 }

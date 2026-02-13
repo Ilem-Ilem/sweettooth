@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\UomConversionService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -134,6 +135,50 @@ class Item extends Model
         }
 
         return $this->getCurrentStock($branchId) < $this->reorder_level;
+    }
+
+    /**
+     * Convert a quantity expressed in this item's base UOM to another UOM.
+     *
+     * @param  int|string|UnitOfMeasure  $toUom
+     */
+    public function convertFromBaseUom(float $quantity, int|string|UnitOfMeasure $toUom): ?float
+    {
+        if (! $this->uom_id) {
+            return null;
+        }
+
+        return app(UomConversionService::class)->tryConvert(
+            $quantity,
+            (int) $this->uom_id,
+            $toUom,
+            [
+                'branch_id' => $this->branch_id,
+                'item_id' => (int) $this->id,
+            ]
+        );
+    }
+
+    /**
+     * Convert a quantity from another UOM into this item's base UOM.
+     *
+     * @param  int|string|UnitOfMeasure  $fromUom
+     */
+    public function convertToBaseUom(float $quantity, int|string|UnitOfMeasure $fromUom): ?float
+    {
+        if (! $this->uom_id) {
+            return null;
+        }
+
+        return app(UomConversionService::class)->tryConvert(
+            $quantity,
+            $fromUom,
+            (int) $this->uom_id,
+            [
+                'branch_id' => $this->branch_id,
+                'item_id' => (int) $this->id,
+            ]
+        );
     }
 
 }

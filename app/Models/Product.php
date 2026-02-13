@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\UomConversionService;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -333,5 +334,49 @@ class Product extends Model
         }
 
         return $totalCost;
+    }
+
+    /**
+     * Convert a quantity from this product base UOM to another UOM.
+     *
+     * @param  int|string|UnitOfMeasure  $toUom
+     */
+    public function convertFromBaseUom(float $quantity, int|string|UnitOfMeasure $toUom): ?float
+    {
+        if (! $this->uom_id) {
+            return null;
+        }
+
+        return app(UomConversionService::class)->tryConvert(
+            $quantity,
+            (int) $this->uom_id,
+            $toUom,
+            [
+                'branch_id' => $this->branch_id,
+                'product_id' => (string) $this->id,
+            ]
+        );
+    }
+
+    /**
+     * Convert a quantity from another UOM to this product base UOM.
+     *
+     * @param  int|string|UnitOfMeasure  $fromUom
+     */
+    public function convertToBaseUom(float $quantity, int|string|UnitOfMeasure $fromUom): ?float
+    {
+        if (! $this->uom_id) {
+            return null;
+        }
+
+        return app(UomConversionService::class)->tryConvert(
+            $quantity,
+            $fromUom,
+            (int) $this->uom_id,
+            [
+                'branch_id' => $this->branch_id,
+                'product_id' => (string) $this->id,
+            ]
+        );
     }
 }
