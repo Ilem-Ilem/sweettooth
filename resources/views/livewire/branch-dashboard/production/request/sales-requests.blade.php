@@ -1,4 +1,4 @@
-<div class="p-3 space-y-3">
+<div class="p-3 space-y-3" wire:poll.20s="$refresh" wire:poll:keep-alive>
     <x-breadcrumb
         title="Sales Request Review"
         :items="[

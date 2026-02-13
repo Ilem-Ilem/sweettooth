@@ -82,12 +82,7 @@
     @endif
 
     <!-- Dispatch Verification Bar -->
-    @php
-        $pendingDispatches = \App\Models\ProductDispatch::whereHas('productionRequest', function($q) {
-            $q->where('production_requests.created_by_id', auth()->id());
-        })->where('status', 'pending_verification')->count();
-    @endphp
-    @if($pendingDispatches > 0)
+    @if($this->pendingDispatches > 0)
     <div class="rounded-xl border border-amber-300 dark:border-amber-800 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/30 dark:to-yellow-950/30 p-4">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
@@ -97,16 +92,16 @@
                 <div>
                     <div class="font-semibold text-zinc-900 dark:text-zinc-100">Pending Dispatch Verification</div>
                     <div class="text-sm text-zinc-600 dark:text-zinc-400">
-                        {{ $pendingDispatches }} dispatch{{ $pendingDispatches > 1 ? 'es' : '' }} awaiting your approval
+                        {{ $this->pendingDispatches }} dispatch{{ $this->pendingDispatches > 1 ? 'es' : '' }} awaiting receiving for this sales department
                     </div>
                 </div>
             </div>
-            <button type="button"
-                @click="$dispatch('open-dispatch-verification')"
+            <a href="{{ branch_route('branch-dashboard.sales-dashboard.dispatches.index', ['salesDeptSlug' => $salesDeptSlug, 'sales_dept_slug' => $salesDeptSlug, 'b_id' => $branchId, 'page' => 'Production Dispatches' . '_' . $salesDeptSlug]) }}"
+                wire:navigate
                 class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600 text-white hover:bg-amber-500 font-medium shadow-sm">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M10.5 3.75a6.75 6.75 0 100 13.5 6.75 6.75 0 000-13.5zM2.25 10.5a8.25 8.25 0 1114.59 5.28l4.69 4.69a.75.75 0 11-1.06 1.06l-4.69-4.69A8.25 8.25 0 012.25 10.5z" clip-rule="evenodd"/></svg>
-                Review
-            </button>
+                Open Receiving
+            </a>
         </div>
     </div>
     @endif
@@ -740,7 +735,7 @@
         x-data="{ showDispatchModal: false }"
         @open-dispatch-verification.window="showDispatchModal = true"
         class="relative">
-        @if($pendingDispatches > 0)
+        @if($this->pendingDispatches > 0)
             <div x-show="showDispatchModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
                 <div class="absolute inset-0 bg-black/50" @click="showDispatchModal = false"></div>
                 <div class="relative w-full max-w-4xl bg-white dark:bg-zinc-900 rounded-xl shadow-2xl max-h-[90vh] overflow-hidden">

@@ -88,16 +88,20 @@ class Index extends Component
     {
         $branchId = $this->getBranchId();
 
-        // Load departments that are sales-related (Till, Corner Store, Confectionaries Sales, etc.)
-        // Exclude production departments (Kitchen, Gelato Production, etc.)
-        $this->salesDepartments = Department::where(function ($query) use ($branchId) {
-            $query->where('branch_id', $branchId)
-                  ->orWhereNull('branch_id');
-        })
-        ->whereIn('slug', ['till', 'corner-store', 'confectionaries-sales']) // Add your sales dept slugs
-        ->orderBy('name')
-        ->get()
-        ->toArray();
+        // Load all Sales-category departments for this branch/global scope.
+        $this->salesDepartments = Department::query()
+            ->when($branchId, function ($query) use ($branchId) {
+                $query->where(function ($subQuery) use ($branchId) {
+                    $subQuery->where('branch_id', $branchId)
+                        ->orWhereNull('branch_id');
+                });
+            })
+            ->whereHas('category', function ($query) {
+                $query->whereRaw('LOWER(name) LIKE ?', ['%sales%']);
+            })
+            ->orderBy('name')
+            ->get(['id', 'name', 'slug'])
+            ->toArray();
     }
 
     public function loadAvailableShifts()
@@ -493,6 +497,12 @@ class Index extends Component
                             // Otherwise, create empty array (user can add dispatches)
                             $this->batchDispatches[$batch['id']] = [];
                         }
+                    }
+
+                    $restrictedDeptId = (int) ($batch['allowed_sales_department_id'] ?? 0);
+                    if ($restrictedDeptId > 0) {
+                        // Sales-request flow uses dispatch allocations; normalize any legacy for_order/sent_out values.
+                        $this->normalizeLockedSalesBatchAllocations($batch['id'], $restrictedDeptId);
                     }
                 }
             }
@@ -1333,6 +1343,12 @@ class Index extends Component
                 }
 
                 foreach ($produce->productionRecords as $batch) {
+                    $restrictedDeptId = (int) ($this->batchAllowedSalesDepartments[$batch->id] ?? 0);
+                    if ($restrictedDeptId > 0) {
+                        // Ensure sales-request batches use dispatch allocations, not for_order.
+                        $this->normalizeLockedSalesBatchAllocations($batch->id, $restrictedDeptId);
+                    }
+
                     // Update batch quantities (legacy support)
                     if (isset($this->batchQuantities[$batch->id])) {
                         $batch->quantity_sent_out = (float) ($this->batchQuantities[$batch->id]['quantity_sent_out'] ?? 0);
@@ -1425,6 +1441,69 @@ class Index extends Component
         } finally {
             $this->isSavingBatch[$produceId] = false;
         }
+    }
+
+    /**
+     * For locked sales-request batches, convert legacy values into dispatch allocations.
+     * This prevents quantities from being stranded in "for order" with no ProductDispatch rows.
+     */
+    private function normalizeLockedSalesBatchAllocations(int $batchId, int $restrictedDeptId): void
+    {
+        if (! isset($this->batchQuantities[$batchId])) {
+            $this->batchQuantities[$batchId] = [
+                'quantity_sent_out' => 0,
+                'quantity_for_order' => 0,
+            ];
+        }
+
+        if (! isset($this->batchDispatches[$batchId])) {
+            $this->batchDispatches[$batchId] = [];
+        }
+
+        $legacySentOut = (float) ($this->batchQuantities[$batchId]['quantity_sent_out'] ?? 0);
+        $legacyForOrder = (float) ($this->batchQuantities[$batchId]['quantity_for_order'] ?? 0);
+
+        // If old rows stored sent_out but no dispatch allocations, seed one allocation.
+        if ($legacySentOut > 0 && count($this->batchDispatches[$batchId]) === 0) {
+            $this->batchDispatches[$batchId][] = [
+                'sales_department_id' => $restrictedDeptId,
+                'quantity' => $legacySentOut,
+                'status' => 'pending',
+            ];
+        }
+
+        // Move legacy for_order allocation into dispatch allocation for the locked sales department.
+        if ($legacyForOrder > 0) {
+            $merged = false;
+            foreach ($this->batchDispatches[$batchId] as $index => $dispatch) {
+                if ((int) ($dispatch['sales_department_id'] ?? 0) === $restrictedDeptId) {
+                    $currentQty = (float) ($dispatch['quantity'] ?? 0);
+                    $this->batchDispatches[$batchId][$index]['quantity'] = $currentQty + $legacyForOrder;
+                    $merged = true;
+                    break;
+                }
+            }
+
+            if (! $merged) {
+                $this->batchDispatches[$batchId][] = [
+                    'sales_department_id' => $restrictedDeptId,
+                    'quantity' => $legacyForOrder,
+                    'status' => 'pending',
+                ];
+            }
+
+            $this->batchQuantities[$batchId]['quantity_for_order'] = 0;
+        }
+
+        // Enforce locked destination and sync sent_out from allocations.
+        $totalSentOut = 0;
+        foreach ($this->batchDispatches[$batchId] as $index => $dispatch) {
+            $this->batchDispatches[$batchId][$index]['sales_department_id'] = $restrictedDeptId;
+            $totalSentOut += (float) ($dispatch['quantity'] ?? 0);
+        }
+
+        $this->batchQuantities[$batchId]['quantity_sent_out'] = $totalSentOut;
+        $this->batchQuantities[$batchId]['quantity_for_order'] = 0;
     }
 
     /**

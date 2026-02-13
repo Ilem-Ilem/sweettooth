@@ -31,6 +31,12 @@ class ProductionDashboard extends BaseDashboard
             if ($userDepartment) {
                 $this->departmentId = $userDepartment->id;
                 $this->deptSlug = $userDepartment->slug;
+            } else {
+                // If no department is provided and user doesn't have a department, show error for non-super admins
+                if (!is_super_admin()) {
+                    abort(403, 'Department access required. Please select a department.');
+                }
+                // For super admin, allow to continue without department but show message in UI
             }
         }
 
@@ -284,6 +290,22 @@ class ProductionDashboard extends BaseDashboard
     public function render()
     {
         try {
+            // Check if no department is selected by a super admin
+            if (is_super_admin() && !$this->deptSlug) {
+                return view('livewire.dashboards.production.dashboard', [
+                    'todayQueue' => collect([]),
+                    'todayCompleted' => 0,
+                    'todayPending' => 0,
+                    'todayQuantity' => 0,
+                    'activeRecipes' => collect([]),
+                    'staffAssigned' => 0,
+                    'productionTimeline' => collect([]),
+                    'productionAlerts' => [],
+                    'userDepartment' => null,
+                    'no_department_selected' => true,
+                ]);
+            }
+
             return view('livewire.dashboards.production.dashboard', [
                 'todayQueue' => $this->getTodayQueue(),
                 'todayCompleted' => $this->getTodayCompleted(),

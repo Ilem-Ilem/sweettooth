@@ -535,6 +535,11 @@ class SidebarVisibilityService
             return true;
         }
 
+        // Allow Accountant and Accounting Manager roles to see accounting section
+        if ($user && $user->hasAnyRole(['Accountant', 'Accounting Manager'])) {
+            return true;
+        }
+
         // Others need specific permissions
         return self::hasAnyPermission($user, ['view-accounting', 'manage-accounting', 'view-financial-reports', 'access_accounting', 'view_financial_reports']);
     }

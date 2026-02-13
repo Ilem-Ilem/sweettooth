@@ -5,7 +5,6 @@ namespace App\Livewire\BranchDashboard\SalesDashboard\Dispatches;
 use App\Livewire\BaseComponent;
 use App\Models\ProductDispatch;
 use App\Models\ProductStock;
-use App\Models\Product;
 use App\Models\Department;
 use App\Models\Branch;
 use App\Models\Shift;
@@ -31,12 +30,14 @@ class Index extends BaseComponent
 
     public ?string $branchId = null;
     public ?int $departmentId = null;
+    /** @var array<int> */
+    public array $departmentIds = [];
     public string $departmentName = 'Production Dispatch Receiving';
     public string $branchName = '';
 
     // Filter options
     public ?string $search = null;
-    public ?string $filterStatus = 'pending_verification'; // Default to pending dispatches
+    public ?string $filterStatus = null;
     public ?string $filterDate = null;
 
     // Receiving modal data
@@ -69,20 +70,30 @@ class Index extends BaseComponent
 
     public function getBranchId()
     {
-        return $this->b_id ?: request()->query('b_id');
+        return $this->b_id
+            ?: request()->query('b_id')
+            ?: current_branch_id()
+            ?: auth()->user()?->branch_id;
     }
 
     public function mount()
     {
         $this->mountBase();
+
+        if (! $this->salesDeptSlug) {
+            $this->salesDeptSlug = request()->route('salesDeptSlug')
+                ?? request()->query('sales_dept_slug')
+                ?? request()->query('dept_slug')
+                ?? request()->query('salesDeptSlug');
+        }
+
         $this->loadBranchAndDepartment();
-        $this->filterDate = Carbon::today()->format('Y-m-d');
     }
 
     protected function loadBranchAndDepartment(): void
     {
         // Load branch
-        $this->branchId = request('b_id');
+        $this->branchId = $this->getBranchId();
         if ($this->branchId) {
             $branch = Branch::find($this->branchId);
             $this->branchName = $branch?->name ?? 'Unknown Branch';
@@ -104,23 +115,29 @@ class Index extends BaseComponent
 
             if ($department) {
                 $this->departmentId = $department->id;
+                $this->departmentIds = $this->resolveEquivalentSalesDepartmentIds($department);
                 $this->departmentName = $department->name . ' - Production Dispatch Receiving';
+                $this->salesDeptSlug = $this->salesDeptSlug ?: $department->slug;
             } else {
                 $this->toast()->error('Department not found.')->send();
             }
         } else {
-            // If no department slug provided, use employee's department
-            $employee = auth()->user();
-            if ($employee && $employee->department_id) {
-                $this->departmentId = $employee->department_id;
-                $department = Department::find($employee->department_id);
-                $this->departmentName = ($department?->name ?? 'Production Dispatch Receiving') . ' - Production Dispatch Receiving';
+            $department = $this->resolveDefaultSalesDepartment();
+            if ($department) {
+                $this->departmentId = (int) $department->id;
+                $this->departmentIds = $this->resolveEquivalentSalesDepartmentIds($department);
+                $this->departmentName = $department->name . ' - Production Dispatch Receiving';
+                $this->salesDeptSlug = $this->salesDeptSlug ?: $department->slug;
             }
         }
 
         // Validate branch access
         if (!$this->branchId) {
             $this->toast()->error('Branch not specified.')->send();
+        }
+
+        if (! $this->departmentId) {
+            $this->toast()->warning('Sales department context not resolved. Add department slug in URL.')->send();
         }
     }
 
@@ -129,9 +146,14 @@ class Index extends BaseComponent
      */
     protected function getFilteredQuery()
     {
-        return ProductDispatch::query()
-            ->where('branch_id', $this->branchId)
-            ->where('sales_department_id', $this->departmentId)
+        $departmentFilterIds = ! empty($this->departmentIds)
+            ? $this->departmentIds
+            : ($this->departmentId ? [(int) $this->departmentId] : []);
+
+        $query = ProductDispatch::query()
+            ->when($this->branchId, function ($query) {
+                $query->where('branch_id', $this->branchId);
+            })
             ->when($this->filterStatus, function ($query) {
                 $query->where('status', $this->filterStatus);
             })
@@ -144,8 +166,30 @@ class Index extends BaseComponent
                       ->orWhere('sku', 'like', '%' . $this->search . '%');
                 });
             })
-            ->with(['product', 'dispatchedBy', 'receivedBy', 'dailyProduce', 'productionRequest.productionDepartment'])
+            ->with([
+                'product',
+                'dispatchedBy',
+                'receivedBy',
+                'dailyProduce',
+                'productionRequest.productionDepartment',
+                'salesProductionRequestItem.request',
+            ])
             ->orderBy('dispatch_time', 'desc');
+
+        if (! empty($departmentFilterIds)) {
+            $query->where(function ($departmentQuery) use ($departmentFilterIds) {
+                $departmentQuery->whereIn('sales_department_id', $departmentFilterIds)
+                    // Fallback path for sales-request-driven dispatches where
+                    // dispatch row department and request row department differ.
+                    ->orWhereHas('salesProductionRequestItem.request', function ($requestQuery) use ($departmentFilterIds) {
+                        $requestQuery->whereIn('sales_department_id', $departmentFilterIds);
+                    });
+            });
+        } else {
+            $query->whereRaw('1 = 0');
+        }
+
+        return $query;
     }
 
     /**
@@ -237,17 +281,22 @@ class Index extends BaseComponent
             }
 
             // Update or create ProductStock record
-            $stockDate = Carbon::parse($dispatch->dispatch_date);
-            $shiftType = $dispatch->shift_type ?? 'morning';
+            // Use receive day for POS availability; production date remains tracked separately.
+            $stockDate = Carbon::today();
+            $shiftType = (string) ($currentShift?->shift_type ?: $dispatch->shift_type ?: 'morning');
+            if (! in_array($shiftType, ['morning', 'afternoon'], true)) {
+                $shiftType = 'morning';
+            }
             $hasDepartmentColumn = Schema::hasColumn('product_stocks', 'department_id');
-            $salesDepartmentId = (int) ($dispatch->sales_department_id ?: $this->departmentId);
+            // Use current sales context first so stock is visible to this department in POS.
+            $salesDepartmentId = (int) ($this->departmentId ?: $dispatch->sales_department_id);
 
             if ($hasDepartmentColumn && $salesDepartmentId <= 0) {
                 throw new \RuntimeException('Sales department is required for stock receiving.');
             }
 
             $productStock = ProductStock::where('product_id', $dispatch->product_id)
-                ->where('stock_date', $stockDate->format('Y-m-d'))
+                ->whereDate('stock_date', $stockDate->format('Y-m-d'))
                 ->where('shift_type', $shiftType)
                 ->when($hasDepartmentColumn, function ($query) use ($salesDepartmentId) {
                     $query->where('department_id', $salesDepartmentId);
@@ -396,5 +445,163 @@ class Index extends BaseComponent
         return view('livewire.branch-dashboard.sales-dashboard.dispatches.index', [
             'dispatches' => $dispatches,
         ]);
+    }
+
+    /**
+     * Resolve equivalent sales department records across branch/global scopes.
+     *
+     * @return array<int>
+     */
+    protected function resolveEquivalentSalesDepartmentIds(Department $department): array
+    {
+        $branchId = $this->branchId;
+        $targetNameKey = $this->normalizeDepartmentKey($department->name);
+        $targetSlugKey = $this->normalizeDepartmentKey((string) $department->slug);
+
+        $ids = Department::query()
+            ->whereHas('category', function ($query) {
+                $query->whereRaw('LOWER(name) = ?', ['sales']);
+            })
+            ->when($branchId, function ($query) use ($branchId) {
+                $query->where(function ($subQuery) use ($branchId) {
+                    $subQuery->where('branch_id', $branchId)
+                        ->orWhereNull('branch_id');
+                });
+            })
+            ->get(['id', 'name', 'slug'])
+            ->filter(function (Department $candidate) use ($department, $targetNameKey, $targetSlugKey): bool {
+                if ((int) $candidate->id === (int) $department->id) {
+                    return true;
+                }
+
+                $candidateNameKey = $this->normalizeDepartmentKey($candidate->name);
+                $candidateSlugKey = $this->normalizeDepartmentKey((string) $candidate->slug);
+
+                return $this->areEquivalentDepartmentIdentities(
+                    $targetNameKey,
+                    $targetSlugKey,
+                    $candidateNameKey,
+                    $candidateSlugKey,
+                );
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (! in_array((int) $department->id, $ids, true)) {
+            $ids[] = (int) $department->id;
+        }
+
+        return $ids;
+    }
+
+    protected function normalizeDepartmentKey(string $value): string
+    {
+        $normalized = strtolower($value);
+        $normalized = preg_replace('/[-_]+/', ' ', $normalized) ?? $normalized;
+        $normalized = preg_replace('/[^a-z0-9]+/', ' ', $normalized) ?? $normalized;
+
+        return trim((string) preg_replace('/\s+/', ' ', $normalized));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    protected function departmentIdentityTokens(string $value): array
+    {
+        $normalized = $this->normalizeDepartmentKey($value);
+        if ($normalized === '') {
+            return [];
+        }
+
+        $tokens = array_values(array_filter(explode(' ', $normalized)));
+        $stopWords = ['sales', 'sale', 'department', 'dept'];
+
+        return array_values(array_filter($tokens, function (string $token) use ($stopWords): bool {
+            return $token !== '' && ! in_array($token, $stopWords, true);
+        }));
+    }
+
+    protected function areEquivalentDepartmentIdentities(
+        string $targetNameKey,
+        string $targetSlugKey,
+        string $candidateNameKey,
+        string $candidateSlugKey,
+    ): bool {
+        if (
+            ($targetNameKey !== '' && $candidateNameKey === $targetNameKey)
+            || ($targetSlugKey !== '' && $candidateSlugKey === $targetSlugKey)
+            || ($targetNameKey !== '' && $candidateSlugKey === $targetNameKey)
+            || ($targetSlugKey !== '' && $candidateNameKey === $targetSlugKey)
+        ) {
+            return true;
+        }
+
+        $targetTokens = $this->departmentIdentityTokens($targetNameKey . ' ' . $targetSlugKey);
+        $candidateTokens = $this->departmentIdentityTokens($candidateNameKey . ' ' . $candidateSlugKey);
+        if (empty($targetTokens) || empty($candidateTokens)) {
+            return false;
+        }
+
+        $sharedTokens = array_intersect($targetTokens, $candidateTokens);
+        $shorterTokenCount = min(count($targetTokens), count($candidateTokens));
+
+        return count($sharedTokens) === $shorterTokenCount;
+    }
+
+    protected function isSalesDepartment(?Department $department): bool
+    {
+        if (! $department) {
+            return false;
+        }
+
+        return strtolower((string) $department->category?->name) === 'sales';
+    }
+
+    protected function resolveDefaultSalesDepartment(): ?Department
+    {
+        /** @var Department|null $scopedDepartment */
+        $scopedDepartment = request()->get('current_department');
+        if ($this->isSalesDepartment($scopedDepartment)) {
+            return $scopedDepartment;
+        }
+
+        $sessionDepartmentId = session('current_department_id');
+        if ($sessionDepartmentId) {
+            $sessionDepartment = Department::find($sessionDepartmentId);
+            if (
+                $this->isSalesDepartment($sessionDepartment)
+                && (! $this->branchId || ! $sessionDepartment->branch_id || (string) $sessionDepartment->branch_id === (string) $this->branchId)
+            ) {
+                return $sessionDepartment;
+            }
+        }
+
+        $employee = auth()->user();
+        if ($employee && $employee->department_id) {
+            $employeeDepartment = Department::find($employee->department_id);
+            if ($this->isSalesDepartment($employeeDepartment)) {
+                return $employeeDepartment;
+            }
+        }
+
+        if (! (is_super_admin() || can_access_all_branches())) {
+            return null;
+        }
+
+        return Department::query()
+            ->whereHas('category', function ($query) {
+                $query->whereRaw('LOWER(name) = ?', ['sales']);
+            })
+            ->when($this->branchId, function ($query) {
+                $query->where(function ($subQuery) {
+                    $subQuery->where('branch_id', $this->branchId)
+                        ->orWhereNull('branch_id');
+                });
+            })
+            ->orderBy('name')
+            ->first();
     }
 }

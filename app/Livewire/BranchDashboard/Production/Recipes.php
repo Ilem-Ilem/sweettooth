@@ -62,30 +62,53 @@ class Recipes extends BaseComponent
 
     public function mount($deptSlug = null)
     {
-        // Super Admin can access all departments, so deptSlug is optional
-        if (!is_super_admin() && !$deptSlug) {
+        $requestedDeptSlug = $deptSlug
+            ?? $this->dept_slug
+            ?? request()->query('dept_slug')
+            ?? request()->query('deptSlug');
+
+        // Super Admin can access all departments, so dept slug is optional.
+        if (!is_super_admin() && !$requestedDeptSlug) {
             abort(403, 'Department access required');
         }
 
-        if ($deptSlug) {
-            $this->dept_slug = $deptSlug;
-            $this->setDepartmentFromSlug($deptSlug);
+        if ($requestedDeptSlug) {
+            $this->dept_slug = $requestedDeptSlug;
+            $this->setDepartmentFromSlug($requestedDeptSlug);
+            $this->filterDepartment = $this->department?->id;
         }
     }
 
     public function updatedDeptSlug($newDeptSlug)
     {
-        // When dept_slug changes, update the department
-        if ($newDeptSlug !== $this->dept_slug) {
-            $this->dept_slug = $newDeptSlug;
-            $this->setDepartmentFromSlug($newDeptSlug);
-            $this->resetPage(); // Reset pagination when department changes
+        if (! $newDeptSlug) {
+            if (is_super_admin()) {
+                $this->department = null;
+                $this->filterDepartment = null;
+                $this->resetPage();
+            }
+
+            return;
         }
+
+        $this->setDepartmentFromSlug($newDeptSlug);
+        $this->filterDepartment = $this->department?->id;
+        $this->resetPage();
     }
 
     private function setDepartmentFromSlug($deptSlug)
     {
-        $this->department = Department::where('slug', $deptSlug)->first();
+        $branchId = $this->getBranchId();
+
+        $this->department = Department::query()
+            ->where('slug', $deptSlug)
+            ->when($branchId, function ($query) use ($branchId) {
+                $query->where(function ($subQuery) use ($branchId) {
+                    $subQuery->where('branch_id', $branchId)
+                        ->orWhereNull('branch_id');
+                });
+            })
+            ->first();
 
         if (!$this->department) {
             abort(404, 'Department not found');
@@ -131,7 +154,7 @@ class Recipes extends BaseComponent
                 'created_at',
             ])
             ->where('branch_id', $branchId)
-            ->when(!is_super_admin(), function ($query) {
+            ->when($this->department, function ($query) {
                 $query->where('department_id', $this->department->id);
             })
             ->with([
@@ -201,13 +224,16 @@ class Recipes extends BaseComponent
             'products' => $products,
             'items' => $items,
         ] = Cache::remember($dropdownCacheKey, now()->addHour(), function () {
-            $products = Product::active()
-                ->whereHas('productType', function ($q) {
-                    $q->where('department_id', $this->department->id);
-                })
-                ->orderBy('name')
-                ->select('id', 'name')
-                ->get();
+            $products = collect();
+            if ($this->department) {
+                $products = Product::active()
+                    ->whereHas('productType', function ($q) {
+                        $q->where('department_id', $this->department->id);
+                    })
+                    ->orderBy('name')
+                    ->select('id', 'name')
+                    ->get();
+            }
 
             $items = Item::orderBy('name')
                 ->select('id', 'name')

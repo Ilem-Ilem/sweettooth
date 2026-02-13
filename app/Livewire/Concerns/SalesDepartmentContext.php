@@ -24,10 +24,15 @@ trait SalesDepartmentContext
     {
         $this->loadBranchContext();
 
-        if (!$this->salesDeptSlug) {
-            $this->salesDeptSlug = request()->query('sales_dept_slug')
-                ?? request()->query('dept_slug')
-                ?? request()->query('deptSlug');
+        $requestedSalesDeptSlug = request()->route('salesDeptSlug')
+            ?? request()->query('sales_dept_slug')
+            ?? request()->query('dept_slug')
+            ?? request()->query('deptSlug')
+            ?? request()->query('salesDeptSlug');
+
+        // Always prioritize explicit URL context over carried component state.
+        if ($requestedSalesDeptSlug) {
+            $this->salesDeptSlug = $requestedSalesDeptSlug;
         }
 
         if (!$this->salesDeptSlug) {

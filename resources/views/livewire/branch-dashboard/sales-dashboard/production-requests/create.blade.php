@@ -1,4 +1,4 @@
-<div class="p-3 space-y-3">
+<div class="p-3 space-y-3" wire:poll.20s="refreshAvailableRecipes" wire:poll:keep-alive>
     <x-breadcrumb
         title="Request Production Item"
         :items="[
@@ -46,6 +46,7 @@
                     <div>
                         <label class="block text-sm text-zinc-700 dark:text-zinc-300 mb-1">Recipe</label>
                         <select wire:model.live="selectedRecipeId"
+                                wire:key="recipe-select-{{ (string) ($selectedProductionDepartmentId ?? 'none') }}"
                                 class="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700"
                                 @disabled(!$selectedProductionDepartmentId)>
                             <option value="">Select recipe</option>
@@ -93,7 +94,7 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                     <label class="block text-sm text-zinc-700 dark:text-zinc-300 mb-1">Priority</label>
-                    <select wire:model.live="priority"
+                    <select wire:model="priority"
                             class="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700">
                         <option value="normal">Normal</option>
                         <option value="urgent">Urgent</option>
@@ -101,7 +102,7 @@
                 </div>
                 <div>
                     <label class="block text-sm text-zinc-700 dark:text-zinc-300 mb-1">Notes</label>
-                    <input type="text" wire:model.live="notes"
+                    <input type="text" wire:model="notes"
                            class="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700"
                            placeholder="Optional notes">
                 </div>
@@ -172,10 +173,9 @@
                 </a>
                 <button type="button"
                         wire:click="submitRequest"
-                        class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold {{ count($cartItems) === 0 ? 'opacity-50 cursor-not-allowed' : '' }}"
+                        class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold"
                         wire:loading.attr="disabled"
-                        wire:target="submitRequest"
-                        {{ count($cartItems) === 0 ? 'disabled' : '' }}>
+                        wire:target="submitRequest">
                     Submit Request
                 </button>
             </div>

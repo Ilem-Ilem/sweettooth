@@ -48,7 +48,8 @@
         "files": [
             "app/Helpers/AuthorizationHelper.php",
             "app/Helpers/BranchRouteHelper.php",
-            "app/Helpers/BranchHelper.php"
+            "app/Helpers/BranchHelper.php",
+            "app/Helpers/DepartmentRouteHelper.php"
         ]
     },
     "autoload-dev": {

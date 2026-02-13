@@ -4,6 +4,7 @@ namespace App\Livewire\BranchDashboard\SalesDashboard\ProductionRequests;
 
 use App\Livewire\Concerns\SalesDepartmentContext;
 use App\Models\Department;
+use App\Models\Product;
 use App\Models\Recipe;
 use App\Models\SalesProductionRequest;
 use App\Models\SalesProductionRequestItem;
@@ -53,10 +54,18 @@ class Create extends Component
     {
         $this->initializeDepartmentContext();
         $this->loadProductionDepartments();
+
+        if ($this->selectedProductionDepartmentId) {
+            $this->loadRecipesForDepartment();
+        }
     }
 
     public function updatedSelectedProductionDepartmentId(): void
     {
+        if ($this->selectedProductionDepartmentId !== null && $this->selectedProductionDepartmentId !== '') {
+            $this->selectedProductionDepartmentId = (int) $this->selectedProductionDepartmentId;
+        }
+
         $this->selectedRecipeId = null;
         $this->loadRecipesForDepartment();
     }
@@ -90,33 +99,52 @@ class Create extends Component
             return;
         }
 
-        $strictRecipes = Recipe::query()
+        $departmentId = (int) $this->selectedProductionDepartmentId;
+        $departmentIds = $this->resolveEquivalentProductionDepartmentIds($departmentId);
+        $branchId = $this->getBranchId();
+        $departmentProductIds = $this->resolveDepartmentProductIds($departmentIds, $branchId);
+
+        $recipesQuery = Recipe::query()
             ->where('status', 'active')
-            ->where(function ($query) {
-                $query->whereHas('productType', function ($subQuery) {
-                    $subQuery->where('department_id', $this->selectedProductionDepartmentId);
-                })->orWhereHas('product.productType', function ($subQuery) {
-                    $subQuery->where('department_id', $this->selectedProductionDepartmentId);
-                })->orWhereHas('product.departments', function ($subQuery) {
-                    $subQuery->where('departments.id', $this->selectedProductionDepartmentId)
-                        ->where('department_product.is_available', true);
+            ->when($branchId, function ($query) use ($branchId) {
+                $query->where(function ($subQuery) use ($branchId) {
+                    $subQuery->where('branch_id', $branchId)
+                        ->orWhereNull('branch_id');
                 });
             })
-            ->with(['product:id,name,sku', 'unitOfMeasure:id,symbol'])
+            ->where(function ($query) use ($departmentProductIds, $departmentIds) {
+                $appliedFilter = false;
+
+                // Primary chain: product_type -> product -> production department.
+                if (! empty($departmentProductIds)) {
+                    $query->whereIn('product_id', $departmentProductIds);
+                    $appliedFilter = true;
+                }
+
+                // Legacy fallback: recipes without product linkage but explicitly keyed by production department.
+                if (Schema::hasColumn('recipes', 'department_id')) {
+                    $legacyFilter = function ($legacyQuery) use ($departmentIds) {
+                        $legacyQuery->whereNull('product_id')
+                            ->whereIn('department_id', $departmentIds);
+                    };
+
+                    if ($appliedFilter) {
+                        $query->orWhere($legacyFilter);
+                    } else {
+                        $query->where($legacyFilter);
+                        $appliedFilter = true;
+                    }
+                }
+
+                if (! $appliedFilter) {
+                    $query->whereRaw('1 = 0');
+                }
+            })
+            ->with(['product:id,name,sku', 'unitOfMeasure:id,symbol']);
+
+        $this->availableRecipes = $recipesQuery
             ->orderBy('product_name')
-            ->get();
-
-        // Backward compatibility for older recipe rows where only recipes.department_id was maintained.
-        if ($strictRecipes->isEmpty()) {
-            $strictRecipes = Recipe::query()
-                ->where('department_id', $this->selectedProductionDepartmentId)
-                ->where('status', 'active')
-                ->with(['product:id,name,sku', 'unitOfMeasure:id,symbol'])
-                ->orderBy('product_name')
-                ->get();
-        }
-
-        $this->availableRecipes = $strictRecipes
+            ->get()
             ->unique('id')
             ->values()
             ->map(fn (Recipe $recipe) => [
@@ -129,6 +157,108 @@ class Create extends Component
                 'uom' => $recipe->unitOfMeasure?->symbol,
             ])
             ->toArray();
+    }
+
+    /**
+     * Resolve products that belong to the selected production department scope.
+     *
+     * @param  array<int>  $departmentIds
+     * @return array<int, string>
+     */
+    protected function resolveDepartmentProductIds(array $departmentIds, ?string $branchId): array
+    {
+        if (empty($departmentIds)) {
+            return [];
+        }
+
+        $query = Product::query()
+            ->where('is_active', true)
+            ->where(function ($subQuery) use ($departmentIds) {
+                $subQuery->whereHas('productType', function ($productTypeQuery) use ($departmentIds) {
+                    $productTypeQuery->whereIn('department_id', $departmentIds);
+                })->orWhereHas('departments', function ($departmentQuery) use ($departmentIds) {
+                    $departmentQuery->whereIn('departments.id', $departmentIds)
+                        ->where('department_product.is_available', true);
+                });
+            });
+
+        if ($branchId) {
+            $query->where(function ($subQuery) use ($branchId) {
+                $subQuery->where('branch_id', $branchId)
+                    ->orWhereNull('branch_id');
+            });
+        }
+
+        return $query->pluck('id')
+            ->map(fn ($id) => (string) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Resolve equivalent production department records across branch/global scopes.
+     *
+     * @return array<int>
+     */
+    protected function resolveEquivalentProductionDepartmentIds(int $departmentId): array
+    {
+        $department = Department::find($departmentId);
+        if (! $department) {
+            return [$departmentId];
+        }
+
+        $branchId = $this->getBranchId();
+        $candidates = Department::query()
+            ->whereHas('category', function ($query) {
+                $query->whereRaw('LOWER(name) = ?', ['production']);
+            })
+            ->when($branchId, function ($query) use ($branchId) {
+                $query->where(function ($subQuery) use ($branchId) {
+                    $subQuery->where('branch_id', $branchId)
+                        ->orWhereNull('branch_id');
+                });
+            })
+            ->get(['id', 'name', 'slug']);
+
+        $targetNameKey = $this->normalizeDepartmentKey($department->name);
+        $targetSlugKey = $this->normalizeDepartmentKey((string) $department->slug);
+
+        $equivalentIds = $candidates
+            ->filter(function (Department $candidate) use ($departmentId, $targetNameKey, $targetSlugKey): bool {
+                if ((int) $candidate->id === $departmentId) {
+                    return true;
+                }
+
+                $candidateNameKey = $this->normalizeDepartmentKey($candidate->name);
+                $candidateSlugKey = $this->normalizeDepartmentKey((string) $candidate->slug);
+
+                return ($targetNameKey !== '' && $candidateNameKey === $targetNameKey)
+                    || ($targetSlugKey !== '' && $candidateSlugKey === $targetSlugKey)
+                    || ($targetNameKey !== '' && $candidateSlugKey === $targetNameKey)
+                    || ($targetSlugKey !== '' && $candidateNameKey === $targetSlugKey);
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (! in_array($departmentId, $equivalentIds, true)) {
+            $equivalentIds[] = $departmentId;
+        }
+
+        return $equivalentIds;
+    }
+
+    protected function normalizeDepartmentKey(string $value): string
+    {
+        $normalized = strtolower($value);
+        $normalized = preg_replace('/[-_]+/', ' ', $normalized) ?? $normalized;
+        $normalized = preg_replace('/\bproduction\b/', ' ', $normalized) ?? $normalized;
+        $normalized = preg_replace('/[^a-z0-9]+/', ' ', $normalized) ?? $normalized;
+
+        return trim((string) preg_replace('/\s+/', ' ', $normalized));
     }
 
     public function addItem(): void
@@ -144,6 +274,12 @@ class Create extends Component
 
         $department = collect($this->productionDepartments)->firstWhere('id', $this->selectedProductionDepartmentId);
         $recipe = collect($this->availableRecipes)->firstWhere('id', $this->selectedRecipeId);
+
+        // If options are stale in the browser, refresh source list once before failing.
+        if (! $recipe && $this->selectedProductionDepartmentId) {
+            $this->loadRecipesForDepartment();
+            $recipe = collect($this->availableRecipes)->firstWhere('id', $this->selectedRecipeId);
+        }
 
         if (! $department || ! $recipe) {
             $this->toast()->error('Please select a valid department and recipe.')->send();
@@ -178,6 +314,13 @@ class Create extends Component
         $this->quantityRequested = 1;
     }
 
+    public function refreshAvailableRecipes(): void
+    {
+        if ($this->selectedProductionDepartmentId) {
+            $this->loadRecipesForDepartment();
+        }
+    }
+
     public function removeItem(int $index): void
     {
         if (! isset($this->cartItems[$index])) {
@@ -197,6 +340,16 @@ class Create extends Component
             'priority' => ['required', 'in:normal,urgent'],
             'notes' => ['nullable', 'string'],
         ]);
+
+        // If the user selected an item but skipped clicking "Add", capture it here.
+        if (
+            empty($this->cartItems)
+            && $this->selectedProductionDepartmentId
+            && $this->selectedRecipeId
+            && (float) $this->quantityRequested > 0
+        ) {
+            $this->addItem();
+        }
 
         if (empty($this->cartItems)) {
             $this->toast()->error('Add at least one item before submitting.')->send();

@@ -12,13 +12,19 @@
 
     <!-- Header with Add Button -->
     <div class="flex justify-between items-center">
-        <a href="{{branch_route("branch-dashboard.production.recipes.add", ['deptSlug'=>$dept_slug])}}" 
-            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center shadow-sm">
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-            Add Recipe
-        </a>
+        @if($dept_slug)
+            <a href="{{ branch_route('branch-dashboard.production.recipes.add', ['deptSlug' => $dept_slug]) }}"
+                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center shadow-sm">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Add Recipe
+            </a>
+        @else
+            <span class="px-4 py-2 bg-zinc-200 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-300 rounded-lg font-medium">
+                Select a Department to Add Recipe
+            </span>
+        @endif
     </div>
 
     <!-- Bulk Actions Bar -->
@@ -87,7 +93,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                     <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Department</label>
-                    <input type="text" value="{{ $department->name }}" readonly
+                    <input type="text" value="{{ $department->name ?? 'All Departments' }}" readonly
                         class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 cursor-not-allowed">
                 </div>
 

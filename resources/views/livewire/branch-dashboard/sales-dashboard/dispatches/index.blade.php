@@ -1,4 +1,4 @@
-<div class="p-3 space-y-3" x-data="{ open: false }">
+<div class="p-3 space-y-3" x-data="{ open: false }" @if(!$showReceivingModal) wire:poll.20s="$refresh" wire:poll:keep-alive @endif>
     <x-breadcrumb title="Production Dispatches" :items="[
         ['label' => 'Dashboard', 'url' => branch_route('branch-dashboard.index')],
         ['label' => 'Sales Dashboard'],
@@ -21,6 +21,10 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300">
+        Receive dispatched products on this page first. Once received, items become available in POS stock for this sales department.
     </div>
 
     <!-- Filters Section -->
@@ -66,7 +70,15 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Date</label>
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300">Date</label>
+                        @if($filterDate)
+                            <button type="button" wire:click="$set('filterDate', null)"
+                                class="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
+                                Clear
+                            </button>
+                        @endif
+                    </div>
                     <input type="date" wire:model.live="filterDate"
                         class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
                 </div>
@@ -201,19 +213,35 @@
                 <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                     There are no production dispatches matching your filters.
                 </p>
+                @if(!$departmentId || !$branchId)
+                    <p class="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                        Context missing: Branch {{ $branchId ?? 'N/A' }} • Department {{ $departmentId ?? 'N/A' }}.
+                    </p>
+                @else
+                    <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                        Current context: Branch {{ $branchId }} • Department {{ $departmentId }}.
+                    </p>
+                @endif
+                @if($filterDate)
+                    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                        Tip: clear the date filter to see dispatches from other dates.
+                    </p>
+                @endif
             </div>
         @endif
     </div>
 
     <!-- Receiving Modal -->
     @if($showReceivingModal && $selectedDispatch)
-        <div class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true" wire:keydown.escape="closeReceivingModal">
             <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
                 <!-- Background overlay -->
-                <div class="fixed inset-0 bg-zinc-500 bg-opacity-75 transition-opacity" wire:click="closeReceivingModal"></div>
+                <div class="fixed inset-0 z-0 bg-zinc-900/60 transition-opacity" wire:click="closeReceivingModal"></div>
+
+                <span class="hidden sm:inline-block sm:h-screen sm:align-middle" aria-hidden="true">&#8203;</span>
 
                 <!-- Modal panel -->
-                <div class="inline-block align-bottom bg-white dark:bg-zinc-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="relative z-10 inline-block align-bottom bg-white dark:bg-zinc-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
                     <div class="bg-white dark:bg-zinc-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                         <div class="sm:flex sm:items-start">
                             <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/30 sm:mx-0 sm:h-10 sm:w-10">
@@ -228,10 +256,10 @@
                                 <div class="mt-4 space-y-4">
                                     <div class="bg-zinc-50 dark:bg-zinc-900 p-3 rounded-lg">
                                         <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                                            {{ $selectedDispatch->product->name }}
+                                            {{ $selectedDispatch->product?->name ?? 'Unknown Product' }}
                                         </div>
                                         <div class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                                            SKU: {{ $selectedDispatch->product->sku }}
+                                            SKU: {{ $selectedDispatch->product?->sku ?? 'N/A' }}
                                         </div>
                                         <div class="text-sm text-zinc-700 dark:text-zinc-300 mt-2">
                                             Dispatched Quantity: <span class="font-semibold">{{ number_format($selectedDispatch->quantity, 2) }} {{ $selectedDispatch->uom }}</span>
@@ -261,7 +289,7 @@
                                         @enderror
                                     </div>
 
-                                    @if($receivedQuantity != $selectedDispatch->quantity)
+                                    @if($receivedQuantity !== null && (float) $receivedQuantity != (float) $selectedDispatch->quantity)
                                         <div class="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-3 rounded">
                                             <div class="flex">
                                                 <svg class="h-5 w-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -270,8 +298,8 @@
                                                 </svg>
                                                 <div class="ml-3">
                                                     <p class="text-sm text-yellow-700 dark:text-yellow-200">
-                                                        Variance detected: {{ number_format(abs($receivedQuantity - $selectedDispatch->quantity), 2) }} {{ $selectedDispatch->uom }}
-                                                        {{ $receivedQuantity > $selectedDispatch->quantity ? 'over' : 'under' }}
+                                                        Variance detected: {{ number_format(abs((float) $receivedQuantity - (float) $selectedDispatch->quantity), 2) }} {{ $selectedDispatch->uom }}
+                                                        {{ (float) $receivedQuantity > (float) $selectedDispatch->quantity ? 'over' : 'under' }}
                                                     </p>
                                                 </div>
                                             </div>

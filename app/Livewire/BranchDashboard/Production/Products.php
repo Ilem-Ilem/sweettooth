@@ -93,16 +93,25 @@ class Products extends BaseComponent
     #[Url(keep: true)]
     public ?string $dept_slug = null;
 
+    public ?Department $department = null;
+
     public function mount($deptSlug = null)
     {
-        // Super Admin can access all departments, so deptSlug is optional
-        if (!is_super_admin() && !$deptSlug) {
-            abort(403, 'Department access required');
+        $requestedDeptSlug = $deptSlug
+            ?? request()->query('dept_slug')
+            ?? request()->query('deptSlug');
+
+        if ($requestedDeptSlug) {
+            $this->department = Department::select('id', 'name', 'slug')
+                ->where('slug', $requestedDeptSlug)
+                ->first();
+
+            if ($this->department) {
+                $this->dept_slug = $this->department->slug;
+                $this->filterDepartment = $this->department->id;
+            }
         }
 
-        if ($deptSlug) {
-            $this->dept_slug = $deptSlug;
-        }
         $this->employee = Employee::where('id', auth()->id())->first();
     }
 
@@ -125,20 +134,9 @@ class Products extends BaseComponent
         return $this->b_id ? $this->b_id : request()->query('b_id');
     }
 
-protected function getFilteredQuery()
+    protected function getFilteredQuery()
     {
-        $departmentId = null;
-        if ($this->dept_slug) {
-            $department = Cache::remember("department_by_slug_{$this->dept_slug}", 3600, function () {
-                return Department::where('slug', $this->dept_slug)->first();
-            });
-
-            if ($department) {
-                $departmentId = $department->id;
-            }
-        }
-
-        return Product::query()
+        $query = Product::query()
             ->select([
                 'products.id',
                 'products.name',
@@ -173,10 +171,9 @@ protected function getFilteredQuery()
                     $q->where('department_id', $this->filterDepartment);
                 });
             })
-            ->when(!is_super_admin(), function ($query) use ($departmentId) {
-                // Always filter by department for non-super-admins
-                $query->whereHas('productType', function ($q) use ($departmentId) {
-                    $q->where('department_id', $departmentId);
+            ->when($this->department, function ($query) {
+                $query->whereHas('productType', function ($q) {
+                    $q->where('department_id', $this->department->id);
                 });
             })
             ->when($this->filterStatus !== null, function ($query) {
@@ -198,8 +195,9 @@ protected function getFilteredQuery()
             ->where(function ($query) {
                 $query->whereNull('branch_id')
                     ->orWhere('branch_id', $this->getBranchId());
-            })
-            ->orderBy('created_at', 'desc');
+            });
+
+        return $query->orderBy('created_at', 'desc');
     }
 
     public function updatedSearch()
@@ -256,6 +254,35 @@ protected function getFilteredQuery()
 
     public function render()
     {
+        if (!$this->department) {
+            return view('livewire.branch-dashboard.production.products', [
+                'headers' => [
+                    ['index' => 'id', 'label' => '#'],
+                    ['index' => 'sku', 'label' => 'SKU'],
+                    ['index' => 'name', 'label' => 'Product Name'],
+                    ['index' => 'product_type', 'label' => 'Type'],
+                    ['index' => 'department', 'label' => 'Department'],
+                    ['index' => 'price', 'label' => 'Price'],
+                    ['index' => 'shelf_life', 'label' => 'Shelf Life'],
+                    ['index' => 'uom', 'label' => 'UOM'],
+                    ['index' => 'recipe_status', 'label' => 'Recipe'],
+                    ['index' => 'status', 'label' => 'Status'],
+                    ['index' => 'action', 'label' => 'Actions', 'display' => true],
+                ],
+                'rows' => null,
+                'productTypes' => [],
+                'departments' => Department::whereHas('category', function ($q) {
+                    $q->where('name', 'Production');
+                })
+                ->orderBy('name')
+                ->select('id', 'name', 'slug')
+                ->get(),
+                'unitOfMeasures' => [],
+                'employees_department' => null,
+                'no_department_selected' => true,
+            ]);
+        }
+
         $rows = Cache::remember($this->getListCacheKey(), now()->addMinutes($this->cacheTtlMinutes), function () {
             return $this->getFilteredQuery()->paginate($this->quantity ?? 10);
         });
@@ -266,21 +293,12 @@ protected function getFilteredQuery()
             'departments' => $departments,
             'unitOfMeasures' => $unitOfMeasures,
         ] = Cache::remember($dropdownCacheKey, now()->addHour(), function () {
-            if (is_super_admin()) {
-                $productTypes = ProductType::with('department:id,name')
-                    ->active()
-                    ->ordered()
-                    ->select('id', 'name', 'code', 'department_id')
-                    ->get();
-            } else {
-                $department = Department::where('slug', $this->dept_slug)->first();
-                $productTypes = ProductType::with('department:id,name')
-                    ->where('department_id', $department?->id)
-                    ->active()
-                    ->ordered()
-                    ->select('id', 'name', 'code', 'department_id')
-                    ->get();
-            }
+            $productTypes = ProductType::with('department:id,name')
+                ->where('department_id', $this->department->id)
+                ->active()
+                ->ordered()
+                ->select('id', 'name', 'code', 'department_id')
+                ->get();
 
             $departments = Department::whereHas('category', function ($q) {
                 $q->where('name', 'Production');
@@ -296,15 +314,7 @@ protected function getFilteredQuery()
             return compact('productTypes', 'departments', 'unitOfMeasures');
         });
 
-        // Determine employee's department
-        if (is_super_admin()) {
-            $employees_department = $this->dept_slug ? Department::where('slug', $this->dept_slug)->first() : null;
-        } elseif ($this->employee) {
-            $employees_department = Department::where('id', $this->employee->department_id)->first();
-        } else {
-            // Fallback: use the requested department
-            $employees_department = $this->dept_slug ? Department::where('slug', $this->dept_slug)->first() : null;
-        }
+        $employees_department = $this->department;
 
         return view('livewire.branch-dashboard.production.products', [
             'headers' => [
@@ -325,6 +335,7 @@ protected function getFilteredQuery()
             'departments' => $departments,
             'unitOfMeasures' => $unitOfMeasures,
             'employees_department' => $employees_department,
+            'no_department_selected' => false,
         ]);
     }
 

@@ -32,8 +32,10 @@ class SalesRequests extends Component
     public ?string $dept_slug = null;
 
     public ?Department $department = null;
+    /** @var array<int> */
+    public array $departmentIds = [];
     public string $search = '';
-    public string $statusFilter = 'pending';
+    public string $statusFilter = 'all';
     public string $priorityFilter = 'all';
     public int $perPage = 15;
 
@@ -68,6 +70,8 @@ class SalesRequests extends Component
             if (! $this->department) {
                 abort(404, 'Department not found.');
             }
+
+            $this->departmentIds = $this->resolveEquivalentProductionDepartmentIds($this->department);
         }
     }
 
@@ -98,15 +102,12 @@ class SalesRequests extends Component
                 $item = $this->resolveItem($itemId);
                 /** @var SalesProductionRequestWorkflowService $workflow */
                 $workflow = app(SalesProductionRequestWorkflowService::class);
-                /** @var SalesProductionMaterialsService $materialsService */
-                $materialsService = app(SalesProductionMaterialsService::class);
 
                 $workflow->transitionItem($item, SalesProductionRequestStatus::APPROVED_BY_PRODUCTION);
                 $this->createExecutionRequestForApprovedItem($item->fresh('request'));
-                $materialsService->requestMaterials($item);
             });
 
-            $this->toast()->success('Sales request item approved and materials request sent to inventory.')->send();
+            $this->toast()->success('Sales request item approved. Use "Request Materials" when ready.')->send();
         } catch (\Throwable $e) {
             $this->toast()->error('Approval failed: ' . $e->getMessage())->send();
         }
@@ -149,12 +150,9 @@ class SalesRequests extends Component
                     $item = $this->resolveItem((int) $id);
                     /** @var SalesProductionRequestWorkflowService $workflow */
                     $workflow = app(SalesProductionRequestWorkflowService::class);
-                    /** @var SalesProductionMaterialsService $materialsService */
-                    $materialsService = app(SalesProductionMaterialsService::class);
 
                     $workflow->transitionItem($item, SalesProductionRequestStatus::APPROVED_BY_PRODUCTION);
                     $this->createExecutionRequestForApprovedItem($item->fresh('request'));
-                    $materialsService->requestMaterials($item);
                 });
                 $approved++;
             } catch (\Throwable $e) {
@@ -217,7 +215,9 @@ class SalesRequests extends Component
             ])
             ->whereKey($itemId);
 
-        if (! is_super_admin() && $this->department) {
+        if (! empty($this->departmentIds)) {
+            $query->whereIn('production_department_id', $this->departmentIds);
+        } elseif (! is_super_admin() && $this->department) {
             $query->where('production_department_id', $this->department->id);
         }
 
@@ -290,7 +290,8 @@ class SalesRequests extends Component
             'requested_units' => $requestedUnits,
             'notes' => $notes,
             'production_department_id' => $item->production_department_id,
-            'status' => 'pending',
+            // Sales-side approval already happened, so execution request starts approved.
+            'status' => 'approved',
             'priority' => $item->request->priority ?? 'normal',
             'created_by_id' => auth()->id(),
         ];
@@ -315,7 +316,7 @@ class SalesRequests extends Component
                 'recipe:id,product_name,sku,yield_quantity,uom_id',
                 'recipe.unitOfMeasure:id,symbol',
                 'product:id,name,sku',
-                'latestMaterialRequest:id,sales_production_request_item_id,item_request_id',
+                'latestMaterialRequest',
                 'latestMaterialRequest.itemRequest:id,request_number,status',
             ])
             ->whereHas('request', function ($q) use ($branchId) {
@@ -324,7 +325,9 @@ class SalesRequests extends Component
                 }
             });
 
-        if (! is_super_admin() && $this->department) {
+        if (! empty($this->departmentIds)) {
+            $query->whereIn('production_department_id', $this->departmentIds);
+        } elseif (! is_super_admin() && $this->department) {
             $query->where('production_department_id', $this->department->id);
         } elseif ($this->department) {
             $query->where('production_department_id', $this->department->id);
@@ -378,10 +381,76 @@ class SalesRequests extends Component
     {
         /** @var SalesProductionMaterialsService $materialsService */
         $materialsService = app(SalesProductionMaterialsService::class);
-        $materialsService->syncPendingMaterialsApprovals(
-            $this->getBranchId(),
-            $this->department?->id,
-            100
-        );
+        if (! empty($this->departmentIds)) {
+            foreach ($this->departmentIds as $departmentId) {
+                $materialsService->syncPendingMaterialsApprovals(
+                    $this->getBranchId(),
+                    (int) $departmentId,
+                    100
+                );
+            }
+
+            return;
+        }
+
+        $materialsService->syncPendingMaterialsApprovals($this->getBranchId(), $this->department?->id, 100);
+    }
+
+    /**
+     * Resolve equivalent production department records across branch/global scopes.
+     *
+     * @return array<int>
+     */
+    private function resolveEquivalentProductionDepartmentIds(Department $department): array
+    {
+        $branchId = $this->getBranchId();
+        $targetNameKey = $this->normalizeDepartmentKey($department->name);
+        $targetSlugKey = $this->normalizeDepartmentKey((string) $department->slug);
+
+        $ids = Department::query()
+            ->whereHas('category', function ($query) {
+                $query->whereRaw('LOWER(name) = ?', ['production']);
+            })
+            ->when($branchId, function ($query) use ($branchId) {
+                $query->where(function ($subQuery) use ($branchId) {
+                    $subQuery->where('branch_id', $branchId)
+                        ->orWhereNull('branch_id');
+                });
+            })
+            ->get(['id', 'name', 'slug'])
+            ->filter(function (Department $candidate) use ($department, $targetNameKey, $targetSlugKey): bool {
+                if ((int) $candidate->id === (int) $department->id) {
+                    return true;
+                }
+
+                $candidateNameKey = $this->normalizeDepartmentKey($candidate->name);
+                $candidateSlugKey = $this->normalizeDepartmentKey((string) $candidate->slug);
+
+                return ($targetNameKey !== '' && $candidateNameKey === $targetNameKey)
+                    || ($targetSlugKey !== '' && $candidateSlugKey === $targetSlugKey)
+                    || ($targetNameKey !== '' && $candidateSlugKey === $targetNameKey)
+                    || ($targetSlugKey !== '' && $candidateNameKey === $targetSlugKey);
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (! in_array((int) $department->id, $ids, true)) {
+            $ids[] = (int) $department->id;
+        }
+
+        return $ids;
+    }
+
+    private function normalizeDepartmentKey(string $value): string
+    {
+        $normalized = strtolower($value);
+        $normalized = preg_replace('/[-_]+/', ' ', $normalized) ?? $normalized;
+        $normalized = preg_replace('/\bproduction\b/', ' ', $normalized) ?? $normalized;
+        $normalized = preg_replace('/[^a-z0-9]+/', ' ', $normalized) ?? $normalized;
+
+        return trim((string) preg_replace('/\s+/', ' ', $normalized));
     }
 }

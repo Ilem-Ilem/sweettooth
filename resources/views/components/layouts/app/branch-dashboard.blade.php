@@ -1140,9 +1140,11 @@
         });
 
         // Override fetch to handle 419 errors on logout requests
-        const originalFetch = window.fetch;
+        if (!window.originalFetch) {
+            window.originalFetch = window.fetch;
+        }
         window.fetch = function(...args) {
-            return originalFetch.apply(this, args).then(response => {
+            return window.originalFetch.apply(this, args).then(response => {
                 if (response.status === 419 && args[0].includes('/logout')) {
                     // CSRF token expired on logout, redirect to login
                     window.location.href = '{{ route("login") }}';

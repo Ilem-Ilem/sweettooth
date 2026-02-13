@@ -11,6 +11,11 @@
         :with-icons="true"
     />
 
+    @if ($no_department_selected ?? false)
+        <div class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900">
+            A department should be chosen to view product types.
+        </div>
+    @else
     <!-- Header with Add Button -->
     <div class="flex justify-between items-center">
         <button wire:click="openCreateModal"
@@ -191,5 +196,6 @@
 
     <!-- Modal -->
     @include('livewire.branch-dashboard.production.partials.product-type-modal')
+    @endif
 
 </div>

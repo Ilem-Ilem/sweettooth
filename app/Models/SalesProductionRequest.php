@@ -52,10 +52,8 @@ class SalesProductionRequest extends Model
                 return;
             }
 
-            $from = SalesProductionRequestStatus::from($request->getOriginal('status'));
-            $to = $request->status instanceof SalesProductionRequestStatus
-                ? $request->status
-                : SalesProductionRequestStatus::from($request->status);
+            $from = self::normalizeStatusValue($request->getOriginal('status'));
+            $to = self::normalizeStatusValue($request->status);
 
             if (! $from->canTransitionTo($to)) {
                 throw new DomainException("Invalid request status transition: {$from->value} -> {$to->value}");
@@ -135,5 +133,17 @@ class SalesProductionRequest extends Model
         $workflow = app(SalesProductionRequestWorkflowService::class);
 
         return $workflow->cancelRequest($this, $reason);
+    }
+
+    /**
+     * @param  mixed  $status
+     */
+    private static function normalizeStatusValue(mixed $status): SalesProductionRequestStatus
+    {
+        if ($status instanceof SalesProductionRequestStatus) {
+            return $status;
+        }
+
+        return SalesProductionRequestStatus::from((string) $status);
     }
 }

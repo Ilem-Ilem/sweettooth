@@ -164,7 +164,9 @@ class DashboardRedirectController extends Controller
             'hr_officer' => 20,
             'stock_controller' => 20,
             'store_keeper' => 20,
-            
+            'accountant' => 20,
+            'accounting_manager' => 20,
+
             // Level 1 - Staff (lowest priority)
             'kitchen_staff' => 10,
             'gelato_production_staff' => 10,
@@ -227,6 +229,8 @@ class DashboardRedirectController extends Controller
             'hr_officer' => 'branch-dashboard.dashboard.hr',
             'stock_controller' => 'branch-dashboard.dashboard.inventory',
             'store_keeper' => 'branch-dashboard.dashboard.inventory',
+            'accountant' => 'branch-dashboard.accounting.dashboard',
+            'accounting_manager' => 'branch-dashboard.accounting.dashboard',
 
             // Staff - Route to their module dashboard
             'kitchen_staff' => 'branch-dashboard.dashboard.production',

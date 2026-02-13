@@ -39,10 +39,12 @@ Route::middleware(['auth'])->group(function () {
     });
 });
 
-// Dynamic favicon routes
+// Dynamic asset routes
 Route::get('/favicon.ico', [App\Http\Controllers\FaviconController::class, 'getFavicon']);
 Route::get('/favicon.svg', [App\Http\Controllers\FaviconController::class, 'getSvgFavicon']);
 Route::get('/apple-touch-icon.png', [App\Http\Controllers\FaviconController::class, 'getAppleTouchIcon']);
+Route::get('/swtc.png', [App\Http\Controllers\AssetController::class, 'getSwtcPng']);
+Route::get('/manifest.json', [App\Http\Controllers\AssetController::class, 'getManifest']);
 
 require __DIR__.'/auth.php';
 require __DIR__.'/super-admin.php';

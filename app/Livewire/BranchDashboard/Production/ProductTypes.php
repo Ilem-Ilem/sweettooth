@@ -65,12 +65,24 @@ class ProductTypes extends BaseComponent
     #[Url(keep: true)]
     public ?string $dept_slug = null;
 
-    public function mount($deptSlug)
+    public function mount($deptSlug = null)
     {
-        $this->dept_slug = $deptSlug;
-        $this->department = Department::where('slug', $deptSlug)->first();
-        $this->employees_department = Employee::where('id', auth()->id())->first();
+        $requestedDeptSlug = $deptSlug
+            ?? request()->query('dept_slug')
+            ?? request()->query('deptSlug');
 
+        if ($requestedDeptSlug) {
+            $this->department = Department::select('id', 'name', 'slug')
+                ->where('slug', $requestedDeptSlug)
+                ->first();
+
+            if ($this->department) {
+                $this->dept_slug = $this->department->slug;
+                $this->filterDepartment = $this->department->id;
+            }
+        }
+
+        $this->employees_department = Employee::where('id', auth()->id())->first();
     }
 
     protected function getModelClass(): string
@@ -90,11 +102,8 @@ class ProductTypes extends BaseComponent
 
     protected function getFilteredQuery()
     {
-        return ProductType::query()
+        $query = ProductType::query()
             ->select(['id', 'department_id', 'name', 'code', 'description', 'status', 'created_at'])
-            ->when(!is_super_admin(), function ($query) {
-                $query->where('department_id', $this->department->id);
-            })
             ->with(['department:id,name,slug,category_id', 'department.category:id,name']) // Select only needed columns
             ->withCount('products') // Use withCount instead of with and counting separately
             ->when($this->search, function ($query) {
@@ -104,8 +113,13 @@ class ProductTypes extends BaseComponent
             })
             ->when($this->filterStatus, function ($query) {
                 $query->where('status', $this->filterStatus);
-            })
-            ->orderBy('id', 'desc');
+            });
+
+        if ($this->department) {
+            $query->where('department_id', $this->department->id);
+        }
+
+        return $query->orderBy('id', 'desc');
     }
 
     public function updatedSearch()
@@ -133,6 +147,30 @@ class ProductTypes extends BaseComponent
 
     public function render()
     {
+        if (!$this->department) {
+            return view('livewire.branch-dashboard.production.product-types', [
+                'headers' => [
+                    ['index' => 'sequential_number', 'label' => '#'],
+                    ['index' => 'code', 'label' => 'Code'],
+                    ['index' => 'name', 'label' => 'Name'],
+                    ['index' => 'department', 'label' => 'Department'],
+                    ['index' => 'description', 'label' => 'Description'],
+                    ['index' => 'products_count', 'label' => 'Products'],
+                    ['index' => 'status', 'label' => 'Status'],
+                    ['index' => 'action', 'label' => 'Actions', 'display' => true],
+                ],
+                'rows' => null,
+                'department' => null,
+                'productionDepartments' => Department::whereHas('category', function ($q) {
+                    $q->where('name', 'Production');
+                })
+                ->orderBy('name')
+                ->select('id', 'name', 'slug')
+                ->get(),
+                'no_department_selected' => true,
+            ]);
+        }
+
         $rows = Cache::remember($this->getCacheKey(), now()->addMinutes($this->cacheTtlMinutes), function () {
             return $this->getFilteredQuery()->paginate($this->quantity ?? 10);
         });
@@ -171,6 +209,7 @@ class ProductTypes extends BaseComponent
             'rows' => $rows,
             'department' => $this->department,
             'productionDepartments' => $productionDepartments,
+            'no_department_selected' => false,
         ]);
     }
 

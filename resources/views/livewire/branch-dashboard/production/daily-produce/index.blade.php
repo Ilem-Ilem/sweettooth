@@ -179,10 +179,24 @@
                                 {{ $produce['request_source_label'] }}
                             </span>
                         @endif
-                        @if(!empty($produce['sales_department_name']) && !empty($produce['is_sales_request']))
-                            <span class="text-xs px-2 py-1 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200">
-                                To: {{ $produce['sales_department_name'] }}
-                            </span>
+                        @if(!empty($produce['is_sales_request']))
+                            @php
+                                $resolvedSalesDeptName = $produce['sales_department_name'] ?? null;
+                                if (empty($resolvedSalesDeptName) && !empty($produce['batches'])) {
+                                    foreach ($produce['batches'] as $batchRow) {
+                                        if (!empty($batchRow['allowed_sales_department_id'])) {
+                                            $resolvedDept = collect($salesDepartments)->firstWhere('id', $batchRow['allowed_sales_department_id']);
+                                            $resolvedSalesDeptName = $resolvedDept['name'] ?? ('Sales Dept #' . $batchRow['allowed_sales_department_id']);
+                                            break;
+                                        }
+                                    }
+                                }
+                            @endphp
+                            @if(!empty($resolvedSalesDeptName))
+                                <span class="text-xs px-2 py-1 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200">
+                                    To: {{ $resolvedSalesDeptName }}
+                                </span>
+                            @endif
                         @endif
                         <span class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                             {{ $produce['recipe_name'] }}
@@ -548,9 +562,12 @@
                                              @if(!empty($batch['allowed_sales_department_id']))
                                                  @php
                                                      $lockedDept = collect($salesDepartments)->firstWhere('id', $batch['allowed_sales_department_id']);
+                                                     $lockedDeptName = $lockedDept['name']
+                                                         ?? ($produce['sales_department_name'] ?? null)
+                                                         ?? ('Sales Dept #' . $batch['allowed_sales_department_id']);
                                                  @endphp
-                                                 <p class="text-[10px] text-emerald-700 dark:text-emerald-300">
-                                                     Locked to: {{ $lockedDept['name'] ?? 'Requesting Sales Department' }}
+                                                 <p class="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
+                                                     Locked to Sales: {{ $lockedDeptName }}
                                                  </p>
                                              @endif
                                              @if(isset($batchDispatches[$batch['id']]) && count($batchDispatches[$batch['id']]) > 0)
@@ -571,12 +588,11 @@
                                                                  @if(!empty($batch['allowed_sales_department_id']))
                                                                      @php
                                                                          $allowedDept = collect($salesDepartments)->firstWhere('id', $batch['allowed_sales_department_id']);
+                                                                         $allowedDeptName = $allowedDept['name']
+                                                                             ?? ($produce['sales_department_name'] ?? null)
+                                                                             ?? ('Sales Dept #' . $batch['allowed_sales_department_id']);
                                                                      @endphp
-                                                                     @if($allowedDept)
-                                                                         <option value="{{ $allowedDept['id'] }}">{{ $allowedDept['name'] }}</option>
-                                                                     @else
-                                                                         <option value="{{ $batch['allowed_sales_department_id'] }}">Sales Dept {{ $batch['allowed_sales_department_id'] }}</option>
-                                                                     @endif
+                                                                     <option value="{{ $batch['allowed_sales_department_id'] }}">{{ $allowedDeptName }}</option>
                                                                  @else
                                                                      @foreach($salesDepartments as $dept)
                                                                          <option value="{{ $dept['id'] }}">{{ $dept['name'] }}</option>
@@ -602,7 +618,11 @@
                                                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                                                      </svg>
-                                                     Add Dispatch
+                                                     @if(!empty($batch['allowed_sales_department_id']))
+                                                         Add Dispatch to Locked Sales Dept
+                                                     @else
+                                                         Add Dispatch
+                                                     @endif
                                                  </button>
                                              </div>
                                          </td>
@@ -610,13 +630,19 @@
                                         <!-- For Order (EDITABLE) -->
                                         <td class="px-3 py-2 bg-purple-50 dark:bg-purple-900/10">
                                             @php
-                                                $maxForOrder = max(0, $batch['quantity_approved'] - $totalAllocated);
+                                                $isSalesLockedBatch = !empty($batch['allowed_sales_department_id']);
+                                                $maxForOrder = $isSalesLockedBatch ? 0 : max(0, $batch['quantity_approved'] - $totalAllocated);
                                             @endphp
                                             <input type="number" step="0.01" min="0" max="{{ $maxForOrder }}"
                                                    wire:model.live="batchQuantities.{{ $batch['id'] }}.quantity_for_order"
                                                    wire:change="updateBatchQuantity({{ $batch['id'] }}, 'quantity_for_order')"
-                                                   @disabled($batch['quantity_approved'] <= 0)
+                                                   @disabled($batch['quantity_approved'] <= 0 || $isSalesLockedBatch)
                                                    class="w-20 px-2 py-1 text-center border border-purple-300 dark:border-purple-600 rounded bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-purple-500">
+                                            @if($isSalesLockedBatch)
+                                                <p class="mt-1 text-[10px] text-purple-700 dark:text-purple-300">
+                                                    Sales request flow: dispatch via Send Out only.
+                                                </p>
+                                            @endif
                                         </td>
 
                                         <!-- Remaining (AUTO) -->
