@@ -1,8 +1,40 @@
 <div class="p-3 space-y-3">
     <!-- Header -->
     <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
-        <h2 class="text-lg font-semibold text-zinc-800 dark:text-zinc-100">Purchase Analytics</h2>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <h2 class="text-lg font-semibold text-zinc-800 dark:text-zinc-100">Purchase Analytics</h2>
+            <button wire:click="generateReport"
+                    wire:loading.attr="disabled"
+                    wire:target="generateReport"
+                    class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm disabled:opacity-60">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-3-3v6m8 4H4a1 1 0 01-1-1V6a1 1 0 011-1h10l6 6v7a1 1 0 01-1 1z"/>
+                </svg>
+                <span wire:loading.remove wire:target="generateReport">Generate Report</span>
+                <span wire:loading wire:target="generateReport">Generating...</span>
+            </button>
+        </div>
     </div>
+
+    @if (session('success'))
+        <div class="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded text-sm text-green-800 dark:text-green-200">
+            <div class="flex flex-wrap items-center gap-2">
+                <span>{{ session('success') }}</span>
+                @if($generatedReportId)
+                    <a href="{{ branch_route('branch-dashboard.reporting.report.view', ['id' => $generatedReportId]) }}"
+                       class="inline-flex items-center px-2 py-1 rounded bg-green-700 text-white hover:bg-green-800 text-xs">
+                        View Report
+                    </a>
+                @endif
+            </div>
+        </div>
+    @endif
+
+    @if (session('warning'))
+        <div class="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded text-sm text-yellow-800 dark:text-yellow-200">
+            {{ session('warning') }}
+        </div>
+    @endif
 
     <!-- Summary Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

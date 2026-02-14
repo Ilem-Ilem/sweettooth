@@ -8,6 +8,14 @@
                     <p class="text-gray-600 dark:text-gray-400 mt-1">Comprehensive sales insights and performance metrics</p>
                 </div>
                 <div class="flex gap-3">
+                    <button wire:click="generateReport"
+                            wire:loading.attr="disabled"
+                            wire:target="generateReport"
+                            class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-60">
+                        <i class="fas fa-file-circle-plus mr-2"></i>
+                        <span wire:loading.remove wire:target="generateReport">Generate Report</span>
+                        <span wire:loading wire:target="generateReport">Generating...</span>
+                    </button>
                     <button wire:click="refreshData" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
                         <i class="fas fa-sync-alt mr-2"></i>Refresh
                     </button>
@@ -22,6 +30,26 @@
                     </div>
                 </div>
             </div>
+
+            @if (session('success'))
+                <div class="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded text-sm text-green-800 dark:text-green-200">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span>{{ session('success') }}</span>
+                        @if($generatedReportId)
+                            <a href="{{ branch_route('branch-dashboard.reporting.report.view', ['id' => $generatedReportId]) }}"
+                               class="inline-flex items-center px-2 py-1 rounded bg-green-700 text-white hover:bg-green-800 text-xs">
+                                View Report
+                            </a>
+                        @endif
+                    </div>
+                </div>
+            @endif
+
+            @if (session('warning'))
+                <div class="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded text-sm text-yellow-800 dark:text-yellow-200">
+                    {{ session('warning') }}
+                </div>
+            @endif
     
             <!-- Filters -->
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">

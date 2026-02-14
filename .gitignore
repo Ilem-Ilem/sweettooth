@@ -1,5 +1,4 @@
 /.phpunit.cache
-/node_modules
 /public/build
 /public/hot
 /public/storage
@@ -28,3 +27,7 @@ yarn-error.log
 /dockerArchive.zip
 Archive.zip
 Archive.zip
+/documentations
+/doc
+/txt
+/real_data

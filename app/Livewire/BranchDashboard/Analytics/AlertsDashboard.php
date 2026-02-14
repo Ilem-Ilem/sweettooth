@@ -4,17 +4,18 @@ namespace App\Livewire\BranchDashboard\Analytics;
 
 use App\Models\Stock;
 use App\Models\ItemRequest;
+use App\Services\Reports\AnalyticsSnapshotReportService;
 use App\Traits\Exportable;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\Attributes\{Layout, On, Url};
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class AlertsDashboard extends Component
 {
     use Exportable;
     public $alertType = '';
+    public ?string $generatedReportId = null;
 
     #[Url(keep:true)]
     public ?string $b_id = null;
@@ -195,6 +196,79 @@ class AlertsDashboard extends Component
             'exports.analytics.alerts-dashboard',
             'excel'
         );
+    }
+
+    public function generateReport(): void
+    {
+        $branchId = $this->b_id ?? request()->get('b_id') ?? Auth::guard('web')->user()?->branch_id ?? current_branch_id();
+        if (!$branchId) {
+            session()->flash('warning', 'Branch context is required to generate report.');
+            return;
+        }
+
+        try {
+            $alerts = $this->getAllAlerts()->values();
+            $summary = $this->getAlertSummary();
+
+            $alertsByType = $alerts->groupBy('type')->map->count()->toArray();
+            $alertsByCategory = $alerts->groupBy('category')->map->count()->toArray();
+
+            $reportData = [
+                'source_page' => 'analytics.alerts',
+                'generated_at' => now()->toDateTimeString(),
+                'filters' => [
+                    'alert_type' => $this->alertType,
+                ],
+                'summary' => $summary,
+                'alerts_by_type' => $alertsByType,
+                'alerts_by_category' => $alertsByCategory,
+                'table_rows' => $alerts->map(function ($alert) {
+                    return [
+                        'type' => $alert['type'] ?? null,
+                        'category' => $alert['category'] ?? null,
+                        'message' => $alert['message'] ?? null,
+                        'item' => $alert['item'] ?? null,
+                        'sku' => $alert['sku'] ?? null,
+                        'current' => $alert['current'] ?? null,
+                        'reorder_level' => $alert['reorder_level'] ?? null,
+                        'days_left' => $alert['days_left'] ?? null,
+                        'damaged_qty' => $alert['damaged_qty'] ?? null,
+                        'count' => $alert['count'] ?? null,
+                        'priority' => $alert['priority'] ?? null,
+                        'action' => $alert['action'] ?? null,
+                    ];
+                })->values()->toArray(),
+            ];
+
+            $report = app(AnalyticsSnapshotReportService::class)->generate([
+                'branch_id' => $branchId,
+                'report_category' => 'inventory',
+                'report_type' => 'alerts_analytics',
+                'report_name' => 'Alerts Analytics Report',
+                'period_from' => now()->toDateString(),
+                'period_to' => now()->toDateString(),
+                'report_data' => $reportData,
+                'summary_metrics' => [
+                    'total_alerts' => (int) ($summary['total'] ?? 0),
+                    'critical_alerts' => (int) ($summary['critical'] ?? 0),
+                    'warning_alerts' => (int) ($summary['warning'] ?? 0),
+                    'info_alerts' => (int) ($summary['info'] ?? 0),
+                    'low_stock_alerts' => (int) ($summary['low_stock'] ?? 0),
+                    'out_of_stock_alerts' => (int) ($summary['out_of_stock'] ?? 0),
+                ],
+                'charts_data' => [
+                    'alerts_by_type' => $alertsByType,
+                    'alerts_by_category' => $alertsByCategory,
+                ],
+                'status' => 'pending_review',
+            ]);
+
+            $this->generatedReportId = $report->id;
+            session()->flash('success', 'Alerts report generated and submitted for review.');
+        } catch (\Throwable $e) {
+            report($e);
+            session()->flash('warning', 'Failed to generate alerts report. Please try again.');
+        }
     }
 
     public function render()

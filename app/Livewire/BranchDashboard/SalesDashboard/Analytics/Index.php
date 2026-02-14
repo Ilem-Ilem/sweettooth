@@ -10,6 +10,7 @@ use App\Models\Payment;
 use App\Models\Product;
 use App\Models\ProductType;
 use App\Services\CurrencyFormattingService;
+use App\Services\Reports\AnalyticsSnapshotReportService;
 use App\Traits\Exportable;
 use Livewire\Component;
 use Livewire\Attributes\Computed;
@@ -32,6 +33,7 @@ class Index extends Component
     public $orderType = 'all';
     public $paymentMethod = 'all';
     public $selectedPeriod = 'today';
+    public ?string $generatedReportId = null;
     
     // Tab management
     public $activeTab = 'overview';
@@ -49,12 +51,20 @@ class Index extends Component
 
     public function mount()
     {
-        $this->branchId = auth()->user()->branch_id;
+        $this->branchId = $this->resolveBranchId();
         // Super Admin can see all departments, so don't restrict to their department
         if (!is_super_admin()) {
             $this->departmentId = auth()->user()->department_id;
         }
         $this->setDateRange('today');
+    }
+
+    private function resolveBranchId(): ?string
+    {
+        return request()->get('b_id')
+            ?? $this->branchId
+            ?? auth()->user()?->branch_id
+            ?? current_branch_id();
     }
 
     public function updated($propertyName)
@@ -441,6 +451,206 @@ class Index extends Component
             }
         } catch (\Exception $e) {
             $this->dispatch('notify', ['message' => 'Export failed: ' . $e->getMessage(), 'type' => 'error']);
+        }
+    }
+
+    public function generateReport(): void
+    {
+        if (!$this->validateDateRange()) {
+            session()->flash('warning', 'Invalid date range. Please fix the date filters before generating report.');
+            return;
+        }
+
+        $branchId = $this->resolveBranchId();
+        if (!$branchId) {
+            session()->flash('warning', 'Branch context is required to generate report.');
+            return;
+        }
+
+        try {
+            $overview = $this->salesOverview;
+            $profit = $this->profitAnalysis;
+
+            $payments = $this->paymentBreakdown->map(function ($row) {
+                return [
+                    'payment_method' => $row->payment_method,
+                    'transactions' => (int) $row->count,
+                    'total_amount' => (float) $row->total,
+                ];
+            })->values()->toArray();
+
+            $orderTypes = $this->orderTypeBreakdown->map(function ($row) {
+                return [
+                    'order_type' => $row->order_type,
+                    'orders' => (int) $row->count,
+                    'total_amount' => (float) $row->total,
+                ];
+            })->values()->toArray();
+
+            $topProducts = $this->topSellingProducts->map(function ($row) {
+                return [
+                    'product_name' => $row->product?->name ?? 'N/A',
+                    'sku' => $row->product?->sku ?? null,
+                    'quantity_sold' => (float) $row->total_quantity,
+                    'total_revenue' => (float) $row->total_revenue,
+                    'order_count' => (int) $row->order_count,
+                ];
+            })->values()->toArray();
+
+            $hourlySales = $this->hourlySalesData->map(function ($row) {
+                return [
+                    'hour' => (int) $row->hour,
+                    'total_sales' => (float) $row->total,
+                    'orders' => (int) $row->count,
+                ];
+            })->values()->toArray();
+
+            $dailySales = $this->dailySalesData->map(function ($row) {
+                return [
+                    'date' => Carbon::parse($row->date)->toDateString(),
+                    'total_sales' => (float) $row->total,
+                    'orders' => (int) $row->count,
+                    'avg_order' => (float) $row->avg_order,
+                ];
+            })->values()->toArray();
+
+            $shiftPerformance = collect($this->shiftPerformance)->map(function ($shift) {
+                return [
+                    'shift_number' => $shift['shift_number'] ?? null,
+                    'shift_type' => $shift['shift_type'] ?? null,
+                    'shift_date' => isset($shift['shift_date']) ? Carbon::parse($shift['shift_date'])->toDateString() : null,
+                    'employee_name' => $shift['employee_name'] ?? 'N/A',
+                    'total_sales' => (float) ($shift['total_sales'] ?? 0),
+                    'total_orders' => (int) ($shift['total_orders'] ?? 0),
+                    'cash_variance' => (float) ($shift['cash_variance'] ?? 0),
+                    'status' => $shift['status'] ?? null,
+                ];
+            })->values()->toArray();
+
+            $categorySales = $this->categorySales->map(function ($row) {
+                return [
+                    'category_name' => $row->category_name,
+                    'products' => (int) $row->product_count,
+                    'orders' => (int) $row->order_count,
+                    'quantity' => (float) $row->total_quantity,
+                    'total_revenue' => (float) $row->total_revenue,
+                ];
+            })->values()->toArray();
+
+            $periodFrom = Carbon::parse($this->dateFrom)->toDateString();
+            $periodTo = Carbon::parse($this->dateTo)->toDateString();
+
+            $reportData = [
+                'source_page' => 'sales-dashboard.analytics',
+                'generated_at' => now()->toDateTimeString(),
+                'filters' => [
+                    'date_from' => $this->dateFrom,
+                    'date_to' => $this->dateTo,
+                    'selected_period' => $this->selectedPeriod,
+                    'order_type' => $this->orderType,
+                    'payment_method' => $this->paymentMethod,
+                    'department_id' => $this->departmentId,
+                ],
+                'overview' => $overview,
+                'profit' => $profit,
+                'payments' => $payments,
+                'order_types' => $orderTypes,
+                'top_products' => $topProducts,
+                'hourly_sales' => $hourlySales,
+                'daily_sales' => $dailySales,
+                'shift_performance' => $shiftPerformance,
+                'category_sales' => $categorySales,
+                'tables' => [
+                    'payment_breakdown' => [
+                        'headers' => ['Payment Method', 'Transactions', 'Total Amount'],
+                        'rows' => array_map(
+                            fn (array $row) => [$row['payment_method'], $row['transactions'], $row['total_amount']],
+                            $payments
+                        ),
+                    ],
+                    'order_type_breakdown' => [
+                        'headers' => ['Order Type', 'Orders', 'Total Amount'],
+                        'rows' => array_map(
+                            fn (array $row) => [$row['order_type'], $row['orders'], $row['total_amount']],
+                            $orderTypes
+                        ),
+                    ],
+                    'top_products' => [
+                        'headers' => ['Product', 'SKU', 'Quantity Sold', 'Revenue', 'Orders'],
+                        'rows' => array_map(
+                            fn (array $row) => [
+                                $row['product_name'],
+                                $row['sku'],
+                                $row['quantity_sold'],
+                                $row['total_revenue'],
+                                $row['order_count'],
+                            ],
+                            $topProducts
+                        ),
+                    ],
+                    'daily_sales' => [
+                        'headers' => ['Date', 'Total Sales', 'Orders', 'Average Order'],
+                        'rows' => array_map(
+                            fn (array $row) => [$row['date'], $row['total_sales'], $row['orders'], $row['avg_order']],
+                            $dailySales
+                        ),
+                    ],
+                    'shift_performance' => [
+                        'headers' => ['Shift No', 'Shift Type', 'Date', 'Employee', 'Sales', 'Orders', 'Variance', 'Status'],
+                        'rows' => array_map(
+                            fn (array $row) => [
+                                $row['shift_number'],
+                                $row['shift_type'],
+                                $row['shift_date'],
+                                $row['employee_name'],
+                                $row['total_sales'],
+                                $row['total_orders'],
+                                $row['cash_variance'],
+                                $row['status'],
+                            ],
+                            $shiftPerformance
+                        ),
+                    ],
+                ],
+            ];
+
+            $departmentId = is_numeric($this->departmentId) ? (int) $this->departmentId : null;
+
+            $report = app(AnalyticsSnapshotReportService::class)->generate([
+                'branch_id' => $branchId,
+                'department_id' => $departmentId,
+                'report_category' => 'sales',
+                'report_type' => 'sales_analytics',
+                'report_name' => 'Sales Analytics Report',
+                'period_from' => $periodFrom,
+                'period_to' => $periodTo,
+                'report_data' => $reportData,
+                'summary_metrics' => [
+                    'total_sales' => (float) ($overview['total_sales'] ?? 0),
+                    'total_orders' => (int) ($overview['total_orders'] ?? 0),
+                    'avg_order_value' => (float) ($overview['avg_order_value'] ?? 0),
+                    'net_revenue' => (float) ($overview['net_revenue'] ?? 0),
+                    'gross_profit' => (float) ($profit['gross_profit'] ?? 0),
+                    'gross_margin' => (float) ($profit['gross_margin'] ?? 0),
+                    'refund_rate' => (float) ($overview['refund_rate'] ?? 0),
+                ],
+                'charts_data' => [
+                    'payments' => $payments,
+                    'order_types' => $orderTypes,
+                    'hourly_sales' => $hourlySales,
+                    'daily_sales' => $dailySales,
+                    'category_sales' => $categorySales,
+                ],
+                'status' => 'pending_review',
+            ]);
+
+            $this->generatedReportId = $report->id;
+            session()->flash('success', 'Sales analytics report generated and submitted for review.');
+            $this->dispatch('notify', ['message' => 'Report generated successfully.', 'type' => 'success']);
+        } catch (\Throwable $e) {
+            report($e);
+            session()->flash('warning', 'Failed to generate sales analytics report. Please try again.');
+            $this->dispatch('notify', ['message' => 'Failed to generate report.', 'type' => 'error']);
         }
     }
 

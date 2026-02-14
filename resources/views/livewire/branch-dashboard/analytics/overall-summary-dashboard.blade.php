@@ -14,6 +14,16 @@
                 <p class="text-sm opacity-90 mt-1">Comprehensive inventory overview without charts</p>
             </div>
             <div class="flex items-center gap-2">
+                <button wire:click="generateReport"
+                    wire:loading.attr="disabled"
+                    wire:target="generateReport"
+                    class="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg font-medium transition-colors flex items-center gap-2 disabled:opacity-60">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-3-3v6m8 4H4a1 1 0 01-1-1V6a1 1 0 011-1h10l6 6v7a1 1 0 01-1 1z"/>
+                    </svg>
+                    <span wire:loading.remove wire:target="generateReport">Generate Report</span>
+                    <span wire:loading wire:target="generateReport">Generating...</span>
+                </button>
                 <button wire:click="refresh"
                     class="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg font-medium transition-colors flex items-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -52,6 +62,20 @@
             </div>
         </div>
     </div>
+
+    @if (session('success'))
+        <div class="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded text-sm text-green-800 dark:text-green-200">
+            <div class="flex flex-wrap items-center gap-2">
+                <span>{{ session('success') }}</span>
+                @if($generatedReportId)
+                    <a href="{{ branch_route('branch-dashboard.reporting.report.view', ['id' => $generatedReportId]) }}"
+                       class="inline-flex items-center px-2 py-1 rounded bg-green-700 text-white hover:bg-green-800 text-xs">
+                        View Report
+                    </a>
+                @endif
+            </div>
+        </div>
+    @endif
 
     {{-- Quick Navigation Links --}}
     <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">

@@ -26,7 +26,7 @@ class Edit extends BaseComponent
     #[Url(keep: true)]
     public $b_id;
 
-    public string $bank_name;
+    public string $bank_name = '';
 
 
     // Employee form fields
@@ -156,6 +156,7 @@ class Edit extends BaseComponent
         $this->hourly_rate = $employee->hourly_rate;
         $this->tax_id = $employee->tax_id;
         $this->bank_account = $employee->bank_account;
+        $this->bank_name = $employee->bank_name ?? '';
         $this->allergies = $employee->allergies;
         $this->existing_photo = $employee->profile_photo;
         $this->last_performance_review_date = $employee->last_performance_review_date ? (is_string($employee->last_performance_review_date) ? Carbon::parse($employee->last_performance_review_date)->format('Y-m-d') : $employee->last_performance_review_date->format('Y-m-d')) : null;
@@ -230,9 +231,9 @@ class Edit extends BaseComponent
         try {
             $this->validate([
                 'department_id' => 'required|exists:departments,id',
-                'employee_number' => 'required|string|unique:employees,employee_number,'.$this->employeeId,
+                'employee_number' => 'required|string|unique:users,employee_number,'.$this->employeeId,
                 'name' => 'required|string|max:255',
-                'email' => 'required|email|unique:employees,email,'.$this->employeeId,
+                'email' => 'required|email|unique:users,email,'.$this->employeeId,
                 'phone' => 'nullable|string|max:50',
                 'address' => 'nullable|string',
                 'date_of_birth' => 'nullable|date',
@@ -249,7 +250,7 @@ class Edit extends BaseComponent
                 'hourly_rate' => 'nullable|numeric|min:0',
                 'tax_id' => 'nullable|string|max:50',
                 'bank_account' => 'nullable|string|max:11',
-                'bank_name'=>'nullable|string',
+                'bank_name' => 'nullable|string|max:100',
                 'allergies' => 'nullable|string',
                 'profile_photo' => 'nullable|image|max:2048',
                 'last_performance_review_date' => 'nullable|date',
@@ -295,9 +296,9 @@ class Edit extends BaseComponent
         try {
             $this->validate([
                 'department_id' => 'required|exists:departments,id',
-                'employee_number' => 'required|string|unique:employees,employee_number,'.$this->employeeId,
+                'employee_number' => 'required|string|unique:users,employee_number,'.$this->employeeId,
                 'name' => 'required|string|max:255',
-                'email' => 'required|email|unique:employees,email,'.$this->employeeId,
+                'email' => 'required|email|unique:users,email,'.$this->employeeId,
                 'phone' => 'nullable|string|max:50',
                 'address' => 'nullable|string',
                 'date_of_birth' => 'nullable|date',
@@ -314,7 +315,7 @@ class Edit extends BaseComponent
                 'hourly_rate' => 'nullable|numeric|min:0',
                 'tax_id' => 'nullable|string|max:50',
                 'bank_account' => 'nullable|string|max:11',
-                'bank_name'=>'nullable|string',
+                'bank_name' => 'nullable|string|max:100',
                 'allergies' => 'nullable|string',
                 'profile_photo' => 'nullable|image|max:2048',
                 'last_performance_review_date' => 'nullable|date',

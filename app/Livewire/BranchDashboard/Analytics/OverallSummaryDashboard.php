@@ -7,6 +7,7 @@ use App\Models\StockMovement;
 use App\Models\Purchase;
 use App\Models\ItemRequest;
 use App\Models\Item;
+use App\Services\Reports\AnalyticsSnapshotReportService;
 use App\Traits\Exportable;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -25,6 +26,7 @@ class OverallSummaryDashboard extends Component
     public $departmentFilter = null;
     public $categoryFilter = null;
     public $autoRefresh = false;
+    public ?string $generatedReportId = null;
 
     #[Url(keep:true)]
     public ?string $b_id = null;
@@ -564,6 +566,71 @@ class OverallSummaryDashboard extends Component
             'Content-Type' => 'text/csv',
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ]);
+    }
+
+    public function generateReport(): void
+    {
+        $branchId = $this->b_id ?? request()->get('b_id') ?? current_branch_id();
+        if (!$branchId) {
+            $this->toast()->warning('Branch context is required to generate report.')->send();
+            return;
+        }
+
+        try {
+            $payload = $this->prepareExportData();
+            $summary = $payload['summary'] ?? [];
+
+            $reportData = [
+                'source_page' => 'analytics.overall-summary',
+                'generated_at' => now()->toDateTimeString(),
+                'filters' => [
+                    'date_from' => $this->dateFrom,
+                    'date_to' => $this->dateTo,
+                    'department_filter' => $this->departmentFilter,
+                    'category_filter' => $this->categoryFilter,
+                ],
+                'summary' => $summary,
+                'health_overview' => $payload['health_overview'] ?? [],
+                'insights' => $payload['insights'] ?? [],
+                'stock_health' => $payload['stock_health'] ?? [],
+                'department_breakdown' => $payload['department_breakdown'] ?? [],
+                'recent_activity' => $payload['recent_activity'] ?? [],
+                'top_alerts' => $payload['top_alerts'] ?? [],
+                'performance_metrics' => $payload['performance_metrics'] ?? [],
+            ];
+
+            $report = app(AnalyticsSnapshotReportService::class)->generate([
+                'branch_id' => $branchId,
+                'report_category' => 'inventory',
+                'report_type' => 'overall_summary_analytics',
+                'report_name' => 'Overall Analytics Summary Report',
+                'period_from' => Carbon::parse($this->dateFrom)->toDateString(),
+                'period_to' => Carbon::parse($this->dateTo)->toDateString(),
+                'report_data' => $reportData,
+                'summary_metrics' => [
+                    'total_stock_value' => (float) ($summary['total_stock_value'] ?? 0),
+                    'total_items' => (int) ($summary['total_items'] ?? 0),
+                    'total_purchases' => (int) ($summary['total_purchases'] ?? 0),
+                    'total_movements' => (int) ($summary['total_movements'] ?? 0),
+                    'total_requests' => (int) ($summary['total_requests'] ?? 0),
+                    'low_stock_items' => (int) ($summary['low_stock_items'] ?? 0),
+                    'critical_items' => (int) ($summary['critical_items'] ?? 0),
+                    'expired_items' => (int) ($summary['expired_items'] ?? 0),
+                ],
+                'charts_data' => [
+                    'health_overview' => $payload['health_overview'] ?? [],
+                    'department_breakdown' => $payload['department_breakdown'] ?? [],
+                ],
+                'status' => 'pending_review',
+            ]);
+
+            $this->generatedReportId = $report->id;
+            session()->flash('success', 'Overall analytics report generated and submitted for review.');
+            $this->toast()->success('Report generated successfully.')->send();
+        } catch (\Throwable $e) {
+            report($e);
+            $this->toast()->error('Failed to generate report.')->send();
+        }
     }
 
     protected function prepareExportData(): array

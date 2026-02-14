@@ -5,6 +5,7 @@ namespace App\Livewire\BranchDashboard\Analytics;
 use App\Models\ItemRequest;
 use App\Models\ItemDispatch;
 use App\Models\Department;
+use App\Services\Reports\AnalyticsSnapshotReportService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -23,6 +24,7 @@ class RequestDispatchAnalytics extends Component
     public $departmentFilter = '';
     public $shiftFilter = '';
     public $searchTerm = '';
+    public ?string $generatedReportId = null;
 
     protected $queryString = [
         'dateFrom',
@@ -36,6 +38,13 @@ class RequestDispatchAnalytics extends Component
     {
         $this->dateFrom = now()->subDays(30)->format('Y-m-d');
         $this->dateTo = now()->format('Y-m-d');
+    }
+
+    private function resolveBranchId(): ?string
+    {
+        return request()->get('b_id')
+            ?? Auth::guard('web')->user()?->branch_id
+            ?? current_branch_id();
     }
 
     public function updatedDateFrom()
@@ -73,7 +82,7 @@ class RequestDispatchAnalytics extends Component
      */
     public function getRequestSummary()
     {
-        $branchId = @Auth::guard('web')->user()->branch_id ??  request()->get('b_id');
+        $branchId = $this->resolveBranchId();
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
@@ -98,7 +107,7 @@ class RequestDispatchAnalytics extends Component
      */
     public function getDispatchSummary()
     {
-        $branchId = @Auth::guard('web')->user()->branch_id ??  request()->get('b_id');
+        $branchId = $this->resolveBranchId();
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
@@ -123,7 +132,7 @@ class RequestDispatchAnalytics extends Component
      */
     public function getPendingRequests()
     {
-        $branchId = @Auth::guard('web')->user()->branch_id ??  request()->get('b_id');
+        $branchId = $this->resolveBranchId();
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
@@ -154,7 +163,7 @@ class RequestDispatchAnalytics extends Component
      */
     public function getMostRequestedItems()
     {
-        $branchId = @Auth::guard('web')->user()->branch_id ??  request()->get('b_id');
+        $branchId = $this->resolveBranchId();
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
@@ -186,7 +195,7 @@ class RequestDispatchAnalytics extends Component
      */
     public function getDepartmentBreakdown()
     {
-        $branchId = @Auth::guard('web')->user()->branch_id ??  request()->get('b_id');
+        $branchId = $this->resolveBranchId();
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
@@ -218,7 +227,7 @@ class RequestDispatchAnalytics extends Component
      */
     public function getShiftBreakdown()
     {
-        $branchId = @Auth::guard('web')->user()->branch_id ??  request()->get('b_id');
+        $branchId = $this->resolveBranchId();
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
@@ -247,7 +256,7 @@ class RequestDispatchAnalytics extends Component
      */
     public function getApprovalTurnaroundTime()
     {
-        $branchId = @Auth::guard('web')->user()->branch_id ??  request()->get('b_id');
+        $branchId = $this->resolveBranchId();
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
@@ -287,7 +296,7 @@ class RequestDispatchAnalytics extends Component
      */
     public function getFulfillmentRate()
     {
-        $branchId = @Auth::guard('web')->user()->branch_id ??  request()->get('b_id');
+        $branchId = $this->resolveBranchId();
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
@@ -313,7 +322,7 @@ class RequestDispatchAnalytics extends Component
      */
     public function getDailyTrend()
     {
-        $branchId = @Auth::guard('web')->user()->branch_id ??  request()->get('b_id');
+        $branchId = $this->resolveBranchId();
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
@@ -351,7 +360,7 @@ class RequestDispatchAnalytics extends Component
      */
     public function getPeriodComparison()
     {
-        $branchId = @Auth::guard('web')->user()->branch_id ??  request()->get('b_id');
+        $branchId = $this->resolveBranchId();
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
         $daysDiff = $dateFrom->diffInDays($dateTo);
@@ -431,9 +440,149 @@ class RequestDispatchAnalytics extends Component
         return $insights;
     }
 
+    public function generateReport(): void
+    {
+        $branchId = $this->resolveBranchId();
+        if (!$branchId) {
+            session()->flash('warning', 'Branch context is required to generate report.');
+            return;
+        }
+
+        $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
+        $dateTo = Carbon::parse($this->dateTo)->endOfDay();
+
+        if ($dateFrom->greaterThan($dateTo)) {
+            session()->flash('warning', 'Invalid date range. "From" date must be before "To".');
+            return;
+        }
+
+        try {
+            $requestSummary = $this->getRequestSummary();
+            $dispatchSummary = $this->getDispatchSummary();
+            $pendingRequests = $this->getPendingRequests()
+                ->map(function ($row) {
+                    return [
+                        'request_number' => $row['request']->request_number,
+                        'department' => $row['request']->department?->name,
+                        'shift' => $row['request']->shift,
+                        'waiting_time_hours' => (int) $row['waiting_time'],
+                        'urgency' => $row['urgency'],
+                    ];
+                })
+                ->values()
+                ->toArray();
+            $mostRequestedItems = $this->getMostRequestedItems()->map(function ($item) {
+                return [
+                    'item_name' => $item->name,
+                    'sku' => $item->sku,
+                    'request_count' => (int) $item->request_count,
+                    'total_quantity' => (float) $item->total_quantity,
+                    'uom' => $item->uom,
+                ];
+            })->values()->toArray();
+            $departmentBreakdown = $this->getDepartmentBreakdown()->values()->toArray();
+            $shiftBreakdown = $this->getShiftBreakdown()->values()->toArray();
+            $approvalTurnaround = $this->getApprovalTurnaroundTime();
+            $fulfillmentRate = $this->getFulfillmentRate();
+            $dailyTrend = $this->getDailyTrend()->values()->toArray();
+            $periodComparison = $this->getPeriodComparison();
+            $smartInsights = $this->getSmartInsights();
+
+            $requestRows = ItemRequest::with(['department', 'requestedBy', 'approver', 'requestDetails'])
+                ->where('branch_id', $branchId)
+                ->whereBetween('request_date', [$dateFrom, $dateTo])
+                ->when($this->statusFilter, fn($q) => $q->where('status', $this->statusFilter))
+                ->when($this->departmentFilter, fn($q) => $q->where('department_id', $this->departmentFilter))
+                ->when($this->shiftFilter, fn($q) => $q->where('shift', $this->shiftFilter))
+                ->when($this->searchTerm, function ($q) {
+                    $q->where(function ($query) {
+                        $query->where('request_number', 'like', '%' . $this->searchTerm . '%')
+                            ->orWhereHas('requestedBy', function ($subQuery) {
+                                $subQuery->where('name', 'like', '%' . $this->searchTerm . '%');
+                            })
+                            ->orWhereHas('department', function ($subQuery) {
+                                $subQuery->where('name', 'like', '%' . $this->searchTerm . '%');
+                            });
+                    });
+                })
+                ->latest('request_date')
+                ->limit(300)
+                ->get()
+                ->map(function ($request) {
+                    return [
+                        'request_number' => $request->request_number,
+                        'request_date' => optional($request->request_date)->toDateTimeString(),
+                        'department' => $request->department?->name,
+                        'shift' => $request->shift,
+                        'status' => $request->status,
+                        'requested_by' => $request->requestedBy?->name,
+                        'approved_by' => $request->approver?->name,
+                        'items_count' => $request->requestDetails->count(),
+                    ];
+                })
+                ->values()
+                ->toArray();
+
+            $reportData = [
+                'source_page' => 'analytics.request-dispatch',
+                'generated_at' => now()->toDateTimeString(),
+                'filters' => [
+                    'date_from' => $dateFrom->toDateString(),
+                    'date_to' => $dateTo->toDateString(),
+                    'status' => $this->statusFilter,
+                    'department_id' => $this->departmentFilter,
+                    'shift' => $this->shiftFilter,
+                    'search_term' => $this->searchTerm,
+                ],
+                'request_summary' => $requestSummary,
+                'dispatch_summary' => $dispatchSummary,
+                'pending_requests' => $pendingRequests,
+                'most_requested_items' => $mostRequestedItems,
+                'department_breakdown' => $departmentBreakdown,
+                'shift_breakdown' => $shiftBreakdown,
+                'approval_turnaround' => $approvalTurnaround,
+                'fulfillment_rate' => $fulfillmentRate,
+                'daily_trend' => $dailyTrend,
+                'period_comparison' => $periodComparison,
+                'smart_insights' => $smartInsights,
+                'table_rows' => $requestRows,
+            ];
+
+            $report = app(AnalyticsSnapshotReportService::class)->generate([
+                'branch_id' => $branchId,
+                'department_id' => $this->departmentFilter ?: null,
+                'report_category' => 'inventory',
+                'report_type' => 'request_dispatch_analytics',
+                'report_name' => 'Request & Dispatch Analytics Report',
+                'period_from' => $dateFrom->toDateString(),
+                'period_to' => $dateTo->toDateString(),
+                'report_data' => $reportData,
+                'summary_metrics' => [
+                    'total_requests' => (int) ($requestSummary['total_requests'] ?? 0),
+                    'pending_requests' => (int) ($requestSummary['pending'] ?? 0),
+                    'completed_requests' => (int) ($requestSummary['completed'] ?? 0),
+                    'total_dispatches' => (int) ($dispatchSummary['total_dispatches'] ?? 0),
+                    'fulfillment_rate' => (float) ($fulfillmentRate['rate'] ?? 0),
+                ],
+                'charts_data' => [
+                    'daily_trend' => $dailyTrend,
+                    'department_breakdown' => $departmentBreakdown,
+                    'shift_breakdown' => $shiftBreakdown,
+                ],
+                'status' => 'pending_review',
+            ]);
+
+            $this->generatedReportId = $report->id;
+            session()->flash('success', 'Request/dispatch analytics report generated and submitted for review.');
+        } catch (\Throwable $e) {
+            report($e);
+            session()->flash('warning', 'Failed to generate request/dispatch report. Please try again.');
+        }
+    }
+
     public function render()
     {
-        $branchId = @Auth::guard('web')->user()->branch_id ??  request()->get('b_id');
+        $branchId = $this->resolveBranchId();
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 

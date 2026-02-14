@@ -26,8 +26,18 @@
         :with-icons="true"
     />
 
-    <!-- Export Buttons -->
-    <div class="flex justify-end gap-2 mb-3">
+    <!-- Actions -->
+    <div class="flex flex-wrap justify-end gap-2 mb-3">
+        <button wire:click="generateReport"
+            wire:loading.attr="disabled"
+            wire:target="generateReport"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg active:scale-95 shadow-sm disabled:opacity-60">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-3-3v6m8 4H4a1 1 0 01-1-1V6a1 1 0 011-1h10l6 6v7a1 1 0 01-1 1z"/>
+            </svg>
+            <span wire:loading.remove wire:target="generateReport">Generate Report</span>
+            <span wire:loading wire:target="generateReport">Generating...</span>
+        </button>
         <button wire:click="exportCSV" 
             class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg active:scale-95 shadow-sm">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -43,6 +53,26 @@
             Excel
         </button>
     </div>
+
+    @if (session('success'))
+        <div class="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded text-xs text-green-800 dark:text-green-200 mb-3">
+            <div class="flex flex-wrap items-center gap-2">
+                <span>{{ session('success') }}</span>
+                @if($generatedReportId)
+                    <a href="{{ branch_route('branch-dashboard.reporting.report.view', ['id' => $generatedReportId]) }}"
+                       class="inline-flex items-center px-2 py-1 rounded bg-green-700 text-white hover:bg-green-800">
+                        View Report
+                    </a>
+                @endif
+            </div>
+        </div>
+    @endif
+
+    @if (session('error'))
+        <div class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded text-xs text-red-800 dark:text-red-200 mb-3">
+            {{ session('error') }}
+        </div>
+    @endif
 
     {{-- Smart Insights Panel --}}
     @if(count($smartInsights) > 0)

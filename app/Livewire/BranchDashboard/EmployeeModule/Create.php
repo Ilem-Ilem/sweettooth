@@ -25,7 +25,7 @@ class Create extends BaseComponent
     #[Url(keep: true)]
     public $b_id;
 
-    public string $bank_name;
+    public string $bank_name = '';
 
     public ?string $branch_id = null;
 
@@ -228,9 +228,9 @@ class Create extends BaseComponent
         try {
             $this->validate([
                 'department_id' => 'required|exists:departments,id',
-                'employee_number' => 'required|string|unique:employees,employee_number',
+                'employee_number' => 'required|string|unique:users,employee_number',
                 'name' => 'required|string|max:255',
-                'email' => 'required|email|unique:employees,email',
+                'email' => 'required|email|unique:users,email',
                 'phone' => 'nullable|string|max:50',
                 'address' => 'nullable|string',
                 'date_of_birth' => 'nullable|date',
@@ -247,7 +247,7 @@ class Create extends BaseComponent
                 'hourly_rate' => 'nullable|numeric|min:0',
                 'tax_id' => 'nullable|string|max:50',
                 'bank_account' => 'nullable|string|max:100',
-                'bank_nme' => 'nullable|string|max:100',
+                'bank_name' => 'nullable|string|max:100',
                 'allergies' => 'nullable|string',
                 'profile_photo' => 'nullable|image|max:2048',
                 'last_performance_review_date' => 'nullable|date',
@@ -302,9 +302,9 @@ class Create extends BaseComponent
             // Validate form input
             $this->validate([
                 'department_id' => 'required|exists:departments,id',
-                'employee_number' => 'required|string|unique:employees,employee_number',
+                'employee_number' => 'required|string|unique:users,employee_number',
                 'name' => 'required|string|max:255',
-                'email' => 'required|email|unique:employees,email',
+                'email' => 'required|email|unique:users,email',
                 'phone' => 'nullable|string|max:50',
                 'address' => 'nullable|string',
                 'date_of_birth' => 'nullable|date',
@@ -321,7 +321,7 @@ class Create extends BaseComponent
                 'hourly_rate' => 'nullable|numeric|min:0',
                 'tax_id' => 'nullable|string|max:50',
                 'bank_account' => 'nullable|string|max:11',                
-                'bank_nme' => 'nullable|string|max:100',
+                'bank_name' => 'nullable|string|max:100',
 
                 'allergies' => 'nullable|string',
                 'profile_photo' => 'nullable|image|max:2048',

@@ -5,6 +5,7 @@ namespace App\Livewire\BranchDashboard\Analytics;
 use App\Models\StockMovement;
 use App\Models\Stock;
 use App\Models\Department;
+use App\Services\Reports\AnalyticsSnapshotReportService;
 use App\Traits\Exportable;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -33,6 +34,7 @@ class StockMovementAnalytics extends Component
     public ?string $b_id = null;
 
     public ?string $branchId = null;
+    public ?string $generatedReportId = null;
 
     protected array $bulkActions = [
         'export' => ['label' => 'Export Selected', 'method' => 'exportSelected'],
@@ -451,6 +453,128 @@ class StockMovementAnalytics extends Component
         return response()->streamDownload(fn () => print $csv, $filename, ['Content-Type' => 'text/csv']);
     }
 
+    public function generateReport(): void
+    {
+        $branchId = $this->branchId ?? current_branch_id();
+        $this->validateDateRange();
+
+        $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
+        $dateTo = Carbon::parse($this->dateTo)->endOfDay();
+
+        try {
+            $analytics = $this->getAnalyticsSummary($branchId);
+            $topMovedItems = $this->mapTopMovedItems($this->getTopMovedItems());
+            $velocityAnalysis = $this->mapVelocityItems($this->getVelocityAnalysis());
+            $dailyBreakdown = collect($analytics['daily_breakdown'] ?? [])
+                ->map(function ($row) {
+                    return [
+                        'date' => Carbon::parse($row->date)->toDateString(),
+                        'stock_in' => (float) ($row->stock_in ?? 0),
+                        'stock_out' => (float) ($row->stock_out ?? 0),
+                        'net_change' => (float) (($row->stock_in ?? 0) - ($row->stock_out ?? 0)),
+                        'total_movements' => (int) ($row->total_movements ?? 0),
+                    ];
+                })
+                ->values()
+                ->toArray();
+            $peakHours = collect($analytics['peak_hours'] ?? [])->values()->toArray();
+
+            $mostMovedItem = $analytics['most_moved_item'];
+            $mostActiveUser = $analytics['most_active_user'];
+
+            $movementRows = $this->buildFilteredMovementsQuery($branchId, $dateFrom, $dateTo)
+                ->limit(300)
+                ->get()
+                ->append('department_name')
+                ->map(function ($movement) {
+                    return [
+                        'movement_date' => optional($movement->movement_date)->toDateTimeString(),
+                        'type' => $movement->type,
+                        'item_name' => $movement->stock->item->name ?? 'N/A',
+                        'sku' => $movement->stock->item->sku ?? 'N/A',
+                        'quantity' => (float) $movement->quantity,
+                        'quantity_before' => (float) $movement->quantity_before,
+                        'quantity_after' => (float) $movement->quantity_after,
+                        'uom' => $movement->stock->item->uom ?? ($movement->stock->item->unitOfMeasure?->symbol),
+                        'moved_by' => $movement->mover?->name ?? 'System',
+                        'department' => $movement->department_name ?? null,
+                        'shift' => $movement->shift,
+                        'notes' => $movement->notes,
+                    ];
+                })
+                ->values()
+                ->toArray();
+
+            $reportData = [
+                'source_page' => 'analytics.stock-movement',
+                'generated_at' => now()->toDateTimeString(),
+                'filters' => [
+                    'date_from' => $dateFrom->toDateString(),
+                    'date_to' => $dateTo->toDateString(),
+                    'movement_type' => $this->movementType,
+                    'selected_item' => $this->selectedItem,
+                    'search_term' => $this->searchTerm,
+                    'shift' => $this->filterShift,
+                    'department_filter' => $this->filterDepartment,
+                    'view_mode' => $this->viewMode,
+                ],
+                'summary' => [
+                    'today' => $analytics['today'] ?? [],
+                    'period' => $analytics['period'] ?? [],
+                    'previous_period' => $analytics['previous_period'] ?? [],
+                    'latest_movement' => optional($analytics['latest_movement'] ?? null)->toDateTimeString(),
+                    'most_moved_item' => [
+                        'item_name' => $mostMovedItem?->stock?->item?->name,
+                        'sku' => $mostMovedItem?->stock?->item?->sku,
+                        'movement_count' => (int) ($mostMovedItem?->movement_count ?? 0),
+                    ],
+                    'most_active_user' => [
+                        'name' => $mostActiveUser?->mover?->name,
+                        'operation_count' => (int) ($mostActiveUser?->operation_count ?? 0),
+                    ],
+                ],
+                'daily_breakdown' => $dailyBreakdown,
+                'peak_hours' => $peakHours,
+                'top_moved_items' => $topMovedItems,
+                'velocity_analysis' => $velocityAnalysis,
+                'table_rows' => $movementRows,
+            ];
+
+            $summaryMetrics = [
+                'total_movements' => (int) ($analytics['period']['total_movements'] ?? 0),
+                'stock_in' => (float) ($analytics['period']['stock_in'] ?? 0),
+                'stock_out' => (float) ($analytics['period']['stock_out'] ?? 0),
+                'transfers' => (int) ($analytics['period']['transfers'] ?? 0),
+                'adjustments' => (int) ($analytics['period']['adjustments'] ?? 0),
+                'damaged' => (float) ($analytics['period']['damaged'] ?? 0),
+            ];
+
+            $report = app(AnalyticsSnapshotReportService::class)->generate([
+                'branch_id' => $branchId,
+                'department_id' => $this->filterDepartment ?: null,
+                'report_category' => 'inventory',
+                'report_type' => 'stock_movement_analytics',
+                'report_name' => 'Stock Movement Analytics Report',
+                'period_from' => $dateFrom->toDateString(),
+                'period_to' => $dateTo->toDateString(),
+                'report_data' => $reportData,
+                'summary_metrics' => $summaryMetrics,
+                'charts_data' => [
+                    'daily_breakdown' => $dailyBreakdown,
+                    'peak_hours' => $peakHours,
+                    'top_moved_items' => $topMovedItems,
+                ],
+                'status' => 'pending_review',
+            ]);
+
+            $this->generatedReportId = $report->id;
+            session()->flash('success', 'Stock movement analytics report generated and submitted for review.');
+        } catch (\Throwable $e) {
+            report($e);
+            session()->flash('warning', 'Failed to generate report. Please try again.');
+        }
+    }
+
     public function getTopMovedItems()
     {
         $branchId = $this->branchId;
@@ -493,13 +617,8 @@ class StockMovementAnalytics extends Component
         return $this->movementType || $this->selectedItem || $this->searchTerm || $this->filterShift || $this->filterDepartment;
     }
 
-    public function render()
+    private function buildFilteredMovementsQuery(?string $branchId, Carbon $dateFrom, Carbon $dateTo)
     {
-        $branchId = $this->branchId;
-        $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
-        $dateTo   = Carbon::parse($this->dateTo)->endOfDay();
-
-        // Main table with filters + pagination
         $query = StockMovement::with(['stock.item', 'mover', 'reference'])
             ->whereHas('stock', fn ($q) => $q->where('branch_id', $branchId))
             ->whereBetween('movement_date', [$dateFrom, $dateTo])
@@ -507,7 +626,42 @@ class StockMovementAnalytics extends Component
 
         $this->applyFiltersToQuery($query);
 
-        $movements = $query->paginate(15);
+        return $query;
+    }
+
+    private function mapTopMovedItems($items): array
+    {
+        return $items->map(function ($item) {
+            return [
+                'item_name' => $item->stock->item->name ?? 'N/A',
+                'sku' => $item->stock->item->sku ?? 'N/A',
+                'movement_count' => (int) ($item->movement_count ?? 0),
+                'total_moved' => (float) ($item->total_moved ?? 0),
+                'uom' => $item->stock->item->uom ?? ($item->stock->item->unitOfMeasure?->symbol),
+            ];
+        })->values()->toArray();
+    }
+
+    private function mapVelocityItems($items): array
+    {
+        return $items->map(function ($item) {
+            return [
+                'item_name' => $item->stock->item->name ?? 'N/A',
+                'sku' => $item->stock->item->sku ?? 'N/A',
+                'movement_count' => (int) ($item->movement_count ?? 0),
+                'total_quantity' => (float) ($item->total_quantity ?? 0),
+                'uom' => $item->stock->item->uom ?? ($item->stock->item->unitOfMeasure?->symbol),
+            ];
+        })->values()->toArray();
+    }
+
+    public function render()
+    {
+        $branchId = $this->branchId;
+        $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
+        $dateTo   = Carbon::parse($this->dateTo)->endOfDay();
+
+        $movements = $this->buildFilteredMovementsQuery($branchId, $dateFrom, $dateTo)->paginate(15);
         $movements->through(fn ($m) => $m->append('department_name'));
 
         $activityFeed = $this->viewMode === 'feed'

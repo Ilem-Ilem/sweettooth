@@ -2,17 +2,15 @@
 
 namespace App\Livewire\BranchDashboard\Analytics;
 
-use App\Models\Item;
 use App\Models\Stock;
 use App\Models\StockMovement;
+use App\Services\Reports\AnalyticsSnapshotReportService;
 use App\Traits\Exportable;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\{Layout, Url};
 use Carbon\Carbon;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class StockLevelAnalytics extends Component
@@ -27,6 +25,7 @@ class StockLevelAnalytics extends Component
     public $searchTerm = '';
     public $itemSearch = '';
     public $healthFilter = '';
+    public ?string $generatedReportId = null;
 
     protected $queryString = [
         'dateFrom',
@@ -381,6 +380,126 @@ class StockLevelAnalytics extends Component
         ]));
     }
 
+    public function generateReport(): void
+    {
+        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id') ?? current_branch_id();
+
+        $from = Carbon::parse($this->dateFrom)->toDateString();
+        $to = Carbon::parse($this->dateTo)->toDateString();
+
+        if ($from > $to) {
+            session()->flash('error', 'Invalid date range. "From" date cannot be after "To" date.');
+            return;
+        }
+
+        try {
+            $summary = $this->getStockSummary();
+            $healthBreakdown = $this->getHealthStatusBreakdown()->values()->toArray();
+            $categoryBreakdown = $this->getCategoryBreakdown()->values()->toArray();
+            $turnoverAnalysis = $this->getTurnoverAnalysis()->values()->toArray();
+            $stockLevelTrend = $this->getStockLevelTrend()->values()->toArray();
+            $reorderRecommendations = $this->getReorderRecommendations()
+                ->map(function ($row) {
+                    return [
+                        'item_name' => $row['item']?->name ?? 'Unknown',
+                        'sku' => $row['item']?->sku ?? null,
+                        'current_qty' => $row['current_qty'],
+                        'reorder_level' => $row['reorder_level'],
+                        'suggested_qty' => $row['suggested_qty'],
+                        'urgency' => $row['urgency'],
+                    ];
+                })
+                ->values()
+                ->toArray();
+            $periodComparison = $this->getPeriodComparison();
+            $smartInsights = $this->getSmartInsights();
+            $stockRows = $this->formatStocksForReport(
+                $this->getFilteredStocksQuery($branchId)->latest()->limit(300)->get()
+            );
+
+            $reportData = [
+                'source_page' => 'analytics.stock-level',
+                'generated_at' => now()->toDateTimeString(),
+                'filters' => [
+                    'date_from' => $from,
+                    'date_to' => $to,
+                    'search_term' => $this->searchTerm,
+                    'selected_category' => $this->selectedCategory,
+                    'selected_item' => $this->selectedItem,
+                    'health_filter' => $this->healthFilter,
+                ],
+                'summary' => $summary,
+                'health_breakdown' => $healthBreakdown,
+                'category_breakdown' => $categoryBreakdown,
+                'turnover_analysis' => $turnoverAnalysis,
+                'reorder_recommendations' => $reorderRecommendations,
+                'stock_level_trend' => $stockLevelTrend,
+                'period_comparison' => $periodComparison,
+                'smart_insights' => $smartInsights,
+                'table_rows' => $stockRows,
+            ];
+
+            $report = app(AnalyticsSnapshotReportService::class)->generate([
+                'branch_id' => $branchId,
+                'report_category' => 'inventory',
+                'report_type' => 'stock_level_analytics',
+                'report_name' => 'Stock Level Analytics Report',
+                'period_from' => $from,
+                'period_to' => $to,
+                'report_data' => $reportData,
+                'summary_metrics' => $summary,
+                'charts_data' => [
+                    'stock_level_trend' => $stockLevelTrend,
+                    'health_breakdown' => $healthBreakdown,
+                    'category_breakdown' => $categoryBreakdown,
+                ],
+                'status' => 'pending_review',
+            ]);
+
+            $this->generatedReportId = $report->id;
+            session()->flash('success', 'Stock level analytics report generated and submitted for review.');
+        } catch (\Throwable $e) {
+            report($e);
+            session()->flash('error', 'Failed to generate report. Please try again.');
+        }
+    }
+
+    private function getFilteredStocksQuery(?string $branchId)
+    {
+        return Stock::with(['item'])
+            ->where('branch_id', $branchId)
+            ->when($this->searchTerm, function ($query) {
+                $query->whereHas('item', function ($q) {
+                    $q->where('name', 'like', '%' . $this->searchTerm . '%')
+                        ->orWhere('sku', 'like', '%' . $this->searchTerm . '%');
+                });
+            })
+            ->when($this->selectedCategory, function ($query) {
+                $query->whereHas('item', function ($q) {
+                    $q->where('category', $this->selectedCategory);
+                });
+            })
+            ->when($this->healthFilter, function ($query) {
+                $query->where('health_status', $this->healthFilter);
+            });
+    }
+
+    private function formatStocksForReport($stocks): array
+    {
+        return $stocks->map(function ($stock) {
+            return [
+                'item_name' => $stock->item?->name ?? 'Unknown',
+                'sku' => $stock->item?->sku ?? null,
+                'category' => $stock->item?->category ?? null,
+                'health_status' => $stock->health_status,
+                'quantity_available' => $stock->quantity_available,
+                'quantity_reserved' => $stock->quantity_reserved,
+                'quantity_damaged' => $stock->quantity_damaged,
+                'uom' => $stock->item?->unitOfMeasure?->symbol ?? $stock->item?->uom,
+            ];
+        })->values()->toArray();
+    }
+
     public function exportExcel()
     {
         $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
@@ -397,22 +516,7 @@ class StockLevelAnalytics extends Component
     {
         $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
 
-        $stocks = Stock::with(['item'])
-            ->where('branch_id', $branchId)
-            ->when($this->searchTerm, function ($query) {
-                $query->whereHas('item', function ($q) {
-                    $q->where('name', 'like', '%' . $this->searchTerm . '%')
-                      ->orWhere('sku', 'like', '%' . $this->searchTerm . '%');
-                });
-            })
-            ->when($this->selectedCategory, function ($query) {
-                $query->whereHas('item', function ($q) {
-                    $q->where('category', $this->selectedCategory);
-                });
-            })
-            ->when($this->healthFilter, function ($query) {
-                $query->where('health_status', $this->healthFilter);
-            })
+        $stocks = $this->getFilteredStocksQuery($branchId)
             ->latest()
             ->paginate(15);
 

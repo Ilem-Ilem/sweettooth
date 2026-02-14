@@ -4,6 +4,7 @@ namespace App\Livewire\BranchDashboard\Analytics;
 
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
+use App\Services\Reports\AnalyticsSnapshotReportService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -22,6 +23,7 @@ class PurchaseAnalytics extends Component
     public $viewMode = 'overview'; // overview, table, suppliers, items
     public $sortColumn = 'total_spent';
     public $sortDirection = 'desc';
+    public ?string $generatedReportId = null;
 
     protected $queryString = ['dateFrom', 'dateTo', 'supplierFilter', 'paymentStatus'];
 
@@ -114,13 +116,20 @@ class PurchaseAnalytics extends Component
 
     private function getBranchId()
     {
-        // Check session first (for super admin context persistence)
+        // Always prioritize URL/query branch context.
+        $requestBranchId = request()->get('b_id');
+        if ($requestBranchId) {
+            session(['branch_id_context' => $requestBranchId]);
+            return $requestBranchId;
+        }
+
+        // Use persisted context (mainly for super admin navigation continuity).
         if (session()->has('branch_id_context')) {
             return session('branch_id_context');
         }
         
-        // Fall back to URL param or auth user's branch
-        return Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
+        // Fall back to auth user's branch, then helper.
+        return Auth::guard('web')->user()?->branch_id ?? current_branch_id();
     }
 
     public function getPurchaseTrendData()
@@ -236,14 +245,126 @@ class PurchaseAnalytics extends Component
         ];
     }
 
+    public function generateReport(): void
+    {
+        $branchId = $this->getBranchId();
+
+        if (!$branchId) {
+            session()->flash('warning', 'Branch context is required to generate report.');
+            return;
+        }
+
+        $from = \Carbon\Carbon::parse($this->dateFrom)->toDateString();
+        $to = \Carbon\Carbon::parse($this->dateTo)->toDateString();
+        if ($from > $to) {
+            session()->flash('warning', 'Invalid date range. Please correct From/To dates.');
+            return;
+        }
+
+        try {
+            $summary = $this->getSummary();
+            $trendData = $this->getPurchaseTrendData();
+            $supplierAnalysis = $this->getSupplierAnalysis()
+                ->map(function ($row) {
+                    return [
+                        'supplier_name' => $row->supplier_name,
+                        'purchase_count' => (int) $row->purchase_count,
+                        'total_spent' => (float) $row->total_spent,
+                    ];
+                })
+                ->values()
+                ->toArray();
+            $costBreakdown = $this->getCostBreakdown();
+            $topItems = $this->getTopPurchasedItems()
+                ->map(function ($row) {
+                    return [
+                        'item_name' => $row->item?->name ?? 'N/A',
+                        'sku' => $row->item?->sku ?? null,
+                        'total_quantity' => (float) $row->total_quantity,
+                        'total_cost' => (float) $row->total_cost,
+                    ];
+                })
+                ->values()
+                ->toArray();
+
+            $tableRows = $this->buildFilteredPurchasesQuery($branchId)
+                ->latest('purchase_date')
+                ->limit(300)
+                ->get()
+                ->map(function ($purchase) {
+                    return [
+                        'purchase_number' => $purchase->purchase_number,
+                        'purchase_date' => optional($purchase->purchase_date)->toDateString(),
+                        'supplier_name' => $purchase->supplier_name,
+                        'payment_status' => $purchase->payment_status,
+                        'landing_cost' => (float) $purchase->landing_cost,
+                        'total_fob_ngn' => (float) $purchase->total_fob_ngn,
+                        'other_costs' => (float) $purchase->other_costs,
+                    ];
+                })
+                ->values()
+                ->toArray();
+
+            $reportData = [
+                'source_page' => 'analytics.purchase',
+                'generated_at' => now()->toDateTimeString(),
+                'filters' => [
+                    'date_from' => $from,
+                    'date_to' => $to,
+                    'supplier_filter' => $this->supplierFilter,
+                    'payment_status' => $this->paymentStatus,
+                ],
+                'summary' => $summary,
+                'trend_data' => $trendData,
+                'supplier_analysis' => $supplierAnalysis,
+                'cost_breakdown' => $costBreakdown,
+                'top_items' => $topItems,
+                'table_rows' => $tableRows,
+            ];
+
+            $report = app(AnalyticsSnapshotReportService::class)->generate([
+                'branch_id' => $branchId,
+                'report_category' => 'inventory',
+                'report_type' => 'purchase_analytics',
+                'report_name' => 'Purchase Analytics Report',
+                'period_from' => $from,
+                'period_to' => $to,
+                'report_data' => $reportData,
+                'summary_metrics' => [
+                    'total_purchases' => (int) ($summary['total_purchases'] ?? 0),
+                    'total_spent' => (float) ($summary['total_spent'] ?? 0),
+                    'avg_purchase_value' => (float) ($summary['avg_purchase_value'] ?? 0),
+                    'paid_percentage' => (float) ($summary['paid_percentage'] ?? 0),
+                ],
+                'charts_data' => [
+                    'trend_data' => $trendData,
+                    'cost_breakdown' => $costBreakdown,
+                    'supplier_analysis' => $supplierAnalysis,
+                ],
+                'status' => 'pending_review',
+            ]);
+
+            $this->generatedReportId = $report->id;
+            session()->flash('success', 'Purchase analytics report generated and submitted for review.');
+        } catch (\Throwable $e) {
+            report($e);
+            session()->flash('warning', 'Failed to generate purchase report. Please try again.');
+        }
+    }
+
+    private function buildFilteredPurchasesQuery(?string $branchId)
+    {
+        return Purchase::where('branch_id', $branchId)
+            ->when($this->supplierFilter, fn($q) => $q->where('supplier_name', 'like', '%' . $this->supplierFilter . '%'))
+            ->when($this->paymentStatus, fn($q) => $q->where('payment_status', $this->paymentStatus))
+            ->whereBetween('purchase_date', [$this->dateFrom, $this->dateTo]);
+    }
+
     public function render()
     {
         $branchId = $this->getBranchId();
 
-        $purchases = Purchase::where('branch_id', $branchId)
-            ->when($this->supplierFilter, fn($q) => $q->where('supplier_name', 'like', '%' . $this->supplierFilter . '%'))
-            ->when($this->paymentStatus, fn($q) => $q->where('payment_status', $this->paymentStatus))
-            ->whereBetween('purchase_date', [$this->dateFrom, $this->dateTo])
+        $purchases = $this->buildFilteredPurchasesQuery($branchId)
             ->latest('purchase_date')
             ->paginate(15);
 
@@ -262,10 +383,7 @@ class PurchaseAnalytics extends Component
             return $purchase;
         });
 
-        $suppliers = Purchase::where('branch_id', $branchId)
-            ->when($this->supplierFilter, fn($q) => $q->where('supplier_name', 'like', '%' . $this->supplierFilter . '%'))
-            ->when($this->paymentStatus, fn($q) => $q->where('payment_status', $this->paymentStatus))
-            ->whereBetween('purchase_date', [$this->dateFrom, $this->dateTo])
+        $suppliers = $this->buildFilteredPurchasesQuery($branchId)
             ->distinct()
             ->pluck('supplier_name');
 

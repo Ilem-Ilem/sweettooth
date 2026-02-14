@@ -23,7 +23,7 @@ class Employee extends Authenticatable
         'employment_status', 'user_type',
         'address', 'date_of_birth', 'gender', 'nationality', 'emergency_contact_name',
         'emergency_contact_phone', 'termination_date', 'probation_end_date', 'shift_preference',
-        'salary', 'hourly_rate', 'tax_id', 'bank_account', 'allergies', 'profile_photo',
+        'salary', 'hourly_rate', 'tax_id', 'bank_account', 'bank_name', 'allergies', 'profile_photo',
         'last_performance_review_date', 'performance_rating',
     ];
 
