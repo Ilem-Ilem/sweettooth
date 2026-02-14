@@ -136,6 +136,14 @@ class Department extends Model
     }
 
     /**
+     * Products with this department set as their primary sales owner.
+     */
+    public function primarySalesProducts()
+    {
+        return $this->hasMany(Product::class, 'sales_department_id');
+    }
+
+    /**
      * Sales-owned production requests submitted from this sales department.
      */
     public function salesProductionRequests()

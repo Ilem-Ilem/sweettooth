@@ -62,6 +62,21 @@
                         @enderror
                     </div>
 
+                    <!-- Primary Sales Department -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Primary Sales Department</label>
+                        <x-select.styled
+                            wire:model.live="sales_department_id"
+                            :options="$salesDepartments ?? []"
+                            select="label:name|value:id"
+                            placeholder="Select Sales Department (Optional)"
+                        />
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Can be assigned now or updated later from product listing edit.</p>
+                        @error('sales_department_id')
+                            <span class="text-red-500 text-sm">{{ $message }}</span>
+                        @enderror
+                    </div>
+
                     <!-- SKU -->
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">SKU *</label>

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\ApprovalAuditRequest;
 use App\Models\Employee;
+use App\Models\Item;
 use App\Models\User;
 use App\Models\Purchase;
 use App\Models\Stock;
@@ -67,16 +68,31 @@ class PurchaseAuditApprovalService
 
             // Create purchase items and stock movements if provided
             if (!empty($payload['items'])) {
+                $itemsById = Item::with('unitOfMeasure')
+                    ->whereIn('id', collect($payload['items'])->pluck('item_id')->filter()->unique())
+                    ->get()
+                    ->keyBy('id');
+
                 foreach ($payload['items'] as $item) {
                     $quantity = (float) $item['quantity'];
                     $costPerUnit = (float) ($item['cost_per_unit'] ?? $item['unit_cost'] ?? 0);
                     $totalCost = $quantity * $costPerUnit;
+                    $itemId = (int) ($item['item_id'] ?? 0);
+                    $purchaseUom = (string) ($item['uom'] ?? '');
+                    $itemModel = $itemsById->get($itemId);
+
+                    if (! $itemModel) {
+                        throw new \RuntimeException("Item #{$itemId} was not found for purchase approval.");
+                    }
+
+                    $baseQuantity = self::convertPurchaseQuantityToItemBase($itemModel, $quantity, $purchaseUom);
+                    $baseCostPerUnit = $baseQuantity > 0 ? ($totalCost / $baseQuantity) : 0.0;
 
                     // Create purchase item
-                    $purchaseItem = $purchase->purchaseItems()->create([
-                        'item_id' => $item['item_id'],
+                    $purchase->purchaseItems()->create([
+                        'item_id' => $itemId,
                         'quantity' => $quantity,
-                        'uom' => $item['uom'] ?? null,
+                        'uom' => $purchaseUom,
                         'fob_fc' => (float) ($item['fob_fc'] ?? 0),
                         'fob_ngn' => (float) ($item['fob_ngn'] ?? 0),
                         'other_costs' => (float) ($item['other_costs'] ?? 0),
@@ -88,7 +104,7 @@ class PurchaseAuditApprovalService
                     $stock = Stock::firstOrCreate(
                         [
                             'branch_id' => $request->branch_id,
-                            'item_id' => $item['item_id'],
+                            'item_id' => $itemId,
                         ],
                         [
                             'quantity_available' => 0,
@@ -98,13 +114,13 @@ class PurchaseAuditApprovalService
                     );
 
                     // Update average cost
-                    $stock->updateAverageCost($quantity, $costPerUnit);
+                    $stock->updateAverageCost($baseQuantity, $baseCostPerUnit);
                     
                     // Record quantity before update
-                    $quantity_before = $stock->quantity_available;
+                    $quantity_before = (float) $stock->quantity_available;
                     
                     // Update stock quantity
-                    $stock->quantity_available += $quantity;
+                    $stock->quantity_available = $quantity_before + $baseQuantity;
                     $stock->last_stock_take_date = now();
                     $stock->save();
 
@@ -114,7 +130,7 @@ class PurchaseAuditApprovalService
                         'type' => 'in',
                         'quantity_before' => $quantity_before,
                         'quantity_after' => $stock->quantity_available,
-                        'quantity' => $quantity,
+                        'quantity' => $baseQuantity,
                         'reference_type' => 'App\Models\Purchase',
                         'reference_id' => $purchase->id,
                         'moved_by_type' => get_class($approver),
@@ -262,7 +278,7 @@ class PurchaseAuditApprovalService
 
             $purchase = Purchase::where('id', $purchaseId)
                 ->where('branch_id', $request->branch_id)
-                ->with('purchaseItems')
+                ->with('purchaseItems.item.unitOfMeasure')
                 ->firstOrFail();
 
             // Update purchase status to approved
@@ -270,6 +286,11 @@ class PurchaseAuditApprovalService
 
             // Create stock movements for each purchase item
             foreach ($purchase->purchaseItems as $purchaseItem) {
+                $itemModel = $purchaseItem->item;
+                if (! $itemModel) {
+                    throw new \RuntimeException("Item #{$purchaseItem->item_id} was not found for purchase approval.");
+                }
+
                 $stock = Stock::firstOrCreate(
                     [
                         'branch_id' => $request->branch_id,
@@ -282,17 +303,21 @@ class PurchaseAuditApprovalService
                     ]
                 );
 
-                $quantity = $purchaseItem->quantity;
+                $quantity = (float) $purchaseItem->quantity;
                 $costPerUnit = $purchaseItem->cost_per_unit ?? 0;
+                $totalCost = $quantity * (float) $costPerUnit;
+                $purchaseUom = (string) ($purchaseItem->uom ?? '');
+                $baseQuantity = self::convertPurchaseQuantityToItemBase($itemModel, $quantity, $purchaseUom);
+                $baseCostPerUnit = $baseQuantity > 0 ? ($totalCost / $baseQuantity) : 0.0;
 
                 // Update average cost
-                $stock->updateAverageCost($quantity, $costPerUnit);
+                $stock->updateAverageCost($baseQuantity, $baseCostPerUnit);
                 
                 // Record quantity before update
-                $quantity_before = $stock->quantity_available;
+                $quantity_before = (float) $stock->quantity_available;
                 
                 // Update stock quantity
-                $stock->quantity_available += $quantity;
+                $stock->quantity_available = $quantity_before + $baseQuantity;
                 $stock->last_stock_take_date = now();
                 $stock->save();
 
@@ -302,7 +327,7 @@ class PurchaseAuditApprovalService
                     'type' => 'in',
                     'quantity_before' => $quantity_before,
                     'quantity_after' => $stock->quantity_available,
-                    'quantity' => $quantity,
+                    'quantity' => $baseQuantity,
                     'reference_type' => 'App\Models\Purchase',
                     'reference_id' => $purchase->id,
                     'moved_by_type' => get_class($approver),
@@ -332,6 +357,39 @@ class PurchaseAuditApprovalService
 
             return $purchase;
         });
+    }
+
+    private static function convertPurchaseQuantityToItemBase(Item $item, float $quantity, ?string $purchaseUom): float
+    {
+        if ($quantity <= 0) {
+            return 0.0;
+        }
+
+        if (! $item->uom_id) {
+            return $quantity;
+        }
+
+        $purchaseUom = trim((string) $purchaseUom);
+        if ($purchaseUom === '') {
+            throw new \RuntimeException("Purchase UOM is required for item '{$item->name}'.");
+        }
+
+        $converted = $item->convertToBaseUom($quantity, $purchaseUom);
+        if ($converted === null) {
+            $baseUom = $item->unitOfMeasure?->symbol ?? 'item base UOM';
+            throw new \RuntimeException(
+                "No UOM conversion found for item '{$item->name}' from {$purchaseUom} to {$baseUom}."
+            );
+        }
+
+        $baseQuantity = (float) $converted;
+        if ($baseQuantity <= 0) {
+            throw new \RuntimeException(
+                "Invalid converted quantity for item '{$item->name}' using {$purchaseUom}."
+            );
+        }
+
+        return $baseQuantity;
     }
 
     /**

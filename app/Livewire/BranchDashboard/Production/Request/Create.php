@@ -10,6 +10,7 @@ use App\Models\Recipe;
 use App\Models\Shift;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -32,10 +33,14 @@ class Create extends Component
     public $currentShift = null;
     public $notes = '';
 
-    public function mount($deptSlug)
+    public function mount($deptSlug = null)
     {
+        $deptSlug = $deptSlug
+            ?? request()->query('dept_slug')
+            ?? request()->query('deptSlug');
+
         $this->dept_slug = $deptSlug;
-        $this->department = Department::where('slug', $deptSlug)->first();
+        $this->department = $deptSlug ? $this->resolveProductionDepartment($deptSlug) : null;
 
         if (!$this->department) {
             abort(404, 'Department not found');
@@ -47,6 +52,88 @@ class Create extends Component
     public function getBranchId()
     {
         return $this->b_id ? $this->b_id : request()->query('b_id');
+    }
+
+    private function resolveProductionDepartment(string $deptSlug): ?Department
+    {
+        $branchId = $this->getBranchId();
+
+        $query = Department::query()
+            ->where('slug', $deptSlug)
+            ->whereHas('category', function ($categoryQuery) {
+                $categoryQuery->whereRaw('LOWER(name) = ?', ['production']);
+            });
+
+        if ($branchId) {
+            $query->where(function ($scopeQuery) use ($branchId) {
+                $scopeQuery->where('branch_id', $branchId)
+                    ->orWhereNull('branch_id');
+            })->orderByRaw('branch_id IS NULL');
+        }
+
+        return $query->first();
+    }
+
+    /**
+     * Build product query constrained by this page's production department context.
+     */
+    private function getDepartmentProductsQuery()
+    {
+        $branchId = $this->getBranchId();
+        $departmentId = $this->department?->id;
+
+        $productsQuery = Product::query()
+            ->where('is_active', 1)
+            ->where(function ($query) use ($branchId) {
+                $query->whereNull('branch_id')
+                    ->orWhere('branch_id', $branchId);
+            });
+
+        if (! $departmentId) {
+            return $productsQuery->whereRaw('1 = 0');
+        }
+
+        $recipesQuery = Recipe::query()
+            ->where('department_id', $departmentId)
+            ->where('status', 'active')
+            ->where(function ($query) use ($branchId) {
+                $query->whereNull('branch_id')
+                    ->orWhere('branch_id', $branchId);
+            });
+
+        $recipeProductIds = (clone $recipesQuery)
+            ->whereNotNull('product_id')
+            ->pluck('product_id')
+            ->map(static fn ($id): string => (string) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        $recipeProductNames = (clone $recipesQuery)
+            ->pluck('product_name')
+            ->filter(static fn ($name): bool => is_string($name) && trim($name) !== '')
+            ->map(static fn ($name): string => trim((string) $name))
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($recipeProductIds) && empty($recipeProductNames)) {
+            return $productsQuery->whereRaw('1 = 0');
+        }
+
+        return $productsQuery->where(function ($query) use ($recipeProductIds, $recipeProductNames) {
+            if (! empty($recipeProductIds)) {
+                $query->whereIn('id', $recipeProductIds);
+            }
+
+            if (! empty($recipeProductNames)) {
+                if (! empty($recipeProductIds)) {
+                    $query->orWhereIn('name', $recipeProductNames);
+                } else {
+                    $query->whereIn('name', $recipeProductNames);
+                }
+            }
+        });
     }
 
     /**
@@ -94,13 +181,33 @@ class Create extends Component
             $productId = $this->selectedProducts[$index]['product_id'];
 
             if ($productId) {
-                $product = Product::find($productId);
+                $branchId = $this->getBranchId();
+                $product = $this->getDepartmentProductsQuery()
+                    ->where('id', $productId)
+                    ->first();
+
+                if (! $product) {
+                    $this->selectedProducts[$index]['recipe_id'] = null;
+                    $this->selectedProducts[$index]['product_details'] = null;
+
+                    return;
+                }
 
                 // Find recipe for this product in the current department
                 $recipe = Recipe::with('ingredients.item')
-                    ->where('product_name', $product->name)
                     ->where('department_id', $this->department->id)
                     ->where('status', 'active')
+                    ->where(function ($query) use ($product) {
+                        $query->where('product_id', $product->id)
+                            ->orWhere(function ($fallbackQuery) use ($product) {
+                                $fallbackQuery->whereNull('product_id')
+                                    ->where('product_name', $product->name);
+                            });
+                    })
+                    ->where(function ($query) use ($branchId) {
+                        $query->whereNull('branch_id')
+                            ->orWhere('branch_id', $branchId);
+                    })
                     ->first();
 
                 if ($recipe) {
@@ -130,13 +237,19 @@ class Create extends Component
 
     public function save()
     {
+        $allowedProductIds = $this->getDepartmentProductsQuery()
+            ->pluck('id')
+            ->map(static fn ($id): string => (string) $id)
+            ->all();
+
         $this->validate([
             'selectedProducts'              => 'required|array|min:1',
-            'selectedProducts.*.product_id' => 'required|exists:products,id',
+            'selectedProducts.*.product_id' => ['required', 'exists:products,id', Rule::in($allowedProductIds)],
             'selectedProducts.*.quantity'   => 'required|numeric|min:1',
         ], [
             'selectedProducts.required'              => 'Please add at least one product to request.',
             'selectedProducts.*.product_id.required' => 'Please select a product.',
+            'selectedProducts.*.product_id.in'       => 'Selected product is not available for this department.',
             'selectedProducts.*.quantity.required'   => 'Please enter quantity.',
         ]);
 
@@ -276,19 +389,8 @@ class Create extends Component
 
     public function render()
     {
-        $branchId     = $this->getBranchId();
-
-        // Get products that have recipes in the department
-        $products = Product::where('is_active', 1)
-            ->where(function ($query) use ($branchId) {
-                $query->whereNull('branch_id')
-                    ->orWhere('branch_id', $branchId);
-            })
-            ->whereHas('productType', function ($q) {
-                $q->where('department_id', $this->department->id);
-            })
+        $products = $this->getDepartmentProductsQuery()
             ->orderBy('name')
-        
             ->get();
 
         return view('livewire.branch-dashboard.production.request.create', [

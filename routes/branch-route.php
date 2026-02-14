@@ -129,6 +129,8 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
     // PROFILE SETTINGS (All authenticated users)
     Route::get('profile', \App\Livewire\BranchDashboard\Settings\Profile::class)
         ->name('profile');
+    Route::get('profile/security', \App\Livewire\BranchDashboard\Settings\Security::class)
+        ->name('profile.security');
 
     // MD REPORTS (Super Admin Only)
     Route::middleware('role_or_permission:view_reports')->prefix('md-reports')->name('md-reports.')->group(function () {
@@ -156,7 +158,6 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
         Route::get('/', \App\Livewire\BranchDashboard\ShiftManagement\Index::class)->name('index');
         Route::get('/configuration', \App\Livewire\BranchDashboard\ShiftManagement\ShiftConfiguration::class)->name('configuration');
         Route::get('/assignment', \App\Livewire\BranchDashboard\ShiftManagement\ShiftAssignment::class)->name('assignment');
-        Route::get('/overrides', \App\Livewire\BranchDashboard\ShiftManagement\ShiftOverrides::class)->name('overrides');
     });
 
     // Routes requiring active shift (all work functions)

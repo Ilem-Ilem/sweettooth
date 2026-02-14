@@ -138,10 +138,6 @@
                     :current="request()->routeIs('branch-dashboard.shift-management.assignment')" wire:navigate>
                     {{ __('Shift Assignment') }}
                 </flux:navlist.item>
-                <flux:navlist.item icon="exclamation-triangle" :href="branch_route('branch-dashboard.shift-management.overrides')"
-                    :current="request()->routeIs('branch-dashboard.shift-management.overrides')" wire:navigate>
-                    {{ __('Shift Overrides') }}
-                </flux:navlist.item>
             </flux:navlist.group>
             @endif
             {{-- ==================== END SHIFT MANAGEMENT ==================== --}}
@@ -927,7 +923,7 @@
                 <flux:menu.separator />
 
                 <flux:menu.radio.group>
-                    <flux:menu.item :href="branch_route('settings.profile')" icon="cog" wire:navigate>
+                    <flux:menu.item :href="branch_route('branch-dashboard.profile')" icon="cog" wire:navigate>
                         {{ __('Settings') }}
                     </flux:menu.item>
                 </flux:menu.radio.group>
@@ -974,7 +970,7 @@
                 <flux:menu.separator />
 
                 <flux:menu.radio.group>
-                    <flux:menu.item :href="branch_route('settings.profile')" icon="cog" wire:navigate>
+                    <flux:menu.item :href="branch_route('branch-dashboard.profile')" icon="cog" wire:navigate>
                         {{ __('Settings') }}</flux:menu.item>
                 </flux:menu.radio.group>
 
@@ -1118,7 +1114,7 @@
                     <flux:menu.item :href="branch_route('branch-dashboard.profile')" icon="user" wire:navigate>
                         {{ __('Profile') }}
                     </flux:menu.item>
-                    <flux:menu.item :href="route('settings.profile')" icon="cog" wire:navigate>
+                    <flux:menu.item :href="branch_route('branch-dashboard.profile')" icon="cog" wire:navigate>
                         {{ __('Settings') }}
                     </flux:menu.item>
                 </flux:menu.radio.group>

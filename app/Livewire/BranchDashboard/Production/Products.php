@@ -53,6 +53,8 @@ class Products extends BaseComponent
 
     public ?int $product_type_id = null;
 
+    public ?int $sales_department_id = null;
+
     public ?int $category_id = null;
 
     public string $description = '';
@@ -146,6 +148,7 @@ class Products extends BaseComponent
                 'products.is_available',
                 'products.shelf_life_days',
                 'products.product_type_id',
+                'products.sales_department_id',
                 'products.uom_id',
                 'products.created_at',
                 'products.branch_id',
@@ -153,6 +156,7 @@ class Products extends BaseComponent
             ->with([
                 'productType:id,name,code,department_id',
                 'productType.department:id,name,slug',
+                'salesDepartment:id,name,branch_id',
                 'unitOfMeasure:id,name,symbol',
             ])
             ->withCount('recipes')
@@ -240,6 +244,13 @@ class Products extends BaseComponent
         $this->generateSku();
     }
 
+    public function updatedSalesDepartmentId($value)
+    {
+        if ($value === '' || $value === null) {
+            $this->sales_department_id = null;
+        }
+    }
+
     private function generateSku()
     {
         if (! $this->isEditing && ! empty($this->product_type_id) && ! empty($this->name)) {
@@ -262,6 +273,7 @@ class Products extends BaseComponent
                     ['index' => 'name', 'label' => 'Product Name'],
                     ['index' => 'product_type', 'label' => 'Type'],
                     ['index' => 'department', 'label' => 'Department'],
+                    ['index' => 'sales_department', 'label' => 'Sales Dept'],
                     ['index' => 'price', 'label' => 'Price'],
                     ['index' => 'shelf_life', 'label' => 'Shelf Life'],
                     ['index' => 'uom', 'label' => 'UOM'],
@@ -278,6 +290,7 @@ class Products extends BaseComponent
                 ->select('id', 'name', 'slug')
                 ->get(),
                 'unitOfMeasures' => [],
+                'salesDepartments' => [],
                 'employees_department' => null,
                 'no_department_selected' => true,
             ]);
@@ -292,6 +305,7 @@ class Products extends BaseComponent
             'productTypes' => $productTypes,
             'departments' => $departments,
             'unitOfMeasures' => $unitOfMeasures,
+            'salesDepartments' => $salesDepartments,
         ] = Cache::remember($dropdownCacheKey, now()->addHour(), function () {
             $productTypes = ProductType::with('department:id,name')
                 ->where('department_id', $this->department->id)
@@ -311,7 +325,12 @@ class Products extends BaseComponent
                 ->select('id', 'name', 'symbol')
                 ->get();
 
-            return compact('productTypes', 'departments', 'unitOfMeasures');
+            $salesDepartments = $this->salesDepartmentsQuery()
+                ->orderBy('name')
+                ->select('id', 'name', 'branch_id')
+                ->get();
+
+            return compact('productTypes', 'departments', 'unitOfMeasures', 'salesDepartments');
         });
 
         $employees_department = $this->department;
@@ -323,6 +342,7 @@ class Products extends BaseComponent
                 ['index' => 'name', 'label' => 'Product Name'],
                 ['index' => 'product_type', 'label' => 'Type'],
                 ['index' => 'department', 'label' => 'Department'],
+                ['index' => 'sales_department', 'label' => 'Sales Dept'],
                 ['index' => 'price', 'label' => 'Price'],
                 ['index' => 'shelf_life', 'label' => 'Shelf Life'],
                 ['index' => 'uom', 'label' => 'UOM'],
@@ -334,6 +354,7 @@ class Products extends BaseComponent
             'productTypes' => $productTypes,
             'departments' => $departments,
             'unitOfMeasures' => $unitOfMeasures,
+            'salesDepartments' => $salesDepartments,
             'employees_department' => $employees_department,
             'no_department_selected' => false,
         ]);
@@ -342,6 +363,14 @@ class Products extends BaseComponent
     public function openCreateModal()
     {
         $this->resetFields();
+        $salesDepartmentIds = $this->salesDepartmentsQuery()
+            ->orderBy('name')
+            ->pluck('id');
+
+        if ($salesDepartmentIds->count() === 1) {
+            $this->sales_department_id = (int) $salesDepartmentIds->first();
+        }
+
         $this->isEditing = false;
         $this->showModal = true;
     }
@@ -354,6 +383,7 @@ class Products extends BaseComponent
         $this->name = $product->name;
         $this->sku = $product->sku;
         $this->product_type_id = $product->product_type_id;
+        $this->sales_department_id = $product->sales_department_id;
         $this->category_id = $product->category_id;
         $this->description = $product->description ?? '';
         $this->price = $product->price;
@@ -375,6 +405,7 @@ class Products extends BaseComponent
         $rules = [
             'name' => 'required|string|max:255',
             'product_type_id' => 'required|exists:product_types,id',
+            'sales_department_id' => 'nullable|exists:departments,id',
             'category_id' => 'nullable|integer',
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:0',
@@ -394,11 +425,18 @@ class Products extends BaseComponent
 
         $this->validate($rules);
 
+        if ($this->sales_department_id && ! $this->isValidSalesDepartment($this->sales_department_id)) {
+            $this->addError('sales_department_id', 'Please select a valid sales department for this branch.');
+
+            return;
+        }
+
         $productData = [
             'id' => $this->isEditing ? $this->productId : null,
             'name' => $this->name,
             'sku' => strtoupper($this->sku),
             'product_type_id' => $this->product_type_id,
+            'sales_department_id' => $this->sales_department_id,
             'category_id' => $this->category_id,
             'description' => $this->description,
             'price' => $this->price,
@@ -570,6 +608,7 @@ class Products extends BaseComponent
         $this->name = '';
         $this->sku = '';
         $this->product_type_id = null;
+        $this->sales_department_id = null;
         $this->category_id = null;
         $this->description = '';
         $this->price = 0;
@@ -676,5 +715,28 @@ class Products extends BaseComponent
     private function currentPage(): int
     {
         return (int) $this->getPage();
+    }
+
+    private function salesDepartmentsQuery()
+    {
+        $branchId = $this->getBranchId();
+
+        return Department::query()
+            ->whereHas('category', function ($q) {
+                $q->whereRaw('LOWER(name) = ?', ['sales']);
+            })
+            ->when($branchId, function ($q) use ($branchId) {
+                $q->where(function ($subQuery) use ($branchId) {
+                    $subQuery->where('branch_id', $branchId)
+                        ->orWhereNull('branch_id');
+                });
+            });
+    }
+
+    private function isValidSalesDepartment(int $departmentId): bool
+    {
+        return $this->salesDepartmentsQuery()
+            ->where('id', $departmentId)
+            ->exists();
     }
 }

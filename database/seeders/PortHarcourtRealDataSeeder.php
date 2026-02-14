@@ -72,7 +72,7 @@ class PortHarcourtRealDataSeeder extends Seeder
             $users = $this->seedUsers($hrUsers, $branch, $departments);
 
             $items = $this->seedItems($hotKitchenData['items'], $branch, $uomMap);
-            $products = $this->seedProducts($compiledProducts, $branch, $productTypes, $uomMap);
+            $products = $this->seedProducts($compiledProducts, $branch, $productTypes, $uomMap, $departments);
             $this->attachProductsToSalesDepartments($compiledProducts, $products, $departments);
             $this->seedRecipes($hotKitchenData['recipes'], $products, $items, $branch, $departments, $uomMap, $users);
             $this->ensureSuperAdminUser($branch, $departments);
@@ -152,14 +152,22 @@ class PortHarcourtRealDataSeeder extends Seeder
                 'description' => 'Production-only corner-store preparation line.',
             ],
             'till_concession' => [
-                'name' => 'Till/Concession',
+                'name' => 'Till Sales',
+                'slug' => 'till_concession',
                 'category_id' => $categories['sales']->id,
-                'description' => 'Sales till and concession operations.',
+                'description' => 'Till sales operations for ice cream, pancakes, and related products.',
+            ],
+            'concession' => [
+                'name' => 'Concession',
+                'slug' => 'concession',
+                'category_id' => $categories['sales']->id,
+                'description' => 'Independent concession sales department for pastries and confectionery.',
             ],
             'corner_store' => [
                 'name' => 'Corner Store',
+                'slug' => 'corner_store',
                 'category_id' => $categories['sales']->id,
-                'description' => 'Corner store sales operations.',
+                'description' => 'Corner store sales operations for drinks, tea, coffee, and related products.',
             ],
             'inventory' => [
                 'name' => 'Inventory/Store',
@@ -175,7 +183,30 @@ class PortHarcourtRealDataSeeder extends Seeder
 
         $departments = [];
         foreach ($definitions as $key => $definition) {
-            $slug = Str::slug($definition['name']);
+            $slug = (string) ($definition['slug'] ?? Str::slug($definition['name']));
+
+            // Normalize legacy auto-slugged sales department records
+            // (e.g. till-concession, corner-store) into canonical underscore slugs.
+            $legacySlug = Str::slug($definition['name']);
+            if (isset($definition['slug']) && $slug !== $legacySlug) {
+                $canonicalExists = Department::query()
+                    ->where('branch_id', $branch->id)
+                    ->where('slug', $slug)
+                    ->exists();
+
+                if (! $canonicalExists) {
+                    $legacyDepartment = Department::query()
+                        ->where('branch_id', $branch->id)
+                        ->where('slug', $legacySlug)
+                        ->first();
+
+                    if ($legacyDepartment !== null) {
+                        $legacyDepartment->slug = $slug;
+                        $legacyDepartment->save();
+                    }
+                }
+            }
+
             $departments[$key] = Department::updateOrCreate(
                 [
                     'branch_id' => $branch->id,
@@ -497,7 +528,7 @@ class PortHarcourtRealDataSeeder extends Seeder
             'GELATO' => 'gelato',
             'PASTRY' => 'pastry',
             'CORNERSTORE.' => 'cornerstone',
-            'CONCESSION' => 'till_concession',
+            'CONCESSION' => 'concession',
             'HOT KITCHEN' => 'hot_kitchen',
         ];
 
@@ -734,9 +765,10 @@ class PortHarcourtRealDataSeeder extends Seeder
      * @param  array<string, array<string, mixed>>  $compiledProducts
      * @param  array<string, ProductType>  $productTypes
      * @param  array<string, int>  $uomMap
+     * @param  array<string, Department>  $departments
      * @return array<string, Product>
      */
-    private function seedProducts(array $compiledProducts, Branch $branch, array $productTypes, array $uomMap): array
+    private function seedProducts(array $compiledProducts, Branch $branch, array $productTypes, array $uomMap, array $departments): array
     {
         $products = [];
 
@@ -751,6 +783,10 @@ class PortHarcourtRealDataSeeder extends Seeder
 
             $uomCode = strtolower((string) Arr::get($entry, 'uom_code', 'pcs'));
             $uomId = $uomMap[$uomCode] ?? $uomMap['pcs'] ?? $uomMap['unit'] ?? null;
+            $primarySalesDepartmentId = $this->resolvePrimarySalesDepartmentId(
+                (array) Arr::get($entry, 'sales_department_keys', []),
+                $departments
+            );
 
             $sku = 'PHC-PRD-'.strtoupper(substr(sha1($key), 0, 8));
 
@@ -769,6 +805,7 @@ class PortHarcourtRealDataSeeder extends Seeder
                 'branch_id' => $branch->id,
                 'name' => $name,
                 'product_type_id' => $productType->id,
+                'sales_department_id' => $primarySalesDepartmentId,
                 'description' => 'Seeded from real-data workbook source: '.Arr::get($entry, 'source', 'unknown'),
                 'price' => $price,
                 'cost' => $cost > 0 ? $cost : null,
@@ -794,8 +831,14 @@ class PortHarcourtRealDataSeeder extends Seeder
     {
         $sortOrder = [
             'till_concession' => 1,
+            'concession' => 1,
             'corner_store' => 1,
         ];
+        $managedSalesDepartmentIds = collect(['till_concession', 'concession', 'corner_store'])
+            ->map(static fn (string $departmentKey): ?int => $departments[$departmentKey]->id ?? null)
+            ->filter()
+            ->values()
+            ->all();
 
         foreach ($compiledProducts as $key => $entry) {
             $product = $products[$key] ?? null;
@@ -803,11 +846,14 @@ class PortHarcourtRealDataSeeder extends Seeder
                 continue;
             }
 
+            $targetDepartmentIds = [];
             foreach ((array) Arr::get($entry, 'sales_department_keys', []) as $departmentKey) {
                 $department = $departments[$departmentKey] ?? null;
                 if ($department === null) {
                     continue;
                 }
+
+                $targetDepartmentIds[] = $department->id;
 
                 DB::table('department_product')->updateOrInsert(
                     [
@@ -824,6 +870,18 @@ class PortHarcourtRealDataSeeder extends Seeder
                 );
 
                 $sortOrder[$departmentKey] = ($sortOrder[$departmentKey] ?? 1) + 1;
+            }
+
+            if ($managedSalesDepartmentIds !== []) {
+                $cleanupQuery = DB::table('department_product')
+                    ->where('product_id', $product->id)
+                    ->whereIn('department_id', $managedSalesDepartmentIds);
+
+                if ($targetDepartmentIds !== []) {
+                    $cleanupQuery->whereNotIn('department_id', array_values(array_unique($targetDepartmentIds)));
+                }
+
+                $cleanupQuery->delete();
             }
         }
     }
@@ -975,6 +1033,10 @@ class PortHarcourtRealDataSeeder extends Seeder
             return $departments['corner_store'] ?? null;
         }
 
+        if (Str::contains($job, ['concession'])) {
+            return $departments['concession'] ?? $departments['till_concession'] ?? null;
+        }
+
         if (Str::contains($job, ['chef', 'kitchen', 'cook', 'production'])) {
             return $departments['hot_kitchen'] ?? null;
         }
@@ -1079,13 +1141,17 @@ class PortHarcourtRealDataSeeder extends Seeder
         if (Str::contains($upperName, ['CORNERSTORE', 'CORNER STORE'])) {
             return 'cornerstone';
         }
+        if ($source === 'cornerstore' || $source === 'corner_store' || $source === 'cornerstone' || $this->isCornerStoreProductName($upperName)) {
+            return 'cornerstone';
+        }
+        if ($source === 'pastry' || $this->isPastryProductName($upperName)) {
+            return 'pastry';
+        }
 
         return match ($source) {
             'gelato' => 'gelato',
-            'pastry' => 'pastry',
-            'cornerstone' => 'cornerstone',
             'hot_kitchen' => 'hot_kitchen',
-            'till_concession' => 'hot_kitchen',
+            'till_concession', 'concession' => 'hot_kitchen',
             default => 'hot_kitchen',
         };
     }
@@ -1096,8 +1162,11 @@ class PortHarcourtRealDataSeeder extends Seeder
     private function sourceToSalesDepartmentKeys(string $source, string $name): array
     {
         $upperName = Str::upper($name);
-        if ($source === 'cornerstone' || Str::contains($upperName, ['CORNERSTORE', 'CORNER STORE'])) {
+        if ($source === 'cornerstone' || $source === 'corner_store' || $this->isCornerStoreProductName($upperName)) {
             return ['corner_store'];
+        }
+        if ($source === 'pastry' || $this->isPastryProductName($upperName)) {
+            return ['concession'];
         }
 
         return ['till_concession'];
@@ -1106,11 +1175,99 @@ class PortHarcourtRealDataSeeder extends Seeder
     private function sourcePriority(string $source): int
     {
         return match ($source) {
-            'cornerstone' => 5,
+            'cornerstone', 'corner_store' => 5,
             'hot_kitchen', 'gelato', 'pastry' => 4,
-            'till_concession' => 3,
+            'till_concession', 'concession' => 3,
             default => 1,
         };
+    }
+
+    /**
+     * @param  array<int, string>  $salesDepartmentKeys
+     * @param  array<string, Department>  $departments
+     */
+    private function resolvePrimarySalesDepartmentId(array $salesDepartmentKeys, array $departments): ?int
+    {
+        foreach ($salesDepartmentKeys as $salesDepartmentKey) {
+            $department = $departments[$salesDepartmentKey] ?? null;
+            if ($department !== null) {
+                return $department->id;
+            }
+        }
+
+        return null;
+    }
+
+    private function isPastryProductName(string $upperName): bool
+    {
+        if ($this->matchesKeyword($upperName, ['PANCAKE', 'WAFFLE', 'CREPE'])) {
+            return false;
+        }
+
+        if ($this->matchesKeyword($upperName, ['CAKE'])) {
+            return true;
+        }
+
+        return $this->matchesKeyword($upperName, [
+            'PASTRY',
+            'CROISSANT',
+            'DONUT',
+            'DOUGHNUT',
+            'MUFFIN',
+            'BROWNIE',
+            'COOKIE',
+            'BISCUIT',
+            'CUPCAKE',
+            'SCONE',
+            'ECLAIR',
+            'TART',
+            'PIE',
+            'CHIN CHIN',
+        ]);
+    }
+
+    private function isCornerStoreProductName(string $upperName): bool
+    {
+        return $this->matchesKeyword($upperName, [
+            'CORNERSTORE',
+            'CORNER STORE',
+            'COFFEE',
+            'TEA',
+            'LATTE',
+            'CAPPUCCINO',
+            'ESPRESSO',
+            'MOCHA',
+            'AMERICANO',
+            'MACCHIATO',
+            'FRAPPE',
+            'SMOOTHIE',
+            'MILKSHAKE',
+            'SHAKE',
+            'JUICE',
+            'SODA',
+            'SOFT DRINK',
+            'WATER',
+            'LEMONADE',
+            'HOT CHOCOLATE',
+            'ICED TEA',
+            'BEVERAGE',
+            'DRINK',
+        ]);
+    }
+
+    /**
+     * @param  array<int, string>  $keywords
+     */
+    private function matchesKeyword(string $value, array $keywords): bool
+    {
+        $escapedKeywords = array_map(
+            static fn (string $keyword): string => preg_quote($keyword, '/'),
+            $keywords
+        );
+
+        $pattern = '/\b(?:'.implode('|', $escapedKeywords).')\b/u';
+
+        return preg_match($pattern, $value) === 1;
     }
 
     private function inferSourceFromName(string $name): string

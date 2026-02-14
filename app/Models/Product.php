@@ -20,6 +20,7 @@ class Product extends Model
         'name',
         'sku',
         'product_type_id',
+        'sales_department_id',
         'category_id',
         'description',
         'price',
@@ -39,6 +40,7 @@ class Product extends Model
     ];
 
     protected $casts = [
+        'sales_department_id' => 'integer',
         'price' => 'decimal:2',
         'cost' => 'decimal:2',
         'shelf_life_days' => 'integer',
@@ -98,6 +100,14 @@ class Product extends Model
     public function productType(): BelongsTo
     {
         return $this->belongsTo(ProductType::class);
+    }
+
+    /**
+     * Get the primary sales department that owns this product.
+     */
+    public function salesDepartment(): BelongsTo
+    {
+        return $this->belongsTo(Department::class, 'sales_department_id');
     }
 
     /**

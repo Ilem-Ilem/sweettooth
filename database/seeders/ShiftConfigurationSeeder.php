@@ -2,6 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Models\Branch;
+use App\Models\ShiftConfiguration;
 use Illuminate\Database\Seeder;
 
 class ShiftConfigurationSeeder extends Seeder
@@ -11,55 +13,89 @@ class ShiftConfigurationSeeder extends Seeder
      */
     public function run(): void
     {
-        $branches = \App\Models\Branch::all();
+        // Get all branches
+        $branches = Branch::all();
 
         foreach ($branches as $branch) {
-            $configurations = [
+            // Morning Shift
+            ShiftConfiguration::updateOrCreate(
                 [
                     'branch_id' => $branch->id,
                     'shift_type' => 'morning',
+                ],
+                [
                     'name' => 'Morning Shift',
                     'start_time' => '06:00:00',
                     'end_time' => '14:00:00',
-                    'clock_in_start' => '06:00:00', // STRICT: 6 AM
-                    'clock_in_end' => '12:00:00',   // STRICT: 12 PM
+                    'clock_in_start' => '05:30:00',
+                    'clock_in_end' => '06:30:00',
                     'auto_clock_out_minutes' => 15,
                     'max_overtime_hours' => 2.00,
                     'break_duration_minutes' => 60,
-                    'timezone' => $branch->timezone ?? 'UTC',
+                    'timezone' => $branch->timezone ?? 'Africa/Lagos',
                     'is_active' => true,
-                ],
+                ]
+            );
+
+            // Afternoon Shift
+            ShiftConfiguration::updateOrCreate(
                 [
                     'branch_id' => $branch->id,
                     'shift_type' => 'afternoon',
+                ],
+                [
                     'name' => 'Afternoon Shift',
-                    'start_time' => '12:00:00',
-                    'end_time' => '20:00:00',
-                    'clock_in_start' => '12:00:00', // STRICT: 12 PM
-                    'clock_in_end' => '20:00:00',   // STRICT: 8 PM
+                    'start_time' => '14:00:00',
+                    'end_time' => '22:00:00',
+                    'clock_in_start' => '13:30:00',
+                    'clock_in_end' => '14:30:00',
                     'auto_clock_out_minutes' => 15,
                     'max_overtime_hours' => 2.00,
                     'break_duration_minutes' => 60,
-                    'timezone' => $branch->timezone ?? 'UTC',
+                    'timezone' => $branch->timezone ?? 'Africa/Lagos',
                     'is_active' => true,
+                ]
+            );
+
+            // Night Shift
+            ShiftConfiguration::updateOrCreate(
+                [
+                    'branch_id' => $branch->id,
+                    'shift_type' => 'night',
                 ],
+                [
+                    'name' => 'Night Shift',
+                    'start_time' => '22:00:00',
+                    'end_time' => '06:00:00',
+                    'clock_in_start' => '21:30:00',
+                    'clock_in_end' => '22:30:00',
+                    'auto_clock_out_minutes' => 15,
+                    'max_overtime_hours' => 2.00,
+                    'break_duration_minutes' => 60,
+                    'timezone' => $branch->timezone ?? 'Africa/Lagos',
+                    'is_active' => true,
+                ]
+            );
+
+            // Full Time Shift
+            ShiftConfiguration::updateOrCreate(
                 [
                     'branch_id' => $branch->id,
                     'shift_type' => 'full_time',
-                    'name' => 'Full Time',
-                    'start_time' => '00:00:00',
-                    'end_time' => '23:59:59',
-                    'clock_in_start' => '00:00:00',
-                    'clock_in_end' => '23:59:59',
-                    'auto_clock_out_minutes' => 480, // 8 hours for full time
-                    'max_overtime_hours' => 4.00,
-                    'break_duration_minutes' => 60,
-                    'timezone' => $branch->timezone ?? 'UTC',
-                    'is_active' => true,
                 ],
-            ];
-
-            \App\Models\ShiftConfiguration::insert($configurations);
+                [
+                    'name' => 'Full Time Shift',
+                    'start_time' => '08:00:00',
+                    'end_time' => '17:00:00',
+                    'clock_in_start' => '07:30:00',
+                    'clock_in_end' => '08:30:00',
+                    'auto_clock_out_minutes' => 480, // 8 hours
+                    'max_overtime_hours' => 2.00,
+                    'break_duration_minutes' => 60,
+                    'timezone' => $branch->timezone ?? 'Africa/Lagos',
+                    'is_active' => true,
+                ]
+            );
         }
     }
 }

@@ -5,6 +5,7 @@ namespace App\Livewire\BranchDashboard\Production\Request;
 use App\Enums\ProductionRequestSourceType;
 use App\Events\ProductionRequest\ProgressUpdated;
 use App\Models\Department;
+use App\Models\Product;
 use App\Models\ProductionProgressFeedback;
 use App\Models\ProductionRequest;
 use App\Models\ProductDispatch;
@@ -37,20 +38,24 @@ class ProductionProgressTracker extends Component
 
     public function mount($requestId = null)
     {
-        $this->loadAvailableSalesDepartments();
-
         if ($requestId) {
             $this->productionRequestId = $requestId;
             $this->loadRequest();
+        } else {
+            $this->loadAvailableSalesDepartments();
         }
     }
 
     public function loadRequest()
     {
-        $this->request = ProductionRequest::with('progressFeedback')
+        $this->request = ProductionRequest::with([
+            'progressFeedback',
+            'recipe:id,product_id,sku',
+        ])
             ->find($this->productionRequestId);
         $this->etaOverrideMinutes = $this->request?->eta_override_minutes;
 
+        $this->loadAvailableSalesDepartments();
         $this->dispatchSalesDepartmentId = null;
         $this->dispatchSalesDepartmentName = null;
 
@@ -147,6 +152,19 @@ class ProductionProgressTracker extends Component
             return;
         }
 
+        $allowedSalesDeptIds = $this->allowedDispatchSalesDepartmentIds();
+        if (empty($allowedSalesDeptIds)) {
+            session()->flash('error', 'No eligible sales department is assigned to this product. Assign product sales department first.');
+
+            return;
+        }
+
+        if (! in_array((int) $this->dispatchSalesDepartmentId, $allowedSalesDeptIds, true)) {
+            session()->flash('error', 'Selected sales department is not allowed for this product.');
+
+            return;
+        }
+
         $remaining = max(0, ($this->request->planned_production_quantity ?? 0) - $this->request->dispatches()->sum('quantity'));
 
         if ($this->dispatchQuantity > $remaining) {
@@ -202,6 +220,14 @@ class ProductionProgressTracker extends Component
 
     public function updatedDispatchSalesDepartmentId($value): void
     {
+        if ($value && ! in_array((int) $value, $this->allowedDispatchSalesDepartmentIds(), true)) {
+            $this->dispatchSalesDepartmentId = null;
+            $this->dispatchSalesDepartmentName = null;
+            session()->flash('error', 'Selected sales department is not allowed for this product.');
+
+            return;
+        }
+
         $dept = Department::find((int) $value);
         $this->dispatchSalesDepartmentName = $dept?->name ?? null;
     }
@@ -209,24 +235,97 @@ class ProductionProgressTracker extends Component
     private function loadAvailableSalesDepartments(): void
     {
         $branchId = request()->query('b_id') ?: current_branch_id();
+        $allowedIds = $this->allowedDispatchSalesDepartmentIds();
 
-        $this->availableSalesDepartments = Department::query()
+        $query = Department::query()
             ->where(function ($query) use ($branchId) {
                 $query->where('branch_id', $branchId)
                     ->orWhereNull('branch_id');
             })
-            ->where(function ($query) {
-                $query->whereHas('category', function ($categoryQuery) {
-                    $categoryQuery->whereRaw('LOWER(name) = ?', ['sales']);
-                })->orWhereIn('slug', ['till', 'corner-store', 'confectionaries-sales']);
+            ->whereHas('category', function ($categoryQuery) {
+                $categoryQuery->whereRaw('LOWER(name) = ?', ['sales']);
             })
             ->orderBy('name')
-            ->get(['id', 'name'])
+            ->select('id', 'name');
+
+        if (! empty($allowedIds)) {
+            $query->whereIn('id', $allowedIds);
+        } else {
+            $query->whereRaw('1 = 0');
+        }
+
+        $this->availableSalesDepartments = $query->get()
             ->map(fn (Department $department) => [
                 'id' => $department->id,
                 'name' => $department->name,
             ])
             ->toArray();
+    }
+
+    /**
+     * @return array<int>
+     */
+    private function allowedDispatchSalesDepartmentIds(): array
+    {
+        $product = $this->resolveDispatchProduct();
+        if (! $product || ! $product->sales_department_id) {
+            return [];
+        }
+
+        $ownerDept = Department::query()
+            ->select('id', 'slug')
+            ->find((int) $product->sales_department_id);
+
+        if (! $ownerDept) {
+            return [(int) $product->sales_department_id];
+        }
+
+        $branchId = request()->query('b_id') ?: current_branch_id();
+
+        $ids = Department::query()
+            ->whereHas('category', function ($query) {
+                $query->whereRaw('LOWER(name) = ?', ['sales']);
+            })
+            ->where('slug', $ownerDept->slug)
+            ->when($branchId, function ($query) use ($branchId) {
+                $query->where(function ($scopeQuery) use ($branchId) {
+                    $scopeQuery->where('branch_id', $branchId)
+                        ->orWhereNull('branch_id');
+                });
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (! in_array((int) $product->sales_department_id, $ids, true)) {
+            $ids[] = (int) $product->sales_department_id;
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    private function resolveDispatchProduct(): ?Product
+    {
+        if (! $this->request) {
+            return null;
+        }
+
+        $productId = $this->request->recipe?->product_id;
+        if ($productId) {
+            return Product::query()->select('id', 'sales_department_id')->find($productId);
+        }
+
+        $recipeSku = $this->request->recipe?->sku;
+        if (! empty($recipeSku)) {
+            return Product::query()
+                ->select('id', 'sales_department_id')
+                ->where('sku', $recipeSku)
+                ->first();
+        }
+
+        return null;
     }
 
     private function resetForm()

@@ -198,6 +198,12 @@
                 </span>
             @endinteract
 
+            @interact('column_sales_department', $row)
+                <span class="text-sm text-zinc-700 dark:text-zinc-300">
+                    {{ $row->salesDepartment?->name ?? 'Unassigned' }}
+                </span>
+            @endinteract
+
             @interact('column_price', $row)
                 <span class="font-semibold text-zinc-900 dark:text-zinc-100">
                     ${{ number_format($row->price, 2) }}

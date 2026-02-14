@@ -265,7 +265,9 @@ class Index extends BaseComponent
                 $dispatchService->markItemAsReceivedBySales($linkedSalesItem);
             }
 
-            // Get current active shift for the sales department
+            // Get current active shift in the generic shifts table.
+            // IMPORTANT: product_stocks.sales_shift_id references sales_shifts.id,
+            // so we must not store this generic shift ID in sales_shift_id.
             $currentShift = Shift::where('employee_id', $employee->id)
                 ->where('shift_date', Carbon::today())
                 ->where('status', 'active')
@@ -315,7 +317,9 @@ class Index extends BaseComponent
             } else {
                 // Create new stock record
                 $payload = [
-                    'sales_shift_id' => $currentShift?->id,
+                    // Keep null because this flow uses generic shifts + department_id scoping.
+                    // Setting generic Shift::id here causes FK violation on sales_shifts.
+                    'sales_shift_id' => null,
                     'product_id' => $dispatch->product_id,
                     'stock_date' => $stockDate->format('Y-m-d'),
                     'shift_type' => $shiftType,

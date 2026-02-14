@@ -261,8 +261,28 @@ class Index extends BaseComponent
 
     public function addToCart(string $productId): void
     {
-        $product = Product::find($productId);
-        if (!$product) return;
+        if (! $this->departmentId) {
+            $this->toast()->error('Sales department context is missing.')->send();
+
+            return;
+        }
+
+        $productQuery = Product::query()
+            ->active()
+            ->available()
+            ->whereKey($productId);
+
+        $departmentIds = $this->scopedSalesDepartmentIds();
+        if (! empty($departmentIds)) {
+            $productQuery->whereIn('sales_department_id', $departmentIds);
+        }
+
+        $product = $productQuery->first();
+        if (! $product) {
+            $this->toast()->error('Product is not available for this sales department.')->send();
+
+            return;
+        }
 
         $stock = $this->getTodayStockForProduct($productId);
         $available = $this->availableQuantity($stock);
@@ -635,60 +655,18 @@ class Index extends BaseComponent
 
     public function getProductsProperty(): Collection
     {
+        if (! $this->departmentId) {
+            return collect();
+        }
+
         $q = Product::query()->active()->available();
-        $todayStockProductIds = collect();
-
-        $hasDepartmentColumn = Schema::hasColumn('product_stocks', 'department_id');
-        if ($this->departmentId && $hasDepartmentColumn) {
-            $departmentIds = $this->resolveEquivalentSalesDepartmentIds();
-            if (empty($departmentIds)) {
-                $departmentIds = [(int) $this->departmentId];
-            }
-
-            $todayStockProductIds = ProductStock::query()
-                ->whereDate('stock_date', Carbon::today())
-                ->whereIn('department_id', $departmentIds)
-                ->whereRaw('(opening_quantity + addition_quantity - callback_quantity - redress_quantity - transfer_quantity - glovo_quantity - quantity_sold) > 0')
-                ->distinct()
-                ->pluck('product_id');
+        $departmentIds = $this->scopedSalesDepartmentIds();
+        if (empty($departmentIds)) {
+            return collect();
         }
 
-        // CRITICAL: Keep department assignment filtering, but include products that
-        // already have received stock for this sales department today.
-        if (!is_super_admin() && $this->departmentId) {
-            $department = Department::find($this->departmentId);
-
-            $q->where(function ($filterQuery) use ($department, $todayStockProductIds) {
-                if ($department) {
-                    $productionDepartment = Department::where('branch_id', $this->branchId)
-                        ->whereHas('category', function ($query) {
-                            $query->where('name', 'Production');
-                        })
-                        ->where(function ($query) use ($department) {
-                            $query->where('name', 'LIKE', '%' . $department->name . '%')
-                                ->orWhere('name', $department->name . ' Production')
-                                ->orWhere('name', 'Production ' . $department->name)
-                                ->orWhere('slug', $department->slug . '-production')
-                                ->orWhere('slug', 'production-' . $department->slug);
-                        })
-                        ->first();
-
-                    if ($productionDepartment) {
-                        $filterQuery->whereHas('productType', function ($query) use ($productionDepartment) {
-                            $query->where('department_id', $productionDepartment->id);
-                        });
-                    } else {
-                        $filterQuery->forDepartment($this->departmentId);
-                    }
-                } else {
-                    $filterQuery->forDepartment($this->departmentId);
-                }
-
-                if ($todayStockProductIds->isNotEmpty()) {
-                    $filterQuery->orWhereIn('id', $todayStockProductIds->all());
-                }
-            });
-        }
+        // Strict sales ownership filter: only products assigned to this sales department.
+        $q->whereIn('sales_department_id', $departmentIds);
 
         // Search filter
         if (strlen($this->search)) {
@@ -699,6 +677,23 @@ class Index extends BaseComponent
         }
 
         return $q->orderBy('name')->limit(50)->get();
+    }
+
+    /**
+     * @return array<int>
+     */
+    protected function scopedSalesDepartmentIds(): array
+    {
+        if (! $this->departmentId) {
+            return [];
+        }
+
+        $departmentIds = $this->resolveEquivalentSalesDepartmentIds();
+        if (empty($departmentIds)) {
+            $departmentIds = [(int) $this->departmentId];
+        }
+
+        return array_values(array_unique(array_map(static fn ($id) => (int) $id, $departmentIds)));
     }
 
     protected function getTodayStockForProduct(string $productId, bool $forUpdate = false): ?ProductStock

@@ -89,7 +89,7 @@ class Purchases extends Component
         'purchaseItems' => 'required|array|min:1',
         'purchaseItems.*.item_id' => 'required|exists:items,id',
         'purchaseItems.*.quantity' => 'required|numeric|min:0.01',
-        'purchaseItems.*.uom' => 'required|string|min:1',
+        'purchaseItems.*.uom' => 'required|exists:units_of_measure,symbol',
         'purchaseItems.*.unit_price' => 'required|numeric|min:0.01',
     ];
 
@@ -246,21 +246,36 @@ class Purchases extends Component
                 'status' => 'approved', // Super admins bypass approval
             ]);
 
+            $itemsById = Item::with('unitOfMeasure')
+                ->whereIn('id', collect($this->purchaseItems)->pluck('item_id')->filter()->unique())
+                ->get()
+                ->keyBy('id');
+
             foreach ($this->purchaseItems as $item) {
-                $quantity = $item['quantity'];
-                $unitPrice = $item['unit_price'];
+                $itemId = (int) ($item['item_id'] ?? 0);
+                $quantity = (float) ($item['quantity'] ?? 0);
+                $unitPrice = (float) ($item['unit_price'] ?? 0);
+                $purchaseUom = (string) ($item['uom'] ?? '');
+                $itemModel = $itemsById->get($itemId);
+
+                if (! $itemModel) {
+                    throw new \RuntimeException("Item #{$itemId} was not found for this purchase.");
+                }
+
                 $totalItemCost = $quantity * $unitPrice;
 
                 $costProportion = ($landingCost - ($this->other_costs ?? 0)) > 0 ? ($totalItemCost / ($landingCost - ($this->other_costs ?? 0))) : 0;
                 $allocatedOtherCosts = ($this->other_costs ?? 0) * $costProportion;
                 $landingCostItem = $totalItemCost + $allocatedOtherCosts;
                 $costPerUnit = $quantity > 0 ? ($landingCostItem / $quantity) : 0;
+                $baseQuantity = $this->convertPurchaseQuantityToItemBase($itemModel, $quantity, $purchaseUom);
+                $baseCostPerUnit = $baseQuantity > 0 ? ($landingCostItem / $baseQuantity) : 0;
 
                 PurchaseItem::create([
                     'purchase_id' => $purchase->id,
-                    'item_id' => $item['item_id'],
+                    'item_id' => $itemId,
                     'quantity' => $quantity,
-                    'uom' => $item['uom'],
+                    'uom' => $purchaseUom,
                     'fob_fc' => 0,
                     'fob_ngn' => $unitPrice,
                     'other_costs' => $allocatedOtherCosts,
@@ -272,7 +287,7 @@ class Purchases extends Component
                 $stock = Stock::firstOrCreate(
                     [
                         'branch_id' => $branchId,
-                        'item_id' => $item['item_id'],
+                        'item_id' => $itemId,
                     ],
                     [
                         'quantity_available' => 0,
@@ -281,9 +296,9 @@ class Purchases extends Component
                     ]
                 );
 
-                $stock->updateAverageCost($quantity, $costPerUnit);
-                $quantity_before = $stock->quantity_available;
-                $stock->quantity_available += $quantity;
+                $stock->updateAverageCost($baseQuantity, $baseCostPerUnit);
+                $quantity_before = (float) $stock->quantity_available;
+                $stock->quantity_available = $quantity_before + $baseQuantity;
                 $stock->last_stock_take_date = now();
                 $stock->save();
 
@@ -292,7 +307,7 @@ class Purchases extends Component
                     'type' => 'in',
                     'quantity_before' => $quantity_before,
                     'quantity_after' => $stock->quantity_available,
-                    'quantity' => $quantity,
+                    'quantity' => $baseQuantity,
                     'reference_type' => 'App\Models\Purchase',
                     'reference_id' => $purchase->id,
                     'moved_by_type' => get_class($actor),
@@ -322,6 +337,39 @@ class Purchases extends Component
             DB::rollBack();
             $this->toast()->error('Error creating purchase: '.$e->getMessage())->send();
         }
+    }
+
+    private function convertPurchaseQuantityToItemBase(Item $item, float $quantity, string $purchaseUom): float
+    {
+        if ($quantity <= 0) {
+            return 0.0;
+        }
+
+        if (! $item->uom_id) {
+            return $quantity;
+        }
+
+        $purchaseUom = trim($purchaseUom);
+        if ($purchaseUom === '') {
+            throw new \RuntimeException("Purchase UOM is required for item '{$item->name}'.");
+        }
+
+        $converted = $item->convertToBaseUom($quantity, $purchaseUom);
+        if ($converted === null) {
+            $baseUom = $item->unitOfMeasure?->symbol ?? 'item base UOM';
+            throw new \RuntimeException(
+                "No UOM conversion found for item '{$item->name}' from {$purchaseUom} to {$baseUom}."
+            );
+        }
+
+        $baseQuantity = (float) $converted;
+        if ($baseQuantity <= 0) {
+            throw new \RuntimeException(
+                "Invalid converted quantity for item '{$item->name}' using {$purchaseUom}."
+            );
+        }
+
+        return $baseQuantity;
     }
 
     /**

@@ -19,9 +19,18 @@ class AssignRolesToExistingUsersSeeder extends Seeder
         $superAdminRole = Role::where('name', 'Super Admin')->where('guard_name', $guard)->first();
         $adminRole = Role::where('name', 'Admin')->where('guard_name', $guard)->first();
         $employeeRole = Role::where('name', 'Employee')->where('guard_name', $guard)->first();
+        $salesStaffRole = Role::where('name', 'Sales Staff')->where('guard_name', $guard)->first();
+        $productionStaffRole = Role::where('name', 'Production Staff')->where('guard_name', $guard)->first();
+        $inventoryStaffRole = Role::where('name', 'Inventory Staff')->where('guard_name', $guard)->first();
 
-        if (!$superAdminRole || !$adminRole || !$employeeRole) {
-            $this->command->error('Required roles not found. Please run RoleSeeder first!');
+        if (!$superAdminRole || !$adminRole) {
+            $this->command->error('Required admin roles not found. Please run AssignPermissionsToRolesSeeder first!');
+            return;
+        }
+
+        $defaultStaffRole = $employeeRole ?? $salesStaffRole ?? $productionStaffRole ?? $inventoryStaffRole;
+        if (!$defaultStaffRole) {
+            $this->command->error('No staff role available (Employee/Sales Staff/Production Staff/Inventory Staff).');
             return;
         }
 
@@ -46,8 +55,8 @@ class AssignRolesToExistingUsersSeeder extends Seeder
         // Assign Employee role to all other users without roles
         $usersWithoutRoles = Employee::whereDoesntHave('roles')->get();
         foreach ($usersWithoutRoles as $user) {
-            $user->assignRole($employeeRole);
-            $this->command->info("Assigned Employee role to: {$user->email}");
+            $user->assignRole($defaultStaffRole);
+            $this->command->info("Assigned {$defaultStaffRole->name} role to: {$user->email}");
         }
 
         $this->command->info('✅ Role assignment completed for existing users.');

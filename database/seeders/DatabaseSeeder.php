@@ -13,12 +13,10 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             // Core authorization
-            PermissionSeeder::class,
-            RoleSeeder::class,
+            AssignPermissionsToRolesSeeder::class,
 
             // Shared setup
-            UnitOfMeasureSeeder::class,
-            UomConversionSeeder::class,
+            UomSetupSeeder::class,
 
             // Port Harcourt-only real data from Excel files
             PortHarcourtRealDataSeeder::class,
@@ -26,6 +24,15 @@ class DatabaseSeeder extends Seeder
             // UI pages for seeded departments
             DepartmentPageSeeder::class,
             SalesPagesSeeder::class,
+
+            // Shift configurations
+            ShiftConfigurationSeeder::class,
+
+            // UOM conversions
+            CupToGramConversionsSeeder::class,
+
+            // Ensure all existing users have baseline roles
+            AssignRolesToExistingUsersSeeder::class,
         ]);
     }
 }

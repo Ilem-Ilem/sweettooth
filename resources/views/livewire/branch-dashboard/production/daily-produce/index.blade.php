@@ -594,9 +594,16 @@
                                                                      @endphp
                                                                      <option value="{{ $batch['allowed_sales_department_id'] }}">{{ $allowedDeptName }}</option>
                                                                  @else
-                                                                     @foreach($salesDepartments as $dept)
-                                                                         <option value="{{ $dept['id'] }}">{{ $dept['name'] }}</option>
-                                                                     @endforeach
+                                                                     @php
+                                                                         $dispatchSalesDepartmentOptions = $batchSalesDepartmentOptions[$batch['id']] ?? [];
+                                                                     @endphp
+                                                                     @if(count($dispatchSalesDepartmentOptions) > 0)
+                                                                         @foreach($dispatchSalesDepartmentOptions as $dept)
+                                                                             <option value="{{ $dept['id'] }}">{{ $dept['name'] }}</option>
+                                                                         @endforeach
+                                                                     @else
+                                                                         <option value="">No eligible sales department</option>
+                                                                     @endif
                                                                  @endif
                                                              </select>
                                                              <input type="number" step="0.01" min="0" max="{{ $remainingForThisDispatch }}"
@@ -613,8 +620,8 @@
                                                      @endforeach
                                                  @endif
                                                  <button type="button" wire:click="addBatchDispatch({{ $batch['id'] }})"
-                                                         @disabled($availableForDispatch <= 0)
-                                                         class="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1 {{ $availableForDispatch <= 0 ? 'opacity-50 cursor-not-allowed' : '' }}">
+                                                         @disabled($availableForDispatch <= 0 || (empty($batch['allowed_sales_department_id']) && count($batchSalesDepartmentOptions[$batch['id']] ?? []) === 0))
+                                                         class="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1 {{ ($availableForDispatch <= 0 || (empty($batch['allowed_sales_department_id']) && count($batchSalesDepartmentOptions[$batch['id']] ?? []) === 0)) ? 'opacity-50 cursor-not-allowed' : '' }}">
                                                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                                                      </svg>
@@ -624,6 +631,11 @@
                                                          Add Dispatch
                                                      @endif
                                                  </button>
+                                                 @if(empty($batch['allowed_sales_department_id']) && count($batchSalesDepartmentOptions[$batch['id']] ?? []) === 0)
+                                                     <p class="text-[10px] text-amber-700 dark:text-amber-300">
+                                                         No eligible sales department for this product. Assign a sales department on the product first.
+                                                     </p>
+                                                 @endif
                                              </div>
                                          </td>
 

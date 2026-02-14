@@ -1,8 +1,6 @@
 <?php
 
 use App\Livewire\Settings\Appearance;
-use App\Livewire\Settings\Password;
-use App\Livewire\Settings\Profile;
 use App\Livewire\Settings\TwoFactor;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
@@ -16,8 +14,28 @@ Route::view('dashboard', 'dashboard')
 Route::middleware(['auth'])->group(function () {
     Route::redirect('settings', 'settings/profile');
 
-    Route::get('settings/profile', Profile::class)->name('settings.profile');
-    Route::get('settings/password', Password::class)->name('settings.password');
+    Route::get('settings/profile', function () {
+        $branchId = request()->query('b_id')
+            ?? (function_exists('current_branch_id') ? current_branch_id() : null)
+            ?? auth()->user()?->branch_id
+            ?? auth()->user()?->last_accessed_branch_id;
+
+        return redirect()->to(route(
+            'branch-dashboard.profile',
+            $branchId ? ['b_id' => $branchId] : []
+        ));
+    })->name('settings.profile');
+    Route::get('settings/password', function () {
+        $branchId = request()->query('b_id')
+            ?? (function_exists('current_branch_id') ? current_branch_id() : null)
+            ?? auth()->user()?->branch_id
+            ?? auth()->user()?->last_accessed_branch_id;
+
+        return redirect()->to(route(
+            'branch-dashboard.profile.security',
+            $branchId ? ['b_id' => $branchId] : []
+        ));
+    })->name('settings.password');
     Route::get('settings/appearance', Appearance::class)->name('settings.appearance');
 
     Route::get('settings/two-factor', TwoFactor::class)

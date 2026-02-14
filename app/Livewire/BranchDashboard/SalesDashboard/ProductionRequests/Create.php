@@ -104,6 +104,13 @@ class Create extends Component
         $branchId = $this->getBranchId();
         $departmentProductIds = $this->resolveDepartmentProductIds($departmentIds, $branchId);
 
+        // Strict sales ownership filter: only recipes tied to products owned by this sales department.
+        if (empty($departmentProductIds)) {
+            $this->availableRecipes = [];
+
+            return;
+        }
+
         $recipesQuery = Recipe::query()
             ->where('status', 'active')
             ->when($branchId, function ($query) use ($branchId) {
@@ -112,34 +119,7 @@ class Create extends Component
                         ->orWhereNull('branch_id');
                 });
             })
-            ->where(function ($query) use ($departmentProductIds, $departmentIds) {
-                $appliedFilter = false;
-
-                // Primary chain: product_type -> product -> production department.
-                if (! empty($departmentProductIds)) {
-                    $query->whereIn('product_id', $departmentProductIds);
-                    $appliedFilter = true;
-                }
-
-                // Legacy fallback: recipes without product linkage but explicitly keyed by production department.
-                if (Schema::hasColumn('recipes', 'department_id')) {
-                    $legacyFilter = function ($legacyQuery) use ($departmentIds) {
-                        $legacyQuery->whereNull('product_id')
-                            ->whereIn('department_id', $departmentIds);
-                    };
-
-                    if ($appliedFilter) {
-                        $query->orWhere($legacyFilter);
-                    } else {
-                        $query->where($legacyFilter);
-                        $appliedFilter = true;
-                    }
-                }
-
-                if (! $appliedFilter) {
-                    $query->whereRaw('1 = 0');
-                }
-            })
+            ->whereIn('product_id', $departmentProductIds)
             ->with(['product:id,name,sku', 'unitOfMeasure:id,symbol']);
 
         $this->availableRecipes = $recipesQuery
@@ -171,8 +151,14 @@ class Create extends Component
             return [];
         }
 
+        $salesDepartmentIds = $this->resolveEquivalentSalesDepartmentIds();
+        if (empty($salesDepartmentIds)) {
+            return [];
+        }
+
         $query = Product::query()
             ->where('is_active', true)
+            ->whereIn('sales_department_id', $salesDepartmentIds)
             ->where(function ($subQuery) use ($departmentIds) {
                 $subQuery->whereHas('productType', function ($productTypeQuery) use ($departmentIds) {
                     $productTypeQuery->whereIn('department_id', $departmentIds);
@@ -194,6 +180,49 @@ class Create extends Component
             ->unique()
             ->values()
             ->all();
+    }
+
+    /**
+     * Resolve equivalent sales department IDs from current slug in branch/global scope.
+     *
+     * @return array<int>
+     */
+    protected function resolveEquivalentSalesDepartmentIds(): array
+    {
+        if (! $this->departmentId && ! $this->salesDeptSlug) {
+            return [];
+        }
+
+        $branchId = $this->getBranchId();
+        $query = Department::query()
+            ->whereHas('category', function ($categoryQuery) {
+                $categoryQuery->whereRaw('LOWER(name) = ?', ['sales']);
+            });
+
+        if ($this->salesDeptSlug) {
+            $query->where('slug', $this->salesDeptSlug);
+        } elseif ($this->departmentId) {
+            $query->where('id', (int) $this->departmentId);
+        }
+
+        if ($branchId) {
+            $query->where(function ($scopeQuery) use ($branchId) {
+                $scopeQuery->where('branch_id', $branchId)
+                    ->orWhereNull('branch_id');
+            });
+        }
+
+        $ids = $query->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($this->departmentId && ! in_array((int) $this->departmentId, $ids, true)) {
+            $ids[] = (int) $this->departmentId;
+        }
+
+        return $ids;
     }
 
     /**

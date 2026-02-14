@@ -3,18 +3,21 @@ namespace App\Livewire\BranchDashboard\SalesDashboard\StockOpening;
 
 use App\Livewire\BaseComponent;
 use App\Livewire\Concerns\SalesDepartmentContext;
+use App\Models\Department;
 use App\Models\Product;
 use App\Models\ProductDispatch;
 use App\Models\ProductStock;
+use App\Models\ProductType;
 use App\Models\Shift;
 use App\Services\SalesWorkflowService;
+use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Livewire\WithPagination;
 use TallStackUi\Traits\Interactions;
-use App\Models\Department;
-use App\Models\Branch;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class Index extends BaseComponent
@@ -34,6 +37,7 @@ class Index extends BaseComponent
 
     // Stock opening data
     public array $stockOpenings = [];
+    public array $rows = [];
     public array $unclosedProducts = [];
     public bool $isVerified = false;
     public ?string $currentShiftId = null;
@@ -41,8 +45,12 @@ class Index extends BaseComponent
     public $stockDate;
     public $availableShifts = [];
     public $selectedShiftForViewing = null;
+    public array $productTypes = [];
 
     public ?ProductStock $selectedStockItem = null;
+    private ?bool $productStocksHasDepartmentColumn = null;
+    private ?array $cachedSalesDepartmentIds = null;
+    private ?string $cachedSalesDepartmentSignature = null;
 
     // Table headers
     public array $headers = [
@@ -79,7 +87,7 @@ class Index extends BaseComponent
 
     public function getBranchId()
     {
-        return $this->b_id ?: request()->query('b_id');
+        return $this->b_id ?: $this->branchId ?: request()->query('b_id');
     }
 
     public function mount()
@@ -87,7 +95,7 @@ class Index extends BaseComponent
         $this->mountBase();
         $this->initializeDepartmentContext(); // Using trait method
         $this->departmentName = $this->departmentName ?: 'Stock Opening';
-        $this->stockDate = \Carbon\Carbon::today()->format('Y-m-d');
+        $this->stockDate = Carbon::today()->format('Y-m-d');
         $this->loadAvailableShifts();
         $this->loadCurrentShift();
         $this->loadStockOpeningData();
@@ -100,13 +108,18 @@ class Index extends BaseComponent
      */
     protected function loadAvailableShifts()
     {
-        $employee = auth()->user();
-        $deptId = $this->departmentId ?? $employee->department_id;
+        $salesDepartmentIds = $this->resolveEquivalentSalesDepartmentIds();
+        if (empty($salesDepartmentIds)) {
+            $this->availableShifts = [];
+
+            return;
+        }
 
         // Get shifts from last 30 days for the sales department
-        $this->availableShifts = Shift::where('branch_id', $this->getBranchId())
-            ->where('department_id', $deptId)
-            ->where('shift_date', '>=', \Carbon\Carbon::today()->subDays(30))
+        $this->availableShifts = Shift::query()
+            ->where('branch_id', $this->getBranchId())
+            ->whereIn('department_id', $salesDepartmentIds)
+            ->where('shift_date', '>=', Carbon::today()->subDays(30))
             ->orderBy('shift_date', 'desc')
             ->orderBy('shift_type', 'desc')
             ->get();
@@ -145,7 +158,7 @@ class Index extends BaseComponent
 
         // Get active shift for today
         $activeShift = Shift::where('employee_id', $employee->id)
-            ->where('shift_date', \Carbon\Carbon::today())
+            ->where('shift_date', Carbon::today())
             ->where('status', 'active')
             ->first();
 
@@ -160,29 +173,27 @@ class Index extends BaseComponent
      */
     public function loadStockOpeningData()
     {
-        // Show data even without active shift for viewing purposes
-        // if (!$this->currentShiftId) {
-        //     $this->stockOpenings = [];
-        //     return;
-        // }
+        $stockDate = Carbon::parse($this->stockDate)->toDateString();
+        $yesterday = Carbon::parse($stockDate)->subDay()->toDateString();
+        $salesDepartmentIds = $this->resolveEquivalentSalesDepartmentIds();
+        $this->loadProductTypes($salesDepartmentIds);
 
-        $yesterday = \Carbon\Carbon::parse($this->stockDate)->subDay()->format('Y-m-d');
+        if (empty($salesDepartmentIds)) {
+            $this->stockOpenings = [];
+            $this->rows = [];
+            $this->unclosedProducts = [];
+            $this->isVerified = false;
 
-        // Get products from the department - filter by department
-        $query = Product::query()->active(); // Only get active products
-
-        if ($this->departmentId) {
-            $query->forDepartment($this->departmentId);
-        } else {
-            // Fallback to employee's department if no departmentId is set
-            $employee = auth()->user();
-            if ($employee && $employee->department_id) {
-                // Use the same forDepartment scope for consistency
-                $query->forDepartment($employee->department_id);
-            }
+            return;
         }
+        $primarySalesDepartmentId = $this->resolvePrimarySalesDepartmentId($salesDepartmentIds);
+        $hasDepartmentColumn = $this->hasProductStocksDepartmentColumn();
 
-        $products = $query
+        $products = Product::query()
+            ->active()
+            ->whereIn('sales_department_id', $salesDepartmentIds)
+            ->select(['id', 'name', 'sku', 'uom_id', 'product_type_id', 'shelf_life_days'])
+            ->with(['unitOfMeasure:id,symbol'])
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
                     $q->where('name', 'like', '%' . $this->search . '%')
@@ -195,31 +206,128 @@ class Index extends BaseComponent
             ->orderBy('name')
             ->get();
 
+        if ($products->isEmpty()) {
+            $this->stockOpenings = [];
+            $this->rows = [];
+            $this->unclosedProducts = [];
+            $this->isVerified = $this->hasVerifiedStockOpening($salesDepartmentIds);
+
+            return;
+        }
+
+        $productIds = $products->pluck('id')
+            ->map(static fn ($id): string => (string) $id)
+            ->values()
+            ->all();
+
+        $stockSelect = [
+            'id',
+            'product_id',
+            'stock_date',
+            'shift_type',
+            'opening_quantity',
+            'closing_quantity',
+            'production_date',
+            'expiry_date',
+            'notes',
+        ];
+        if ($hasDepartmentColumn) {
+            $stockSelect[] = 'department_id';
+        }
+
+        $yesterdayStocksQuery = ProductStock::query()
+            ->select($stockSelect)
+            ->whereIn('product_id', $productIds)
+            ->where('stock_date', $yesterday)
+            ->where('shift_type', $this->shiftType)
+            ->orderBy('product_id');
+
+        $todayStocksQuery = ProductStock::query()
+            ->select($stockSelect)
+            ->whereIn('product_id', $productIds)
+            ->where('stock_date', $stockDate)
+            ->where('shift_type', $this->shiftType)
+            ->orderBy('product_id');
+
+        if ($hasDepartmentColumn) {
+            $yesterdayStocksQuery->whereIn('department_id', $salesDepartmentIds);
+            $todayStocksQuery->whereIn('department_id', $salesDepartmentIds);
+
+            if ($primarySalesDepartmentId !== null) {
+                $yesterdayStocksQuery->orderByRaw('department_id = ? DESC', [$primarySalesDepartmentId]);
+                $todayStocksQuery->orderByRaw('department_id = ? DESC', [$primarySalesDepartmentId]);
+            }
+        }
+
+        $yesterdayStockByProduct = $this->buildPreferredStockMap(
+            $yesterdayStocksQuery->orderByDesc('id')->get(),
+            $primarySalesDepartmentId,
+            $hasDepartmentColumn
+        );
+        $todayStockByProduct = $this->buildPreferredStockMap(
+            $todayStocksQuery->orderByDesc('id')->get(),
+            $primarySalesDepartmentId,
+            $hasDepartmentColumn
+        );
+
+        $missingYesterdayStockProductIds = array_values(array_diff($productIds, array_keys($yesterdayStockByProduct)));
+        $lastStockByProduct = [];
+
+        if (! empty($missingYesterdayStockProductIds)) {
+            $lastStocksQuery = ProductStock::query()
+                ->select($stockSelect)
+                ->whereIn('product_id', $missingYesterdayStockProductIds)
+                ->where('stock_date', '<', $stockDate)
+                ->where('shift_type', $this->shiftType)
+                ->orderBy('product_id')
+                ->orderBy('stock_date', 'desc');
+
+            if ($hasDepartmentColumn) {
+                $lastStocksQuery->whereIn('department_id', $salesDepartmentIds);
+                if ($primarySalesDepartmentId !== null) {
+                    $lastStocksQuery->orderByRaw('department_id = ? DESC', [$primarySalesDepartmentId]);
+                }
+            }
+
+            $lastStockByProduct = $this->buildPreferredStockMap(
+                $lastStocksQuery->orderByDesc('id')->get(),
+                $primarySalesDepartmentId,
+                $hasDepartmentColumn
+            );
+        }
+
+        $dispatchStart = Carbon::parse($stockDate)->startOfDay();
+        $dispatchEnd = (clone $dispatchStart)->addDay();
+
+        $dispatchTotals = ProductDispatch::query()
+            ->whereIn('product_id', $productIds)
+            ->where('status', 'received')
+            ->whereIn('sales_department_id', $salesDepartmentIds)
+            ->where('received_at', '>=', $dispatchStart)
+            ->where('received_at', '<', $dispatchEnd)
+            ->selectRaw('product_id, SUM(COALESCE(received_quantity, quantity, 0)) as total_received, COUNT(*) as dispatch_count')
+            ->groupBy('product_id')
+            ->get();
+        $dispatchSummaryByProduct = [];
+        foreach ($dispatchTotals as $dispatchTotal) {
+            $dispatchSummaryByProduct[(string) $dispatchTotal->product_id] = [
+                'total' => (float) $dispatchTotal->total_received,
+                'dispatch_count' => (int) $dispatchTotal->dispatch_count,
+            ];
+        }
+
         $stockOpenings = [];
         $unclosedProducts = [];
 
         foreach ($products as $product) {
-            // Get yesterday's closing stock
-            $yesterdayStock = ProductStock::where('product_id', $product->id)
-                ->when(\Illuminate\Support\Facades\Schema::hasColumn('product_stocks', 'department_id'), function ($q) {
-                    $q->where('department_id', $this->departmentId);
-                })
-                ->where('stock_date', $yesterday)
-                ->where('shift_type', $this->shiftType)
-                ->first();
+            $productId = (string) $product->id;
+            $yesterdayStock = $yesterdayStockByProduct[$productId] ?? null;
+            $todayStock = $todayStockByProduct[$productId] ?? null;
 
-            // If no closing for yesterday, surface last known closing for carry-forward
-            if (!$yesterdayStock) {
-                $lastStock = ProductStock::where('product_id', $product->id)
-                    ->when(\Illuminate\Support\Facades\Schema::hasColumn('product_stocks', 'department_id'), function ($q) {
-                        $q->where('department_id', $this->departmentId);
-                    })
-                    ->where('stock_date', '<', $this->stockDate)
-                    ->where('shift_type', $this->shiftType)
-                    ->orderBy('stock_date', 'desc')
-                    ->first();
+            if (! $yesterdayStock) {
+                $lastStock = $lastStockByProduct[$productId] ?? null;
 
-                if ($lastStock && (float) $lastStock->closing_quantity > 0) {
+                if ($lastStock !== null && (float) $lastStock->closing_quantity > 0) {
                     $unclosedProducts[] = [
                         'product_id' => $product->id,
                         'product_name' => $product->name,
@@ -232,67 +340,20 @@ class Index extends BaseComponent
                 }
             }
 
-            // Get today's additions strictly from received dispatches (sales-confirmed only).
-            $todayAdditions = 0;
-            $additionSources = [];
-
-            $receivedDispatches = ProductDispatch::query()
-                ->where('product_id', $product->id)
-                ->where('status', 'received')
-                ->whereDate('received_at', $this->stockDate)
-                ->where('sales_department_id', $this->departmentId)
-                ->orderBy('received_at')
-                ->get([
-                    'id',
-                    'quantity',
-                    'received_quantity',
-                    'dispatch_time',
-                    'received_at',
-                    'shift_type',
-                    'uom',
-                    'notes',
-                ]);
-
-            foreach ($receivedDispatches as $dispatch) {
-                $receivedQty = (float) ($dispatch->received_quantity ?? $dispatch->quantity ?? 0);
-                if ($receivedQty <= 0) {
-                    continue;
-                }
-
-                $todayAdditions += $receivedQty;
-                $additionSources[] = [
-                    'dispatch_id' => $dispatch->id,
-                    'quantity_received' => $receivedQty,
-                    'uom' => $dispatch->uom,
-                    'shift' => $dispatch->shift_type,
-                    'dispatch_time' => $dispatch->dispatch_time?->format('H:i'),
-                    'received_time' => $dispatch->received_at?->format('H:i'),
-                    'notes' => $dispatch->notes,
-                ];
-            }
-
-            // Get today's existing stock record
-            $todayStock = null;
-            $todayStock = ProductStock::query()
-                ->when(\Illuminate\Support\Facades\Schema::hasColumn('product_stocks', 'department_id'), function ($q) {
-                    $q->where('department_id', $this->departmentId);
-                })
-                ->where('product_id', $product->id)
-                ->where('stock_date', $this->stockDate)
-                ->where('shift_type', $this->shiftType)
-                ->first();
+            $dispatchSummary = $dispatchSummaryByProduct[$productId] ?? [
+                'total' => 0.0,
+                'dispatch_count' => 0,
+            ];
+            $todayAdditions = (float) $dispatchSummary['total'];
+            $dispatchCount = (int) $dispatchSummary['dispatch_count'];
 
             $yesterdayClosing = $yesterdayStock ? $yesterdayStock->closing_quantity : 0;
-            // Expected opening is previous closing + production sent today
             $expectedOpening  = $yesterdayClosing + $todayAdditions;
-            // Actual opening is what we actually count (defaults to expected if not yet verified)
             $actualOpening = $todayStock ? $todayStock->opening_quantity : $expectedOpening;
-            // Variance is the difference between actual count and expected
             $variance = $actualOpening - $expectedOpening;
 
-            // Determine variance source
             $varianceSource = 'None';
-            if ($variance != 0) {
+            if ($variance !== 0.0) {
                 $varianceSource = 'Stock count difference vs expected opening (' . $yesterday . ' + production)';
             }
 
@@ -303,12 +364,12 @@ class Index extends BaseComponent
                 'product_uom'       => $product->unitOfMeasure?->symbol,
                 'yesterday_closing' => $yesterdayClosing,
                 'today_additions'   => $todayAdditions,
-                'addition_sources'  => $additionSources,
+                'dispatch_count'    => $dispatchCount,
                 'expected_opening'  => $expectedOpening,
                 'actual_opening'    => $actualOpening,
                 'variance'          => $variance,
                 'variance_source'   => $varianceSource,
-                'production_date'   => $todayStock ? $todayStock->production_date?->format('Y-m-d') : \Carbon\Carbon::today()->format('Y-m-d'),
+                'production_date'   => $todayStock ? $todayStock->production_date?->format('Y-m-d') : Carbon::today()->format('Y-m-d'),
                 'expiry_date'       => $todayStock ? $todayStock->expiry_date?->format('Y-m-d') : null,
                 'shelf_life_days'   => $product->shelf_life_days,
                 'notes'             => $todayStock ? $todayStock->notes : '',
@@ -317,7 +378,82 @@ class Index extends BaseComponent
         }
 
         $this->stockOpenings = $stockOpenings;
+        $this->rows = array_map(static function (array $stock, int $index): object {
+            $stock['index'] = $index;
+
+            return (object) $stock;
+        }, $stockOpenings, array_keys($stockOpenings));
         $this->unclosedProducts = $unclosedProducts;
+        $this->isVerified = $this->hasVerifiedStockOpening($salesDepartmentIds);
+    }
+
+    /**
+     * @param  Collection<int, ProductStock>  $stocks
+     * @return array<string, ProductStock>
+     */
+    private function buildPreferredStockMap(Collection $stocks, ?int $primarySalesDepartmentId, bool $hasDepartmentColumn): array
+    {
+        $map = [];
+
+        foreach ($stocks as $stock) {
+            $productId = (string) $stock->product_id;
+            if (! isset($map[$productId])) {
+                $map[$productId] = $stock;
+
+                continue;
+            }
+
+            if (! $hasDepartmentColumn || $primarySalesDepartmentId === null) {
+                continue;
+            }
+
+            $existingDate = $map[$productId]->stock_date?->toDateString()
+                ?? (string) ($map[$productId]->stock_date ?? '');
+            $candidateDate = $stock->stock_date?->toDateString()
+                ?? (string) ($stock->stock_date ?? '');
+            if ($existingDate !== '' && $candidateDate !== '' && $existingDate !== $candidateDate) {
+                continue;
+            }
+
+            if ((int) ($map[$productId]->department_id ?? 0) === $primarySalesDepartmentId) {
+                continue;
+            }
+
+            if ((int) ($stock->department_id ?? 0) === $primarySalesDepartmentId) {
+                $map[$productId] = $stock;
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * @param  array<int>  $salesDepartmentIds
+     */
+    private function hasVerifiedStockOpening(array $salesDepartmentIds): bool
+    {
+        if (! $this->currentShiftId || empty($salesDepartmentIds)) {
+            return false;
+        }
+
+        $query = ProductStock::query()
+            ->where('stock_date', $this->stockDate)
+            ->where('shift_type', $this->shiftType);
+
+        if ($this->hasProductStocksDepartmentColumn()) {
+            $query->whereIn('department_id', $salesDepartmentIds);
+        }
+
+        return $query->exists();
+    }
+
+    private function hasProductStocksDepartmentColumn(): bool
+    {
+        if ($this->productStocksHasDepartmentColumn === null) {
+            $this->productStocksHasDepartmentColumn = Schema::hasColumn('product_stocks', 'department_id');
+        }
+
+        return $this->productStocksHasDepartmentColumn;
     }
 
     /**
@@ -349,12 +485,11 @@ class Index extends BaseComponent
         if ($index !== false) {
             $this->stockOpenings[$index]['production_date'] = $value;
 
-            // Auto-calculate expiry date based on shelf life
-            $product = Product::find($productId);
-            if ($product && $product->shelf_life_days > 0) {
-                $productionDate                             = \Carbon\Carbon::parse($value);
+            $shelfLifeDays = (int) ($this->stockOpenings[$index]['shelf_life_days'] ?? 0);
+            if ($shelfLifeDays > 0 && ! empty($value)) {
+                $productionDate = Carbon::parse($value);
                 $this->stockOpenings[$index]['expiry_date'] =
-                $productionDate->copy()->addDays($product->shelf_life_days)->format('Y-m-d');
+                    $productionDate->copy()->addDays($shelfLifeDays)->format('Y-m-d');
             }
         }
     }
@@ -384,13 +519,22 @@ class Index extends BaseComponent
             return;
         }
 
+        $salesDepartmentIds = $this->resolveEquivalentSalesDepartmentIds();
+        $primarySalesDepartmentId = $this->resolvePrimarySalesDepartmentId($salesDepartmentIds);
+        if (empty($salesDepartmentIds) || $primarySalesDepartmentId === null) {
+            $this->toast()->error('Sales department context is missing. Refresh and try again.')->send();
+
+            return;
+        }
+
         DB::beginTransaction();
         try {
+            $hasDepartmentColumn = $this->hasProductStocksDepartmentColumn();
+
             foreach ($this->stockOpenings as $stockOpening) {
                 // Use shift_id from shifts table (sales department shift)
                 // sales_shift_id can be null since we're using the general shifts table
                 // addition_quantity represents the total quantity yield (approved quantity sent from production)
-                $hasDepartmentColumn = \Illuminate\Support\Facades\Schema::hasColumn('product_stocks', 'department_id');
                 $lookup = [
                     'product_id'     => $stockOpening['product_id'],
                     'stock_date'     => $this->stockDate,
@@ -398,7 +542,7 @@ class Index extends BaseComponent
                 ];
 
                 if ($hasDepartmentColumn) {
-                    $lookup['department_id'] = $this->departmentId;
+                    $lookup['department_id'] = $primarySalesDepartmentId;
                 }
 
                 ProductStock::updateOrCreate(
@@ -406,7 +550,7 @@ class Index extends BaseComponent
                     [
                         'sales_shift_id'    => null, // Nullable - we use shifts table instead
                         'department_id'     => $hasDepartmentColumn
-                            ? $this->departmentId
+                            ? $primarySalesDepartmentId
                             : null,
                         'opening_quantity'  => $stockOpening['actual_opening'],
                         'addition_quantity' => $stockOpening['today_additions'], // Total yield from production
@@ -452,34 +596,39 @@ class Index extends BaseComponent
      */
     public function checkVerificationStatus()
     {
-        if (! $this->currentShiftId) {
-            return false;
-        }
+        $salesDepartmentIds = $this->resolveEquivalentSalesDepartmentIds();
+        $this->isVerified = $this->hasVerifiedStockOpening($salesDepartmentIds);
 
-        $count = ProductStock::query()
-            ->when(\Illuminate\Support\Facades\Schema::hasColumn('product_stocks', 'department_id'), function ($q) {
-                $q->where('department_id', $this->departmentId);
-            })
-            ->where('stock_date', $this->stockDate)
-            ->where('shift_type', $this->shiftType)
-            ->count();
-
-        $this->isVerified = $count > 0;
         return $this->isVerified;
     }
 
     protected function getFilteredQuery()
     {
-        return ProductStock::query()
-            ->when(\Illuminate\Support\Facades\Schema::hasColumn('product_stocks', 'department_id'), function ($q) {
-                $q->where('department_id', $this->departmentId);
-            })
+        $salesDepartmentIds = $this->resolveEquivalentSalesDepartmentIds();
+        $query = ProductStock::query()
             ->where('stock_date', $this->stockDate)
             ->where('shift_type', $this->shiftType);
+
+        if (! $this->hasProductStocksDepartmentColumn()) {
+            return $query;
+        }
+
+        if (empty($salesDepartmentIds)) {
+            $query->whereRaw('1 = 0');
+
+            return $query;
+        }
+
+        return $query->whereIn('department_id', $salesDepartmentIds);
     }
 
     public function updatedSearch()
     {
+        $search = trim((string) $this->search);
+        if ($search !== '' && strlen($search) < 2) {
+            return;
+        }
+
         $this->loadStockOpeningData();
     }
 
@@ -488,30 +637,124 @@ class Index extends BaseComponent
         $this->loadStockOpeningData();
     }
 
-    /**
-     * Get rows for the table
-     */
-    public function getRowsProperty()
-    {
-        return collect($this->stockOpenings)->map(function ($stock, $index) {
-            $stock['index'] = $index;
-            return (object) $stock;
-        })->all();
-    }
-
     public function render()
     {
-        $employee = auth()->user();
-        $deptId = $this->departmentId ?? $employee->department_id;
-
-        $productTypes = \App\Models\ProductType::whereHas('department', function ($q) use ($deptId) {
-            $q->where('id', $deptId);
-        })->active()->ordered()->get();
-
         return view('livewire.branch-dashboard.sales-dashboard.stock-opening.index', [
-            'productTypes' => $productTypes,
+            'productTypes' => $this->productTypes,
             'rows' => $this->rows,
             'stockOpenings' => $this->stockOpenings,
         ]);
+    }
+
+    /**
+     * @param array<int> $salesDepartmentIds
+     */
+    private function loadProductTypes(array $salesDepartmentIds): void
+    {
+        if (empty($salesDepartmentIds)) {
+            $this->productTypes = [];
+
+            return;
+        }
+
+        $this->productTypes = ProductType::query()
+            ->whereIn('id', Product::query()
+                ->whereIn('sales_department_id', $salesDepartmentIds)
+                ->select('product_type_id')
+                ->distinct())
+            ->active()
+            ->ordered()
+            ->get(['id', 'name'])
+            ->map(static fn (ProductType $type): array => [
+                'id' => (int) $type->id,
+                'name' => (string) $type->name,
+            ])
+            ->all();
+    }
+
+    /**
+     * Resolve equivalent sales department IDs from slug in branch/global scope.
+     *
+     * @return array<int>
+     */
+    private function resolveEquivalentSalesDepartmentIds(): array
+    {
+        $signature = implode('|', [
+            (string) ($this->salesDeptSlug ?? ''),
+            (string) ($this->departmentId ?? ''),
+            (string) ($this->getBranchId() ?? ''),
+        ]);
+        if ($this->cachedSalesDepartmentSignature === $signature && $this->cachedSalesDepartmentIds !== null) {
+            return $this->cachedSalesDepartmentIds;
+        }
+
+        if (! $this->departmentId && ! $this->salesDeptSlug) {
+            $this->cachedSalesDepartmentSignature = $signature;
+            $this->cachedSalesDepartmentIds = [];
+
+            return $this->cachedSalesDepartmentIds;
+        }
+
+        $branchId = $this->getBranchId();
+        $query = Department::query()
+            ->whereHas('category', function ($categoryQuery) {
+                $categoryQuery->whereRaw('LOWER(name) = ?', ['sales']);
+            });
+
+        if ($this->salesDeptSlug) {
+            $query->where('slug', $this->salesDeptSlug);
+        } elseif ($this->departmentId) {
+            $query->where('id', (int) $this->departmentId);
+        }
+
+        if ($branchId) {
+            $query->where(function ($scopeQuery) use ($branchId) {
+                $scopeQuery->where('branch_id', $branchId)
+                    ->orWhereNull('branch_id');
+            });
+        }
+
+        $ids = $query->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (! empty($ids)) {
+            $this->cachedSalesDepartmentSignature = $signature;
+            $this->cachedSalesDepartmentIds = $ids;
+
+            return $this->cachedSalesDepartmentIds;
+        }
+
+        // Strict when slug is provided: do not fall back to unrelated department IDs.
+        if ($this->salesDeptSlug) {
+            $this->cachedSalesDepartmentSignature = $signature;
+            $this->cachedSalesDepartmentIds = [];
+
+            return $this->cachedSalesDepartmentIds;
+        }
+
+        $this->cachedSalesDepartmentSignature = $signature;
+        $this->cachedSalesDepartmentIds = $this->departmentId ? [(int) $this->departmentId] : [];
+
+        return $this->cachedSalesDepartmentIds;
+    }
+
+    /**
+     * @param  array<int>  $departmentIds
+     */
+    private function resolvePrimarySalesDepartmentId(array $departmentIds): ?int
+    {
+        $departmentIds = array_values(array_unique(array_map(static fn ($id) => (int) $id, $departmentIds)));
+        if (empty($departmentIds)) {
+            return null;
+        }
+
+        if ($this->departmentId && in_array((int) $this->departmentId, $departmentIds, true)) {
+            return (int) $this->departmentId;
+        }
+
+        return $departmentIds[0] ?? null;
     }
 }

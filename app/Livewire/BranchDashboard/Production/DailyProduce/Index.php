@@ -5,6 +5,7 @@ namespace App\Livewire\BranchDashboard\Production\DailyProduce;
 use App\Enums\ProductionRequestSourceType;
 use App\Models\DailyProduce;
 use App\Models\Department;
+use App\Models\Product;
 use App\Models\ProductDispatch;
 use App\Models\ProductionRequest;
 use App\Models\SalesProductionRequestItem;
@@ -50,8 +51,11 @@ class Index extends Component
     public $batchSalesDepartments = []; // Stores sales_department_id for each batch (legacy)
     public $batchDispatches = []; // Stores multiple dispatch allocations per batch: [[sales_dept_id, quantity], ...]
     public $batchAllowedSalesDepartments = []; // batch_id => allowed sales_department_id (if restricted)
+    public $batchSalesDepartmentOptions = []; // batch_id => options allowed for UI selection
+    public $batchProductAllowedSalesDepartmentIds = []; // batch_id => enforceable allowed IDs by product ownership
     public $salesRequestLimits = []; // daily_produce_id => requested_units (if sales request)
     private array $salesDemandContextCache = [];
+    private array $productSalesDepartmentIdsCache = [];
 
     // For recording production batches
     public $batchesProduced = 1; // Number of batches made
@@ -215,6 +219,10 @@ class Index extends Component
         }
 
         $this->salesRequestLimits = [];
+        $this->batchAllowedSalesDepartments = [];
+        $this->batchSalesDepartmentOptions = [];
+        $this->batchProductAllowedSalesDepartmentIds = [];
+        $this->productSalesDepartmentIdsCache = [];
 
         // Handle "no-shift" production requests (created by super admins)
         if ($this->selectedShiftId === 'no-shift') {
@@ -312,7 +320,7 @@ class Index extends Component
 
         // Load all daily produces for this shift with all related data
         $produces = DailyProduce::with([
-            'recipe:id,product_name,uom_id,yield_quantity,sku',
+            'recipe:id,product_id,product_name,uom_id,yield_quantity,sku',
             'recipe.unitOfMeasure:id,symbol,name',
             'shift:id,shift_date,shift_type',
             'productionRecords:id,daily_produce_id,recipe_id,batch_number,quantity_produced,quantity_approved,quantity_rejected,quantity_sent_out,quantity_for_order,quantity_remaining,dispatch_status,quality_status,production_time,produced_by_id,produced_by_type,rejection_reason,notes',
@@ -334,6 +342,9 @@ class Index extends Component
             $salesDemandContext = $this->resolveSalesDemandContext($productionRequest);
             $allowedSalesDeptId = $salesDemandContext['sales_department_id'];
             $requestedUnits = $salesDemandContext['requested_units'];
+            $recipeProductId = $this->resolveProductIdForRecipe($produce->recipe);
+            $productAllowedDeptIds = $this->resolveAllowedSalesDepartmentIdsForProduct($recipeProductId);
+            $productAllowedDeptOptions = $this->filterSalesDepartmentsByIds($productAllowedDeptIds);
             if ($allowedSalesDeptId) {
                 $this->salesRequestLimits[$produce->id] = $requestedUnits;
             }
@@ -380,7 +391,7 @@ class Index extends Component
             }
 
             // Get production records (batches) with details
-            $batchesData = $produce->productionRecords->map(function ($batch) use ($allowedSalesDeptId) {
+            $batchesData = $produce->productionRecords->map(function ($batch) use ($allowedSalesDeptId, $productAllowedDeptIds, $productAllowedDeptOptions) {
                 // Load existing dispatches for this batch
                 $existingDispatches = \App\Models\ProductDispatch::where('production_record_id', $batch->id)
                     ->with('salesDepartment')
@@ -396,6 +407,16 @@ class Index extends Component
                     })->toArray();
 
                 $this->batchAllowedSalesDepartments[$batch->id] = $allowedSalesDeptId;
+                $this->batchProductAllowedSalesDepartmentIds[$batch->id] = $productAllowedDeptIds;
+
+                if ($allowedSalesDeptId) {
+                    $this->batchSalesDepartmentOptions[$batch->id] = array_values(array_filter(
+                        $productAllowedDeptOptions,
+                        fn (array $dept): bool => (int) ($dept['id'] ?? 0) === (int) $allowedSalesDeptId
+                    ));
+                } else {
+                    $this->batchSalesDepartmentOptions[$batch->id] = $productAllowedDeptOptions;
+                }
 
                 return [
                     'id' => $batch->id,
@@ -412,6 +433,7 @@ class Index extends Component
                     'produced_by' => $batch->producedBy->name ?? 'N/A',
                     'dispatches' => $existingDispatches,
                     'allowed_sales_department_id' => $allowedSalesDeptId,
+                    'product_allowed_sales_department_ids' => $productAllowedDeptIds,
                 ];
             })->toArray();
 
@@ -485,7 +507,13 @@ class Index extends Component
 
                     // Initialize sales department selection (default to first sales dept if available)
                     if (!isset($this->batchSalesDepartments[$batch['id']])) {
-                        $this->batchSalesDepartments[$batch['id']] = $this->salesDepartments[0]['id'] ?? null;
+                        $restrictedDeptId = (int) ($batch['allowed_sales_department_id'] ?? 0);
+                        if ($restrictedDeptId > 0) {
+                            $this->batchSalesDepartments[$batch['id']] = $restrictedDeptId;
+                        } else {
+                            $allowedDeptIds = $this->getBatchAllowedDepartmentIds((int) $batch['id']);
+                            $this->batchSalesDepartments[$batch['id']] = $allowedDeptIds[0] ?? null;
+                        }
                     }
 
                     // Initialize batch dispatches (multiple allocations per batch)
@@ -1081,10 +1109,23 @@ class Index extends Component
         }
 
         $restrictedDeptId = $this->batchAllowedSalesDepartments[$batchId] ?? null;
+        $allowedDeptIds = $this->getBatchAllowedDepartmentIds((int) $batchId);
+
+        if ($restrictedDeptId && ! in_array((int) $restrictedDeptId, $allowedDeptIds, true)) {
+            $this->toast()->error('This product is not assigned to the locked sales department. Update product sales department assignment first.')->send();
+
+            return;
+        }
+
+        if (! $restrictedDeptId && empty($allowedDeptIds)) {
+            $this->toast()->error('No sales department is assigned to this product. Assign a primary sales department on the product first.')->send();
+
+            return;
+        }
 
         // Add new empty dispatch entry
         $this->batchDispatches[$batchId][] = [
-            'sales_department_id' => $restrictedDeptId ?? ($this->salesDepartments[0]['id'] ?? null),
+            'sales_department_id' => $restrictedDeptId ?? ($allowedDeptIds[0] ?? null),
             'quantity' => 0,
             'status' => 'pending',
         ];
@@ -1152,12 +1193,35 @@ class Index extends Component
         $totalDispatched = 0;
 
         $restrictedDeptId = $this->batchAllowedSalesDepartments[$batchId] ?? null;
+        $allowedDeptIds = $this->getBatchAllowedDepartmentIds((int) $batchId);
 
         if (isset($this->batchDispatches[$batchId])) {
             foreach ($this->batchDispatches[$batchId] as $index => $dispatch) {
-                if ($restrictedDeptId && (int) ($dispatch['sales_department_id'] ?? 0) !== (int) $restrictedDeptId) {
+                $selectedDeptId = (int) ($dispatch['sales_department_id'] ?? 0);
+
+                if ($restrictedDeptId && $selectedDeptId !== (int) $restrictedDeptId) {
                     $this->batchDispatches[$batchId][$index]['sales_department_id'] = $restrictedDeptId;
                     $this->toast()->error('This production can only be dispatched to the requesting sales department.')->send();
+                    $selectedDeptId = (int) $restrictedDeptId;
+                }
+
+                if (! $restrictedDeptId) {
+                    if (empty($allowedDeptIds)) {
+                        $this->batchDispatches[$batchId][$index]['sales_department_id'] = null;
+                        $this->batchDispatches[$batchId][$index]['quantity'] = 0;
+                        $this->toast()->error('No sales department is assigned to this product. Assign a primary sales department first.')->send();
+                        continue;
+                    }
+
+                    if (! in_array($selectedDeptId, $allowedDeptIds, true)) {
+                        $this->batchDispatches[$batchId][$index]['sales_department_id'] = $allowedDeptIds[0];
+                        $selectedDeptId = (int) $allowedDeptIds[0];
+                        $this->toast()->error('Selected sales department cannot receive this product.')->send();
+                    }
+                } elseif (! in_array((int) $restrictedDeptId, $allowedDeptIds, true)) {
+                    $this->batchDispatches[$batchId][$index]['quantity'] = 0;
+                    $this->toast()->error('Locked sales department is not assigned to this product. Update product assignment first.')->send();
+                    continue;
                 }
 
                 $quantity = (float) ($dispatch['quantity'] ?? 0);
@@ -1311,6 +1375,8 @@ class Index extends Component
                 return;
             }
 
+            $produce->loadMissing('recipe.unitOfMeasure');
+
             $salesRequestedUnits = $this->getSalesRequestedUnitsLimit($produce);
 
             DB::transaction(function () use ($produce, $salesRequestedUnits) {
@@ -1344,6 +1410,7 @@ class Index extends Component
 
                 foreach ($produce->productionRecords as $batch) {
                     $restrictedDeptId = (int) ($this->batchAllowedSalesDepartments[$batch->id] ?? 0);
+                    $productAllowedDeptIds = $this->getBatchAllowedDepartmentIds((int) $batch->id);
                     if ($restrictedDeptId > 0) {
                         // Ensure sales-request batches use dispatch allocations, not for_order.
                         $this->normalizeLockedSalesBatchAllocations($batch->id, $restrictedDeptId);
@@ -1363,11 +1430,19 @@ class Index extends Component
                         $availableForDispatch = max(0, $approvedQuantity - $forOrder);
 
                         $restrictedDeptId = $this->batchAllowedSalesDepartments[$batch->id] ?? null;
+                        $productAllowedDeptIds = $this->getBatchAllowedDepartmentIds((int) $batch->id);
 
                         $totalDispatched = 0;
                         foreach ($this->batchDispatches[$batch->id] as $dispatchData) {
-                            if ($restrictedDeptId && (int) ($dispatchData['sales_department_id'] ?? 0) !== (int) $restrictedDeptId) {
+                            $targetSalesDeptId = (int) ($dispatchData['sales_department_id'] ?? 0);
+                            if ($restrictedDeptId && $targetSalesDeptId !== (int) $restrictedDeptId) {
                                 throw new \RuntimeException('This production can only be dispatched to the requesting sales department.');
+                            }
+                            if (empty($productAllowedDeptIds)) {
+                                throw new \RuntimeException('No sales department is assigned to this product. Assign a primary sales department first.');
+                            }
+                            if (! in_array($targetSalesDeptId, $productAllowedDeptIds, true)) {
+                                throw new \RuntimeException('Cannot dispatch: selected sales department is not assigned to this product.');
                             }
                             $totalDispatched += (float) ($dispatchData['quantity'] ?? 0);
                         }
@@ -1382,6 +1457,9 @@ class Index extends Component
                         // Create new dispatches
                         foreach ($this->batchDispatches[$batch->id] as $dispatchData) {
                             if ((float) ($dispatchData['quantity'] ?? 0) > 0) {
+                                $targetSalesDeptId = (int) ($dispatchData['sales_department_id'] ?? 0);
+                                $recipeProductId = $this->resolveProductIdForRecipe($produce->recipe);
+
                                 \App\Models\ProductDispatch::create([
                                     'production_request_id' => $productionRequest?->id,
                                     'sales_production_request_item_id' => $linkedSalesItem?->id,
@@ -1389,8 +1467,8 @@ class Index extends Component
                                     'daily_produce_id' => $produce->id,
                                     'production_record_id' => $batch->id,
                                     'production_shift_id' => $produce->shift_id,
-                                    'sales_department_id' => $dispatchData['sales_department_id'],
-                                    'product_id' => $produce->recipe->product_id ?? null,
+                                    'sales_department_id' => $targetSalesDeptId,
+                                    'product_id' => $recipeProductId,
                                     'dispatched_by_id' => auth()->id(),
                                     'dispatched_by_type' => 'user',
                                     'quantity' => (float) $dispatchData['quantity'],
@@ -1538,13 +1616,18 @@ class Index extends Component
             return;
         }
 
-        // Find product by matching SKU with recipe SKU
-        $product = \App\Models\Product::where('sku', $produce->recipe->sku)->first();
+        $productId = $this->resolveProductIdForRecipe($produce->recipe);
+
+        $product = $productId ? Product::find($productId) : null;
 
         if (!$product) {
             // Log warning but don't fail - product might not be created yet
             logger()->warning("Product not found for recipe SKU: {$produce->recipe->sku}");
             return;
+        }
+
+        if (! $this->isSalesDepartmentAllowedForProduct((string) $product->id, (int) $salesDepartmentId)) {
+            throw new \RuntimeException('Cannot dispatch: target sales department is not assigned to this product.');
         }
 
         // Get sales department name for notes
@@ -1662,6 +1745,166 @@ class Index extends Component
         $salesDemandContext = $this->resolveSalesDemandContext($productionRequest);
 
         return $salesDemandContext['requested_units'];
+    }
+
+    /**
+     * Resolve enforceable allowed sales department IDs for a batch.
+     *
+     * @return array<int>
+     */
+    private function getBatchAllowedDepartmentIds(int $batchId): array
+    {
+        $ids = $this->batchProductAllowedSalesDepartmentIds[$batchId] ?? [];
+
+        return array_values(array_unique(array_map(static fn ($id) => (int) $id, $ids)));
+    }
+
+    /**
+     * Resolve sales departments that can receive a product dispatch.
+     *
+     * @return array<int>
+     */
+    private function resolveAllowedSalesDepartmentIdsForProduct(?string $productId): array
+    {
+        if (! $productId) {
+            return [];
+        }
+
+        $cacheKey = (string) $productId;
+        if (array_key_exists($cacheKey, $this->productSalesDepartmentIdsCache)) {
+            return $this->productSalesDepartmentIdsCache[$cacheKey];
+        }
+
+        $product = Product::query()
+            ->select('id', 'sales_department_id')
+            ->find($productId);
+
+        if (! $product || ! $product->sales_department_id) {
+            return $this->productSalesDepartmentIdsCache[$cacheKey] = [];
+        }
+
+        $ownerDept = Department::query()
+            ->select('id', 'slug')
+            ->find((int) $product->sales_department_id);
+
+        if (! $ownerDept) {
+            return $this->productSalesDepartmentIdsCache[$cacheKey] = [(int) $product->sales_department_id];
+        }
+
+        $branchId = $this->getBranchId();
+        $ids = Department::query()
+            ->whereHas('category', function ($query) {
+                $query->whereRaw('LOWER(name) = ?', ['sales']);
+            })
+            ->where('slug', $ownerDept->slug)
+            ->when($branchId, function ($query) use ($branchId) {
+                $query->where(function ($scopeQuery) use ($branchId) {
+                    $scopeQuery->where('branch_id', $branchId)
+                        ->orWhereNull('branch_id');
+                });
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (! in_array((int) $product->sales_department_id, $ids, true)) {
+            $ids[] = (int) $product->sales_department_id;
+        }
+
+        return $this->productSalesDepartmentIdsCache[$cacheKey] = array_values(array_unique($ids));
+    }
+
+    /**
+     * @param  array<int>  $departmentIds
+     * @return array<int, array{id:int,name:string,slug:?string}>
+     */
+    private function filterSalesDepartmentsByIds(array $departmentIds): array
+    {
+        if (empty($departmentIds)) {
+            return [];
+        }
+
+        return array_values(array_filter($this->salesDepartments, function (array $dept) use ($departmentIds): bool {
+            return in_array((int) ($dept['id'] ?? 0), $departmentIds, true);
+        }));
+    }
+
+    private function isSalesDepartmentAllowedForProduct(string $productId, int $salesDepartmentId): bool
+    {
+        $allowedIds = $this->resolveAllowedSalesDepartmentIdsForProduct($productId);
+
+        return in_array($salesDepartmentId, $allowedIds, true);
+    }
+
+    /**
+     * Resolve a Product ID for a recipe, supporting legacy rows that may not have product_id set.
+     */
+    private function resolveProductIdForRecipe($recipe): ?string
+    {
+        if (! $recipe) {
+            return null;
+        }
+
+        if (! empty($recipe->product_id)) {
+            $existingProductId = Product::query()
+                ->where('id', (string) $recipe->product_id)
+                ->value('id');
+
+            if ($existingProductId) {
+                return (string) $existingProductId;
+            }
+        }
+
+        $branchId = $this->getBranchId();
+        $resolvedProductId = null;
+
+        if (! empty($recipe->sku)) {
+            $productId = Product::query()
+                ->where('sku', trim((string) $recipe->sku))
+                ->when($branchId, function ($query) use ($branchId) {
+                    $query->where(function ($scopeQuery) use ($branchId) {
+                        $scopeQuery->whereNull('branch_id')
+                            ->orWhere('branch_id', $branchId);
+                    });
+                })
+                ->value('id');
+
+            if ($productId) {
+                $resolvedProductId = (string) $productId;
+            }
+        }
+
+        if (! $resolvedProductId && ! empty($recipe->product_name)) {
+            $normalizedName = strtolower(trim((string) $recipe->product_name));
+            $productId = Product::query()
+                ->whereRaw('LOWER(TRIM(name)) = ?', [$normalizedName])
+                ->when($branchId, function ($query) use ($branchId) {
+                    $query->where(function ($scopeQuery) use ($branchId) {
+                        $scopeQuery->whereNull('branch_id')
+                            ->orWhere('branch_id', $branchId);
+                    });
+                })
+                ->orderByDesc('is_active')
+                ->value('id');
+
+            if ($productId) {
+                $resolvedProductId = (string) $productId;
+            }
+        }
+
+        // Self-heal stale recipe linkage when we successfully resolve by SKU/name.
+        if ($resolvedProductId && (string) ($recipe->product_id ?? '') !== $resolvedProductId) {
+            try {
+                $recipe->product_id = $resolvedProductId;
+                $recipe->saveQuietly();
+            } catch (\Throwable $e) {
+                // Non-fatal; keep runtime resolution even if persistence fails.
+            }
+        }
+
+        return $resolvedProductId;
     }
 
     /**

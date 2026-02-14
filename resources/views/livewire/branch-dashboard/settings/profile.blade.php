@@ -10,6 +10,18 @@
         :compact="false"
         :with-icons="true" />
 
+    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
+        <div class="flex flex-wrap items-center gap-2">
+            <span class="px-3 py-2 text-sm rounded-md bg-blue-600 text-white">
+                Profile
+            </span>
+            <a href="{{ branch_route('branch-dashboard.profile.security') }}"
+               class="px-3 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700">
+                Security
+            </a>
+        </div>
+    </div>
+
     <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-6">
         <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-100 mb-6">Profile Information</h2>
         

@@ -6,6 +6,7 @@ use App\Models\UnitOfMeasure;
 use App\Models\UomConversion;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -259,11 +260,13 @@ class UomConversionService
         array $meta
     ): UomConversion {
         $existing = $this->findScopedConversion($fromUomId, $toUomId, $context);
-        $payload = array_merge($context, $meta, [
+        $scope = $this->scopeContext($context);
+        $payload = array_merge($scope, $meta, [
             'from_uom_id' => $fromUomId,
             'to_uom_id' => $toUomId,
             'factor' => $factor,
         ]);
+        $payload = $this->filterPayloadForUomConversionsTable($payload);
 
         if ($existing) {
             $existing->fill($payload);
@@ -273,6 +276,44 @@ class UomConversionService
         }
 
         return UomConversion::query()->create($payload);
+    }
+
+    /**
+     * Keep only scoping fields that belong to stored conversion rows.
+     *
+     * @param  array{branch_id?:string|null,item_id?:int|null,product_id?:string|null,max_depth?:int|null}  $context
+     * @return array{branch_id:string|null,item_id:int|null,product_id:string|null}
+     */
+    protected function scopeContext(array $context): array
+    {
+        return [
+            'branch_id' => isset($context['branch_id']) && $context['branch_id'] !== '' ? (string) $context['branch_id'] : null,
+            'item_id' => isset($context['item_id']) && $context['item_id'] !== '' ? (int) $context['item_id'] : null,
+            'product_id' => isset($context['product_id']) && $context['product_id'] !== '' ? (string) $context['product_id'] : null,
+        ];
+    }
+
+    /**
+     * Filter payload keys to actual table columns to support mixed schema states.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    protected function filterPayloadForUomConversionsTable(array $payload): array
+    {
+        static $allowedColumns = null;
+
+        if ($allowedColumns === null) {
+            $allowedColumns = Schema::hasTable('uom_conversions')
+                ? array_flip(Schema::getColumnListing('uom_conversions'))
+                : [];
+        }
+
+        if ($allowedColumns === []) {
+            return $payload;
+        }
+
+        return array_intersect_key($payload, $allowedColumns);
     }
 
     /**

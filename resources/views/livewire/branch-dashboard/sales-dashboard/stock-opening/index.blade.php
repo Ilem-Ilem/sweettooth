@@ -1,4 +1,4 @@
-<div class="p-3 space-y-3" x-data="{ open: false }">
+<div class="p-3 space-y-3">
     <x-breadcrumb title="Stock Opening" :items="[
         ['label' => 'Dashboard', 'url' => branch_route('branch-dashboard.index')],
         ['label' => 'Sales Dashboard'],
@@ -13,14 +13,9 @@
                     {{ \Carbon\Carbon::parse($stockDate)->format('l, F d, Y') }} - {{ ucfirst($shiftType) }} Shift
                 </p>
             </div>
+          
             <div class="text-right">
-                <a href="{{ branch_route('branch-dashboard.sales-dashboard.stock-opening.index', ['b_id' => $b_id, 'salesDeptSlug' => $salesDeptSlug]) }}"
-                   class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/20 hover:bg-white/30 transition">
-                    Open Stock Opening Link
-                </a>
-            </div>
-            <div class="text-right">
-                @if ($isVerified || $this->checkVerificationStatus())
+                @if ($isVerified)
                     <div class="flex items-center bg-green-500 px-4 py-2 rounded-lg">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -101,7 +96,7 @@
         <div x-show="open" x-collapse class="p-3 space-y-3">
             <div>
                 <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Search</label>
-                <input type="text" wire:model.live.debounce.300ms="search"
+                <input type="text" wire:model.live.debounce.600ms="search"
                     placeholder="Search by product name or SKU..."
                     class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
             </div>
@@ -111,7 +106,7 @@
                     class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
                     <option value="">All Types</option>
                     @foreach ($productTypes as $type)
-                        <option value="{{ $type->id }}">{{ $type->name }}</option>
+                        <option value="{{ $type['id'] }}">{{ $type['name'] }}</option>
                     @endforeach
                 </select>
             </div>
@@ -191,56 +186,9 @@
                 <span class="font-medium text-blue-600 dark:text-blue-400">
                     {{ number_format($row->today_additions, 2) }} {{ $row->product_uom }}
                 </span>
-                @if(!empty($row->addition_sources))
-                    <div class="mt-2 space-y-1">
-                        @foreach($row->addition_sources as $source)
-                            <div class="text-xs bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded border border-blue-200 dark:border-blue-800">
-                                @if(isset($source['dispatch_id']))
-                                    <div class="font-semibold text-blue-900 dark:text-blue-100">
-                                        Dispatch #{{ $source['dispatch_id'] }}
-                                    </div>
-                                    <div class="text-zinc-600 dark:text-zinc-400 mt-0.5">
-                                        Received:
-                                        <span class="font-medium text-green-700 dark:text-green-400">
-                                            {{ number_format($source['quantity_received'], 2) }}
-                                        </span>
-                                        {{ $source['uom'] ?? $row->product_uom }}
-                                    </div>
-                                    <div class="text-zinc-600 dark:text-zinc-400">
-                                        Received At: {{ $source['received_time'] ?? 'N/A' }}
-                                        @if(!empty($source['shift']))
-                                            <span class="text-xs">({{ ucfirst($source['shift']) }} shift)</span>
-                                        @endif
-                                    </div>
-                                    @if(!empty($source['notes']))
-                                        <div class="text-zinc-500 dark:text-zinc-400">
-                                            Notes: {{ $source['notes'] }}
-                                        </div>
-                                    @endif
-                                @else
-                                    <div class="font-semibold text-blue-900 dark:text-blue-100">{{ $source['batch'] }}</div>
-                                    <div class="text-zinc-600 dark:text-zinc-400 mt-0.5">
-                                        Sent: <span class="font-medium">{{ number_format($source['quantity_sent'], 2) }}</span> {{ $row->product_uom }}
-                                    </div>
-                                    <div class="text-zinc-600 dark:text-zinc-400">
-                                        Yield: <span class="font-medium text-green-700 dark:text-green-400">{{ number_format($source['quantity_approved'], 2) }}</span>
-                                        / {{ number_format($source['quantity_produced'], 2) }}
-                                        @if($source['quantity_rejected'] > 0)
-                                            <span class="text-red-600 dark:text-red-400">({{ number_format($source['quantity_rejected'], 2) }} rejected)</span>
-                                        @endif
-                                    </div>
-                                    <div class="text-zinc-600 dark:text-zinc-400">
-                                        Yield %:
-                                        <span class="font-semibold {{ $source['actual_yield_percentage'] >= 90 ? 'text-green-600 dark:text-green-400' : ($source['actual_yield_percentage'] >= 70 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400') }}">
-                                            {{ $source['actual_yield_percentage'] }}%
-                                        </span>
-                                        @if($source['recipe_yield'] > 0)
-                                            <span class="text-xs">(Expected: {{ number_format($source['recipe_yield'], 2) }})</span>
-                                        @endif
-                                    </div>
-                                @endif
-                            </div>
-                        @endforeach
+                @if(($row->dispatch_count ?? 0) > 0)
+                    <div class="mt-1 text-xs text-blue-700 dark:text-blue-300">
+                        {{ number_format($row->dispatch_count) }} dispatch{{ $row->dispatch_count == 1 ? '' : 'es' }} received
                     </div>
                 @endif
             </div>
@@ -326,7 +274,7 @@
 
     </x-table>
     <!-- Save Button -->
-    @if (count($stockOpenings) > 0 && !$isVerified && !$this->checkVerificationStatus())
+    @if (count($stockOpenings) > 0 && !$isVerified)
         <div class="flex justify-end gap-3">
             <button wire:click="loadStockOpeningData"
                 class="px-6 py-2.5 bg-zinc-600 hover:bg-zinc-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center">
@@ -369,131 +317,6 @@
                     <li>Use the shift selector to view or edit past shifts</li>
                     <li>Once verified and saved, stock opening cannot be modified for that shift</li>
                 </ul>
-            </div>
-        </div>
-    </div>
-    <!-- Modal -->
-    <div x-show="open" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0"
-        x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-200"
-        x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
-        class="fixed inset-0 z-50 overflow-hidden" @keydown.escape.window="open = false" x-cloak>
-        <!-- Backdrop -->
-        <div class="absolute inset-0 bg-black/50 dark:bg-black/70" @click="open = false"></div>
-        <!-- Panel (slide-in) -->
-        <div x-show="open" x-transition:enter="slideIn" x-transition:leave="slideOut"
-            class="absolute right-0 top-0 h-full w-full sm:w-1/2 bg-white dark:bg-zinc-800 shadow-2xl flex flex-col">
-            <!-- Header -->
-            <div class="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-700">
-                <h2 class="text-lg font-semibold">Stock Opening – Butter Croissant</h2>
-                <button @click="open = false; $dispatch('close-modal')"
-                    class="p-2 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
-            </div>
-            <!-- Scrollable Form -->
-            <div class="flex-1 overflow-y-auto p-4 space-y-6">
-                <!-- ==== PRODUCT BLOCK ==== -->
-                <div class="grid grid-cols-1 gap-4">
-                    <div>
-                        <label class="block text-xs font-medium text-zinc-700 dark:text-zinc-300">Product</label>
-                        <div class="mt-1 text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                            Butter Croissant
-                        </div>
-                        <div class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">PT-BUT-001</div>
-                    </div>
-                </div>
-                <!-- ==== YESTERDAY'S CLOSING ==== -->
-                <div>
-                    <label class="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                        Yesterday's Closing
-                    </label>
-                    <div class="mt-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                        0.00 pcs
-                    </div>
-                </div>
-                <!-- ==== TODAY'S ADDITIONS ==== -->
-                <div>
-                    <label class="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                        Today's Additions
-                    </label>
-                    <input type="number" step="0.01" min="0" value="0"
-                        class="mt-1 block w-full rounded border border-zinc-300 dark:border-zinc-600
-                            bg-white dark:bg-zinc-700 px-3 py-2 text-sm
-                            text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500">
-                </div>
-                <!-- ==== EXPECTED OPENING ==== -->
-                <div>
-                    <label class="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                        Expected Opening
-                    </label>
-                    <div class="mt-1 text-sm font-semibold text-green-600 dark:text-green-400">
-                        0.00 pcs
-                    </div>
-                </div>
-                <!-- ==== ACTUAL OPENING ==== -->
-                <div>
-                    <label class="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                        Actual Opening
-                    </label>
-                    <input type="number" step="0.01" min="0" value="0"
-                        class="mt-1 block w-full rounded border border-zinc-300 dark:border-zinc-600
-                            bg-white dark:bg-zinc-700 px-3 py-2 text-sm
-                            text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500">
-                </div>
-                <!-- ==== VARIANCE ==== -->
-                <div>
-                    <label class="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                        Variance
-                    </label>
-                    <div class="mt-1 text-sm font-semibold text-green-600 dark:text-green-400">
-                        = 0.00
-                    </div>
-                </div>
-                <!-- ==== PRODUCTION DATE ==== -->
-                <div>
-                    <label class="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                        Production Date
-                    </label>
-                    <input type="date" value="2025-10-20"
-                        class="mt-1 block w-full rounded border border-zinc-300 dark:border-zinc-600
-                            bg-white dark:bg-zinc-700 px-3 py-2 text-sm
-                            text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500">
-                </div>
-                <!-- ==== SHELF LIFE ==== -->
-                <div>
-                    <label class="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                        Shelf Life
-                    </label>
-                    <span
-                        class="mt-1 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                        Fresh
-                    </span>
-                </div>
-                <!-- ==== NOTES ==== -->
-                <div>
-                    <label class="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                        Notes
-                    </label>
-                    <textarea rows="3" placeholder="Add notes..."
-                        class="mt-1 block w-full rounded border border-zinc-300 dark:border-zinc-600
-                            bg-white dark:bg-zinc-700 px-3 py-2 text-sm
-                            text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500"></textarea>
-                </div>
-            </div>
-            <!-- Footer -->
-            <div
-                class="flex justify-end gap-3 p-4 border-t border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800">
-                <button @click="open = false; $dispatch('close-modal')"
-                    class="px-4 py-2 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded transition">
-                    Cancel
-                </button>
-                <button class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded transition">
-                    Save Changes
-                </button>
             </div>
         </div>
     </div>
