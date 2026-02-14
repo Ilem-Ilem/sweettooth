@@ -8,6 +8,8 @@ use App\Models\SaleItem;
 use App\Models\Payment;
 use App\Models\Branch;
 use App\Models\Department;
+use App\Models\Employee;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Attributes\{Layout, Url, Computed, On};
@@ -30,6 +32,7 @@ class Index extends BaseComponent
     public string $departmentName = 'My Sales';
     public string $branchName = '';
     public ?string $employeeId = null;
+    public array $soldByTypes = [];
 
     // Date filters
     public $dateFrom;
@@ -57,9 +60,20 @@ class Index extends BaseComponent
     public function mount()
     {
         $this->mountBase();
-        $this->b_id = current_branch_id();
+        $this->b_id = request()->query('b_id') ?? current_branch_id();
+        $this->branchId = $this->b_id;
+        $this->salesDeptSlug = $this->salesDeptSlug
+            ?? request()->route('salesDeptSlug')
+            ?? request()->query('salesDeptSlug')
+            ?? request()->query('sales_dept_slug');
         $this->loadBranchAndDepartment();
         $this->employeeId = auth()->id();
+        $currentActorType = auth()->user() ? get_class(auth()->user()) : User::class;
+        $this->soldByTypes = array_values(array_unique([
+            $currentActorType,
+            User::class,
+            Employee::class,
+        ]));
         $this->setDateRange('today');
     }
 
@@ -143,7 +157,7 @@ class Index extends BaseComponent
             $sales = Sale::where('branch_id', $this->branchId)
                 ->where('department_id', $this->departmentId)
                 ->where('sold_by_id', $this->employeeId)
-                ->where('sold_by_type', 'App\\Models\\Employee')
+                ->whereIn('sold_by_type', $this->soldByTypes)
                 ->whereBetween('sale_time', [$this->dateFrom, $this->dateTo])
                 ->where('status', '!=', 'cancelled')
                 ->get();
@@ -161,7 +175,7 @@ class Index extends BaseComponent
             $prevSales = Sale::where('branch_id', $this->branchId)
                 ->where('department_id', $this->departmentId)
                 ->where('sold_by_id', $this->employeeId)
-                ->where('sold_by_type', 'App\\Models\\Employee')
+                ->whereIn('sold_by_type', $this->soldByTypes)
                 ->whereBetween('sale_time', [$prevFrom, $prevTo])
                 ->where('status', '!=', 'cancelled')
                 ->sum('total');
@@ -187,7 +201,7 @@ class Index extends BaseComponent
                 $q->where('branch_id', $this->branchId)
                   ->where('department_id', $this->departmentId)
                   ->where('sold_by_id', $this->employeeId)
-                  ->where('sold_by_type', 'App\\Models\\Employee')
+                  ->whereIn('sold_by_type', $this->soldByTypes)
                   ->whereBetween('sale_time', [$this->dateFrom, $this->dateTo])
                   ->where('status', '!=', 'cancelled');
             })
@@ -212,7 +226,7 @@ class Index extends BaseComponent
             return Sale::where('branch_id', $this->branchId)
                 ->where('department_id', $this->departmentId)
                 ->where('sold_by_id', $this->employeeId)
-                ->where('sold_by_type', 'App\\Models\\Employee')
+                ->whereIn('sold_by_type', $this->soldByTypes)
                 ->whereBetween('sale_time', [$this->dateFrom, $this->dateTo])
                 ->where('status', '!=', 'cancelled')
                 ->select(
@@ -233,7 +247,7 @@ class Index extends BaseComponent
             return Sale::where('branch_id', $this->branchId)
                 ->where('department_id', $this->departmentId)
                 ->where('sold_by_id', $this->employeeId)
-                ->where('sold_by_type', 'App\\Models\\Employee')
+                ->whereIn('sold_by_type', $this->soldByTypes)
                 ->whereBetween('sale_time', [$this->dateFrom, $this->dateTo])
                 ->where('status', '!=', 'cancelled')
                 ->select(
@@ -256,7 +270,7 @@ class Index extends BaseComponent
                 $q->where('branch_id', $this->branchId)
                   ->where('department_id', $this->departmentId)
                   ->where('sold_by_id', $this->employeeId)
-                  ->where('sold_by_type', 'App\\Models\\Employee')
+                  ->whereIn('sold_by_type', $this->soldByTypes)
                   ->whereBetween('sale_time', [$this->dateFrom, $this->dateTo])
                   ->where('status', '!=', 'cancelled');
             })
@@ -274,7 +288,7 @@ class Index extends BaseComponent
             return Sale::where('branch_id', $this->branchId)
                 ->where('department_id', $this->departmentId)
                 ->where('sold_by_id', $this->employeeId)
-                ->where('sold_by_type', 'App\\Models\\Employee')
+                ->whereIn('sold_by_type', $this->soldByTypes)
                 ->whereBetween('sale_time', [$this->dateFrom, $this->dateTo])
                 ->where('status', '!=', 'cancelled')
                 ->select('order_type', DB::raw('SUM(total) as total'), DB::raw('COUNT(*) as count'))
@@ -289,7 +303,7 @@ class Index extends BaseComponent
         return Sale::where('branch_id', $this->branchId)
             ->where('department_id', $this->departmentId)
             ->where('sold_by_id', $this->employeeId)
-            ->where('sold_by_type', 'App\\Models\\Employee')
+            ->whereIn('sold_by_type', $this->soldByTypes)
             ->whereBetween('sale_time', [$this->dateFrom, $this->dateTo])
             ->where('status', '!=', 'cancelled')
             ->with(['saleItems.product', 'payments'])
@@ -301,9 +315,11 @@ class Index extends BaseComponent
     protected function getCacheKey($suffix)
     {
         return sprintf(
-            'my_sales_%s_%s_%s_%s_%s',
+            'my_sales_%s_%s_%s_%s_%s_%s_%s',
             $this->employeeId,
             $this->branchId,
+            $this->departmentId ?? 'no_department',
+            $this->salesDeptSlug ?? 'no_slug',
             $this->dateFrom,
             $this->dateTo,
             $suffix
