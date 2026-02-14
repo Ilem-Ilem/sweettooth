@@ -70,34 +70,20 @@
             </div>
         </div>
     @endif
-    <!-- Filters Section -->
-    <div x-data="{ open: false }"
-        class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700">
-        <div class="flex justify-between items-center px-3 py-2 border-b border-zinc-200 dark:border-zinc-700">
-            <h2 class="text-sm font-semibold text-zinc-800 dark:text-zinc-100 flex items-center">
-                <svg class="w-4 h-4 mr-1.5 text-zinc-600 dark:text-zinc-400" fill="none" stroke="currentColor"
-                    viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707L14.293 13H10v5l-4-4v-3.586L3.293 7.293A1 1 0 013 6.586V4z" />
-                </svg>
-                Filters
-            </h2>
-            <button @click="open = !open"
-                class="flex items-center px-2.5 py-1 rounded text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white transition-all duration-200">
-                <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path x-show="!open" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M4 8h16M4 16h16" />
-                    <path x-show="open" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                <span x-text="open ? 'Close' : 'Show Filters'"></span>
-            </button>
+    <!-- Product Picker -->
+    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4 space-y-3">
+        <div class="flex items-center justify-between">
+            <h2 class="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Select Product</h2>
+            <span class="text-xs px-2 py-1 rounded bg-zinc-100 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">
+                {{ count($stockOpenings) }} selected
+            </span>
         </div>
-        <div x-show="open" x-collapse class="p-3 space-y-3">
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
                 <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Search</label>
-                <input type="text" wire:model.live.debounce.600ms="search"
-                    placeholder="Search by product name or SKU..."
+                <input type="text" wire:model.live.debounce.400ms="search"
+                    placeholder="Type product name or SKU..."
                     class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
             </div>
             <div>
@@ -110,61 +96,76 @@
                     @endforeach
                 </select>
             </div>
+            <div>
+                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Product + SKU</label>
+                <select wire:model.live="selectedProductId"
+                    class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                    <option value="">Select a product</option>
+                    @foreach ($productLookupOptions as $option)
+                        <option value="{{ $option['id'] }}">{{ $option['label'] }}</option>
+                    @endforeach
+                </select>
+            </div>
         </div>
+
+        <p class="text-xs text-zinc-600 dark:text-zinc-400">
+            Only product and SKU are loaded first. Detailed stock metrics load when a product is selected.
+        </p>
     </div>
-    <div class="flex justify-end">
-        <a href="#unclosed-products"
-           class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-100 text-amber-900 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-100 dark:hover:bg-amber-900/50 transition">
-            View Unclosed Products
-        </a>
-    </div>
-    <div id="unclosed-products" class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+
+    @if(!empty($unclosedProducts))
+        <div id="unclosed-products" class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
             <div class="flex items-center justify-between">
                 <div>
                     <h3 class="text-sm font-semibold text-amber-900 dark:text-amber-100">Unclosed Products</h3>
                     <p class="text-xs text-amber-700 dark:text-amber-300 mt-1">
-                        These products have a previous closing but none for {{ \Carbon\Carbon::parse($stockDate)->subDay()->format('M d, Y') }}.
-                        Review and carry forward if needed.
+                        Selected products with previous closing but no closing entry for {{ \Carbon\Carbon::parse($stockDate)->subDay()->format('M d, Y') }}.
                     </p>
                 </div>
             </div>
-            @if(!empty($unclosedProducts))
-                <div class="mt-3 overflow-x-auto">
-                    <table class="min-w-full text-sm">
-                        <thead>
-                            <tr class="text-left text-amber-900 dark:text-amber-100">
-                                <th class="py-2 pr-4">Product</th>
-                                <th class="py-2 pr-4">SKU</th>
-                                <th class="py-2 pr-4">Last Closing</th>
-                                <th class="py-2 pr-4">Last Stock Date</th>
-                                <th class="py-2 pr-4">Shift</th>
+            <div class="mt-3 overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-amber-900 dark:text-amber-100">
+                            <th class="py-2 pr-4">Product</th>
+                            <th class="py-2 pr-4">SKU</th>
+                            <th class="py-2 pr-4">Last Closing</th>
+                            <th class="py-2 pr-4">Last Stock Date</th>
+                            <th class="py-2 pr-4">Shift</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-amber-900 dark:text-amber-100">
+                        @foreach($unclosedProducts as $item)
+                            <tr class="border-t border-amber-200 dark:border-amber-800">
+                                <td class="py-2 pr-4">{{ $item['product_name'] }}</td>
+                                <td class="py-2 pr-4 text-xs text-amber-700 dark:text-amber-300">{{ $item['product_sku'] }}</td>
+                                <td class="py-2 pr-4 font-semibold">
+                                    {{ number_format($item['last_closing'], 2) }} {{ $item['product_uom'] }}
+                                </td>
+                                <td class="py-2 pr-4">{{ $item['last_stock_date'] ?? '-' }}</td>
+                                <td class="py-2 pr-4">{{ ucfirst($item['last_shift_type'] ?? '-') }}</td>
                             </tr>
-                        </thead>
-                        <tbody class="text-amber-900 dark:text-amber-100">
-                            @foreach($unclosedProducts as $item)
-                                <tr class="border-t border-amber-200 dark:border-amber-800">
-                                    <td class="py-2 pr-4">{{ $item['product_name'] }}</td>
-                                    <td class="py-2 pr-4 text-xs text-amber-700 dark:text-amber-300">{{ $item['product_sku'] }}</td>
-                                    <td class="py-2 pr-4 font-semibold">
-                                        {{ number_format($item['last_closing'], 2) }} {{ $item['product_uom'] }}
-                                    </td>
-                                    <td class="py-2 pr-4">{{ $item['last_stock_date'] ?? '-' }}</td>
-                                    <td class="py-2 pr-4">{{ ucfirst($item['last_shift_type'] ?? '-') }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            @else
-                <div class="mt-3 text-xs text-amber-700 dark:text-amber-300">
-                    No unclosed products found for this date.
-                </div>
-            @endif
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
         </div>
-    <!-- Stock Opening Table -->
-    <x-table :$headers :$rows striped paginate persist collapsible
-        :filter="['quantity' => 'quantity', 'search' => 'search']"
-        :quantity="[10, 20, 50, 100]">
+    @endif
+
+    <div x-data="{ openDetails: true }"
+        class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-zinc-700">
+            <h3 class="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Product Details</h3>
+            <button type="button" @click="openDetails = !openDetails"
+                class="inline-flex items-center px-3 py-1.5 rounded text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white">
+                <span x-text="openDetails ? 'Collapse' : 'Expand'"></span>
+            </button>
+        </div>
+
+        <div x-show="openDetails" x-collapse class="p-3 space-y-3">
+        @if (count($rows) > 0)
+        <!-- Stock Opening Table -->
+        <x-table :$headers :$rows striped paginate persist collapsible :quantity="[10, 20, 50, 100]">
 
         @interact('column_product', $row)
             <div>
@@ -178,6 +179,11 @@
                 <span class="font-medium text-zinc-700 dark:text-zinc-300">
                     {{ number_format($row->yesterday_closing, 2) }} {{ $row->product_uom }}
                 </span>
+                @if(!empty($row->is_carried_forward))
+                    <div class="mt-1 text-[11px] text-amber-700 dark:text-amber-300">
+                        carried from {{ $row->previous_closing_source ?? '-' }}
+                    </div>
+                @endif
             </div>
         @endinteract
 
@@ -272,28 +278,49 @@
             </div>
         @endinteract
 
-    </x-table>
-    <!-- Save Button -->
-    @if (count($stockOpenings) > 0 && !$isVerified)
-        <div class="flex justify-end gap-3">
-            <button wire:click="loadStockOpeningData"
-                class="px-6 py-2.5 bg-zinc-600 hover:bg-zinc-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Refresh
-            </button>
-            <button wire:click="saveStockOpenings"
-                class="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center shadow-lg">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Verify & Save Stock Opening
-            </button>
+        @interact('column_action', $row)
+            <div class="flex justify-center">
+                <button type="button"
+                    wire:click="removeProduct('{{ $row->product_id }}')"
+                    class="px-2.5 py-1 rounded text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50 transition">
+                    Remove
+                </button>
+            </div>
+        @endinteract
+
+        </x-table>
+        @else
+            <div class="p-6 text-center">
+                <h3 class="text-sm font-semibold text-zinc-800 dark:text-zinc-100">No Product Selected</h3>
+                <p class="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+                    Search and select a product to load its stock opening details.
+                </p>
+            </div>
+        @endif
+
+        <!-- Save Button -->
+        @if (count($stockOpenings) > 0 && !$isVerified)
+            <div class="flex justify-end gap-3">
+                <button wire:click="loadStockOpeningData"
+                    class="px-6 py-2.5 bg-zinc-600 hover:bg-zinc-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Refresh
+                </button>
+                <button wire:click="saveStockOpenings"
+                    class="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center shadow-lg">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Verify & Save Stock Opening
+                </button>
+            </div>
+        @endif
         </div>
-    @endif
+    </div>
     <!-- Information Panel -->
     <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
         <div class="flex items-start">

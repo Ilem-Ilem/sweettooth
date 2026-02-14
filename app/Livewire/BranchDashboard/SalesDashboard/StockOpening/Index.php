@@ -34,6 +34,9 @@ class Index extends BaseComponent
     public ?string $search = null;
     public ?int $filterProductType = null;
     public ?string $filterStatus = null;
+    public ?string $selectedProductId = null;
+    public array $selectedProductIds = [];
+    public array $productLookupOptions = [];
 
     // Stock opening data
     public array $stockOpenings = [];
@@ -64,15 +67,33 @@ class Index extends BaseComponent
         ['index' => 'production_date', 'label' => 'Production Date', 'collapsible' => true],
         ['index' => 'shelf_life', 'label' => 'Shelf Life', 'collapsible' => true],
         ['index' => 'notes', 'label' => 'Notes', 'collapsible' => true],
+        ['index' => 'action', 'label' => 'Action'],
     ];
 
     public function updatedSelectedStockItem()
     {
-       
+        // Intentionally kept for backward compatibility with existing bindings.
     }
 
-    public function loadSingleStockData(){
-        
+    public function updatedSelectedProductId($value): void
+    {
+        if (! empty($value)) {
+            $this->loadSingleStockData();
+        }
+    }
+
+    public function loadSingleStockData(): void
+    {
+        if (empty($this->selectedProductId)) {
+            return;
+        }
+
+        $productId = (string) $this->selectedProductId;
+        if (! in_array($productId, $this->selectedProductIds, true)) {
+            $this->selectedProductIds[] = $productId;
+        }
+
+        $this->loadStockOpeningData($this->selectedProductIds);
     }
 
     protected function getModelClass(): string
@@ -169,14 +190,17 @@ class Index extends BaseComponent
     }
 
     /**
-     * Load stock opening data with yesterday's closing and today's additions
+     * Load stock opening data only for selected products.
+     *
+     * @param  array<int|string>|null  $productIds
      */
-    public function loadStockOpeningData()
+    public function loadStockOpeningData(?array $productIds = null): void
     {
         $stockDate = Carbon::parse($this->stockDate)->toDateString();
         $yesterday = Carbon::parse($stockDate)->subDay()->toDateString();
         $salesDepartmentIds = $this->resolveEquivalentSalesDepartmentIds();
         $this->loadProductTypes($salesDepartmentIds);
+        $this->loadProductLookupOptions();
 
         if (empty($salesDepartmentIds)) {
             $this->stockOpenings = [];
@@ -186,27 +210,37 @@ class Index extends BaseComponent
 
             return;
         }
+
+        $targetProductIds = collect($productIds ?? $this->selectedProductIds)
+            ->filter(static fn ($id): bool => $id !== null && (string) $id !== '')
+            ->map(static fn ($id): string => (string) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($targetProductIds)) {
+            $this->stockOpenings = [];
+            $this->rows = [];
+            $this->unclosedProducts = [];
+            $this->isVerified = $this->hasVerifiedStockOpening($salesDepartmentIds);
+
+            return;
+        }
+
         $primarySalesDepartmentId = $this->resolvePrimarySalesDepartmentId($salesDepartmentIds);
         $hasDepartmentColumn = $this->hasProductStocksDepartmentColumn();
 
         $products = Product::query()
             ->active()
             ->whereIn('sales_department_id', $salesDepartmentIds)
+            ->whereIn('id', $targetProductIds)
             ->select(['id', 'name', 'sku', 'uom_id', 'product_type_id', 'shelf_life_days'])
             ->with(['unitOfMeasure:id,symbol'])
-            ->when($this->search, function ($query) {
-                $query->where(function ($q) {
-                    $q->where('name', 'like', '%' . $this->search . '%')
-                      ->orWhere('sku', 'like', '%' . $this->search . '%');
-                });
-            })
-            ->when($this->filterProductType, function ($query) {
-                $query->where('product_type_id', $this->filterProductType);
-            })
             ->orderBy('name')
             ->get();
 
         if ($products->isEmpty()) {
+            $this->selectedProductIds = [];
             $this->stockOpenings = [];
             $this->rows = [];
             $this->unclosedProducts = [];
@@ -219,6 +253,10 @@ class Index extends BaseComponent
             ->map(static fn ($id): string => (string) $id)
             ->values()
             ->all();
+        $this->selectedProductIds = $productIds;
+        if ($this->selectedProductId !== null && ! in_array((string) $this->selectedProductId, $productIds, true)) {
+            $this->selectedProductId = null;
+        }
 
         $stockSelect = [
             'id',
@@ -323,11 +361,15 @@ class Index extends BaseComponent
             $productId = (string) $product->id;
             $yesterdayStock = $yesterdayStockByProduct[$productId] ?? null;
             $todayStock = $todayStockByProduct[$productId] ?? null;
+            $fallbackClosing = 0.0;
+            $carryForwardSourceDate = null;
 
             if (! $yesterdayStock) {
                 $lastStock = $lastStockByProduct[$productId] ?? null;
 
                 if ($lastStock !== null && (float) $lastStock->closing_quantity > 0) {
+                    $fallbackClosing = (float) $lastStock->closing_quantity;
+                    $carryForwardSourceDate = $lastStock->stock_date?->format('Y-m-d') ?? null;
                     $unclosedProducts[] = [
                         'product_id' => $product->id,
                         'product_name' => $product->name,
@@ -347,7 +389,13 @@ class Index extends BaseComponent
             $todayAdditions = (float) $dispatchSummary['total'];
             $dispatchCount = (int) $dispatchSummary['dispatch_count'];
 
-            $yesterdayClosing = $yesterdayStock ? $yesterdayStock->closing_quantity : 0;
+            $yesterdayClosing = $yesterdayStock
+                ? (float) $yesterdayStock->closing_quantity
+                : $fallbackClosing;
+            $previousClosingSource = $yesterdayStock
+                ? $yesterday
+                : ($carryForwardSourceDate ?? $yesterday);
+            $isCarriedForward = ! $yesterdayStock && $fallbackClosing > 0;
             $expectedOpening  = $yesterdayClosing + $todayAdditions;
             $actualOpening = $todayStock ? $todayStock->opening_quantity : $expectedOpening;
             $variance = $actualOpening - $expectedOpening;
@@ -363,6 +411,8 @@ class Index extends BaseComponent
                 'product_sku'       => $product->sku,
                 'product_uom'       => $product->unitOfMeasure?->symbol,
                 'yesterday_closing' => $yesterdayClosing,
+                'previous_closing_source' => $previousClosingSource,
+                'is_carried_forward' => $isCarriedForward,
                 'today_additions'   => $todayAdditions,
                 'dispatch_count'    => $dispatchCount,
                 'expected_opening'  => $expectedOpening,
@@ -378,11 +428,7 @@ class Index extends BaseComponent
         }
 
         $this->stockOpenings = $stockOpenings;
-        $this->rows = array_map(static function (array $stock, int $index): object {
-            $stock['index'] = $index;
-
-            return (object) $stock;
-        }, $stockOpenings, array_keys($stockOpenings));
+        $this->syncRowsFromStockOpenings();
         $this->unclosedProducts = $unclosedProducts;
         $this->isVerified = $this->hasVerifiedStockOpening($salesDepartmentIds);
     }
@@ -456,6 +502,15 @@ class Index extends BaseComponent
         return $this->productStocksHasDepartmentColumn;
     }
 
+    private function syncRowsFromStockOpenings(): void
+    {
+        $this->rows = array_map(static function (array $stock, int $index): object {
+            $stock['index'] = $index;
+
+            return (object) $stock;
+        }, $this->stockOpenings, array_keys($this->stockOpenings));
+    }
+
     /**
      * Update actual opening quantity for a product
      */
@@ -470,6 +525,7 @@ class Index extends BaseComponent
             $this->stockOpenings[$index]['variance']       =
             $this->stockOpenings[$index]['actual_opening'] -
             $this->stockOpenings[$index]['expected_opening'];
+            $this->syncRowsFromStockOpenings();
         }
     }
 
@@ -491,6 +547,8 @@ class Index extends BaseComponent
                 $this->stockOpenings[$index]['expiry_date'] =
                     $productionDate->copy()->addDays($shelfLifeDays)->format('Y-m-d');
             }
+
+            $this->syncRowsFromStockOpenings();
         }
     }
 
@@ -505,7 +563,34 @@ class Index extends BaseComponent
 
         if ($index !== false) {
             $this->stockOpenings[$index]['notes'] = $value;
+            $this->syncRowsFromStockOpenings();
         }
+    }
+
+    public function removeProduct($productId): void
+    {
+        $productId = (string) $productId;
+
+        $this->selectedProductIds = array_values(array_filter(
+            $this->selectedProductIds,
+            static fn ($id): bool => (string) $id !== $productId
+        ));
+
+        $this->stockOpenings = array_values(array_filter(
+            $this->stockOpenings,
+            static fn (array $row): bool => (string) $row['product_id'] !== $productId
+        ));
+
+        $this->unclosedProducts = array_values(array_filter(
+            $this->unclosedProducts,
+            static fn (array $row): bool => (string) $row['product_id'] !== $productId
+        ));
+
+        if ((string) ($this->selectedProductId ?? '') === $productId) {
+            $this->selectedProductId = null;
+        }
+
+        $this->syncRowsFromStockOpenings();
     }
 
 
@@ -514,6 +599,12 @@ class Index extends BaseComponent
      */
     public function saveStockOpenings()
     {
+        if (empty($this->stockOpenings)) {
+            $this->toast()->warning('Select at least one product before saving.')->send();
+
+            return;
+        }
+
         if (! $this->currentShiftId) {
             $this->toast()->error('No active shift found. Please clock in first.')->send();
             return;
@@ -624,26 +715,59 @@ class Index extends BaseComponent
 
     public function updatedSearch()
     {
-        $search = trim((string) $this->search);
-        if ($search !== '' && strlen($search) < 2) {
-            return;
-        }
-
-        $this->loadStockOpeningData();
+        $this->loadProductLookupOptions();
     }
 
     public function updatedFilterProductType()
     {
-        $this->loadStockOpeningData();
+        $this->loadProductLookupOptions();
     }
 
     public function render()
     {
         return view('livewire.branch-dashboard.sales-dashboard.stock-opening.index', [
             'productTypes' => $this->productTypes,
+            'productLookupOptions' => $this->productLookupOptions,
             'rows' => $this->rows,
             'stockOpenings' => $this->stockOpenings,
         ]);
+    }
+
+    private function loadProductLookupOptions(): void
+    {
+        $salesDepartmentIds = $this->resolveEquivalentSalesDepartmentIds();
+        if (empty($salesDepartmentIds)) {
+            $this->productLookupOptions = [];
+
+            return;
+        }
+
+        $search = trim((string) $this->search);
+
+        $products = Product::query()
+            ->active()
+            ->whereIn('sales_department_id', $salesDepartmentIds)
+            ->when($this->filterProductType, function ($query) {
+                $query->where('product_type_id', $this->filterProductType);
+            })
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($subQuery) use ($search) {
+                    $subQuery->where('name', 'like', '%' . $search . '%')
+                        ->orWhere('sku', 'like', '%' . $search . '%');
+                });
+            })
+            ->orderBy('name')
+            ->limit($search === '' ? 25 : 60)
+            ->get(['id', 'name', 'sku']);
+
+        $this->productLookupOptions = $products->map(static function (Product $product): array {
+            return [
+                'id' => (string) $product->id,
+                'name' => (string) $product->name,
+                'sku' => (string) ($product->sku ?? '-'),
+                'label' => trim((string) $product->name . ' (' . (string) ($product->sku ?? '-') . ')'),
+            ];
+        })->all();
     }
 
     /**
