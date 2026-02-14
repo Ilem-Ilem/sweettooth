@@ -16,6 +16,17 @@ class PurchaseObserver
     }
 
     /**
+     * Handle the Purchase "created" event.
+     * Post to GL when purchase is created as approved
+     */
+    public function created(Purchase $purchase): void
+    {
+        if ($purchase->status === 'approved' && $purchase->gl_posting_status === 'pending') {
+            $this->postToGL($purchase);
+        }
+    }
+
+    /**
      * Handle the Purchase "updated" event.
      * Post to GL when purchase is approved
      */

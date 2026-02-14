@@ -21,8 +21,8 @@ class SaleObserver
      */
     public function created(Sale $sale): void
     {
-        // Only post if sale is completed and fully paid
-        if ($sale->status === 'completed' && $sale->isFullyPaid()) {
+        // Only post if sale is completed
+        if ($sale->status === 'completed') {
             $this->postToGL($sale);
         }
     }
@@ -36,8 +36,7 @@ class SaleObserver
         // Only post if just marked as completed and not already posted
         if ($sale->wasChanged('status') && 
             $sale->status === 'completed' && 
-            $sale->gl_posting_status === 'pending' &&
-            $sale->isFullyPaid()) {
+            $sale->gl_posting_status === 'pending') {
             $this->postToGL($sale);
         }
     }

@@ -3,7 +3,7 @@
 namespace App\Listeners;
 
 use App\Events\PaymentReceived;
-use App\Services\AccountingService;
+use App\Services\GlPostingService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 
 class PostPaymentToGl implements ShouldQueue
@@ -11,7 +11,7 @@ class PostPaymentToGl implements ShouldQueue
     /**
      * Create the event listener.
      */
-    public function __construct(private AccountingService $accountingService)
+    public function __construct(private GlPostingService $glPostingService)
     {
     }
 
@@ -22,7 +22,6 @@ class PostPaymentToGl implements ShouldQueue
     {
         $payment = $event->payment;
 
-        // Post payment entry (Cash/Bank debit, AR credit)
-        $this->accountingService->postPaymentTransaction($payment);
+        $this->glPostingService->postPaymentTransaction($payment);
     }
 }

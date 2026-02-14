@@ -17,12 +17,14 @@ class StockMovementObserver
 
     /**
      * Handle the StockMovement "created" event.
-     * Post to GL for damage and shrinkage adjustments
+     * Post to GL for accounting-relevant adjustments
      */
     public function created(StockMovement $movement): void
     {
-        // Only post damage and shrinkage adjustments to GL
-        if (in_array($movement->type, ['damage', 'shrinkage'])) {
+        $isDamagedType = $movement->type === 'damaged';
+        $isAdjustmentWithReason = $movement->type === 'adjustment' && ! empty($movement->adjustment_reason);
+
+        if ($isDamagedType || $isAdjustmentWithReason) {
             $this->postToGL($movement);
         }
     }

@@ -16,6 +16,17 @@ class PaymentObserver
     }
 
     /**
+     * Handle the Payment "created" event.
+     * Post to GL when payment is created as completed
+     */
+    public function created(Payment $payment): void
+    {
+        if ($payment->status === 'completed' && $payment->gl_posting_status === 'pending') {
+            $this->postToGL($payment);
+        }
+    }
+
+    /**
      * Handle the Payment "updated" event.
      * Post to GL when payment is completed
      */

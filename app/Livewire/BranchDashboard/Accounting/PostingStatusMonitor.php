@@ -6,6 +6,7 @@ use App\Models\Payment;
 use App\Models\Purchase;
 use App\Models\Sale;
 use App\Models\StockMovement;
+use App\Services\GlPostingService;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -66,10 +67,10 @@ class PostingStatusMonitor extends Component
             case 'adjustments':
                 $failedTransactions = $this->getStockMovementsData();
                 $stats = [
-                    'total' => StockMovement::whereIn('type', ['damage', 'shrinkage'])->count(),
-                    'posted' => StockMovement::whereIn('type', ['damage', 'shrinkage'])->where('gl_posting_status', 'posted')->count(),
-                    'pending' => StockMovement::whereIn('type', ['damage', 'shrinkage'])->where('gl_posting_status', 'pending')->count(),
-                    'failed' => StockMovement::whereIn('type', ['damage', 'shrinkage'])->where('gl_posting_status', 'failed')->count(),
+                    'total' => $this->adjustmentQuery()->count(),
+                    'posted' => $this->adjustmentQuery()->where('gl_posting_status', 'posted')->count(),
+                    'pending' => $this->adjustmentQuery()->where('gl_posting_status', 'pending')->count(),
+                    'failed' => $this->adjustmentQuery()->where('gl_posting_status', 'failed')->count(),
                 ];
                 break;
         }
@@ -126,7 +127,7 @@ class PostingStatusMonitor extends Component
 
     private function getStockMovementsData()
     {
-        $query = StockMovement::whereIn('type', ['damage', 'shrinkage']);
+        $query = $this->adjustmentQuery();
 
         if ($this->status !== 'all') {
             $query->where('gl_posting_status', $this->status);
@@ -138,8 +139,23 @@ class PostingStatusMonitor extends Component
             ->paginate($this->perPage);
     }
 
+    private function adjustmentQuery()
+    {
+        return StockMovement::query()
+            ->where(function ($query) {
+                $query
+                    ->where('type', 'damaged')
+                    ->orWhere(function ($subQuery) {
+                        $subQuery->where('type', 'adjustment')
+                            ->whereNotNull('adjustment_reason');
+                    });
+            });
+    }
+
     public function retryFailed(string $transactionType, int $transactionId)
     {
+        $postingService = app(GlPostingService::class);
+
         $model = match ($transactionType) {
             'sales' => Sale::find($transactionId),
             'purchases' => Purchase::find($transactionId),
@@ -154,9 +170,26 @@ class PostingStatusMonitor extends Component
             return;
         }
 
-        // Reset to pending - observer will retry on update
-        $model->update(['gl_posting_status' => 'pending']);
-        session()->flash('message', 'Posting retry initiated. Refresh to see updated status.');
+        $model->update(['gl_posting_status' => 'pending', 'gl_posting_error' => null]);
+
+        try {
+            match ($transactionType) {
+                'sales' => $postingService->postSaleTransaction($model),
+                'purchases' => $postingService->postPurchaseTransaction($model),
+                'payments' => $postingService->postPaymentTransaction($model),
+                'adjustments' => $postingService->postInventoryAdjustment($model),
+                default => null,
+            };
+
+            $model->update(['gl_posting_status' => 'posted', 'gl_posted_at' => now()]);
+            session()->flash('message', 'Posting retry completed successfully.');
+        } catch (\Throwable $e) {
+            $model->update([
+                'gl_posting_status' => 'failed',
+                'gl_posting_error' => $e->getMessage(),
+            ]);
+            session()->flash('error', 'Posting retry failed: ' . $e->getMessage());
+        }
     }
 
     public function changeTransactionType(string $type)

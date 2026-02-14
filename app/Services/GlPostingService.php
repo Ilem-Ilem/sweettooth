@@ -48,6 +48,18 @@ class GlPostingService
     }
 
     /**
+     * Idempotency guard for posting methods.
+     */
+    protected function alreadyPosted(string $referenceType, int $referenceId, array $entryTypes): bool
+    {
+        return GlEntry::where('reference_type', $referenceType)
+            ->where('reference_id', $referenceId)
+            ->whereIn('entry_type', $entryTypes)
+            ->where('status', 'posted')
+            ->exists();
+    }
+
+    /**
      * Post a sale transaction (Revenue + COGS)
      * Entry A: Debit Cash/Bank, Credit Sales Revenue
      * Entry B: Debit COGS, Credit Inventory
@@ -57,22 +69,25 @@ class GlPostingService
         try {
             DB::beginTransaction();
 
+            if ($this->alreadyPosted(Sale::class, (int) $sale->id, ['sale', 'sale_cogs', 'sale_tax'])) {
+                DB::commit();
+                return true;
+            }
+
             $period = $this->getCurrentPeriod();
             if (!$period) {
                 throw new Exception('No open accounting period found');
             }
 
-            // Determine which cash/bank account was used
-            $paymentMethod = $sale->payments->first()?->payment_method ?? 'cash';
-            $cashAccountNumber = $this->getCashAccountNumberForPaymentMethod($paymentMethod);
+            $department = $this->getDepartmentForSale($sale);
 
             // Entry A: Record Sale Revenue
-            // Debit: Cash/Bank, Credit: Sales Revenue
-            $revenueAccount = $this->getGlAccount('4010');
-            $cashAccount = $this->getGlAccount((string)$cashAccountNumber);
+            // Debit: Accounts Receivable, Credit: Sales Revenue
+            $revenueAccount = $this->getRevenueAccountForDepartment($department);
+            $receivableAccount = $this->getReceivableAccountForDepartment($department);
 
             GlEntry::create([
-                'gl_account_id' => $cashAccount->id,
+                'gl_account_id' => $receivableAccount->id,
                 'accounting_period_id' => $period->id,
                 'entry_type' => 'sale',
                 'reference_type' => Sale::class,
@@ -108,7 +123,15 @@ class GlPostingService
             $inventoryAccount = $this->getGlAccount('1220');
 
             $totalCogs = $sale->saleItems->sum(function ($item) {
-                return ($item->quantity ?? 0) * ($item->average_cost ?? 0);
+                if (! empty($item->line_cost)) {
+                    return (float) $item->line_cost;
+                }
+
+                if (! empty($item->unit_cost)) {
+                    return (float) $item->unit_cost * (float) ($item->quantity ?? 0);
+                }
+
+                return 0;
             });
 
             if ($totalCogs > 0) {
@@ -145,10 +168,10 @@ class GlPostingService
 
             // Entry C: Record Sales Tax (if applicable)
             if ($sale->tax > 0) {
-                $taxAccount = $this->getGlAccount('2020');
+                $taxAccount = $this->getTaxAccountForDepartment($department);
 
                 GlEntry::create([
-                    'gl_account_id' => $cashAccount->id,
+                    'gl_account_id' => $receivableAccount->id,
                     'accounting_period_id' => $period->id,
                     'entry_type' => 'sale_tax',
                     'reference_type' => Sale::class,
@@ -198,6 +221,11 @@ class GlPostingService
     {
         try {
             DB::beginTransaction();
+
+            if ($this->alreadyPosted(Purchase::class, (int) $purchase->id, ['purchase'])) {
+                DB::commit();
+                return true;
+            }
 
             $period = $this->getCurrentPeriod();
             if (!$period) {
@@ -255,39 +283,30 @@ class GlPostingService
 
     /**
      * Post a payment transaction
-     * Debit: Accounts Payable, Credit: Cash/Bank
+     * Debit: Cash/Bank, Credit: Accounts Receivable
      */
     public function postPaymentTransaction(Payment $payment): bool
     {
         try {
             DB::beginTransaction();
 
+            if ($this->alreadyPosted(Payment::class, (int) $payment->id, ['payment'])) {
+                DB::commit();
+                return true;
+            }
+
             $period = $this->getCurrentPeriod();
             if (!$period) {
                 throw new Exception('No open accounting period found');
             }
 
-            $apAccount = $this->getGlAccount('2010');
-            $cashAccountNumber = $this->getCashAccountNumberForPaymentMethod($payment->payment_method);
-            $cashAccount = $this->getGlAccount((string)$cashAccountNumber);
+            $department = $payment->sale?->department ?? $payment->sale?->branch?->departments()?->first();
+            $receivableAccount = $this->getReceivableAccountForDepartment($department);
+            $cashAccount = $payment->bankAccount?->glAccount
+                ?? ($department?->cashAccount)
+                ?? $this->getGlAccount($this->getCashAccountNumberForPaymentMethod($payment->payment_method));
 
-            // Debit: Accounts Payable
-            GlEntry::create([
-                'gl_account_id' => $apAccount->id,
-                'accounting_period_id' => $period->id,
-                'entry_type' => 'payment',
-                'reference_type' => Payment::class,
-                'reference_id' => $payment->id,
-                'reference_number' => $payment->reference_number ?? "PAY-{$payment->id}",
-                'description' => "Payment - {$payment->reference_number}",
-                'debit' => $payment->amount,
-                'credit' => 0,
-                'entry_date' => $payment->payment_date,
-                'status' => 'draft',
-                'entered_by_id' => auth()->id(),
-            ])->post(auth()->id());
-
-            // Credit: Cash/Bank
+            // Debit: Cash/Bank
             GlEntry::create([
                 'gl_account_id' => $cashAccount->id,
                 'accounting_period_id' => $period->id,
@@ -295,10 +314,26 @@ class GlPostingService
                 'reference_type' => Payment::class,
                 'reference_id' => $payment->id,
                 'reference_number' => $payment->reference_number ?? "PAY-{$payment->id}",
-                'description' => "Cash Outflow - {$payment->reference_number}",
+                'description' => "Payment received - {$payment->reference_number}",
+                'debit' => $payment->amount,
+                'credit' => 0,
+                'entry_date' => $payment->payment_time,
+                'status' => 'draft',
+                'entered_by_id' => auth()->id(),
+            ])->post(auth()->id());
+
+            // Credit: Accounts Receivable
+            GlEntry::create([
+                'gl_account_id' => $receivableAccount->id,
+                'accounting_period_id' => $period->id,
+                'entry_type' => 'payment',
+                'reference_type' => Payment::class,
+                'reference_id' => $payment->id,
+                'reference_number' => $payment->reference_number ?? "PAY-{$payment->id}",
+                'description' => "AR reduction - {$payment->reference_number}",
                 'debit' => 0,
                 'credit' => $payment->amount,
-                'entry_date' => $payment->payment_date,
+                'entry_date' => $payment->payment_time,
                 'status' => 'draft',
                 'entered_by_id' => auth()->id(),
             ])->post(auth()->id());
@@ -323,21 +358,33 @@ class GlPostingService
         try {
             DB::beginTransaction();
 
+            if ($this->alreadyPosted(StockMovement::class, (int) $movement->id, ['adjustment'])) {
+                DB::commit();
+                return true;
+            }
+
             $period = $this->getCurrentPeriod();
             if (!$period) {
                 throw new Exception('No open accounting period found');
             }
 
-            if ($movement->movement_type !== 'damage' && $movement->movement_type !== 'shrinkage') {
+            $reason = $movement->adjustment_reason;
+            if ($movement->type === 'damaged' && ! $reason) {
+                $reason = 'damage';
+            }
+
+            if ($movement->type !== 'adjustment' && $movement->type !== 'damaged') {
                 return true; // Not an adjustment that needs GL entry
             }
 
-            $inventoryAccount = $this->getGlAccount('1220');
-            $lossAccount = $movement->movement_type === 'damage'
-                ? $this->getGlAccount('5020')
-                : $this->getGlAccount('5030');
+            if (! $reason) {
+                return true; // No explicit adjustment reason to post
+            }
 
-            $amount = $movement->quantity * ($movement->unit_cost ?? 0);
+            $inventoryAccount = $this->getGlAccount('1220');
+            $lossAccount = $this->getAdjustmentAccountForType($reason);
+
+            $amount = $movement->cost_impact ?? ($movement->quantity * ($movement->unit_cost ?? 0));
 
             // Debit: Loss, Credit: Inventory
             GlEntry::create([
@@ -347,10 +394,10 @@ class GlPostingService
                 'reference_type' => StockMovement::class,
                 'reference_id' => $movement->id,
                 'reference_number' => "ADJ-{$movement->id}",
-                'description' => ucfirst($movement->movement_type) . " Loss - {$movement->quantity} units",
+                'description' => ucfirst($reason) . " Loss - {$movement->quantity} units",
                 'debit' => $amount,
                 'credit' => 0,
-                'entry_date' => $movement->created_at,
+                'entry_date' => $movement->movement_date ?? $movement->created_at,
                 'status' => 'draft',
                 'entered_by_id' => auth()->id(),
             ])->post(auth()->id());
@@ -365,7 +412,7 @@ class GlPostingService
                 'description' => "Inventory Reduction - {$movement->quantity} units",
                 'debit' => 0,
                 'credit' => $amount,
-                'entry_date' => $movement->created_at,
+                'entry_date' => $movement->movement_date ?? $movement->created_at,
                 'status' => 'draft',
                 'entered_by_id' => auth()->id(),
             ])->post(auth()->id());
@@ -415,6 +462,11 @@ class GlPostingService
     {
         try {
             DB::beginTransaction();
+
+            if ($this->alreadyPosted(AccountTransfer::class, (int) $transfer->id, ['transfer'])) {
+                DB::commit();
+                return true;
+            }
 
             $period = $this->getCurrentPeriod();
             if (!$period) {
@@ -484,6 +536,11 @@ class GlPostingService
         try {
             DB::beginTransaction();
 
+            if ($this->alreadyPosted(ExpenseClaim::class, (int) $claim->id, ['expense_claim'])) {
+                DB::commit();
+                return true;
+            }
+
             $period = $this->getCurrentPeriod();
             if (!$period) {
                 throw new Exception('No open accounting period found');
@@ -551,6 +608,11 @@ class GlPostingService
     {
         try {
             DB::beginTransaction();
+
+            if ($this->alreadyPosted(CreditNote::class, (int) $creditNote->id, ['credit_note', 'credit_note_cogs'])) {
+                DB::commit();
+                return true;
+            }
 
             $period = $this->getCurrentPeriod();
             if (!$period) {
@@ -654,6 +716,11 @@ class GlPostingService
         try {
             DB::beginTransaction();
 
+            if ($this->alreadyPosted(DebitNote::class, (int) $debitNote->id, ['debit_note'])) {
+                DB::commit();
+                return true;
+            }
+
             $period = $this->getCurrentPeriod();
             if (!$period) {
                 throw new Exception('No open accounting period found');
@@ -714,6 +781,11 @@ class GlPostingService
     {
         try {
             DB::beginTransaction();
+
+            if ($this->alreadyPosted(ProductionOrder::class, (int) $order->id, ['production'])) {
+                DB::commit();
+                return true;
+            }
 
             $period = $this->getCurrentPeriod();
             if (!$period) {
@@ -824,6 +896,11 @@ class GlPostingService
     {
         try {
             DB::beginTransaction();
+
+            if ($this->alreadyPosted(InventoryAdjustment::class, (int) $adjustment->id, ['adjustment'])) {
+                DB::commit();
+                return true;
+            }
 
             $period = $this->getCurrentPeriod();
             if (!$period) {
@@ -975,5 +1052,71 @@ class GlPostingService
         ];
 
         return $mapping[$paymentMethod] ?? '1010';
+    }
+
+    /**
+     * Select a department for a sale, falling back to the branch default.
+     */
+    protected function getDepartmentForSale(Sale $sale)
+    {
+        if ($sale->department) {
+            return $sale->department;
+        }
+
+        return $sale->branch?->departments()?->first();
+    }
+
+    /**
+     * Department-specific revenue account with fallback to default.
+     */
+    protected function getRevenueAccountForDepartment($department): GlAccount
+    {
+        if ($department && $department->revenueAccount) {
+            return $department->revenueAccount;
+        }
+
+        return $this->getGlAccount('4010');
+    }
+
+    /**
+     * Department-specific tax account with fallback to default.
+     */
+    protected function getTaxAccountForDepartment($department): GlAccount
+    {
+        if ($department && $department->taxAccount) {
+            return $department->taxAccount;
+        }
+
+        return $this->getGlAccount('2020');
+    }
+
+    /**
+     * Department-specific receivable account with fallback to default.
+     */
+    protected function getReceivableAccountForDepartment($department): GlAccount
+    {
+        if ($department && $department->receivableAccount) {
+            return $department->receivableAccount;
+        }
+
+        return $this->getGlAccount('1100');
+    }
+
+    /**
+     * Cash/bank account for a sale using explicit bank account, department defaults,
+     * or payment method mapping as last resort.
+     */
+    protected function getCashAccountForSale(Sale $sale, $department, string $paymentMethod): GlAccount
+    {
+        if ($sale->bankAccount && $sale->bankAccount->glAccount) {
+            return $sale->bankAccount->glAccount;
+        }
+
+        if ($department && $department->cashAccount) {
+            return $department->cashAccount;
+        }
+
+        $cashAccountNumber = $this->getCashAccountNumberForPaymentMethod($paymentMethod);
+        return $this->getGlAccount((string) $cashAccountNumber);
     }
 }
