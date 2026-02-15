@@ -301,31 +301,6 @@ class ItemRequests extends Component
         return ItemRequest::where('branch_id', $branchId)->pluck('id')->toArray();
     }
 
-    /**
-     * Export item requests as Excel
-     */
-    public function exportExcel()
-    {
-        try {
-            $requests = $this->getFilteredRequests();
-
-            if ($requests->isEmpty()) {
-                session()->flash('warning', 'No requests to export.');
-
-                return;
-            }
-
-            $response = $this->export(
-                'item-requests-'.now()->format('Y-m-d'),
-                $requests,
-                'exports.inventory.item-requests',
-                'excel'
-            );
-            $response->send();
-        } catch (\Exception $e) {
-            session()->flash('error', 'Export failed: '.$e->getMessage());
-        }
-    }
 
     /**
      * Export item requests as CSV
@@ -360,8 +335,7 @@ class ItemRequests extends Component
             return $this->export(
                 'item-requests-'.now()->format('Y-m-d'),
                 $data,
-                'exports.inventory.item-requests',
-                'excel'
+                'exports.inventory.item-requests'
             );
         } catch (\Exception $e) {
             session()->flash('error', 'Export failed: '.$e->getMessage());

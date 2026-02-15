@@ -201,9 +201,14 @@ class Index extends Component
                 'branch_id' => $branchId,
                 'department_id' => $this->department->id,
                 'shift_date' => today(),
-                'shift_type' => 'regular', // Default shift type
+                'shift_type' => 'morning', // Default shift type
                 'status' => 'active',
-                'shift_number' => 1,
+                'shift_number' => Shift::generateShiftNumber(
+                    (string) ($this->department->slug ?? $this->department->id),
+                    (string) Auth::id(),
+                    now(),
+                    'morning'
+                ),
             ]);
 
             $this->currentShift = $shift;
@@ -1991,7 +1996,12 @@ class Index extends Component
                 'shift_type' => $shiftType,
             ], [
                 'employee_id' => Auth::id(),
-                'shift_number' => Shift::where('shift_date', today())->count() + 1,
+                'shift_number' => Shift::generateShiftNumber(
+                    (string) ($this->department->slug ?? $this->department->id),
+                    (string) Auth::id(),
+                    now(),
+                    (string) $shiftType
+                ),
                 'status' => 'active',
             ]);
         }

@@ -266,12 +266,12 @@ class Shift extends Component
 
     private function createShift(Branch $branch, $user, $shiftConfig)
     {
-        // Generate meaningful shift number: SHFT-YYYYMMDD-XXXX
-        $date = Carbon::today()->format('Ymd');
-        $count = ShiftModel::whereDate('shift_date', Carbon::today())
-            ->where('branch_id', $branch->id)
-            ->count() + 1;
-        $shiftNumber = sprintf('SHFT-%s-%04d', $date, $count);
+        $shiftNumber = ShiftModel::generateShiftNumber(
+            (string) ($user->department?->slug ?? $user->department_id ?? 'dept'),
+            (string) $user->id,
+            Carbon::now(),
+            (string) $this->shift_type
+        );
 
         $shift = new ShiftModel;
         $shift->branch_id = $branch->id;
@@ -377,12 +377,12 @@ class Shift extends Component
      */
     private function createSalesShift(Branch $branch, $user, ShiftModel $shift): SalesShift
     {
-        // Generate meaningful sales shift number: SS-YYYYMMDD-XXXX
-        $date = Carbon::today()->format('Ymd');
-        $count = SalesShift::whereDate('shift_date', Carbon::today())
-            ->where('branch_id', $branch->id)
-            ->count() + 1;
-        $shiftNumber = sprintf('SS-%s-%04d', $date, $count);
+        $shiftNumber = SalesShift::generateShiftNumber(
+            (string) ($shift->department?->slug ?? $shift->department_id ?? 'dept'),
+            (string) $user->id,
+            Carbon::now(),
+            (string) $this->shift_type
+        );
 
         $salesShift = SalesShift::create([
             'branch_id' => $branch->id,

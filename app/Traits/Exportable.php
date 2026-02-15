@@ -4,17 +4,16 @@ namespace App\Traits;
 
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Jobs\ExportExcelJob;
+use App\Jobs\ExportCsvJob;
 
 trait Exportable
 {
     /**
-     * Universal export method for Excel with advanced formatting
+     * Universal export method for CSV exports
      *
      * @param string $filename          Base filename (without extension)
      * @param Collection|array $data    Data to export
      * @param string|array $views       Blade view path(s)
-     * @param string $format            'excel' (default)
      * @param bool $queue               Set true for large datasets (>500 rows)
      * @param array $exportOptions      Configure: format, styles, etc.
      * @return mixed
@@ -23,7 +22,7 @@ trait Exportable
         string $filename,
         $data,
         $views,
-        string $format = 'excel',
+        $formatOrQueue = null,
         bool $queue = false,
         array $exportOptions = []
     ) {
@@ -32,6 +31,12 @@ trait Exportable
         if ($data->isEmpty()) {
             session()->flash('error', 'No data to export.');
             return redirect()->back();
+        }
+
+        // Backward compatibility: export($filename, $data, $views, 'excel', true)
+        // We ignore format and treat 4th param as queue if it's boolean.
+        if (is_bool($formatOrQueue)) {
+            $queue = $formatOrQueue;
         }
 
         // Normalize views to array format
@@ -57,13 +62,13 @@ trait Exportable
     {
         if (is_string($views)) {
             return [
-                'excel' => $views,
+                'csv' => $views,
             ];
         }
 
         if (is_array($views)) {
             return [
-                'excel' => $views['excel'] ?? $views[0] ?? null,
+                'csv' => $views['csv'] ?? $views['excel'] ?? $views[0] ?? null,
             ];
         }
 
@@ -76,12 +81,6 @@ trait Exportable
     private function getDefaultExportOptions(): array
     {
         return [
-            // Excel Options
-            'excel_columns_width' => 'auto',
-            'excel_freeze_panes' => true,
-            'excel_autofilter' => true,
-            'excel_sheet_name' => 'Export',
-
             // General Options
             'queue_threshold' => 500,
             'use_memory_limit' => true,
@@ -100,17 +99,17 @@ trait Exportable
         array $views,
         array $options
     ) {
-        if ($views['excel']) {
-            ExportExcelJob::dispatch(
+        if ($views['csv']) {
+            ExportCsvJob::dispatch(
                 auth()->user()?->id,
                 $filename,
                 $data->toArray(),
-                $views['excel'],
+                $views['csv'],
                 $options
             );
         }
 
-        session()->flash('success', 'Export queued. You will be notified when ready.');
+        session()->flash('success', 'Export queued. Your CSV will be generated in the background.');
         return redirect()->back();
     }
 
@@ -126,8 +125,8 @@ trait Exportable
         // Prepare filename with optional timestamp
         $finalFilename = $this->formatFilename($filename, $options['include_timestamp'] ?? false);
 
-        if ($views['excel']) {
-            return $this->generateExcel($finalFilename, $data, $views['excel'], $options);
+        if ($views['csv']) {
+            return $this->generateCsv($finalFilename, $data, $views['csv'], $options);
         }
 
         session()->flash('error', 'No valid export view configured.');
@@ -135,9 +134,9 @@ trait Exportable
     }
 
     /**
-     * Generate professional Excel export with formatting
+     * Generate CSV export
      */
-    private function generateExcel(
+    private function generateCsv(
         string $filename,
         Collection $data,
         string $view,
@@ -149,79 +148,33 @@ trait Exportable
                 throw new \InvalidArgumentException("Export view '{$view}' not found.");
             }
 
-            $excelClass = new class($data, $view, $options)
-                implements \Maatwebsite\Excel\Concerns\FromView,
-                           \Maatwebsite\Excel\Concerns\WithStyles,
-                           \Maatwebsite\Excel\Concerns\WithColumnWidths,
-                           \Maatwebsite\Excel\Concerns\WithHeadings,
-                           \Maatwebsite\Excel\Concerns\ShouldAutoSize
+            $csvClass = new class($data, $view, $options)
+                implements \Maatwebsite\Excel\Concerns\FromView
             {
-                protected $data;
-                protected $view;
-                protected $options;
-
-                public function __construct($data, $view, $options)
-                {
-                    $this->data = $data;
-                    $this->view = $view;
-                    $this->options = $options;
-                }
+                public function __construct(
+                    protected Collection $data,
+                    protected string $view,
+                    protected array $options
+                ) {}
 
                 public function view(): \Illuminate\Contracts\View\View
                 {
                     return view($this->view, [
                         'data' => $this->data,
-                        'forExcel' => true,
+                        'forCsv' => true,
                         'options' => $this->options,
                     ]);
                 }
-
-                public function styles($sheet)
-                {
-                    // Freeze panes at row 2
-                    if ($this->options['excel_freeze_panes'] ?? true) {
-                        $sheet->freezePane('A2');
-                    }
-
-                    return [
-                        // Header row styling
-                        1 => [
-                            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
-                            'fill' => ['fillType' => 'solid', 'startColor' => ['rgb' => '2C3E50']],
-                            'alignment' => ['horizontal' => 'center', 'vertical' => 'center'],
-                        ],
-                        // Alternate row colors
-                        'A2:Z1000' => [
-                            'alignment' => ['vertical' => 'center', 'wrapText' => true],
-                        ],
-                    ];
-                }
-
-                public function columnWidths(): array
-                {
-                    // Auto-calculate widths based on content
-                    if ($this->options['excel_columns_width'] === 'auto') {
-                        return [];  // Let Excel calculate
-                    }
-
-                    return $this->options['excel_columns_width'] ?? [];
-                }
-
-                public function headings(): array
-                {
-                    // This works with data that has headers
-                    return [];
-                }
             };
 
-            return Excel::download($excelClass, $filename . '.xlsx');
+            return Excel::download($csvClass, $filename . '.csv', \Maatwebsite\Excel\Excel::CSV);
         } catch (\Exception $e) {
-            \Log::error('Excel export failed: ' . $e->getMessage(), [
+            \Log::error('CSV export failed: ' . $e->getMessage(), [
                 'filename' => $filename,
                 'view' => $view,
                 'trace' => $e->getTraceAsString(),
             ]);
-            session()->flash('error', 'Excel export failed: ' . $e->getMessage());
+            session()->flash('error', 'CSV export failed: ' . $e->getMessage());
             return redirect()->back();
         }
     }
@@ -249,10 +202,9 @@ trait Exportable
     public function quickExport(
         string $filename,
         $data,
-        string $view,
-        string $format = 'excel'
+        string $view
     ) {
-        return $this->export($filename, $data, $view, $format);
+        return $this->export($filename, $data, $view);
     }
 
     /**
@@ -268,7 +220,6 @@ trait Exportable
         array $config = []
     ) {
         $views = $config['views'] ?? $config['view'] ?? null;
-        $format = 'excel';
         $queue = $config['queue'] ?? false;
         $options = array_diff_key($config, ['views' => null, 'view' => null, 'format' => null, 'queue' => null]);
 
@@ -276,7 +227,7 @@ trait Exportable
             throw new \InvalidArgumentException('View(s) must be provided in config');
         }
 
-        return $this->export($filename, $data, $views, $format, $queue, $options);
+        return $this->export($filename, $data, $views, $queue, $options);
     }
 
     /**
@@ -296,7 +247,6 @@ trait Exportable
                 $export['filename'],
                 $export['data'],
                 $export['view'],
-                'excel',
                 $export['queue'] ?? false,
                 array_merge($options, $export['options'] ?? [])
             );
@@ -329,6 +279,6 @@ trait Exportable
             return $row;
         });
 
-        return $this->export($filename, $mappedData, $view, 'excel');
+        return $this->export($filename, $mappedData, $view);
     }
 }

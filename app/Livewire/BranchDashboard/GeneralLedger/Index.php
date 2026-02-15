@@ -137,8 +137,7 @@ class Index extends BaseComponent
         $this->export(
             'general_ledger_' . date('Y-m-d'),
             $entries,
-            'exports.accounting.journal',
-            'excel'
+            'exports.accounting.journal'
         );
 
         session()->flash('success', count($this->selectedIds) . ' entries exported successfully.');

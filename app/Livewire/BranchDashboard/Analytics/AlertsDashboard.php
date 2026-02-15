@@ -187,16 +187,6 @@ class AlertsDashboard extends Component
         }, $filename);
     }
 
-    public function exportExcel()
-    {
-        $alerts = $this->getAllAlerts();
-        return $this->export(
-            'alerts-dashboard',
-            $alerts,
-            'exports.analytics.alerts-dashboard',
-            'excel'
-        );
-    }
 
     public function generateReport(): void
     {

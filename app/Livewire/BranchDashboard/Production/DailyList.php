@@ -155,8 +155,7 @@ class DailyList extends BaseComponent
         $this->export(
             'daily_production_' . date('Y-m-d'),
             $records,
-            'exports.production.daily_produce',
-            'excel'
+            'exports.production.daily_produce'
         );
 
         session()->flash('success', count($this->selectedIds) . ' production records exported successfully.');

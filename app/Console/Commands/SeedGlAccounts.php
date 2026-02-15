@@ -38,10 +38,10 @@ class SeedGlAccounts extends Command
             $this->info('Seeding GL accounts from chart of accounts...');
             
             $seeder = new GlAccountSeeder();
-            $seeder->run();
+            $count = $seeder->run();
 
             $this->info('✅ GL accounts seeded successfully!');
-            $this->info('Total accounts created: 84');
+            $this->info('Total accounts created: ' . $count);
             
             return 0;
         } catch (\Exception $e) {

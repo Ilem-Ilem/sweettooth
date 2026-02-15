@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\AccountingPeriod;
 use App\Models\Branch;
+use App\Models\DepartmentCategory;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\GlEntry;
@@ -13,6 +14,9 @@ use App\Models\Sale;
 use App\Models\SalesShift;
 use App\Models\Stock;
 use App\Models\StockMovement;
+use App\Models\Item;
+use App\Models\User;
+use Database\Seeders\GlAccountSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -34,9 +38,26 @@ class AccountingPhase2ObserversTest extends TestCase
     {
         parent::setUp();
 
-        // Create required models
-        $this->branch = Branch::factory()->create();
-        $this->department = Department::factory()->create(['branch_id' => $this->branch->id]);
+        (new GlAccountSeeder())->run();
+
+        $this->branch = Branch::create([
+            'name' => 'Test Branch',
+            'code' => 'TB01',
+            'location' => 'Test Location',
+            'email' => 'branch@example.com',
+        ]);
+
+        $category = DepartmentCategory::create([
+            'name' => 'Sales',
+            'description' => 'Sales Department',
+        ]);
+
+        $this->department = Department::create([
+            'branch_id' => $this->branch->id,
+            'category_id' => $category->id,
+            'name' => 'Sales Department',
+        ]);
+
         $this->period = AccountingPeriod::create([
             'year' => now()->year,
             'month' => now()->month,
@@ -44,8 +65,32 @@ class AccountingPhase2ObserversTest extends TestCase
             'period_end' => now()->endOfMonth(),
             'status' => 'open',
         ]);
-        $this->salesShift = SalesShift::factory()->create(['branch_id' => $this->branch->id]);
-        $this->employee = Employee::factory()->create(['branch_id' => $this->branch->id]);
+
+        $user = User::create([
+            'name' => 'Test User',
+            'email' => 'user@example.com',
+            'password' => 'password',
+            'branch_id' => $this->branch->id,
+        ]);
+
+        $this->employee = Employee::create([
+            'name' => 'Test Employee',
+            'email' => 'employee@example.com',
+            'password' => 'password',
+            'branch_id' => $this->branch->id,
+            'employee_number' => 'EMP-001',
+            'hire_date' => now(),
+        ]);
+
+        $this->salesShift = SalesShift::create([
+            'branch_id' => $this->branch->id,
+            'department_id' => $this->department->id,
+            'employee_id' => $user->id,
+            'shift_number' => 'SHIFT-001',
+            'shift_date' => now()->toDateString(),
+            'shift_type' => 'morning',
+            'status' => 'active',
+        ]);
     }
 
     /**
@@ -196,19 +241,37 @@ class AccountingPhase2ObserversTest extends TestCase
      */
     public function test_stock_movement_observer_posts_damage_to_gl()
     {
-        // Create a stock item
-        $stock = Stock::factory()->create(['branch_id' => $this->branch->id]);
+        $item = Item::create([
+            'branch_id' => $this->branch->id,
+            'name' => 'Test Item',
+            'sku' => 'ITEM-001',
+            'category' => 'raw_material',
+            'uom' => 'kg',
+            'status' => 'active',
+        ]);
+
+        $stock = Stock::create([
+            'branch_id' => $this->branch->id,
+            'item_id' => $item->id,
+            'quantity_available' => 100,
+            'quantity_reserved' => 0,
+            'quantity_damaged' => 0,
+            'average_cost' => 10,
+        ]);
 
         // Create damage movement
         $movement = StockMovement::create([
             'stock_id' => $stock->id,
-            'type' => 'damage',
+            'type' => 'damaged',
+            'adjustment_reason' => 'damage',
             'quantity' => 5,
             'quantity_before' => 100,
             'quantity_after' => 95,
             'moved_by_type' => Employee::class,
             'moved_by_id' => $this->employee->id,
             'movement_date' => now(),
+            'unit_cost' => 10,
+            'cost_impact' => 50,
         ]);
 
         // Refresh from DB
@@ -231,7 +294,23 @@ class AccountingPhase2ObserversTest extends TestCase
      */
     public function test_stock_movement_observer_ignores_regular_movements()
     {
-        $stock = Stock::factory()->create(['branch_id' => $this->branch->id]);
+        $item = Item::create([
+            'branch_id' => $this->branch->id,
+            'name' => 'Test Item 2',
+            'sku' => 'ITEM-002',
+            'category' => 'raw_material',
+            'uom' => 'kg',
+            'status' => 'active',
+        ]);
+
+        $stock = Stock::create([
+            'branch_id' => $this->branch->id,
+            'item_id' => $item->id,
+            'quantity_available' => 100,
+            'quantity_reserved' => 0,
+            'quantity_damaged' => 0,
+            'average_cost' => 10,
+        ]);
 
         $movement = StockMovement::create([
             'stock_id' => $stock->id,

@@ -112,7 +112,9 @@ class Index extends BaseComponent
     }
 
     // Export methods
-    public function exportExcel()
+
+
+    public function exportCSV()
     {
         $branches = $this->getFilteredQuery()->get();
 
@@ -291,8 +293,7 @@ class Index extends BaseComponent
         $this->export(
             'branch_modules_' . date('Y-m-d'),
             $branches,
-            'exports.branch_modules',
-            'excel'
+            'exports.branch_modules'
         );
 
         session()->flash('success', count($this->selectedIds) . ' branch modules exported successfully.');

@@ -6,6 +6,7 @@ use App\Models\Sale;
 use App\Models\Purchase;
 use App\Models\Payment;
 use App\Models\StockMovement;
+use App\Models\AccountingPostingFailure;
 use App\Models\AccountingPeriod;
 use App\Services\GlPostingService;
 use Illuminate\Console\Command;
@@ -26,7 +27,7 @@ class BackfillGlEntries extends Command
         if (!$periodId) {
             $period = AccountingPeriod::current()->first();
             if (!$period) {
-                $this->error('❌ No open accounting period. Create one first with: php artisan accounting:create-period');
+                $this->error('❌ No open accounting period. Create one in the Accounting Periods UI first.');
                 return 1;
             }
             $periodId = $period->id;
@@ -79,6 +80,14 @@ class BackfillGlEntries extends Command
                 ]);
                 $successCount++;
             } catch (Exception $e) {
+                AccountingPostingFailure::create([
+                    'reference_type' => Sale::class,
+                    'reference_id' => $sale->id,
+                    'entry_type' => 'sale',
+                    'error_message' => $e->getMessage(),
+                    'context' => ['sale_number' => $sale->sale_number],
+                    'last_seen_at' => now(),
+                ]);
                 $sale->update([
                     'gl_posting_status' => 'failed',
                     'gl_posting_error' => $e->getMessage(),
@@ -119,6 +128,14 @@ class BackfillGlEntries extends Command
                 ]);
                 $successCount++;
             } catch (Exception $e) {
+                AccountingPostingFailure::create([
+                    'reference_type' => Purchase::class,
+                    'reference_id' => $purchase->id,
+                    'entry_type' => 'purchase',
+                    'error_message' => $e->getMessage(),
+                    'context' => ['purchase_number' => $purchase->purchase_number],
+                    'last_seen_at' => now(),
+                ]);
                 $purchase->update([
                     'gl_posting_status' => 'failed',
                     'gl_posting_error' => $e->getMessage(),
@@ -159,6 +176,14 @@ class BackfillGlEntries extends Command
                 ]);
                 $successCount++;
             } catch (Exception $e) {
+                AccountingPostingFailure::create([
+                    'reference_type' => Payment::class,
+                    'reference_id' => $payment->id,
+                    'entry_type' => 'payment',
+                    'error_message' => $e->getMessage(),
+                    'context' => ['payment_method' => $payment->payment_method],
+                    'last_seen_at' => now(),
+                ]);
                 $payment->update([
                     'gl_posting_status' => 'failed',
                     'gl_posting_error' => $e->getMessage(),
@@ -177,7 +202,15 @@ class BackfillGlEntries extends Command
     {
         $this->info("\n🔧 Processing Inventory Adjustments...");
 
-        $adjustments = StockMovement::whereIn('type', ['damage', 'shrinkage'])
+        $adjustments = StockMovement::query()
+            ->where(function ($query) {
+                $query
+                    ->where('type', 'damaged')
+                    ->orWhere(function ($subQuery) {
+                        $subQuery->where('type', 'adjustment')
+                            ->whereNotNull('adjustment_reason');
+                    });
+            })
             ->where('gl_posting_status', '!=', 'posted')
             ->get();
 
@@ -199,6 +232,14 @@ class BackfillGlEntries extends Command
                 ]);
                 $successCount++;
             } catch (Exception $e) {
+                AccountingPostingFailure::create([
+                    'reference_type' => StockMovement::class,
+                    'reference_id' => $adjustment->id,
+                    'entry_type' => 'adjustment',
+                    'error_message' => $e->getMessage(),
+                    'context' => ['type' => $adjustment->type, 'reason' => $adjustment->adjustment_reason],
+                    'last_seen_at' => now(),
+                ]);
                 $adjustment->update([
                     'gl_posting_status' => 'failed',
                     'gl_posting_error' => $e->getMessage(),

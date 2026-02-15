@@ -1,3 +1,4 @@
+@if($forCsv ?? false)
 @php
     $payload = $report->report_data ?? [];
     $summary = $report->summary_metrics ?? ($payload['summary_metrics'] ?? []);
@@ -100,3 +101,4 @@
         @endif
     </table>
 @endforeach
+@endif

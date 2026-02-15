@@ -2,7 +2,28 @@
     use Illuminate\Support\Facades\Storage;
 @endphp
 
-<div class="w-full">
+<div class="w-full" x-data
+     x-on:appearance-updated.window="
+        if ($event.detail?.primaryColor) {
+            document.documentElement.style.setProperty('--color-primary', $event.detail.primaryColor);
+        }
+        if ($event.detail?.accentColor) {
+            document.documentElement.style.setProperty('--color-accent', $event.detail.accentColor);
+            document.documentElement.style.setProperty('--color-accent-content', $event.detail.accentColor);
+        }
+        if ($event.detail?.primaryMuted) {
+            document.documentElement.style.setProperty('--color-primary-muted', $event.detail.primaryMuted);
+        }
+        if ($event.detail?.pageBackground) {
+            document.documentElement.style.setProperty('--color-background', $event.detail.pageBackground);
+        }
+        if ($event.detail?.primaryContrast) {
+            document.documentElement.style.setProperty('--color-primary-foreground', $event.detail.primaryContrast);
+        }
+        if (window.Flux && typeof window.Flux.applyAppearance === 'function' && $event.detail?.themeMode) {
+            window.Flux.applyAppearance($event.detail.themeMode);
+        }
+     ">
     <h2 class="text-2xl font-bold mb-6 text-zinc-900 dark:text-zinc-100">Appearance & Theme</h2>
 
     @if (session()->has('message'))

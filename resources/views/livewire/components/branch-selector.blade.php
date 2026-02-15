@@ -1,6 +1,6 @@
 <div>
     @if($this->isSuperAdmin && $this->branches->count() > 0)
-    <div class="branch-selector-card sticky top-0 z-40 flex items-center gap-3 px-4 py-3 border-b-2 shadow-sm">
+    <div class="branch-selector-card sticky top-0 z-40 flex items-center gap-3 px-4 py-3 border-b-2 shadow-sm mb-10">
         <div class="flex items-center gap-2 flex-shrink-0">
             <div class="p-2 bg-purple-600 dark:bg-purple-500 rounded-lg shadow-md">
                 <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

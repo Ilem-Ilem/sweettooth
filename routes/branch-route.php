@@ -230,41 +230,45 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
 
         // Accounting Routes - Role Based Access (Super Admin, MD, Accountant)
         Route::prefix('accounting')->name('accounting.')->middleware('role_or_permission:access_accounting,view_financial_reports')->group(function () {
-            // Accounting Dashboard
-            Route::get('/dashboard', \App\Livewire\BranchDashboard\Accounting\Dashboard::class)->name('dashboard');
+            // Accounting Home
+            Route::get('/dashboard', \App\Livewire\BranchDashboard\Accounting\Simple\Home::class)->name('dashboard');
 
-            // Accounting Overview
-            Route::get('/overview', \App\Livewire\BranchDashboard\Accounting\Overview::class)->name('overview');
+            // Accounting Overview (now home)
+            Route::get('/overview', \App\Livewire\BranchDashboard\Accounting\Simple\Home::class)->name('overview');
 
             // Chart of Accounts Management (Super Admin, MD, Admin)
             Route::middleware('role_or_permission:manage_accounts')->group(function () {
-                Route::get('/accounts', \App\Livewire\BranchDashboard\Accounting\GlAccountList::class)->name('accounts');
+                Route::get('/accounts', \App\Livewire\BranchDashboard\Accounting\Simple\ChartOfAccounts::class)->name('accounts');
             });
 
             // Bank Accounts Management
             Route::middleware('role_or_permission:Super Admin,MD,Managing Director,Admin,Accountant,Accounting Manager,view_bank_accounts,create_bank_accounts,edit_bank_accounts')->group(function () {
-                Route::get('/bank-accounts', \App\Livewire\BranchDashboard\Accounting\BankAccounts::class)->name('bank-accounts');
+                Route::get('/bank-accounts', \App\Livewire\BranchDashboard\Accounting\Simple\CashBank::class)->name('bank-accounts');
             });
 
             // Accounting Period Management (Super Admin, MD, Admin)
             Route::middleware('role_or_permission:manage_periods')->group(function () {
-                Route::get('/periods', \App\Livewire\BranchDashboard\Accounting\PeriodManagement::class)->name('periods');
+                Route::get('/periods', \App\Livewire\BranchDashboard\Accounting\Simple\PeriodControl::class)->name('periods');
             });
 
             // Manual Journal Entry (Super Admin, MD, Accountant, Admin)
             Route::middleware('role_or_permission:create_journal_entries')->group(function () {
-                Route::get('/journal-entry', \App\Livewire\BranchDashboard\Accounting\ManualJournalEntry::class)->name('journal-entry');
+                Route::get('/journal-entry', \App\Livewire\BranchDashboard\Accounting\Simple\Journals::class)->name('journal-entry');
             });
 
             // Posting Status Monitor
-            Route::get('/posting-status', \App\Livewire\BranchDashboard\Accounting\PostingStatusMonitor::class)->name('posting-status');
+            Route::get('/posting-status', \App\Livewire\BranchDashboard\Accounting\Simple\Transactions::class)->name('posting-status');
 
             // Inventory Valuation to GL
-            Route::get('/inventory-valuation', \App\Livewire\BranchDashboard\Accounting\InventoryValuationPosting::class)->name('inventory-valuation');
+            Route::get('/inventory-valuation', \App\Livewire\BranchDashboard\Accounting\Simple\InventoryValuation::class)->name('inventory-valuation');
+            Route::get('/inventory-valuation/manage', \App\Livewire\BranchDashboard\Accounting\InventoryValuationPosting::class)
+                ->name('inventory-valuation-manage');
 
             // Bank Reconciliation
             Route::middleware('role_or_permission:reconcile_bank_accounts')->group(function () {
-                Route::get('/bank-reconciliation', \App\Livewire\BranchDashboard\Accounting\BankReconciliation::class)->name('bank-reconciliation');
+                Route::get('/bank-reconciliation', \App\Livewire\BranchDashboard\Accounting\Simple\CashBank::class)->name('bank-reconciliation');
+                Route::get('/bank-reconciliation/manage', \App\Livewire\BranchDashboard\Accounting\BankReconciliation::class)
+                    ->name('bank-reconciliation-manage');
             });
 
             // Financial Reports

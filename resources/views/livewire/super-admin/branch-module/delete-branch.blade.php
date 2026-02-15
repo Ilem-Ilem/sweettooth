@@ -30,7 +30,7 @@
 
     <!-- Export Buttons -->
     <div class="flex justify-end items-center space-x-2">
-        <button wire:click="exportExcel"
+        <button wire:click="exportCSV"
             class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center">
             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

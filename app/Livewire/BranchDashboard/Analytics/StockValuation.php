@@ -364,36 +364,6 @@ class StockValuation extends Component
         }, $filename);
     }
 
-    public function exportExcel()
-    {
-        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
-        $stocks = Stock::with('item')
-            ->where('branch_id', $branchId)
-            ->when($this->searchTerm, function ($query) {
-                $query->whereHas('item', function ($q) {
-                    $q->where('name', 'like', '%' . $this->searchTerm . '%')
-                      ->orWhere('sku', 'like', '%' . $this->searchTerm . '%');
-                });
-            })
-            ->when($this->selectedCategory, function ($query) {
-                $query->whereHas('item', function ($q) {
-                    $q->where('category', $this->selectedCategory);
-                });
-            })
-            ->get()
-            ->map(function ($stock) {
-                $stock->total_value = ($stock->quantity_available + $stock->quantity_reserved) * $stock->average_cost;
-                $stock->available_value = $stock->quantity_available * $stock->average_cost;
-                return $stock;
-            });
-
-        return $this->export(
-            'stock-valuation',
-            $stocks,
-            'exports.analytics.stock-valuation',
-            'excel'
-        );
-    }
 
     public function render()
     {

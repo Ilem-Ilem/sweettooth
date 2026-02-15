@@ -258,6 +258,11 @@ class Create extends Component
 
         DB::transaction(function () use ($employee, $branchId) {
             // Get or create shift for today
+            $departmentKey = $this->department->slug ?? (string) $this->department->id;
+            if (is_super_admin() && $this->department->slug) {
+                $departmentKey = $this->department->slug;
+            }
+
             $shift = Shift::firstOrCreate([
                 'branch_id'     => $branchId,
                 'department_id' => $this->department->id,
@@ -265,7 +270,12 @@ class Create extends Component
                 'shift_type'    => $this->currentShift,
             ], [
                 'employee_id'  => $employee->id,
-                'shift_number' => Shift::where('shift_date', today())->count() + 1,
+                'shift_number' => Shift::generateShiftNumber(
+                    (string) $departmentKey,
+                    (string) $employee->id,
+                    now(),
+                    (string) $this->currentShift
+                ),
                 'status'       => 'active',
             ]);
           

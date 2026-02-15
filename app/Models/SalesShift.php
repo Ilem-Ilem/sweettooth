@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -130,5 +131,33 @@ class SalesShift extends Model
     public function isClosed(): bool
     {
         return in_array($this->status, ['closed', 'submitted', 'verified']);
+    }
+
+    public static function generateShiftNumber(string $departmentKey, string $userId, $createdAt, string $shiftType): string
+    {
+        $dept = strtoupper(preg_replace('/[^A-Z0-9]/', '', (string) $departmentKey));
+        if ($dept === '') {
+            $dept = 'DEPT';
+        }
+
+        $user = strtoupper(preg_replace('/[^A-Z0-9]/', '', (string) $userId));
+        if ($user === '') {
+            $user = 'USER';
+        }
+        if (strlen($user) > 8) {
+            $user = substr($user, 0, 8);
+        }
+
+        $timestamp = Carbon::parse($createdAt)->format('YmdHis');
+        $typeCode = strtoupper(substr((string) $shiftType, 0, 1));
+        $base = "SS-{$dept}-{$user}-{$timestamp}-{$typeCode}";
+        $seq = 1;
+
+        do {
+            $candidate = sprintf('%s-%03d', $base, $seq);
+            $seq++;
+        } while (self::where('shift_number', $candidate)->exists());
+
+        return $candidate;
     }
 }

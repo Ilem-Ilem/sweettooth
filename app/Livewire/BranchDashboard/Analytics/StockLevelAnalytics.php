@@ -500,17 +500,6 @@ class StockLevelAnalytics extends Component
         })->values()->toArray();
     }
 
-    public function exportExcel()
-    {
-        $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
-        return redirect(branch_route('branch-dashboard.exports.stock-level-analytics', [
-            'format' => 'excel',
-            'search' => $this->searchTerm,
-            'category' => $this->selectedCategory,
-            'health' => $this->healthFilter,
-            'b_id' => $branchId,
-        ]));
-    }
 
     public function render()
     {

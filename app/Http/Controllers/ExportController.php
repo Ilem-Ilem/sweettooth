@@ -6,11 +6,9 @@ use App\Models\Stock;
 use App\Models\HealthCheck;
 use App\Models\ItemRequest;
 use App\Models\DepartmentReport;
-use App\Exports\DepartmentReportExport;
 use App\Traits\Exportable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Maatwebsite\Excel\Facades\Excel;
 
 class ExportController extends Controller
 {
@@ -45,18 +43,7 @@ class ExportController extends Controller
             return back()->with('warning', 'No stock data to export.');
         }
 
-        $format = $request->get('format', 'excel');
-        
-        if ($format === 'csv') {
-            return $this->exportAsCSV($stocks);
-        }
-        
-        return $this->export(
-            'stock-level-analytics-' . now()->format('Y-m-d'),
-            $stocks,
-            'exports.analytics.stock-level-analytics',
-            $format
-        );
+        return $this->exportAsCSV($stocks);
     }
 
     /**
@@ -111,13 +98,10 @@ class ExportController extends Controller
             return back()->with('warning', 'No health checks to export.');
         }
 
-        $format = $request->get('format', 'excel');
-
         return $this->export(
             'health-checks-' . now()->format('Y-m-d'),
             $healthChecks,
-            'exports.inventory.health-checks',
-            $format
+            'exports.inventory.health-checks'
         );
     }
 
@@ -150,18 +134,15 @@ class ExportController extends Controller
             return back()->with('warning', 'No requests to export.');
         }
 
-        $format = $request->get('format', 'excel');
-
         return $this->export(
             'item-requests-' . now()->format('Y-m-d'),
             $requests,
-            'exports.inventory.item-requests',
-            $format
+            'exports.inventory.item-requests'
         );
     }
 
     /**
-     * Export a saved department report as Excel.
+     * Export a saved department report as CSV.
      */
     public function departmentReport(Request $request, string $reportId)
     {
@@ -183,7 +164,80 @@ class ExportController extends Controller
             now()->format('Y-m-d')
         );
 
-        return Excel::download(new DepartmentReportExport($report), $filename . '.xlsx');
+        return $this->exportDepartmentReportCsv($report, $filename);
+    }
+
+    private function exportDepartmentReportCsv(DepartmentReport $report, string $filename)
+    {
+        $payload = $report->report_data ?? [];
+        $summary = $report->summary_metrics ?? ($payload['summary_metrics'] ?? []);
+        $tables = $payload['tables'] ?? [];
+        $narrative = $payload['narrative'] ?? [];
+        $periodInfo = $payload['period_info'] ?? [
+            'from' => $report->period_from,
+            'to' => $report->period_to,
+        ];
+
+        $csvFilename = $filename . '.csv';
+
+        return response()->streamDownload(function () use ($report, $summary, $tables, $narrative, $periodInfo) {
+            $handle = fopen('php://output', 'w');
+
+            fputcsv($handle, ['Report Overview']);
+            fputcsv($handle, ['Report Name', $report->report_name]);
+            fputcsv($handle, ['Category', $report->report_category]);
+            fputcsv($handle, ['Type', $report->report_type]);
+            fputcsv($handle, ['Period', ($periodInfo['from'] ?? '-') . ' to ' . ($periodInfo['to'] ?? '-')]);
+            fputcsv($handle, ['Generated On', optional($report->report_date)->format('Y-m-d') ?? '-']);
+            fputcsv($handle, []);
+
+            fputcsv($handle, ['Summary Metrics']);
+            if (! empty($summary)) {
+                foreach ($summary as $label => $value) {
+                    $labelText = \Illuminate\Support\Str::of($label)->replace('_', ' ')->title();
+                    $valueText = is_numeric($value) ? number_format($value, 2) : (is_array($value) ? json_encode($value) : $value);
+                    fputcsv($handle, [$labelText, $valueText]);
+                }
+            } else {
+                fputcsv($handle, ['No summary metrics available.']);
+            }
+            fputcsv($handle, []);
+
+            if (! empty($narrative)) {
+                fputcsv($handle, ['Narrative']);
+                if (! empty($narrative['overview'])) {
+                    fputcsv($handle, ['Overview', $narrative['overview']]);
+                }
+                foreach (['highlights' => 'Highlights', 'concerns' => 'Concerns', 'recommendations' => 'Recommendations'] as $key => $title) {
+                    if (! empty($narrative[$key])) {
+                        $text = is_array($narrative[$key]) ? implode('; ', $narrative[$key]) : $narrative[$key];
+                        fputcsv($handle, [$title, $text]);
+                    }
+                }
+                fputcsv($handle, []);
+            }
+
+            foreach ($tables as $tableName => $table) {
+                fputcsv($handle, [\Illuminate\Support\Str::of($tableName)->replace('_', ' ')->title()]);
+                if (! empty($table['headers'])) {
+                    fputcsv($handle, $table['headers']);
+                }
+                if (! empty($table['rows'])) {
+                    foreach ($table['rows'] as $row) {
+                        $rowValues = [];
+                        foreach ($row as $cell) {
+                            $rowValues[] = is_numeric($cell) ? number_format($cell, 2) : (is_array($cell) ? json_encode($cell) : $cell);
+                        }
+                        fputcsv($handle, $rowValues);
+                    }
+                } else {
+                    fputcsv($handle, ['No rows available.']);
+                }
+                fputcsv($handle, []);
+            }
+
+            fclose($handle);
+        }, $csvFilename);
     }
 
     private function canExportReports($user): bool

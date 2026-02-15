@@ -153,8 +153,7 @@ class Index extends BaseComponent
         $this->export(
             'pos_transactions_' . date('Y-m-d'),
             $sales,
-            'exports.pos.transactions',
-            'excel'
+            'exports.pos.transactions'
         );
 
         session()->flash('success', count($this->selectedIds) . ' POS transactions exported successfully.');

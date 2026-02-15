@@ -810,43 +810,6 @@ class Items extends BaseComponent
         $this->resetPage();
     }
 
-    public function exportExcel()
-    {
-        try {
-            // Export ALL items without pagination or search filters
-            $items = Item::query()
-                ->where('branch_id', $this->getBranchId())
-                ->orderBy('sku')
-                ->get();
-
-            $data = $items->map(fn ($item) => [
-                'sku' => $item->sku,
-                'name' => $item->name,
-                'category' => $item->category,
-                'reorder_level' => $item->reorder_level,
-                'status' => $item->status,
-                'uom' => $item->uom,
-            ])->toArray();
-
-            if (empty($data)) {
-                $this->toast()->warning('No items to export.')->send();
-
-                return;
-            }
-
-            return $this->export(
-                'inventory-items-'.now()->format('Y-m-d'),
-                collect($data),
-                'exports.inventory.items',
-                'excel',
-                true
-            );
-        } catch (\Exception $e) {
-            $this->toast()->error('Export failed: '.$e->getMessage())->send();
-
-            return;
-        }
-    }
 
     public function exportCSV()
     {

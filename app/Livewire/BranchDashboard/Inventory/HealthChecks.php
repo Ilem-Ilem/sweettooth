@@ -215,31 +215,6 @@ class HealthChecks extends Component
         })->pluck('id')->toArray();
     }
 
-    /**
-     * Export health checks as Excel
-     */
-    public function exportExcel()
-    {
-        try {
-            $healthChecks = $this->getFilteredHealthChecks();
-
-            if ($healthChecks->isEmpty()) {
-                session()->flash('warning', 'No health checks to export.');
-
-                return;
-            }
-
-            $response = $this->export(
-                'health-checks',
-                $healthChecks,
-                'exports.inventory.health-checks',
-                'excel'
-            );
-            $response->send();
-        } catch (\Exception $e) {
-            session()->flash('error', 'Export failed: '.$e->getMessage());
-        }
-    }
 
     /**
      * Export health checks as CSV

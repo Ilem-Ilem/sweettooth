@@ -661,49 +661,6 @@ class ItemDispatches extends Component
         $this->resetPage();
     }
 
-    public function exportExcel()
-    {
-        try {
-            $dispatches = ItemDispatch::with(['itemRequest.branch', 'itemRequestDetail.item'])
-                ->whereHas('itemRequest', fn ($q) => $q->where('branch_id', $this->getBranchId()))
-                ->when($this->search, fn ($q) => $q->whereHas('itemRequestDetail.item', fn ($sq) => $sq->where('name', 'like', '%'.$this->search.'%')))
-                ->when($this->filterDateFrom, fn ($q) => $q->whereDate('created_at', '>=', $this->filterDateFrom))
-                ->when($this->filterDateTo, fn ($q) => $q->whereDate('created_at', '<=', $this->filterDateTo))
-                ->orderBy('created_at', 'desc')
-                ->get();
-
-            if ($dispatches->isEmpty()) {
-                $this->toast()->warning('No dispatches to export.')->send();
-
-                return;
-            }
-
-            $data = $dispatches->map(function ($dispatch) {
-                return [
-                    'request_number' => $dispatch->itemRequest->request_number ?? 'N/A',
-                    'item_name' => $dispatch->itemRequestDetail->item->name ?? 'N/A',
-                    'sku' => $dispatch->itemRequestDetail->item->sku ?? 'N/A',
-                    'quantity_requested' => $dispatch->itemRequestDetail->quantity_requested ?? 0,
-                    'quantity_approved' => $dispatch->itemRequestDetail->quantity_approved ?? 0,
-                    'quantity_dispatched' => $dispatch->quantity_dispatched ?? 0,
-                    'uom' => $dispatch->itemRequestDetail->item->uom ?? 'units',
-                    'dispatch_date' => $dispatch->created_at ? \Carbon\Carbon::parse($dispatch->created_at)->format('Y-m-d H:i') : 'N/A',
-                    'status' => $dispatch->itemRequest->status ?? 'N/A',
-                ];
-            });
-
-            return $this->export(
-                'item-dispatches-'.now()->format('Y-m-d'),
-                $data,
-                'exports.inventory.dispatches',
-                'excel'
-            );
-        } catch (\Exception $e) {
-            $this->toast()->error('Export failed: '.$e->getMessage())->send();
-
-            return;
-        }
-    }
 
     public function exportCSV()
     {

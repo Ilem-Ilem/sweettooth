@@ -11,7 +11,6 @@ class Index extends Component
     public $tabs = [
         ['id' => 'business-config', 'name' => 'Business Configuration'],
         ['id' => 'currency-localization', 'name' => 'Currency & Localization'],
-        ['id' => 'uom-conversions', 'name' => 'UOM Conversions'],
         ['id' => 'appearance', 'name' => 'Appearance & Theme'],
     ];
 

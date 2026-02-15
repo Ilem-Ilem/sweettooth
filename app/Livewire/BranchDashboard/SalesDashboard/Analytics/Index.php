@@ -439,16 +439,12 @@ class Index extends Component
         try {
             $data = $this->prepareExportData();
 
-            switch ($format) {
-                case 'csv':
-                    return $this->exportToCSV($data);
-                case 'excel':
-                    return $this->exportToExcel($data);
-                case 'pdf':
-                    return $this->exportToPDF($data);
-                default:
-                    $this->dispatch('notify', ['message' => 'Invalid export format', 'type' => 'error']);
+            if ($format !== 'csv') {
+                $this->dispatch('notify', ['message' => 'Only CSV export is supported.', 'type' => 'error']);
+                return;
             }
+
+            return $this->exportToCSV($data);
         } catch (\Exception $e) {
             $this->dispatch('notify', ['message' => 'Export failed: ' . $e->getMessage(), 'type' => 'error']);
         }
@@ -715,27 +711,6 @@ class Index extends Component
         ]);
     }
 
-    protected function exportToExcel($data)
-    {
-        return $this->export(
-            'sales-analytics-' . now()->format('Y-m-d'),
-            collect($data),
-            'exports.sales.analytics',
-            'excel'
-        );
-    }
-
-    protected function exportToPDF($data)
-    {
-        return $this->export(
-            'sales-analytics-' . now()->format('Y-m-d'),
-            collect($data),
-            'exports.sales.analytics',
-            'pdf',
-            false,
-            ['orientation' => 'portrait', 'paper' => 'A4']
-        );
-    }
 
     public function render()
     {

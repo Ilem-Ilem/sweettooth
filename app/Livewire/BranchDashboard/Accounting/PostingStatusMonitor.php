@@ -6,6 +6,7 @@ use App\Models\Payment;
 use App\Models\Purchase;
 use App\Models\Sale;
 use App\Models\StockMovement;
+use App\Models\AccountingPostingFailure;
 use App\Services\GlPostingService;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -184,6 +185,14 @@ class PostingStatusMonitor extends Component
             $model->update(['gl_posting_status' => 'posted', 'gl_posted_at' => now()]);
             session()->flash('message', 'Posting retry completed successfully.');
         } catch (\Throwable $e) {
+            AccountingPostingFailure::create([
+                'reference_type' => get_class($model),
+                'reference_id' => $model->id,
+                'entry_type' => $transactionType,
+                'error_message' => $e->getMessage(),
+                'context' => ['source' => 'posting_status_monitor'],
+                'last_seen_at' => now(),
+            ]);
             $model->update([
                 'gl_posting_status' => 'failed',
                 'gl_posting_error' => $e->getMessage(),

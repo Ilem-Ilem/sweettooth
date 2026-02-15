@@ -198,7 +198,9 @@ class Index extends BaseComponent
     }
 
     // Export methods
-    public function exportExcel()
+
+
+    public function exportCSV()
     {
         $employees = $this->getFilteredQuery()->get();
 

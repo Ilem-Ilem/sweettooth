@@ -2,7 +2,6 @@
 
 namespace App\Livewire\BranchDashboard\DepartmentModule;
 
-use App\Models\Branch;
 use App\Models\Department;
 use App\Livewire\BaseComponent;
 use Livewire\Attributes\Computed;
@@ -11,269 +10,77 @@ use App\Models\ApprovalAuditRequest;
 use App\Services\AuditService;
 use App\Services\DepartmentApprovalService;
 use App\Traits\Exportable;
-use Livewire\Attributes\{Layout, On, Title, Url};
 
-/**
- * Department Management Livewire Component
- * 
- * Handles listing, filtering, searching, and bulk operations on departments.
- * 
- * Key Features:
- * - Multi-branch support with branch context validation
- * - Advanced search and filtering capabilities
- * - Approval workflow for non-super-admin delete operations
- * - Bulk delete operations with audit logging
- * - CSV export functionality
- * - Cached department categories (4200 seconds)
- * 
- * Branch Security:
- * - Employees can only manage departments in their assigned branch
- * - Super admins can manage departments across all branches
- * - All operations are logged via AuditService
- * 
- * @see App\Livewire\BaseComponent
- * @see App\Services\AuditService
- */
-#[Layout('components.layouts.app.branch-dashboard')]
-#[Title("Manage Departments")]
 class Index extends BaseComponent
 {
     use Exportable;
-    /**
-     * Pagination: number of items per page
-     * @var int
-     */
-    public ?int $quantity = 5;
 
-    /**
-     * Quick search filter across department names
-     * @var string|null
-     */
+    public ?int $quantity = 10;
     public ?string $search = null;
-
-    /**
-     * Advanced search across multiple fields (name and description)
-     * @var string|null
-     */
     public ?string $advancedSearch = null;
-
-    /**
-     * Date range filter: start date for created_at
-     * @var string|null
-     */
     public ?string $dateFrom = null;
-
-    /**
-     * Date range filter: end date for created_at
-     * @var string|null
-     */
     public ?string $dateTo = null;
-
-    /**
-     * Current branch ID - required for all operations
-     * Kept in URL via #[Url(keep: true)] to maintain branch context
-     * @var string|null
-     */
-    #[Url(keep: true)]
+    public ?string $filterCategory = null;
+    public ?string $deleteReason = '';
+    public ?string $selectedDepartmentId = null;
+    public bool $showDeleteReasonModal = false;
     public ?string $b_id = null;
 
-    /**
-     * Handle branch change event from BranchSelector component
-     * 
-     * When super admin switches branches via BranchSelector,
-     * this listener updates the current branch context and resets pagination.
-     * 
-     * @param mixed $branchId The new branch ID from BranchSelector event
-     * @return void
-     */
-    #[On('branch-changed')]
-    public function handleBranchChange($branchId)
+    public function mount(): void
     {
-        $this->b_id = $branchId;
-        $this->resetPage();
+        $this->b_id = request()->query('b_id');
+        $this->mountBase();
     }
 
-    /**
-     * Category filter - limits displayed departments to specific category
-     * @var string|null
-     */
-    public ?string $filterCategory = null;
-
-    /**
-     * Branch filter - alternative filter for branch (rarely used, prefer b_id)
-     * @var string|null
-     */
-    public ?string $filterBranch = null;
-
-    /**
-     * ID of department selected for delete operation
-     * @var int|null
-     */
-    public ?int $selectedDepartmentId = null;
-
-    /**
-     * Controls visibility of delete reason modal
-     * Non-super-admins must provide a reason for deletion
-     * @var bool
-     */
-    public bool $showDeleteReasonModal = false;
-
-    /**
-     * Reason provided by user for delete operation
-     * Required for non-super-admin users (minimum 5 characters)
-     * @var string
-     */
-    public string $deleteReason = '';
-  
-    /**
-     * Available bulk actions
-     * Extends BaseComponent with custom bulk delete and export actions
-     * @var array
-     */
-    protected array $bulkActions = [
-        'delete' => ['label' => 'Delete Selected', 'method' => 'bulkDelete'],
-        'export' => ['label' => 'Export Selected', 'method' => 'exportSelected'],
-    ];
-
-    /**
-     * Get the model class for bulk operations
-     * Required by BaseComponent trait
-     * 
-     * @return string
-     */
     protected function getModelClass(): string
     {
         return Department::class;
     }
 
-    /**
-     * Get all selectable IDs for bulk operations
-     * 
-     * Returns all department IDs from the filtered query results.
-     * Used by BaseComponent for select-all functionality.
-     * 
-     * @return array
-     */
     protected function getAllSelectableIds(): array
     {
         return $this->getFilteredQuery()->pluck('id')->toArray();
     }
 
-    /**
-     * Get all department categories with caching
-     * 
-     * Cached for 4200 seconds (70 minutes) since categories rarely change.
-     * Used for category filter dropdown and validation.
-     * 
-     * @return \Illuminate\Database\Eloquent\Collection
-     */
     #[Computed(seconds: 4200)]
     public function getDepartmentCategories()
     {
         return DepartmentCategory::all();
     }
 
-
-    /**
-     * Build the filtered department query
-     * 
-     * Applies filters based on:
-     * 1. Branch context: Filters by current branch OR departments with no branch (global departments)
-     * 2. Search: Quick search on department name
-     * 3. Advanced search: Searches name and description fields
-     * 4. Category filter: Limits to specific department category
-     * 5. Date range: Filters by creation date
-     * 
-     * The branch_id OR null condition allows both branch-specific and global departments.
-     * Global departments (branch_id = null) are visible in all branches.
-     * 
-     * @return \Illuminate\Database\Eloquent\Builder
-     */
     protected function getFilteredQuery()
     {
+        $branchId = $this->b_id ?? request()->query('b_id');
+
         return Department::query()
-            // Branch scoping: show branch-specific records OR global (null) records
-            ->where(function ($query) {
-                $query->where('branch_id', $this->b_id)
-                      ->orWhereNull('branch_id');
-            })
-            // Quick search: filter by department name
-            ->when($this->search, function ($query) {
-                $query->where('name', 'like', '%' . $this->search . '%');
-            })
-            // Advanced search: search across name and description
-            ->when($this->advancedSearch, function ($query) {
-                $query->where(function ($q) {
-                    $q->where('name', 'like', '%' . $this->advancedSearch . '%')
-                      ->orWhere('description', 'like', '%' . $this->advancedSearch . '%');
+            ->with(['branch', 'category'])
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->when($this->search, fn ($q) => $q->where('name', 'like', "%{$this->search}%"))
+            ->when($this->advancedSearch, function ($q) {
+                $term = $this->advancedSearch;
+                $q->where(function ($sub) use ($term) {
+                    $sub->where('name', 'like', "%{$term}%")
+                        ->orWhere('description', 'like', "%{$term}%");
                 });
             })
-            // Category filter: limit to departments in selected category
-            ->when($this->filterCategory, function ($query) {
-                $query->where('category_id', $this->filterCategory);
-            })
-            // Date range filter: start date
-            ->when($this->dateFrom, function ($query) {
-                $query->whereDate('created_at', '>=', $this->dateFrom);
-            })
-            // Date range filter: end date
-            ->when($this->dateTo, function ($query) {
-                $query->whereDate('created_at', '<=', $this->dateTo);
-            })
-            // Stable ordering so new items stay visible across pagination
-            ->orderBy('created_at', 'desc')
-            ->orderBy('id', 'desc');
+            ->when($this->filterCategory, fn ($q) => $q->where('category_id', $this->filterCategory))
+            ->when($this->dateFrom, fn ($q) => $q->whereDate('created_at', '>=', $this->dateFrom))
+            ->when($this->dateTo, fn ($q) => $q->whereDate('created_at', '<=', $this->dateTo))
+            ->latest();
     }
 
-    /**
-     * Apply filters and reset pagination
-     * 
-     * Called when user changes filter values.
-     * Resets pagination to page 1 so filters take immediate effect.
-     * 
-     * @return void
-     */
-    public function applyFilters()
+    public function applyFilters(): void
     {
         $this->resetPage();
     }
 
-    /**
-     * Reset all filters to default state
-     * 
-     * Clears all search, filter, and date range criteria.
-     * Resets pagination to page 1.
-     * 
-     * @return void
-     */
-    public function resetFilters()
+    public function resetFilters(): void
     {
-        $this->search = null;
-        $this->advancedSearch = null;
-        $this->dateFrom = null;
-        $this->dateTo = null;
-        $this->filterCategory = null;
-        $this->filterBranch = null;
+        $this->reset(['search', 'advancedSearch', 'dateFrom', 'dateTo', 'filterCategory']);
         $this->resetPage();
     }
 
-    /**
-     * Export filtered departments to CSV format
-     * 
-     * Generates a CSV file with the following columns:
-     * - ID: Department ID
-     * - Name: Department name
-     * - Branch: Associated branch name (N/A if global)
-     * - Type: Department type
-     * - Description: Department description
-     * - Created At: Creation timestamp
-     * 
-     * The export respects all active filters and returns a downloadable file
-     * with filename: departments-YYYY-MM-DD.csv
-     * 
-     * @return \Symfony\Component\HttpFoundation\StreamedResponse
-     */
-    public function exportExcel()
+    public function exportCSV()
     {
         // Get filtered departments based on current filters
         $departments = $this->getFilteredQuery()->get();
@@ -549,8 +356,7 @@ class Index extends BaseComponent
         $this->export(
             'departments_' . date('Y-m-d'),
             $departments,
-            'exports.departments',
-            'excel'
+            'exports.departments'
         );
 
         session()->flash('success', count($this->selectedIds) . ' departments exported successfully.');
@@ -598,5 +404,3 @@ class Index extends BaseComponent
         ]);
     }
 }
-
-#

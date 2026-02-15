@@ -190,7 +190,18 @@ class Appearance extends Component
                 $this->lightModeLogo = null;
                 $this->darkModeLogo = null;
 
+                \App\Helpers\Settings::clearCache();
+
                 session()->flash('message', 'Appearance settings saved successfully!');
+                $this->dispatch(
+                    'appearance-updated',
+                    themeMode: $this->themeMode,
+                    primaryColor: $this->primaryColor,
+                    accentColor: \App\Helpers\Color::darkenHex($this->primaryColor, 15),
+                    primaryMuted: \App\Helpers\Color::lightenHex($this->primaryColor, 40),
+                    pageBackground: \App\Helpers\Color::lightenHex($this->primaryColor, 70),
+                    primaryContrast: \App\Helpers\Color::contrastColor($this->primaryColor)
+                );
             }
         } catch (\Exception $e) {
             \Log::error('Failed to save appearance settings: ' . $e->getMessage());

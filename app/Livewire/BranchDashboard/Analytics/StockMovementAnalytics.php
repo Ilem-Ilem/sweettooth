@@ -330,66 +330,6 @@ class StockMovementAnalytics extends Component
             ]);
     }
 
-    /**
-     * Get filtered movements for export
-     */
-    private function getFilteredMovements()
-    {
-        $branchId = $this->branchId;
-        $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
-        $dateTo   = Carbon::parse($this->dateTo)->endOfDay();
-
-        $movements = StockMovement::with(['stock.item', 'mover', 'reference'])
-            ->whereHas('stock', fn ($q) => $q->where('branch_id', $branchId))
-            ->whereBetween('movement_date', [$dateFrom, $dateTo])
-            ->orderBy('movement_date', 'desc')
-            ->get()
-            ->append('department_name');
-
-        // Apply filters manually
-        return $movements->filter(function ($m) {
-            if ($this->selectedItem && $m->stock_id != $this->selectedItem) return false;
-            if ($this->movementType && $m->type != $this->movementType) return false;
-            if ($this->searchTerm) {
-                $haystack = strtolower("{$m->stock->item->name} {$m->stock->item->sku} {$m->mover?->name} {$m->notes}");
-                if (!str_contains($haystack, strtolower($this->searchTerm))) return false;
-            }
-            return true;
-        });
-    }
-
-    protected function exportSelected(): void
-    {
-        if (empty($this->selectedIds)) {
-            session()->flash('info', 'No movements selected for export.');
-            return;
-        }
-
-        $movements = StockMovement::whereIn('id', $this->selectedIds)
-            ->with(['stock.item', 'mover', 'reference'])
-            ->orderBy('movement_date', 'desc')
-            ->get()
-            ->append('department_name');
-
-        $this->export(
-            'stock_movements_' . date('Y-m-d'),
-            $movements,
-            'exports.inventory.stock_movements',
-            'excel'
-        );
-
-        session()->flash('success', count($this->selectedIds) . ' movements exported successfully.');
-        $this->resetBulkSelection();
-    }
-
-    /**
-     * Export stock movements as Excel
-     * Note: PDF/Excel exports cannot be returned directly from Livewire.
-     */
-    public function exportExcel()
-    {
-        session()->flash('info', 'Excel export coming soon. Please use CSV export instead.');
-    }
 
     // FIXED: CSV export — safe, no more crashes
     public function exportCsv()

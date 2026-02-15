@@ -17,9 +17,9 @@
                         class="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium text-sm">
                     Export CSV
                 </button>
-                <button wire:click="exportExcel"
+                <button wire:click="exportCSV"
                         class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-sm">
-                    Export Excel
+                    Export CSV
                 </button>
             </div>
         </div>

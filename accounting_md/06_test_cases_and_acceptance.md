@@ -40,6 +40,8 @@ Run this flow end-to-end in staging:
 4. Record one damaged stock adjustment.
 5. Open trial balance and confirm all expected accounts moved.
 
+Detailed checklist: `accounting_md/07_uat_script.md`.
+
 ## Acceptance Criteria
 
 1. Sales, purchases, and inventory are linked to accounting with no manual journal hacks.
@@ -53,4 +55,3 @@ Run this flow end-to-end in staging:
 2. duplicate posting incidents = 0
 3. manual journal corrections reduced by at least 80%
 4. average transaction completion time reduced for cashier and purchase clerk roles
-

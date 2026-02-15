@@ -117,15 +117,16 @@ class Index extends BaseComponent
     }
 
     // Export methods
-    public function exportExcel()
+
+
+    public function exportCSV()
     {
         $roles = $this->getFilteredQuery()->get();
 
         return $this->export(
             'role_permissions_' . date('Y-m-d'),
             $roles,
-            'exports.role_permissions',
-            'excel'
+            'exports.role_permissions'
         );
     }
 

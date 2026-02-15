@@ -464,29 +464,6 @@ class OverallSummaryDashboard extends Component
         ];
     }
 
-    public function exportExcel()
-    {
-        try {
-            $data = $this->prepareExportData();
-
-            if (empty($data['stock_health']) && empty($data['department_breakdown'])) {
-                $this->toast()->warning('No data available to export for the selected period.')->send();
-                return;
-            }
-
-            // Queue the export to avoid Livewire serialization issues
-            return $this->export(
-                'inventory-analytics-' . now()->format('Y-m-d'),
-                collect($data),
-                'exports.analytics.overall-summary',
-                'excel',
-                true // Queue it
-            );
-        } catch (\Exception $e) {
-            $this->toast()->error('Export failed: ' . $e->getMessage())->send();
-            return;
-        }
-    }
 
     public function exportCSV()
     {

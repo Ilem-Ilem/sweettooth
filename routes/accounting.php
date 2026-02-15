@@ -15,33 +15,33 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['auth', 'accounting'])->prefix('accounting')->group(function () {
 
     // Dashboard - Use the branch dashboard layout directly
-    Route::get('/', App\Livewire\Accounting\AccountingDashboard::class)
+    Route::get('/', App\Livewire\BranchDashboard\Accounting\Simple\Home::class)
         ->name('accounting.dashboard');
 
     // GL Accounts Management - Use branch dashboard components with proper layout
     Route::prefix('gl-accounts')->group(function () {
-        Route::get('/', App\Livewire\BranchDashboard\Accounting\GlAccountList::class)
+        Route::get('/', App\Livewire\BranchDashboard\Accounting\Simple\ChartOfAccounts::class)
             ->name('accounting.gl-accounts.index');
     });
 
     // Bank Accounts Management
     Route::prefix('bank-accounts')->group(function () {
-        Route::get('/', App\Livewire\BranchDashboard\Accounting\BankAccounts::class)
+        Route::get('/', App\Livewire\BranchDashboard\Accounting\Simple\CashBank::class)
             ->name('accounting.bank-accounts.index');
     });
 
     // Journal Entries - Use branch dashboard components with proper layout
     Route::prefix('journal-entries')->group(function () {
-        Route::get('/', App\Livewire\BranchDashboard\Accounting\ManualJournalEntry::class)
+        Route::get('/', App\Livewire\BranchDashboard\Accounting\Simple\Journals::class)
             ->name('accounting.journal-entries.index');
 
-        Route::get('create', App\Livewire\BranchDashboard\Accounting\ManualJournalEntry::class)
+        Route::get('create', App\Livewire\BranchDashboard\Accounting\Simple\Journals::class)
             ->name('accounting.journal-entries.create');
     });
 
     // Accounting Periods - Use branch dashboard components with proper layout
     Route::prefix('periods')->group(function () {
-        Route::get('/', App\Livewire\BranchDashboard\Accounting\PeriodManagement::class)
+        Route::get('/', App\Livewire\BranchDashboard\Accounting\Simple\PeriodControl::class)
             ->name('accounting.periods.index');
     });
 
@@ -68,17 +68,24 @@ Route::middleware(['auth', 'accounting'])->prefix('accounting')->group(function 
 
     // Bank Reconciliation - Use branch dashboard components with proper layout
     Route::prefix('bank-reconciliation')->group(function () {
-        Route::get('/', App\Livewire\BranchDashboard\Accounting\BankReconciliation::class)
+        Route::get('/', App\Livewire\BranchDashboard\Accounting\Simple\CashBank::class)
             ->name('accounting.bank-reconciliation.index');
+        Route::get('/manage', App\Livewire\BranchDashboard\Accounting\BankReconciliation::class)
+            ->name('accounting.bank-reconciliation.manage');
     });
 
     // Overview/Audit - Use branch dashboard components with proper layout
-    Route::get('overview', App\Livewire\BranchDashboard\Accounting\Overview::class)
+    Route::get('overview', App\Livewire\BranchDashboard\Accounting\Simple\Home::class)
         ->name('accounting.overview');
 
     // Posting Status - Use branch dashboard components with proper layout
-    Route::get('posting-status', App\Livewire\BranchDashboard\Accounting\PostingStatusMonitor::class)
+    Route::get('posting-status', App\Livewire\BranchDashboard\Accounting\Simple\Transactions::class)
         ->name('accounting.posting-status');
+
+    Route::get('inventory-valuation', App\Livewire\BranchDashboard\Accounting\Simple\InventoryValuation::class)
+        ->name('accounting.inventory-valuation.index');
+    Route::get('inventory-valuation/manage', App\Livewire\BranchDashboard\Accounting\InventoryValuationPosting::class)
+        ->name('accounting.inventory-valuation.manage');
 });
 
 // API Routes for Accounting - These remain as they likely connect to services rather than controllers

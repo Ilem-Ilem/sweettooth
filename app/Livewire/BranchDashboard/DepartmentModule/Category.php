@@ -138,9 +138,33 @@ class Category extends BaseComponent
         $this->resetPage();
     }
 
-    public function exportExcel()
+
+    public function exportCSV()
     {
-        $this->toast()->info('Excel export coming soon!')->send();
+        $rows = $this->getFilteredQuery()->orderBy('created_at', 'desc')->get();
+
+        if ($rows->isEmpty()) {
+            $this->toast()->warning('No categories to export.')->send();
+
+            return;
+        }
+
+        $filename = 'department-categories-' . now()->format('Y-m-d-His') . '.csv';
+
+        return response()->streamDownload(function () use ($rows) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, ['ID', 'Category Name', 'Description', 'Created At']);
+
+            foreach ($rows as $row) {
+                fputcsv($handle, [
+                    $row->id,
+                    $row->name,
+                    $row->description,
+                    optional($row->created_at)->format('Y-m-d H:i'),
+                ]);
+            }
+            fclose($handle);
+        }, $filename, ['Content-Type' => 'text/csv']);
     }
 
     public function updated($property, $value)

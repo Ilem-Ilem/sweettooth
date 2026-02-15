@@ -99,7 +99,9 @@ class DeleteBranch extends BaseComponent
     }
 
     // Export methods
-    public function exportExcel()
+
+
+    public function exportCSV()
     {
         $branches = $this->getFilteredQuery()->get();
 

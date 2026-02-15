@@ -697,49 +697,6 @@ class Purchases extends Component
         $this->resetValidation();
     }
 
-    public function exportExcel()
-    {
-        try {
-            $purchases = Purchase::with('purchaseItems.item')
-                ->where('branch_id', $this->getBranchId())
-                ->when($this->search, fn ($q) => $q->where('supplier_name', 'like', '%'.$this->search.'%')->orWhere('purchase_number', 'like', '%'.$this->search.'%'))
-                ->when($this->filterPaymentStatus, fn ($q) => $q->where('payment_status', $this->filterPaymentStatus))
-                ->when($this->filterStatus, fn ($q) => $q->where('status', $this->filterStatus))
-                ->orderBy($this->sortColumn, $this->sortDirection)
-                ->get();
-
-            if ($purchases->isEmpty()) {
-                $this->toast()->warning('No purchases to export.')->send();
-
-                return;
-            }
-
-            $data = $purchases->map(function ($purchase) {
-                return [
-                    'purchase_number' => $purchase->purchase_number ?? 'N/A',
-                    'supplier_name' => $purchase->supplier_name ?? 'N/A',
-                    'purchase_date' => $purchase->purchase_date ? \Carbon\Carbon::parse($purchase->purchase_date)->format('Y-m-d') : 'N/A',
-                    'landing_cost' => $purchase->landing_cost ?? 0,
-                    'other_costs' => $purchase->other_costs ?? 0,
-                    'total_cost' => ($purchase->landing_cost ?? 0) + ($purchase->other_costs ?? 0),
-                    'payment_status' => ucfirst($purchase->payment_status ?? 'pending'),
-                    'status' => ucfirst($purchase->status ?? 'pending'),
-                    'item_count' => $purchase->purchaseItems->count(),
-                ];
-            });
-
-            return $this->export(
-                'purchases-'.now()->format('Y-m-d'),
-                $data,
-                'exports.inventory.purchases',
-                'excel'
-            );
-        } catch (\Exception $e) {
-            $this->toast()->error('Export failed: '.$e->getMessage())->send();
-
-            return;
-        }
-    }
 
     public function exportCSV()
     {

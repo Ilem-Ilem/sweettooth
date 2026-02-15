@@ -274,22 +274,13 @@ class StockTakes extends Component
         $this->export(
             'stock_takes_' . date('Y-m-d'),
             $stockTakes,
-            'exports.inventory.stock_takes',
-            'excel'
+            'exports.inventory.stock_takes'
         );
 
         session()->flash('success', count($this->selectedIds) . ' stock takes exported successfully.');
         $this->resetBulkSelection();
     }
 
-    /**
-     * Export stock takes as Excel
-     * Note: PDF/Excel exports cannot be returned directly from Livewire.
-     */
-    public function exportExcel()
-    {
-        session()->flash('info', 'Excel export coming soon. Please use CSV export instead.');
-    }
 
     /**
      * Export stock takes as CSV

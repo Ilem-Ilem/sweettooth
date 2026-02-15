@@ -146,8 +146,7 @@ class Orders extends BaseComponent
         $this->export(
             'production_orders_' . date('Y-m-d'),
             $orders,
-            'exports.production.orders',
-            'excel'
+            'exports.production.orders'
         );
 
         session()->flash('success', count($this->selectedIds) . ' production orders exported successfully.');
