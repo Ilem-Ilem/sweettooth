@@ -10,7 +10,9 @@ use App\Models\ApprovalAuditRequest;
 use App\Services\AuditService;
 use App\Services\DepartmentApprovalService;
 use App\Traits\Exportable;
+use Livewire\Attributes\Layout;
 
+#[Layout('components.layouts.app.branch-dashboard')]
 class Index extends BaseComponent
 {
     use Exportable;

@@ -2,9 +2,8 @@
 
 namespace App\Livewire\BranchDashboard\Settings;
 
-use App\Models\BranchBusinessConfiguration;
+use App\Models\GlobalBusinessConfiguration;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Validator;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -33,37 +32,26 @@ class BusinessConfiguration extends Component
 
     public function mount()
     {
-        $branchId = current_branch_id();
+        // Always load global settings (not branch-specific)
+        $settings = GlobalBusinessConfiguration::first();
 
-        // If user is super admin, load global settings instead of branch settings
-        if (is_super_admin()) {
-            $settings = \App\Models\GlobalBusinessConfiguration::first();
-
-            if ($settings) {
-                $this->companyName = $settings->company_name;
-                $this->existingLogo = $settings->logo_upload;
-                $contactDetails = $settings->contact_details ?? [];
-                $this->phone = $contactDetails['phone'] ?? '';
-                $this->email = $contactDetails['email'] ?? '';
-                $this->auto_backup = $settings->auto_backup ?? false;
-                $this->backup_interval = $settings->backup_interval ?? '';
-                $this->backup_period = $settings->backup_period ?? '';
-            }
+        if ($settings) {
+            $this->companyName = $settings->company_name;
+            $this->existingLogo = $settings->logo_upload;
+            $contactDetails = $settings->contact_details ?? [];
+            $this->phone = $contactDetails['phone'] ?? '';
+            $this->email = $contactDetails['email'] ?? '';
+            $this->auto_backup = $settings->auto_backup ?? true;
+            $this->backup_interval = $settings->backup_interval ?? 2;
+            $this->backup_period = $settings->backup_period ?? 'months';
         } else {
-            // For non-super admins, load branch-specific settings
-            $settings = BranchBusinessConfiguration::where('branch_id', $branchId)->first();
-
-            if ($settings) {
-                $this->companyName = $settings->company_name;
-                $this->existingLogo = $settings->logo_upload;
-                $contactDetails = $settings->contact_details ?? [];
-                $this->phone = $contactDetails['phone'] ?? '';
-                $this->email = $contactDetails['email'] ?? '';
-                $storageSettings = $settings->storage_settings ?? [];
-                $this->auto_backup = $storageSettings['auto_backup'] ?? false;
-                $this->backup_interval = $storageSettings['backup_interval'] ?? '';
-                $this->backup_period = $storageSettings['backup_period'] ?? '';
-            }
+            $this->companyName = config('app.name', 'SweetTooth');
+            $this->existingLogo = null;
+            $this->phone = '';
+            $this->email = '';
+            $this->auto_backup = true;
+            $this->backup_interval = 2;
+            $this->backup_period = 'months';
         }
     }
 
@@ -72,99 +60,55 @@ class BusinessConfiguration extends Component
         $this->validate();
 
         try {
-            // If user is super admin, save to global settings instead of branch settings
-            if (is_super_admin()) {
-                $settings = \App\Models\GlobalBusinessConfiguration::first();
+            // Always save to global settings (not branch-specific)
+            $settings = GlobalBusinessConfiguration::first();
 
-                if (!$settings) {
-                    $settings = new \App\Models\GlobalBusinessConfiguration();
-                }
-
-                $settings->company_name = $this->companyName;
-
-                // Handle file upload
-                if ($this->logo) {
-                    // Delete old logo if exists
-                    if ($settings->logo_upload && Storage::disk('public')->exists($settings->logo_upload)) {
-                        Storage::disk('public')->delete($settings->logo_upload);
-                    }
-
-                    $path = $this->logo->store('logos', 'public');
-                    $settings->logo_upload = $path;
-                    $this->existingLogo = $path;
-                }
-
-                $settings->contact_details = [
-                    'phone' => $this->phone,
-                    'email' => $this->email,
-                ];
-
-                // Save backup settings as direct properties for global config
-                $settings->auto_backup = $this->auto_backup;
-                $settings->backup_interval = $this->backup_interval;
-                $settings->backup_period = $this->backup_period;
-
-                $settings->save();
-
-                // Clear settings cache to ensure changes take effect immediately
-                \App\Helpers\Settings::clearCache();
-
-                // Update existingLogo to reflect the new logo that was just saved
-                if ($this->logo) {
-                    $this->existingLogo = $settings->logo_upload;
-                }
-
-                // Reset the file input
-                $this->logo = null;
-
-                session()->flash('message', 'Global business configuration saved successfully! These settings will apply to all branches.');
-            } else {
-                // For non-super admins, save to branch-specific settings
-                $branchId = current_branch_id();
-                $settings = BranchBusinessConfiguration::where('branch_id', $branchId)->first();
-
-                if (!$settings) {
-                    $settings = new BranchBusinessConfiguration();
-                    $settings->branch_id = $branchId;
-                }
-
-                $settings->company_name = $this->companyName;
-
-                // Handle file upload
-                if ($this->logo) {
-                    // Delete old logo if exists
-                    if ($settings->logo_upload && Storage::disk('public')->exists($settings->logo_upload)) {
-                        Storage::disk('public')->delete($settings->logo_upload);
-                    }
-
-                    $path = $this->logo->store('logos', 'public');
-                    $settings->logo_upload = $path;
-                    $this->existingLogo = $path;
-                }
-
-                $settings->contact_details = [
-                    'phone' => $this->phone,
-                    'email' => $this->email,
-                ];
-
-                $settings->storage_settings = [
-                    'auto_backup' => $this->auto_backup,
-                    'backup_interval' => $this->backup_interval,
-                    'backup_period' => $this->backup_period,
-                ];
-
-                $settings->save();
-
-                // Update existingLogo to reflect the new logo that was just saved
-                if ($this->logo) {
-                    $this->existingLogo = $settings->logo_upload;
-                }
-
-                // Reset the file input
-                $this->logo = null;
-
-                session()->flash('message', 'Business configuration saved successfully!');
+            if (!$settings) {
+                $settings = new GlobalBusinessConfiguration();
             }
+
+            $settings->company_name = $this->companyName;
+
+            // Handle file upload
+            if ($this->logo) {
+                // Delete old logo if exists
+                if ($settings->logo_upload && Storage::disk('public')->exists($settings->logo_upload)) {
+                    Storage::disk('public')->delete($settings->logo_upload);
+                }
+
+                $path = $this->logo->store('logos', 'public');
+                $settings->logo_upload = $path;
+                $this->existingLogo = $path;
+            }
+
+            $settings->contact_details = [
+                'phone' => $this->phone,
+                'email' => $this->email,
+            ];
+
+            // Save backup settings as direct properties for global config
+            $settings->auto_backup = (bool) $this->auto_backup;
+            $settings->backup_interval = ($this->backup_interval !== null && $this->backup_interval !== '')
+                ? (int) $this->backup_interval
+                : 2;
+            $settings->backup_period = ($this->backup_period !== null && $this->backup_period !== '')
+                ? $this->backup_period
+                : 'months';
+
+            $settings->save();
+
+            // Clear settings cache to ensure changes take effect immediately
+            \App\Helpers\Settings::clearCache();
+
+            // Update existingLogo to reflect the new logo that was just saved
+            if ($this->logo) {
+                $this->existingLogo = $settings->logo_upload;
+            }
+
+            // Reset the file input
+            $this->logo = null;
+
+            session()->flash('message', 'Business configuration saved successfully! These settings will apply to all branches.');
         } catch (\Exception $e) {
             \Log::error('Failed to save business configuration: ' . $e->getMessage());
             session()->flash('error', 'Failed to save business configuration. Please try again.');
@@ -178,27 +122,16 @@ class BusinessConfiguration extends Component
                 Storage::disk('public')->delete($this->existingLogo);
             }
 
-            // If user is super admin, remove from global settings
-            if (is_super_admin()) {
-                $settings = \App\Models\GlobalBusinessConfiguration::first();
+            // Always remove from global settings
+            $settings = GlobalBusinessConfiguration::first();
 
-                if ($settings) {
-                    $settings->logo_upload = null;
-                    $settings->save();
-                }
-
-                // Clear settings cache
-                \App\Helpers\Settings::clearCache();
-            } else {
-                // For non-super admins, remove from branch-specific settings
-                $branchId = current_branch_id();
-                $settings = BranchBusinessConfiguration::where('branch_id', $branchId)->first();
-
-                if ($settings) {
-                    $settings->logo_upload = null;
-                    $settings->save();
-                }
+            if ($settings) {
+                $settings->logo_upload = null;
+                $settings->save();
             }
+
+            // Clear settings cache
+            \App\Helpers\Settings::clearCache();
 
             $this->existingLogo = null;
             session()->flash('message', 'Logo removed successfully!');

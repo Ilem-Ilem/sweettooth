@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin'])->prefix('branch-dashboard')->name('branch-dashboard.')->group(function () {
+Route::middleware(['auth', 'recover-auth', 'setBranchContext', 'branch', 'redirect-super-admin'])->prefix('branch-dashboard')->name('branch-dashboard.')->group(function () {
     // Dashboard Router - Redirects to appropriate dashboard based on role
     Route::get('/dashboard/router', App\Livewire\BranchDashboard\Dashboards\Router::class)->name('dashboards.router');
 
@@ -269,6 +269,24 @@ Route::middleware(['auth', 'setBranchContext', 'branch', 'redirect-super-admin']
                 Route::get('/bank-reconciliation', \App\Livewire\BranchDashboard\Accounting\Simple\CashBank::class)->name('bank-reconciliation');
                 Route::get('/bank-reconciliation/manage', \App\Livewire\BranchDashboard\Accounting\BankReconciliation::class)
                     ->name('bank-reconciliation-manage');
+            });
+
+            // POS Remittances
+            Route::middleware('role_or_permission:access_accounting,view_financial_reports')->group(function () {
+                Route::get('/pos-remittances', \App\Livewire\BranchDashboard\Accounting\Simple\PosRemittances::class)
+                    ->name('pos-remittances');
+            });
+
+            // Expense Imports
+            Route::middleware('role_or_permission:access_accounting,view_financial_reports')->group(function () {
+                Route::get('/expense-imports', \App\Livewire\BranchDashboard\Accounting\Simple\ExpenseImports::class)
+                    ->name('expense-imports');
+            });
+
+            // Accounting Entries (General)
+            Route::middleware('role_or_permission:access_accounting,view_financial_reports')->group(function () {
+                Route::get('/accounting-entries', \App\Livewire\BranchDashboard\Accounting\Simple\AccountingEntries::class)
+                    ->name('accounting-entries');
             });
 
             // Financial Reports

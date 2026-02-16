@@ -9,6 +9,7 @@ use App\Models\ApprovalAuditRequest;
 use App\Services\AuditService;
 use Livewire\Component;
 use App\Models\DepartmentCategory;
+use App\Models\BankAccount;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
@@ -83,6 +84,12 @@ class CreateOrUpdate extends Component
      * @var string|null
      */
     public ?string $description='';
+
+    /**
+     * Default bank account for POS transfers for this department
+     * @var int|null
+     */
+    public ?int $bank_account_id = null;
 
     /**
      * ID of department being edited (create mode = empty)
@@ -173,6 +180,17 @@ class CreateOrUpdate extends Component
     }
 
     /**
+     * Get active bank accounts for selection
+     */
+    #[Computed(seconds: 4200)]
+    public function getBankAccounts()
+    {
+        return BankAccount::where('is_active', true)
+            ->orderBy('bank_name')
+            ->get();
+    }
+
+    /**
      * Get all departments (currently unused)
      * 
      * Legacy method - may be used in future for department relationships.
@@ -213,6 +231,7 @@ class CreateOrUpdate extends Component
         $this->branch_id = $department->branch_id;
         $this->category_id = $department->category_id;
         $this->description = $department->description ?? '';
+        $this->bank_account_id = $department->bank_account_id;
     }
 
     /**
@@ -232,6 +251,7 @@ class CreateOrUpdate extends Component
         $this->isEditing = false;
         $this->creationReason = '';
         $this->showReasonModal = false;
+        $this->bank_account_id = null;
     }
 
     /**
@@ -250,6 +270,7 @@ class CreateOrUpdate extends Component
                 'name' => 'required|string|max:255|unique:departments,name,' . $this->selectedDepartmentId,
                 'category_id' => 'required|exists:department_categories,id',
                 'description' => 'nullable|string',
+                'bank_account_id' => 'required|exists:bank_accounts,id',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             $this->dispatch('notify', message: 'Please fix validation errors', type: 'error');
@@ -334,6 +355,7 @@ class CreateOrUpdate extends Component
             'name' => 'required|string|max:255|unique:departments,name,' . $this->selectedDepartmentId,
             'category_id' => 'required|exists:department_categories,id',
             'description' => 'nullable|string',
+            'bank_account_id' => 'required|exists:bank_accounts,id',
             // Reason is required for employees, optional for super admin
             'creationReason' => is_super_admin() ? 'nullable|string' : 'required|string|min:5',
         ]);
@@ -374,6 +396,7 @@ class CreateOrUpdate extends Component
             'branch_id' => $branch_id,
             'category_id' => $this->category_id,
             'description' => $this->description,
+            'bank_account_id' => $this->bank_account_id,
         ];
 
         if ($this->isEditing && $this->selectedDepartmentId) {

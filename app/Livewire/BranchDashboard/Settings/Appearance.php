@@ -25,10 +25,10 @@ class Appearance extends Component
 
     protected $rules = [
         'themeMode' => 'required|string|in:system,light,dark',
-        'primaryColor' => 'string|max:20',
-        'sidebarPosition' => 'string|in:left,right',
-        'uiDensity' => 'string|in:compact,normal,spacious',
-        'fontSize' => 'string|in:small,normal,large',
+        'primaryColor' => 'required|string|max:20',
+        'sidebarPosition' => 'required|string|in:left,right',
+        'uiDensity' => 'required|string|in:compact,normal,spacious',
+        'fontSize' => 'required|string|in:small,normal,large',
         'animationEnabled' => 'boolean',
         'lightModeLogo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         'darkModeLogo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
@@ -76,15 +76,27 @@ class Appearance extends Component
 
     public function save()
     {
-        $this->validate();
-
+        \Log::info('Appearance save method called', [
+            'themeMode' => $this->themeMode,
+            'primaryColor' => $this->primaryColor,
+            'is_super_admin' => is_super_admin()
+        ]);
+        
         try {
+            $validated = $this->validate();
+            \Log::info('Validation passed', $validated);
+
             // If user is super admin, save to global settings
             if (is_super_admin()) {
                 $settings = GlobalBusinessConfiguration::first();
 
                 if (!$settings) {
                     $settings = new GlobalBusinessConfiguration();
+                    // Set required default values for new records
+                    $settings->company_name = 'Your Business Name';
+                    $settings->logo_upload = 'enabled';
+                    $settings->contact_details = ['phone', 'email', 'website', 'vat_number'];
+                    $settings->subscription_plan = 'basic';
                 }
 
                 // Prepare appearance settings
@@ -126,7 +138,9 @@ class Appearance extends Component
                 }
 
                 $settings->appearance_settings = $appearanceSettings;
-                $settings->save();
+                $saved = $settings->save();
+                
+                \Log::info('Settings saved result', ['saved' => $saved, 'settings_id' => $settings->id]);
 
                 // Clear settings cache to ensure changes take effect immediately
                 \App\Helpers\Settings::clearCache();
@@ -136,6 +150,17 @@ class Appearance extends Component
                 $this->darkModeLogo = null;
 
                 session()->flash('message', 'Global appearance settings saved successfully! These settings will apply to all branches.');
+                
+                // Dispatch event to update theme immediately
+                $this->dispatch(
+                    'appearance-updated',
+                    themeMode: $this->themeMode,
+                    primaryColor: $this->primaryColor,
+                    accentColor: \App\Helpers\Color::darkenHex($this->primaryColor, 15),
+                    primaryMuted: \App\Helpers\Color::lightenHex($this->primaryColor, 40),
+                    pageBackground: \App\Helpers\Color::lightenHex($this->primaryColor, 70),
+                    primaryContrast: \App\Helpers\Color::contrastColor($this->primaryColor)
+                );
             } else {
                 // For non-super admins, we could potentially save to branch-specific settings
                 // But currently, appearance settings are only global, so we'll keep the same logic
@@ -143,6 +168,11 @@ class Appearance extends Component
 
                 if (!$settings) {
                     $settings = new GlobalBusinessConfiguration();
+                    // Set required default values for new records
+                    $settings->company_name = 'Your Business Name';
+                    $settings->logo_upload = 'enabled';
+                    $settings->contact_details = ['phone', 'email', 'website', 'vat_number'];
+                    $settings->subscription_plan = 'basic';
                 }
 
                 // Prepare appearance settings
@@ -184,7 +214,9 @@ class Appearance extends Component
                 }
 
                 $settings->appearance_settings = $appearanceSettings;
-                $settings->save();
+                $saved = $settings->save();
+                
+                \Log::info('Settings saved result (non-admin)', ['saved' => $saved, 'settings_id' => $settings->id]);
 
                 // Reset the file inputs
                 $this->lightModeLogo = null;
@@ -203,9 +235,15 @@ class Appearance extends Component
                     primaryContrast: \App\Helpers\Color::contrastColor($this->primaryColor)
                 );
             }
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Validation errors are automatically handled by Livewire
+            \Log::warning('Validation failed', ['errors' => $e->errors()]);
+            throw $e;
         } catch (\Exception $e) {
-            \Log::error('Failed to save appearance settings: ' . $e->getMessage());
-            session()->flash('error', 'Failed to save appearance settings. Please try again.');
+            \Log::error('Failed to save appearance settings: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            session()->flash('error', 'Failed to save appearance settings: ' . $e->getMessage());
         }
     }
 

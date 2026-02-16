@@ -12,6 +12,8 @@ class Payment extends Model
         'sale_id',
         'branch_id',
         'payment_method',
+        'bank_account_id',
+        'payer_bank',
         'amount',
         'reference_number',
         'payment_time',

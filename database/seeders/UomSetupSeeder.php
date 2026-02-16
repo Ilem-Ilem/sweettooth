@@ -14,6 +14,8 @@ class UomSetupSeeder extends Seeder
         $this->call([
             UnitOfMeasureSeeder::class,
             UomConversionSeeder::class,
+            ScoopToGramConversionSeeder::class,
+            CupToGramConversionsSeeder::class,
         ]);
     }
 }

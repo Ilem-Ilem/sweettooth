@@ -24,6 +24,7 @@ class Department extends Model
         'tax_account_id',
         'receivable_account_id',
         'cash_account_id',
+        'bank_account_id',
     ];
 
     /**
@@ -82,6 +83,14 @@ class Department extends Model
     public function cashAccount()
     {
         return $this->belongsTo(GlAccount::class, 'cash_account_id');
+    }
+
+    /**
+     * Get the default bank account for this department.
+     */
+    public function bankAccount()
+    {
+        return $this->belongsTo(BankAccount::class, 'bank_account_id');
     }
 
     /**

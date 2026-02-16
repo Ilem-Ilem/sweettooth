@@ -19,6 +19,7 @@ class GlAccountSeeder extends Seeder
             ['account_number' => '1000', 'account_name' => 'Assets', 'account_type' => 'asset', 'is_header' => true],
             ['account_number' => '1010', 'account_name' => 'Cash', 'account_type' => 'asset'],
             ['account_number' => '1050', 'account_name' => 'Bank', 'account_type' => 'asset'],
+            ['account_number' => '1060', 'account_name' => 'POS Clearing', 'account_type' => 'asset'],
             ['account_number' => '1100', 'account_name' => 'Accounts Receivable', 'account_type' => 'asset'],
             ['account_number' => '1200', 'account_name' => 'Inventory', 'account_type' => 'asset'],
             ['account_number' => '1220', 'account_name' => 'Inventory - Sales', 'account_type' => 'asset'],
@@ -70,4 +71,3 @@ class GlAccountSeeder extends Seeder
         return $count;
     }
 }
-

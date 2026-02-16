@@ -158,6 +158,35 @@ class UnitOfMeasureSeeder extends Seeder
                 'is_active' => true,
             ],
 
+            // Serving
+            [
+                'code' => 'scoop',
+                'name' => 'Scoops',
+                'symbol' => 'scoop',
+                'category' => 'serving',
+                'description' => 'Ice cream scoop (100g)',
+                'sort_order' => 16,
+                'is_active' => true,
+            ],
+            [
+                'code' => 'cone',
+                'name' => 'Cones',
+                'symbol' => 'cone',
+                'category' => 'serving',
+                'description' => 'Ice cream cone',
+                'sort_order' => 17,
+                'is_active' => true,
+            ],
+            [
+                'code' => 'cup_serving',
+                'name' => 'Cups (Serving)',
+                'symbol' => 'cup',
+                'category' => 'serving',
+                'description' => 'Ice cream cup',
+                'sort_order' => 18,
+                'is_active' => true,
+            ],
+
             // Length
             [
                 'code' => 'mm',
@@ -206,6 +235,9 @@ class UnitOfMeasureSeeder extends Seeder
             'unit' => 'units',
             'bag' => 'bags',
             'carton' => 'cartons',
+            'scoop' => 'scoops',
+            'cone' => 'cones',
+            'cup_serving' => 'cups',
         ];
 
         $hasLegacyDispatchColumn = Schema::hasColumn('units_of_measure', 'legacy_dispatch_uom');

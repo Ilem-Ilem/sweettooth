@@ -84,6 +84,7 @@
         </x-table>
     </div>
 
+
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-[2fr,1fr]">
         @if ($showForm)
             <div class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">

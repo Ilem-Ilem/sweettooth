@@ -6,7 +6,7 @@
 
 <div class="flex w-14 h-14 items-center justify-center rounded-md">
     @if($logoPath && Storage::disk('public')->exists($logoPath))
-        <img src="{{ Storage::url($logoPath) }}" alt="{{ $companyName }}" class="max-h-full max-w-full object-contain" />
+        <img src="{{ Storage::disk('public')->url($logoPath) }}" alt="{{ $companyName }}" class="max-h-full max-w-full object-contain" />
     @else
         <img src="/swtc.png" alt="{{ $companyName }}" />
     @endif

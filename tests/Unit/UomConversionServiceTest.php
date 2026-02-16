@@ -208,3 +208,178 @@ it('returns null from tryConvert when no conversion exists', function () {
 
     expect($service->tryConvert(12, $grams->id, $cup->id))->toBeNull();
 });
+
+// SCOOP TO GRAM CONVERSION TESTS
+it('converts scoops to grams for gelato products', function () {
+    $grams = UnitOfMeasure::query()->create([
+        'code' => 'g',
+        'name' => 'Grams',
+        'symbol' => 'g',
+        'category' => 'weight',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $scoop = UnitOfMeasure::query()->create([
+        'code' => 'scoop',
+        'name' => 'Scoops',
+        'symbol' => 'scoop',
+        'category' => 'serving',
+        'sort_order' => 16,
+        'is_active' => true,
+    ]);
+
+    $service = app(UomConversionService::class);
+    $service->setConversion($scoop->id, $grams->id, 100);
+
+    // 1 scoop should equal 100 grams
+    expect($service->convert(1, $scoop->id, $grams->id))->toEqualWithDelta(100.0, 0.000000000001);
+    // 2 scoops should equal 200 grams
+    expect($service->convert(2, $scoop->id, $grams->id))->toEqualWithDelta(200.0, 0.000000000001);
+    // 5 scoops should equal 500 grams
+    expect($service->convert(5, $scoop->id, $grams->id))->toEqualWithDelta(500.0, 0.000000000001);
+});
+
+it('converts grams to scoops using inverse conversion', function () {
+    $grams = UnitOfMeasure::query()->create([
+        'code' => 'g',
+        'name' => 'Grams',
+        'symbol' => 'g',
+        'category' => 'weight',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $scoop = UnitOfMeasure::query()->create([
+        'code' => 'scoop',
+        'name' => 'Scoops',
+        'symbol' => 'scoop',
+        'category' => 'serving',
+        'sort_order' => 16,
+        'is_active' => true,
+    ]);
+
+    $service = app(UomConversionService::class);
+    $service->setConversion($scoop->id, $grams->id, 100);
+
+    // 100 grams should equal 1 scoop
+    expect($service->convert(100, $grams->id, $scoop->id))->toEqualWithDelta(1.0, 0.000000000001);
+    // 200 grams should equal 2 scoops
+    expect($service->convert(200, $grams->id, $scoop->id))->toEqualWithDelta(2.0, 0.000000000001);
+    // 50 grams should equal 0.5 scoops
+    expect($service->convert(50, $grams->id, $scoop->id))->toEqualWithDelta(0.5, 0.000000000001);
+});
+
+it('converts cones to grams for ice cream products', function () {
+    $grams = UnitOfMeasure::query()->create([
+        'code' => 'g',
+        'name' => 'Grams',
+        'symbol' => 'g',
+        'category' => 'weight',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $cone = UnitOfMeasure::query()->create([
+        'code' => 'cone',
+        'name' => 'Cones',
+        'symbol' => 'cone',
+        'category' => 'serving',
+        'sort_order' => 17,
+        'is_active' => true,
+    ]);
+
+    $service = app(UomConversionService::class);
+    $service->setConversion($cone->id, $grams->id, 150);
+
+    // 1 cone should equal 150 grams
+    expect($service->convert(1, $cone->id, $grams->id))->toEqualWithDelta(150.0, 0.000000000001);
+    // 2 cones should equal 300 grams
+    expect($service->convert(2, $cone->id, $grams->id))->toEqualWithDelta(300.0, 0.000000000001);
+});
+
+it('converts cup servings to grams for ice cream products', function () {
+    $grams = UnitOfMeasure::query()->create([
+        'code' => 'g',
+        'name' => 'Grams',
+        'symbol' => 'g',
+        'category' => 'weight',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $cupServing = UnitOfMeasure::query()->create([
+        'code' => 'cup_serving',
+        'name' => 'Cups (Serving)',
+        'symbol' => 'cup',
+        'category' => 'serving',
+        'sort_order' => 18,
+        'is_active' => true,
+    ]);
+
+    $service = app(UomConversionService::class);
+    $service->setConversion($cupServing->id, $grams->id, 200);
+
+    // 1 cup should equal 200 grams
+    expect($service->convert(1, $cupServing->id, $grams->id))->toEqualWithDelta(200.0, 0.000000000001);
+    // 3 cups should equal 600 grams
+    expect($service->convert(3, $cupServing->id, $grams->id))->toEqualWithDelta(600.0, 0.000000000001);
+});
+
+it('handles product-scoped scoop to gram conversions', function () {
+    $grams = UnitOfMeasure::query()->create([
+        'code' => 'g',
+        'name' => 'Grams',
+        'symbol' => 'g',
+        'category' => 'weight',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $scoop = UnitOfMeasure::query()->create([
+        'code' => 'scoop',
+        'name' => 'Scoops',
+        'symbol' => 'scoop',
+        'category' => 'serving',
+        'sort_order' => 16,
+        'is_active' => true,
+    ]);
+
+    $branch = Branch::query()->create([
+        'id' => (string) Str::uuid(),
+        'name' => 'Branch '.Str::upper(Str::random(6)),
+        'code' => 'BR'.Str::upper(Str::random(4)),
+        'location' => 'Main location',
+        'email' => Str::lower(Str::random(8)).'@example.com',
+        'is_active' => true,
+    ]);
+
+    $productId = (string) Str::uuid();
+
+    $service = app(UomConversionService::class);
+    
+    // Global conversion: 1 scoop = 100g
+    $service->setConversion($scoop->id, $grams->id, 100, [], true, ['is_system' => true]);
+    
+    // Product-specific conversion: Large scoop = 120g
+    $service->setConversion(
+        $scoop->id,
+        $grams->id,
+        120,
+        ['branch_id' => $branch->id, 'product_id' => $productId],
+        true,
+        ['is_system' => false]
+    );
+
+    // Without product context - uses global conversion
+    $globalGrams = $service->convert(1, $scoop->id, $grams->id);
+    
+    // With product context - uses product-specific conversion
+    $productGrams = $service->convert(1, $scoop->id, $grams->id, [
+        'branch_id' => $branch->id,
+        'product_id' => $productId,
+    ]);
+
+    expect($globalGrams)->toEqualWithDelta(100.0, 0.0000000001);
+    expect($productGrams)->toEqualWithDelta(120.0, 0.0000000001);
+});

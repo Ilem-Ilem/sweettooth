@@ -366,30 +366,49 @@
                         <div class="p-3 flex items-center gap-2">
                             <div class="flex-1">
                                 <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $line['name'] }}</div>
-                                <div class="text-xs text-zinc-500">{{ $this->formatCurrency($line['price']) }}</div>
+                                <div class="text-xs text-zinc-500">
+                                    {{ $this->formatCurrency($line['price']) }}
+                                    @if(!empty($line['has_conversion']) && !empty($line['base_uom']))
+                                        <span class="ml-1 text-emerald-600 dark:text-emerald-400">
+                                            (1 {{ $line['sales_uom'] ?? 'unit' }} = {{ $line['base_quantity'] / $line['qty'] }} {{ $line['base_uom'] }})
+                                        </span>
+                                    @endif
+                                </div>
                                 <div class="text-xs mt-0.5">
                                     @if($line['available'] === 0)
                                         <span class="inline-flex items-center px-2 py-0.5 rounded-md text-red-700 bg-red-100 dark:text-red-400 dark:bg-red-900/30">Out of Stock</span>
                                     @elseif($line['available'] < 10)
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded-md text-orange-700 bg-orange-100 dark:text-orange-400 dark:bg-orange-900/30">Low Stock ({{ $line['available'] }})</span>
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-md text-orange-700 bg-orange-100 dark:text-orange-400 dark:bg-orange-900/30">
+                                            Low Stock 
+                                            @if(!empty($line['available_sales_qty']) && !empty($line['has_conversion']))
+                                                ({{ $line['available_sales_qty'] }} {{ $line['sales_uom'] ?? 'units' }})
+                                            @else
+                                                ({{ $line['available'] }})
+                                            @endif
+                                        </span>
                                     @endif
                                 </div>
                             </div>
-                            <div class="flex items-center gap-2">
-                                <button type="button" wire:click="decrement('{{ $key }}')" class="inline-flex items-center justify-center w-8 h-8 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700">
+                            <div class="flex items-center gap-1">
+                                <button type="button" wire:click="decrement('{{ $key }}')" class="inline-flex items-center justify-center w-7 h-8 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-sm">
                                     −
                                 </button>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    max="{{ $line['available'] }}"
-                                    wire:model.blur="cart.{{ $key }}.qty"
-                                    wire:change="updateQuantity('{{ $key }}', $event.target.value)"
-                                    class="w-14 text-center rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 px-1 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                                />
+                                <div class="relative">
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max="{{ $line['available_sales_qty'] ?? $line['available'] }}"
+                                        wire:model.blur="cart.{{ $key }}.qty"
+                                        wire:change="updateQuantity('{{ $key }}', $event.target.value)"
+                                        class="w-12 text-center rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 px-1 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                    />
+                                    @if(!empty($line['sales_uom']))
+                                        <span class="absolute right-1 top-1/2 -translate-y-1/2 text-[10px] text-zinc-400 pointer-events-none">{{ $line['sales_uom'] }}</span>
+                                    @endif
+                                </div>
                                 <button type="button" wire:click="increment('{{ $key }}')"
-                                    @if($line['qty'] >= $line['available']) disabled @endif
-                                    class="inline-flex items-center justify-center w-8 h-8 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    @if($line['qty'] >= ($line['available_sales_qty'] ?? $line['available'])) disabled @endif
+                                    class="inline-flex items-center justify-center w-7 h-8 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm">
                                     +
                                 </button>
                             </div>
@@ -430,7 +449,8 @@
                         </div>
                         <div class="space-y-2">
                             @foreach($payments as $index => $payment)
-                                <div class="flex items-center gap-2">
+                                <div class="flex flex-col gap-2 rounded-lg border border-zinc-200/70 p-2 dark:border-zinc-800">
+                                    <div class="flex items-center gap-2">
                                     <select wire:model.live="payments.{{ $index }}.method" class="flex-1 text-xs rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 px-2 py-1">
                                         <option value="cash">Cash</option>
                                         <option value="transfer">Transfer</option>
@@ -441,6 +461,18 @@
                                         <button type="button" wire:click="removePaymentRow({{ $index }})" class="inline-flex items-center justify-center w-6 h-6 rounded-md bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-900/50">
                                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>
                                         </button>
+                                    @endif
+                                </div>
+                                    @if(($payment['method'] ?? '') === 'transfer')
+                                        @php
+                                            $defaultBank = $this->bankAccounts->firstWhere('id', $payment['bank_account_id'] ?? null);
+                                        @endphp
+                                        <div class="w-full text-xs rounded-md border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/60 text-zinc-700 dark:text-zinc-200 px-2 py-1">
+                                            {{ $defaultBank ? ($defaultBank->bank_name . ' · ' . $defaultBank->account_number) : 'No bank linked to department' }}
+                                        </div>
+                                    @endif
+                                    @if(in_array(($payment['method'] ?? ''), ['transfer', 'pos'], true))
+                                        <input type="text" wire:model.live="payments.{{ $index }}.payer_bank" placeholder="Customer bank (optional)" class="w-full text-xs rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 px-2 py-1" />
                                     @endif
                                 </div>
                             @endforeach

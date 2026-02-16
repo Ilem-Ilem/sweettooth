@@ -27,6 +27,8 @@ class Product extends Model
         'cost',
         'shelf_life_days',
         'uom_id',
+        'sales_uom_id',
+        'sales_unit_weight',
         'unit_weight',
         'recipe_yield',
         'recipe_yield_weight',
@@ -44,6 +46,9 @@ class Product extends Model
         'price' => 'decimal:2',
         'cost' => 'decimal:2',
         'shelf_life_days' => 'integer',
+        'uom_id' => 'integer',
+        'sales_uom_id' => 'integer',
+        'sales_unit_weight' => 'decimal:4',
         'unit_weight' => 'decimal:2',
         'recipe_yield' => 'decimal:2',
         'recipe_yield_weight' => 'decimal:2',
@@ -111,11 +116,89 @@ class Product extends Model
     }
 
     /**
-     * Get the unit of measure for this product
+     * Get the unit of measure for this product (base UOM for production/inventory)
      */
     public function unitOfMeasure(): BelongsTo
     {
         return $this->belongsTo(UnitOfMeasure::class, 'uom_id');
+    }
+
+    /**
+     * Get the sales unit of measure for this product (e.g., scoop, cone, cup)
+     */
+    public function salesUom(): BelongsTo
+    {
+        return $this->belongsTo(UnitOfMeasure::class, 'sales_uom_id');
+    }
+
+    /**
+     * Get the effective sales UOM (falls back to base UOM if not set)
+     */
+    public function effectiveSalesUom(): BelongsTo
+    {
+        return $this->sales_uom_id ? $this->salesUom() : $this->unitOfMeasure();
+    }
+
+    /**
+     * Check if product has different sales UOM from base UOM
+     */
+    public function hasSalesUomConversion(): bool
+    {
+        return $this->sales_uom_id !== null && $this->sales_uom_id !== $this->uom_id;
+    }
+
+    /**
+     * Convert sales quantity to base quantity
+     * 
+     * @param float $salesQuantity Quantity in sales UOM (e.g., scoops)
+     * @return float Quantity in base UOM (e.g., grams)
+     */
+    public function convertSalesToBaseQuantity(float $salesQuantity): float
+    {
+        if (!$this->hasSalesUomConversion()) {
+            return $salesQuantity;
+        }
+
+        // Use sales_unit_weight if set (e.g., 100g per scoop)
+        if ($this->sales_unit_weight) {
+            return $salesQuantity * $this->sales_unit_weight;
+        }
+
+        // Otherwise use UOM conversion service
+        $conversionService = app(UomConversionService::class);
+        return $conversionService->tryConvert(
+            $salesQuantity,
+            $this->sales_uom_id,
+            $this->uom_id,
+            ['product_id' => $this->id]
+        ) ?? $salesQuantity;
+    }
+
+    /**
+     * Convert base quantity to sales quantity
+     * 
+     * @param float $baseQuantity Quantity in base UOM (e.g., grams)
+     * @return float Quantity in sales UOM (e.g., scoops)
+     */
+    public function convertBaseToSalesQuantity(float $baseQuantity): float
+    {
+        if (!$this->hasSalesUomConversion()) {
+            return $baseQuantity;
+        }
+
+        // Use sales_unit_weight if set (e.g., 100g per scoop)
+        if ($this->sales_unit_weight) {
+            return $baseQuantity / $this->sales_unit_weight;
+        }
+
+        // Otherwise use UOM conversion service
+        $conversionService = app(UomConversionService::class);
+        return $conversionService->tryConvert(
+            $baseQuantity,
+            $this->uom_id,
+            $this->sales_uom_id,
+            ['product_id' => $this->id]
+        ) ?? $baseQuantity;
     }
 
     /**
@@ -146,6 +229,45 @@ class Product extends Model
         return Attribute::make(
             get: fn() => $this->unitOfMeasure?->code ?? 'N/A',
         );
+    }
+
+    /**
+     * Accessor for sales UOM symbol (e.g., 'scoop', 'cone', 'cup')
+     */
+    protected function salesUomSymbol(): Attribute
+    {
+        return Attribute::make(
+            get: fn() => $this->salesUom?->symbol ?? $this->uomSymbol,
+        );
+    }
+
+    /**
+     * Accessor for effective sales UOM symbol (falls back to base UOM)
+     */
+    protected function effectiveSalesUomSymbol(): Attribute
+    {
+        return Attribute::make(
+            get: fn() => $this->salesUom?->symbol ?? $this->uomSymbol,
+        );
+    }
+
+    /**
+     * Get display text for sales conversion
+     */
+    public function getSalesConversionDisplay(): string
+    {
+        if (!$this->hasSalesUomConversion()) {
+            return '';
+        }
+
+        $baseSymbol = $this->uomSymbol;
+        $salesSymbol = $this->salesUomSymbol;
+
+        if ($this->sales_unit_weight) {
+            return "1 {$salesSymbol} = {$this->sales_unit_weight} {$baseSymbol}";
+        }
+
+        return "1 {$salesSymbol} ≈ {$this->convertSalesToBaseQuantity(1)} {$baseSymbol}";
     }
 
     /**

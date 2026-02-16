@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 
 <head>
     @include('partials.head')
@@ -63,10 +63,12 @@
         <flux:navlist variant="outline">
 
             @php
-                $currentUser = auth()->user();
+                $currentUser = function_exists('get_user_auth')
+                    ? get_user_auth()
+                    : auth()->user();
                 // Ensure currentUser is a User object, not a string
                 if ($currentUser && is_string($currentUser)) {
-                    $currentUser = null;
+                    $currentUser = \App\Models\User::find($currentUser);
                 }
                 $isSuperAdmin = is_super_admin();
                 $sidebarService = \App\Services\SidebarVisibilityService::class;

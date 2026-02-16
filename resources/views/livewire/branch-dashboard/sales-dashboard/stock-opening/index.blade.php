@@ -74,18 +74,22 @@
     <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4 space-y-3">
         <div class="flex items-center justify-between">
             <h2 class="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Select Product</h2>
-            <span class="text-xs px-2 py-1 rounded bg-zinc-100 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">
-                {{ count($stockOpenings) }} selected
-            </span>
+            <div class="flex items-center gap-2">
+                <span class="text-xs px-2 py-1 rounded bg-zinc-100 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">
+                    {{ count($stockOpenings) }} selected
+                </span>
+                <span wire:loading.flex wire:target="selectedProductId, loadStockOpeningData"
+                      class="items-center gap-1.5 text-xs text-blue-700 dark:text-blue-300">
+                    <svg class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Adding product...
+                </span>
+            </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div>
-                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Search</label>
-                <input type="text" wire:model.live.debounce.400ms="search"
-                    placeholder="Type product name or SKU..."
-                    class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
-            </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
                 <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Product Type</label>
                 <select wire:model.live="filterProductType"
@@ -97,14 +101,25 @@
                 </select>
             </div>
             <div>
-                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Product + SKU</label>
-                <select wire:model.live="selectedProductId"
-                    class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
-                    <option value="">Select a product</option>
-                    @foreach ($productLookupOptions as $option)
-                        <option value="{{ $option['id'] }}">{{ $option['label'] }}</option>
-                    @endforeach
-                </select>
+                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Search + Select Product</label>
+                <input type="text" wire:model.live.debounce.400ms="search"
+                    placeholder="Type product name or SKU to filter..."
+                    class="mb-2 w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                <div class="relative">
+                    <select wire:model.live="selectedProductId"
+                        class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                        <option value="">Select a product</option>
+                        @foreach ($productLookupOptions as $option)
+                            <option value="{{ $option['id'] }}">{{ $option['label'] }}</option>
+                        @endforeach
+                    </select>
+                    <div wire:loading wire:target="selectedProductId, loadStockOpeningData" class="absolute right-8 top-1/2 transform -translate-y-1/2">
+                        <svg class="animate-spin h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -153,7 +168,17 @@
     @endif
 
     <div x-data="{ openDetails: true }"
-        class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700">
+        class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 relative">
+        <div wire:loading wire:target="selectedProductId, loadStockOpeningData"
+             class="absolute inset-0 bg-white/30 dark:bg-zinc-800/30 z-10 flex items-center justify-center pointer-events-none">
+            <div class="flex items-center bg-white/90 dark:bg-zinc-700/90 px-4 py-2 rounded-lg shadow-lg">
+                <svg class="animate-spin h-5 w-5 text-blue-600 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span class="text-sm font-medium text-zinc-700 dark:text-zinc-200">Loading stock data...</span>
+            </div>
+        </div>
         <div class="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-zinc-700">
             <h3 class="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Product Details</h3>
             <button type="button" @click="openDetails = !openDetails"
@@ -301,21 +326,31 @@
         <!-- Save Button -->
         @if (count($stockOpenings) > 0 && !$isVerified)
             <div class="flex justify-end gap-3">
-                <button wire:click="loadStockOpeningData"
-                    class="px-6 py-2.5 bg-zinc-600 hover:bg-zinc-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <button wire:click="loadStockOpeningData" wire:loading.attr="disabled" wire:target="loadStockOpeningData, saveStockOpenings"
+                    class="px-6 py-2.5 bg-zinc-600 hover:bg-zinc-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center disabled:opacity-50 disabled:cursor-not-allowed">
+                    <svg wire:loading.remove wire:target="loadStockOpeningData" class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
-                    Refresh
+                    <svg wire:loading wire:target="loadStockOpeningData" class="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span wire:loading.remove wire:target="loadStockOpeningData">Refresh</span>
+                    <span wire:loading wire:target="loadStockOpeningData">Loading...</span>
                 </button>
-                <button wire:click="saveStockOpenings"
-                    class="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center shadow-lg">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <button wire:click="saveStockOpenings" wire:loading.attr="disabled" wire:target="saveStockOpenings, loadStockOpeningData"
+                    class="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                    <svg wire:loading.remove wire:target="saveStockOpenings" class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    Verify & Save Stock Opening
+                    <svg wire:loading wire:target="saveStockOpenings" class="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span wire:loading.remove wire:target="saveStockOpenings">Verify & Save Stock Opening</span>
+                    <span wire:loading wire:target="saveStockOpenings">Saving...</span>
                 </button>
             </div>
         @endif

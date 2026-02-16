@@ -12,6 +12,9 @@ class SaleItem extends Model
         'department_id',
         'product_id',
         'quantity',
+        'sales_quantity',
+        'sales_uom_id',
+        'conversion_factor',
         'unit_price',
         'subtotal',
         'discount',
@@ -20,7 +23,9 @@ class SaleItem extends Model
     ];
 
     protected $casts = [
-        'quantity' => 'decimal:2',
+        'quantity' => 'decimal:4',
+        'sales_quantity' => 'decimal:4',
+        'conversion_factor' => 'decimal:6',
         'unit_price' => 'decimal:2',
         'subtotal' => 'decimal:2',
         'discount' => 'decimal:2',
@@ -41,6 +46,27 @@ class SaleItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function salesUom(): BelongsTo
+    {
+        return $this->belongsTo(UnitOfMeasure::class, 'sales_uom_id');
+    }
+
+    /**
+     * Get the effective UOM symbol (sales UOM or fall back to product's UOM)
+     */
+    public function getSalesUomSymbolAttribute(): string
+    {
+        return $this->salesUom?->symbol ?? $this->product?->uomSymbol ?? 'units';
+    }
+
+    /**
+     * Get the display quantity (sales quantity if available, otherwise base quantity)
+     */
+    public function getDisplayQuantityAttribute(): float
+    {
+        return $this->sales_quantity ?? $this->quantity;
     }
 
     // Helper Methods

@@ -43,7 +43,8 @@ return [
         'public' => [
             'driver' => 'local',
             'root' => public_path('uploads'),
-            'url' => env('APP_URL').'/uploads',
+            // Use a relative URL to avoid mismatches when APP_URL doesn't include the correct port.
+            'url' => '/uploads',
             'visibility' => 'public',
             'throw' => false,
             'report' => false,

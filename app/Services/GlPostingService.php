@@ -302,9 +302,14 @@ class GlPostingService
 
             $department = $payment->sale?->department ?? $payment->sale?->branch?->departments()?->first();
             $receivableAccount = $this->getReceivableAccountForDepartment($department);
-            $cashAccount = $payment->bankAccount?->glAccount
-                ?? ($department?->cashAccount)
-                ?? $this->getGlAccount($this->getCashAccountNumberForPaymentMethod($payment->payment_method));
+            $cashAccount = null;
+            if (strtolower($payment->payment_method) === 'pos') {
+                $cashAccount = $this->getGlAccount($this->getCashAccountNumberForPaymentMethod('pos'));
+            } else {
+                $cashAccount = $payment->bankAccount?->glAccount
+                    ?? ($department?->cashAccount)
+                    ?? $this->getGlAccount($this->getCashAccountNumberForPaymentMethod($payment->payment_method));
+            }
 
             // Debit: Cash/Bank
             GlEntry::create([
@@ -1045,9 +1050,10 @@ class GlPostingService
     {
         $mapping = [
             'cash' => '1010',              // Cash - Head Office
+            'transfer' => '1050',          // Bank Account - Main
             'bank_transfer' => '1050',     // Bank Account - Main
             'card' => '1050',              // Bank Account - Main
-            'pos' => '1050',               // Bank Account - Main
+            'pos' => '1060',               // POS Clearing
             'cheque' => '1050',            // Bank Account - Main
         ];
 

@@ -67,6 +67,8 @@ class Products extends BaseComponent
 
     public ?int $uom_id = null;
 
+    public ?int $sales_uom_id = null;
+
     public bool $is_active = true;
 
     public bool $is_available = true;
@@ -390,6 +392,7 @@ class Products extends BaseComponent
         $this->cost = $product->cost;
         $this->shelf_life_days = $product->shelf_life_days;
         $this->uom_id = $product->uom_id;
+        $this->sales_uom_id = $product->sales_uom_id;
         $this->is_active = $product->is_active;
         $this->is_available = $product->is_available;
         $this->image_url = $product->image_url ?? '';
@@ -412,6 +415,7 @@ class Products extends BaseComponent
             'cost' => 'nullable|numeric|min:0',
             'shelf_life_days' => 'required|integer|min:0',
             'uom_id' => 'required|exists:units_of_measure,id',
+            'sales_uom_id' => 'nullable|exists:units_of_measure,id',
             'is_active' => 'boolean',
             'is_available' => 'boolean',
             'image_url' => 'nullable|string',
@@ -443,6 +447,7 @@ class Products extends BaseComponent
             'cost' => $this->cost,
             'shelf_life_days' => $this->shelf_life_days,
             'uom_id' => $this->uom_id,
+            'sales_uom_id' => $this->sales_uom_id,
             'is_active' => $this->is_active,
             'is_available' => $this->is_available,
             'image_url' => $this->image_url,
@@ -615,6 +620,7 @@ class Products extends BaseComponent
         $this->cost = null;
         $this->shelf_life_days = 0;
         $this->uom_id = null;
+        $this->sales_uom_id = null;
         $this->is_active = true;
         $this->is_available = true;
         $this->image_url = '';

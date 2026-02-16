@@ -232,6 +232,7 @@ class Index extends BaseComponent
 
         $products = Product::query()
             ->active()
+            ->available()
             ->whereIn('sales_department_id', $salesDepartmentIds)
             ->whereIn('id', $targetProductIds)
             ->select(['id', 'name', 'sku', 'uom_id', 'product_type_id', 'shelf_life_days'])
@@ -622,6 +623,10 @@ class Index extends BaseComponent
         try {
             $hasDepartmentColumn = $this->hasProductStocksDepartmentColumn();
 
+            // Get selected product IDs
+            $selectedProductIds = collect($this->stockOpenings)->pluck('product_id')->toArray();
+            
+            // Save selected products with actual values
             foreach ($this->stockOpenings as $stockOpening) {
                 // Use shift_id from shifts table (sales department shift)
                 // sales_shift_id can be null since we're using the general shifts table
@@ -658,18 +663,74 @@ class Index extends BaseComponent
                 );
             }
 
+            // Get all department products to find unselected ones
+            $allDepartmentProducts = Product::query()
+                ->active()
+                ->available()
+                ->whereIn('sales_department_id', $salesDepartmentIds)
+                ->select(['id', 'shelf_life_days'])
+                ->get();
+
+            // Save unselected products with 0.00 opening quantity
+            foreach ($allDepartmentProducts as $product) {
+                if (in_array($product->id, $selectedProductIds)) {
+                    continue; // Skip already saved products
+                }
+
+                $lookup = [
+                    'product_id'     => $product->id,
+                    'stock_date'     => $this->stockDate,
+                    'shift_type'     => $this->shiftType,
+                ];
+
+                if ($hasDepartmentColumn) {
+                    $lookup['department_id'] = $primarySalesDepartmentId;
+                }
+
+                // Check if record already exists
+                $existingStock = ProductStock::where($lookup)->first();
+                
+                if (!$existingStock) {
+                    // Create new record with 0.00 opening for unselected products
+                    $productionDate = Carbon::today()->format('Y-m-d');
+                    $expiryDate = null;
+                    
+                    if ($product->shelf_life_days > 0) {
+                        $expiryDate = Carbon::parse($productionDate)->addDays($product->shelf_life_days)->format('Y-m-d');
+                    }
+
+                    ProductStock::create(
+                        array_merge($lookup, [
+                            'sales_shift_id'    => null,
+                            'department_id'     => $hasDepartmentColumn
+                                ? $primarySalesDepartmentId
+                                : null,
+                            'opening_quantity'  => 0.00,
+                            'addition_quantity' => 0.00,
+                            'production_date'   => $productionDate,
+                            'expiry_date'       => $expiryDate,
+                            'notes'             => 'Auto-recorded - product not selected during stock opening',
+                            'total_available'   => 0.00,
+                            'closing_quantity'  => 0.00,
+                            'is_workflow_verified' => true,
+                            'verified_at'       => now(),
+                            'verified_by'       => auth()->id() ?? auth()->id(),
+                            'workflow_step'     => 'opening_verified',
+                        ])
+                    );
+                }
+            }
+
             DB::commit();
             $this->isVerified = true;
 
-            // Mark workflow step as completed (skip for super admins)
-            if (!is_super_admin() && !can_access_all_branches()) {
-                $workflowService = app(SalesWorkflowService::class);
-                $workflowService->completeStep(
-                    auth()->id(),
-                    $this->currentShiftId,
-                    'stock_opening'
-                );
-            }
+            // Mark workflow step as completed for all users to unlock POS access
+            $workflowService = app(SalesWorkflowService::class);
+            $workflowService->completeStep(
+                auth()->id(),
+                $this->currentShiftId,
+                'stock_opening'
+            );
 
             $this->toast()->success('Stock opening completed! Redirecting to POS...')->send();
 
@@ -746,6 +807,7 @@ class Index extends BaseComponent
 
         $products = Product::query()
             ->active()
+            ->available()
             ->whereIn('sales_department_id', $salesDepartmentIds)
             ->when($this->filterProductType, function ($query) {
                 $query->where('product_type_id', $this->filterProductType);
@@ -783,6 +845,8 @@ class Index extends BaseComponent
 
         $this->productTypes = ProductType::query()
             ->whereIn('id', Product::query()
+                ->active()
+                ->available()
                 ->whereIn('sales_department_id', $salesDepartmentIds)
                 ->select('product_type_id')
                 ->distinct())

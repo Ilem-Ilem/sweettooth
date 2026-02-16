@@ -74,12 +74,12 @@ class AssetController extends Controller
             'orientation' => 'portrait-primary',
             'icons' => [
                 [
-                    'src' => $logoPath ? asset(Storage::url($logoPath)) : '/swtc.png',
+                    'src' => $logoPath ? asset(Storage::disk('public')->url($logoPath)) : '/swtc.png',
                     'sizes' => '192x192',
                     'type' => 'image/png'
                 ],
                 [
-                    'src' => $logoPath ? asset(Storage::url($logoPath)) : '/swtc.png',
+                    'src' => $logoPath ? asset(Storage::disk('public')->url($logoPath)) : '/swtc.png',
                     'sizes' => '512x512',
                     'type' => 'image/png'
                 ]

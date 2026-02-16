@@ -114,6 +114,21 @@
                             <span class="text-red-500 text-sm">{{ $message }}</span>
                         @enderror
                     </div>
+
+                    <!-- Sales Unit of Measure -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Sales Unit of Measure</label>
+                        <x-select.styled
+                            wire:model.live="sales_uom_id"
+                            :options="$unitOfMeasures ?? []"
+                            select="label:name|value:id"
+                            placeholder="Select Sales UOM (Optional)"
+                        />
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Leave blank to use the base unit of measure.</p>
+                        @error('sales_uom_id')
+                            <span class="text-red-500 text-sm">{{ $message }}</span>
+                        @enderror
+                    </div>
                 </div>
 
                 <!-- Pricing & Details Section -->

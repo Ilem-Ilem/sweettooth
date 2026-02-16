@@ -44,6 +44,28 @@ class SalesWorkflowService
             return 'clock_in';
         }
 
+        // If workflow_state is explicitly set (e.g., 'pos'), use it
+        // This allows selected products verification to grant POS access
+        if (!empty($shift->workflow_state)) {
+            // Validate the state is still applicable based on clock status
+            $storedState = $shift->workflow_state;
+            
+            // 1. Check if shift is completed (clocked out AND shift closing done)
+            if ($shift->clock_out && $this->isShiftClosingCompleted($shift)) {
+                return 'completed';
+            }
+
+            // 2. Check if clocked out but shift closing not done
+            if ($shift->clock_out && !$this->isShiftClosingCompleted($shift)) {
+                return 'shift_closing';
+            }
+
+            // If clocked in and stored state is 'pos' or beyond, use stored state
+            if ($shift->clock_in && in_array($storedState, ['pos', 'clock_out', 'shift_closing'])) {
+                return $storedState;
+            }
+        }
+
         // 1. Check if shift is completed (clocked out AND shift closing done)
         if ($shift->clock_out && $this->isShiftClosingCompleted($shift)) {
             return 'completed';
@@ -170,12 +192,14 @@ class SalesWorkflowService
 
         $shift->metadata = $metadata;
 
-        // Update specific timestamps based on step
+        // Update specific timestamps and workflow_state based on step
         switch ($step) {
             case 'stock_opening':
                 if (in_array('stock_verified_at', $shift->getFillable())) {
                     $shift->stock_verified_at = now();
                 }
+                // Advance workflow_state to 'pos' after stock opening
+                $shift->workflow_state = 'pos';
                 break;
             case 'shift_closing':
                 $metadata['shift_closing_completed'] = true;
@@ -184,6 +208,7 @@ class SalesWorkflowService
                 if (in_array('shift_closed_at', $shift->getFillable())) {
                     $shift->shift_closed_at = now();
                 }
+                $shift->workflow_state = 'completed';
                 break;
         }
 

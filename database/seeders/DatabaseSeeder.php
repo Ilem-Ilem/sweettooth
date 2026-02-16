@@ -28,9 +28,6 @@ class DatabaseSeeder extends Seeder
             // Shift configurations
             ShiftConfigurationSeeder::class,
 
-            // UOM conversions
-            CupToGramConversionsSeeder::class,
-
             // Ensure all existing users have baseline roles
             AssignRolesToExistingUsersSeeder::class,
         ]);

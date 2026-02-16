@@ -46,6 +46,16 @@
         </div>
     @endif
 
+    @if ($errors->any())
+        <div class="mb-4 p-4 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-100 rounded-lg">
+            <ul class="list-disc list-inside">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     <form wire:submit.prevent="save">
         <div class="space-y-6">
             <!-- Theme Mode -->
@@ -268,12 +278,13 @@
 
             <!-- Save Button -->
             <div class="flex justify-end space-x-4">
-                <button type="submit"
-                    class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors duration-200">
-                    Save Changes
+                <button type="submit" wire:loading.attr="disabled" wire:target="save"
+                    class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span wire:loading.remove wire:target="save">Save Changes</span>
+                    <span wire:loading wire:target="save">Saving...</span>
                 </button>
-                <button type="button" wire:click="cancel"
-                    class="bg-zinc-500 hover:bg-zinc-700 text-white font-bold py-2 px-4 rounded transition-colors duration-200">
+                <button type="button" wire:click="cancel" wire:loading.attr="disabled" wire:target="save,cancel"
+                    class="bg-zinc-500 hover:bg-zinc-700 text-white font-bold py-2 px-4 rounded transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
                     Cancel
                 </button>
             </div>

@@ -64,7 +64,24 @@
     }
 </style>
 <script>
+    // Apply theme immediately to prevent flash of wrong theme
+    (function() {
+        var themeMode = <?php echo json_encode($themeMode); ?>;
+        var applyDark = function() { document.documentElement.classList.add('dark'); }
+        var applyLight = function() { document.documentElement.classList.remove('dark'); }
+        
+        if (themeMode === 'system') {
+            var media = window.matchMedia('(prefers-color-scheme: dark)');
+            media.matches ? applyDark() : applyLight();
+        } else if (themeMode === 'dark') {
+            applyDark();
+        } else {
+            applyLight();
+        }
+    })();
+</script>
+<script>
     if (window.Flux && typeof window.Flux.applyAppearance === 'function') {
-        window.Flux.applyAppearance(@json($themeMode));
+        window.Flux.applyAppearance(<?php echo json_encode($themeMode); ?>);
     }
 </script>

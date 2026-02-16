@@ -15,6 +15,7 @@ use App\Models\Receipt;
 use App\Models\SalesShift;
 use App\Models\Shift;
 use App\Models\Table;
+use App\Models\BankAccount;
 use App\Models\Branch;
 use App\Models\Department;
 use App\Services\CurrencyFormattingService;
@@ -72,6 +73,8 @@ class Index extends BaseComponent
         'orderType' => 'in:dine-in,takeaway,delivery',
         'payments.*.method' => 'required|in:cash,transfer,pos',
         'payments.*.amount' => 'numeric|min:0',
+        'payments.*.bank_account_id' => 'nullable|exists:bank_accounts,id',
+        'payments.*.payer_bank' => 'nullable|string|max:255',
     ];
 
     /**
@@ -268,6 +271,7 @@ class Index extends BaseComponent
         }
 
         $productQuery = Product::query()
+            ->with(['unitOfMeasure', 'salesUom'])
             ->active()
             ->available()
             ->whereKey($productId);
@@ -291,15 +295,20 @@ class Index extends BaseComponent
         $currentQty = $this->cart[$lineKey]['qty'] ?? 0;
         $newQty = $currentQty + 1;
 
+        // Convert sales quantity to base quantity for stock checking
+        $baseQuantity = $product->hasSalesUomConversion()
+            ? $product->convertSalesToBaseQuantity($newQty)
+            : $newQty;
+
         // Strict stock enforcement: cannot add if out of stock
         if ($available <= 0) {
             $this->toast()->error('Out of stock for ' . $product->name . '. Cannot add to cart.')->send();
             return;
         }
 
-        // Strict stock enforcement: cannot exceed available quantity
-        if ($newQty > $available) {
-            $this->toast()->warning('Cannot add more than available stock (' . $available . ') for ' . $product->name)->send();
+        // Strict stock enforcement: cannot exceed available quantity (in base UOM)
+        if ($baseQuantity > $available) {
+            $this->toast()->warning('Cannot add more than available stock (' . $available . ' ' . $product->uomSymbol . ') for ' . $product->name)->send();
             return;
         }
 
@@ -308,8 +317,15 @@ class Index extends BaseComponent
             'name' => $product->name,
             'price' => (float)($product->price ?? 0),
             'qty' => $newQty,
+            'sales_uom' => $product->effectiveSalesUomSymbol,
+            'base_uom' => $product->uomSymbol,
+            'has_conversion' => $product->hasSalesUomConversion(),
+            'base_quantity' => $baseQuantity,
             'low_stock' => $available < 10,
             'available' => $available,
+            'available_sales_qty' => $product->hasSalesUomConversion()
+                ? floor($product->convertBaseToSalesQuantity($available))
+                : $available,
         ];
 
         $this->recalculateTotals();
@@ -415,7 +431,7 @@ class Index extends BaseComponent
 
     public function addPaymentRow(): void
     {
-        $this->payments[] = ['method' => 'cash', 'amount' => 0.0];
+        $this->payments[] = ['method' => 'cash', 'amount' => 0.0, 'bank_account_id' => null, 'payer_bank' => null];
         $this->recalcPayments();
     }
 
@@ -425,7 +441,7 @@ class Index extends BaseComponent
             array_splice($this->payments, $index, 1);
         }
         if (empty($this->payments)) {
-            $this->payments[] = ['method' => 'cash', 'amount' => 0.0];
+            $this->payments[] = ['method' => 'cash', 'amount' => 0.0, 'bank_account_id' => null, 'payer_bank' => null];
         }
         $this->recalcPayments();
     }
@@ -438,12 +454,27 @@ class Index extends BaseComponent
     protected function recalcPayments(): void
     {
         $total = 0.0;
-        foreach ($this->payments as $p) {
+        $defaultBankId = $this->getDefaultDepartmentBankAccountId() ?? $this->bankAccounts->first()?->id ?? null;
+        foreach ($this->payments as $index => $p) {
+            if (($p['method'] ?? '') === 'transfer' && empty($p['bank_account_id']) && $defaultBankId) {
+                $this->payments[$index]['bank_account_id'] = $defaultBankId;
+            }
             $total += (float)($p['amount'] ?? 0);
         }
+        $this->payments = array_values($this->payments);
         $this->paymentTotal = $total;
         $this->paymentRemaining = max(0, $this->total - $this->paymentTotal);
         $this->changeDue = max(0, $this->paymentTotal - $this->total);
+    }
+
+    protected function getDefaultDepartmentBankAccountId(): ?int
+    {
+        if (! $this->departmentId) {
+            return null;
+        }
+
+        $department = Department::find($this->departmentId);
+        return $department?->bank_account_id;
     }
 
     public function completeSale(): void
@@ -458,6 +489,13 @@ class Index extends BaseComponent
             if (empty($this->cart)) {
                 $this->toast()->warning('Cart is empty.')->send();
                 return;
+            }
+
+            foreach ($this->payments as $paymentData) {
+                if (($paymentData['method'] ?? '') === 'transfer' && empty($paymentData['bank_account_id'])) {
+                    $this->toast()->error('Transfer requires a department-linked bank account.')->send();
+                    return;
+                }
             }
 
             $this->recalcPayments();
@@ -508,21 +546,40 @@ class Index extends BaseComponent
                 }
 
                 if ($actualQty > 0) {
+                    // Get the product for UOM conversion
+                    $product = Product::with(['unitOfMeasure', 'salesUom'])->find($productId);
+                    
+                    // Calculate base quantity for stock deduction
+                    $baseQty = $actualQty;
+                    $salesQty = $actualQty;
+                    $salesUomId = null;
+                    $conversionFactor = null;
+                    
+                    if ($product && $product->hasSalesUomConversion()) {
+                        $baseQty = $product->convertSalesToBaseQuantity($actualQty);
+                        $salesUomId = $product->sales_uom_id;
+                        $conversionFactor = $product->sales_unit_weight ?? $product->convertSalesToBaseQuantity(1);
+                    }
+                    
                     SaleItem::create([
                         'sale_id' => $sale->id,
                         'department_id' => $this->departmentId,
                         'product_id' => $productId,
-                        'quantity' => $actualQty,
+                        'quantity' => $baseQty, // Base quantity in base UOM (e.g., grams)
+                        'sales_quantity' => $salesQty, // Sales quantity (e.g., scoops)
+                        'sales_uom_id' => $salesUomId,
+                        'conversion_factor' => $conversionFactor,
                         'unit_price' => $line['price'],
-                        'subtotal' => $actualQty * $line['price'],
+                        'subtotal' => $salesQty * $line['price'],
                         'discount' => 0,
-                        'total' => $actualQty * $line['price'],
+                        'total' => $salesQty * $line['price'],
                         'notes' => $actualQty < $qty ? 'Partial fulfillment: ' . $actualQty . '/' . $qty : null,
                     ]);
 
                     if ($stock) {
-                        $stock->quantity_sold = (float)$stock->quantity_sold + $actualQty;
-                        $stock->amount = (float)$stock->amount + ($actualQty * $line['price']);
+                        // Deduct base quantity from stock
+                        $stock->quantity_sold = (float)$stock->quantity_sold + $baseQty;
+                        $stock->amount = (float)$stock->amount + ($salesQty * $line['price']);
                         $stock->updateCalculatedFields();
                         $stock->save();
                     }
@@ -537,6 +594,8 @@ class Index extends BaseComponent
                         'sale_id' => $sale->id,
                         'branch_id' => $this->branchId,
                         'payment_method' => $paymentData['method'] ?? 'cash',
+                        'bank_account_id' => $paymentData['bank_account_id'] ?? null,
+                        'payer_bank' => $paymentData['payer_bank'] ?? null,
                         'amount' => $amount,
                         'payment_time' => Carbon::now(),
                         'status' => 'completed',
@@ -573,7 +632,7 @@ class Index extends BaseComponent
             $this->clearCart();
             $this->discount = 0;
             $this->orderType = 'dine-in';
-            $this->payments = [['method' => 'cash', 'amount' => 0.0]];
+            $this->payments = [['method' => 'cash', 'amount' => 0.0, 'bank_account_id' => null, 'payer_bank' => null]];
             $this->recalcPayments();
         } catch (\Exception $e) {
             \Log::error('POS Sale Error: ' . $e->getMessage(), [
@@ -584,6 +643,15 @@ class Index extends BaseComponent
             ]);
             $this->toast()->error('Payment failed: ' . $e->getMessage())->send();
         }
+    }
+
+    #[Computed]
+    public function bankAccounts()
+    {
+        return BankAccount::query()
+            ->where('is_active', true)
+            ->orderBy('bank_name')
+            ->get();
     }
 
     public function holdSale(): void

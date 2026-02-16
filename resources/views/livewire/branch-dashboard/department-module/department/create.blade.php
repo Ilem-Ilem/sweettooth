@@ -117,6 +117,24 @@
                 @enderror
             </div>
 
+            <!-- Default Bank Account for Transfers -->
+            <div>
+                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Default Bank Account (Transfers) *</label>
+                <x-select.styled
+                    wire:model="bank_account_id"
+                    :options="$this->getBankAccounts()
+                        ->map(fn($acct) => ['label' => $acct->bank_name . ' · ' . $acct->account_number, 'value' => $acct->id])
+                        ->toArray()"
+                    select="label:label|value:value"
+                    placeholder="Select Bank Account"
+                    searchable
+                />
+                @error('bank_account_id')
+                    <span class="text-red-500 text-sm">{{ $message }}</span>
+                @enderror
+                <p class="text-xs text-zinc-500 mt-1">Required. Used when POS Transfer is selected for this department.</p>
+            </div>
+
 
             <button type="button" wire:click="initiateSave"
                 class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors">

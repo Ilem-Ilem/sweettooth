@@ -146,7 +146,7 @@ class SalesStockVerificationService
         $branchId = $branchId ?? current_branch_id();
 
         return Product::query()
-            ->forDepartment($departmentId)
+            ->where('sales_department_id', $departmentId)
             ->where(function ($q) use ($branchId) {
                 $q->whereNull('branch_id')
                   ->orWhere('branch_id', $branchId);
