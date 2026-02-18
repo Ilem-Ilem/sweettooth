@@ -47,7 +47,9 @@
                 <div class="flex items-center justify-between">
                     <div class="flex-1">
                         <p class="text-sm text-gray-600 dark:text-gray-400">Total Revenue</p>
-                        <p class="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">₦{{ number_format($overallMetrics['total_revenue'], 2) }}</p>
+                        <p class="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">
+                            {{ \App\Helpers\LocalizationHelper::formatCurrency($overallMetrics['total_revenue'] ?? 0) }}
+                        </p>
                     </div>
                     <div class="p-3 bg-green-100 dark:bg-green-900/30 rounded-xl">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-green-600 dark:text-green-400">
@@ -77,7 +79,9 @@
                 <div class="flex items-center justify-between">
                     <div class="flex-1">
                         <p class="text-sm text-gray-600 dark:text-gray-400">Inventory Value</p>
-                        <p class="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">₦{{ number_format($overallMetrics['inventory_value'], 2) }}</p>
+                        <p class="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">
+                            {{ \App\Helpers\LocalizationHelper::formatCurrency($overallMetrics['inventory_value'] ?? 0) }}
+                        </p>
                     </div>
                     <div class="p-3 bg-amber-100 dark:bg-amber-900/30 rounded-xl">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-amber-600 dark:text-amber-400">
@@ -145,9 +149,9 @@
                 <div class="flex-1 flex flex-col items-center">
                     <div class="w-full bg-gradient-to-t from-blue-600 to-blue-400 rounded-t-lg hover:from-blue-700 hover:to-blue-500 transition-all cursor-pointer group relative"
                          style="height: {{ $height }}%;"
-                         title="₦{{ number_format($day['revenue'], 2) }}">
+                         title="{{ \App\Helpers\LocalizationHelper::formatCurrency($day['revenue'] ?? 0) }}">
                         <div class="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                            ₦{{ number_format($day['revenue'], 0) }}
+                            {{ \App\Helpers\LocalizationHelper::formatCurrency($day['revenue'] ?? 0) }}
                         </div>
                     </div>
                     <span class="text-xs text-gray-600 dark:text-gray-400 mt-2">{{ $day['date'] }}</span>
@@ -177,7 +181,9 @@
                         <div class="grid grid-cols-2 gap-2 mt-2 text-sm">
                             <div>
                                 <p class="text-gray-600 dark:text-gray-400">Revenue</p>
-                                <p class="font-semibold text-green-600 dark:text-green-400">₦{{ number_format($dept['total_sales'], 0) }}</p>
+                                <p class="font-semibold text-green-600 dark:text-green-400">
+                                    {{ \App\Helpers\LocalizationHelper::formatCurrency($dept['total_sales'] ?? 0) }}
+                                </p>
                             </div>
                             <div>
                                 <p class="text-gray-600 dark:text-gray-400">Orders</p>
@@ -253,7 +259,9 @@
                     </div>
                     <div class="flex justify-between items-center py-2 border-b dark:border-gray-700">
                         <span class="text-sm text-gray-600 dark:text-gray-400">Stock Value</span>
-                        <span class="font-semibold text-amber-600 dark:text-amber-400">₦{{ number_format($inventorySummary['stock_value'], 0) }}</span>
+                        <span class="font-semibold text-amber-600 dark:text-amber-400">
+                            {{ \App\Helpers\LocalizationHelper::formatCurrency($inventorySummary['stock_value'] ?? 0) }}
+                        </span>
                     </div>
                     <div class="flex justify-between items-center py-2 border-b dark:border-gray-700">
                         <span class="text-sm text-gray-600 dark:text-gray-400">Low Stock</span>

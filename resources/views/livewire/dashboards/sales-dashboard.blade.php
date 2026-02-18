@@ -31,7 +31,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm text-gray-600 font-medium">Today's Sales</p>
-                    <p class="text-2xl font-bold text-gray-900 mt-2">{{ $todaysSales ?? '$0.00' }}</p>
+                    <p class="text-2xl font-bold text-gray-900 mt-2">{{ $todaysSales ?? \App\Helpers\LocalizationHelper::formatCurrency(0) }}</p>
                 </div>
                 <div class="p-3 bg-green-100 rounded-lg">
                     <svg class="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
@@ -61,7 +61,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm text-gray-600 font-medium">Till Balance</p>
-                    <p class="text-2xl font-bold text-gray-900 mt-2">{{ $tillBalance ?? '$0.00' }}</p>
+                    <p class="text-2xl font-bold text-gray-900 mt-2">{{ $tillBalance ?? \App\Helpers\LocalizationHelper::formatCurrency(0) }}</p>
                 </div>
                 <div class="p-3 bg-purple-100 rounded-lg">
                     <svg class="w-6 h-6 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
@@ -117,7 +117,7 @@
             <div class="space-y-3">
                 <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                     <span class="text-sm text-gray-600">Avg. Transaction</span>
-                    <span class="font-bold text-gray-900">{{ $avgTransaction ?? '$0.00' }}</span>
+                    <span class="font-bold text-gray-900">{{ $avgTransaction ?? \App\Helpers\LocalizationHelper::formatCurrency(0) }}</span>
                 </div>
                 <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                     <span class="text-sm text-gray-600">Cash vs Card</span>
@@ -148,13 +148,13 @@
                     <tr class="hover:bg-gray-50">
                         <td class="px-4 py-3 text-gray-900">Sourdough Bread</td>
                         <td class="px-4 py-3 text-right text-gray-600">45</td>
-                        <td class="px-4 py-3 text-right text-gray-600">$225.00</td>
+                        <td class="px-4 py-3 text-right text-gray-600">{{ \App\Helpers\LocalizationHelper::formatCurrency(225) }}</td>
                         <td class="px-4 py-3 text-right text-gray-600">15%</td>
                     </tr>
                     <tr class="hover:bg-gray-50">
                         <td class="px-4 py-3 text-gray-900">Vanilla Gelato</td>
                         <td class="px-4 py-3 text-right text-gray-600">38</td>
-                        <td class="px-4 py-3 text-right text-gray-600">$190.00</td>
+                        <td class="px-4 py-3 text-right text-gray-600">{{ \App\Helpers\LocalizationHelper::formatCurrency(190) }}</td>
                         <td class="px-4 py-3 text-right text-gray-600">12%</td>
                     </tr>
                 </tbody>

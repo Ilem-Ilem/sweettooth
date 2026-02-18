@@ -72,6 +72,12 @@ use Illuminate\Support\Facades\Route;
                 Route::get('/pipeline', \App\Livewire\BranchDashboard\Production\Reports\PipelineStatus\Index::class)->name('pipeline');
                 Route::get('/capacity', \App\Livewire\BranchDashboard\Production\Reports\CapacityPlanning\Index::class)->name('capacity');
             });
+
+            // Production Reporting Library (generated reports)
+            Route::prefix('reporting')->name('reporting.')->group(function () {
+                Route::get('/', \App\Livewire\BranchDashboard\Production\Reporting\Index::class)->name('index');
+                Route::get('/{id}', \App\Livewire\BranchDashboard\Production\Reporting\Show::class)->name('show');
+            });
         });
 
 

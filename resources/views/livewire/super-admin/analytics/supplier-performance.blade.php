@@ -13,11 +13,15 @@
             </div>
             <div class="bg-purple-50 dark:bg-purple-900/20 rounded-lg shadow-sm p-4">
                 <p class="text-sm text-gray-600 dark:text-gray-400">Total Spent</p>
-                <p class="text-2xl font-bold text-purple-600 dark:text-purple-500">₦{{ number_format($summary['total_spent'], 2) }}</p>
+                <p class="text-2xl font-bold text-purple-600 dark:text-purple-500">
+                    {{ \App\Helpers\LocalizationHelper::formatCurrency($summary['total_spent'] ?? 0) }}
+                </p>
             </div>
             <div class="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg shadow-sm p-4">
                 <p class="text-sm text-gray-600 dark:text-gray-400">Avg Purchase</p>
-                <p class="text-2xl font-bold text-yellow-600 dark:text-yellow-500">₦{{ number_format($summary['avg_purchase_value'], 2) }}</p>
+                <p class="text-2xl font-bold text-yellow-600 dark:text-yellow-500">
+                    {{ \App\Helpers\LocalizationHelper::formatCurrency($summary['avg_purchase_value'] ?? 0) }}
+                </p>
             </div>
         </div>
 
@@ -52,7 +56,10 @@
                                 <div class="h-2 rounded-full {{ $supplier->reliability_score >= 80 ? 'bg-green-600' : ($supplier->reliability_score >= 50 ? 'bg-yellow-600' : 'bg-red-600') }}"
                                      style="width: {{ $supplier->reliability_score }}%"></div>
                             </div>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ $supplier->purchase_count }} purchases | ₦{{ number_format($supplier->total_spent, 2) }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                {{ $supplier->purchase_count }} purchases |
+                                {{ \App\Helpers\LocalizationHelper::formatCurrency($supplier->total_spent ?? 0) }}
+                            </p>
                         </div>
                     @endforeach
                 </div>

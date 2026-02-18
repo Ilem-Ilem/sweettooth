@@ -37,6 +37,11 @@ class Index extends BaseComponent
     {
         // Set b_id from URL parameter or current branch context
         $this->b_id = request()->query('b_id') ?? current_branch_id();
+
+        // If filters are pre-set via query string, ensure pagination starts on page 1
+        if (request()->query('page') && $this->hasActiveFilters()) {
+            $this->resetPage();
+        }
     }
 
     // Listen for branch changes from BranchSelector (for super admins)
@@ -179,6 +184,71 @@ class Index extends BaseComponent
         $this->resetPage();
     }
 
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedAdvancedSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterStatus(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterDepartment(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterBranch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterGender(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterShift(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedHireDateFrom(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedHireDateTo(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedTerminationDateFrom(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedTerminationDateTo(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedDateFrom(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedDateTo(): void
+    {
+        $this->resetPage();
+    }
+
     public function resetFilters()
     {
         $this->search = null;
@@ -195,6 +265,25 @@ class Index extends BaseComponent
         $this->terminationDateFrom = null;
         $this->terminationDateTo = null;
         $this->resetPage();
+    }
+
+    private function hasActiveFilters(): bool
+    {
+        return (bool) array_filter([
+            $this->search,
+            $this->advancedSearch,
+            $this->dateFrom,
+            $this->dateTo,
+            $this->filterStatus,
+            $this->filterDepartment,
+            $this->filterBranch,
+            $this->filterGender,
+            $this->filterShift,
+            $this->hireDateFrom,
+            $this->hireDateTo,
+            $this->terminationDateFrom,
+            $this->terminationDateTo,
+        ], fn ($value) => $value !== null && $value !== '');
     }
 
     // Export methods

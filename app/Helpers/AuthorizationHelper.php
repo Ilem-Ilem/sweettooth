@@ -81,6 +81,18 @@ if (!function_exists('is_super_admin')) {
                 }
             }
         }
+
+        // Permission-based fallback for super admin capabilities
+        if (method_exists($user, 'hasAnyPermission')) {
+            if ($user->hasAnyPermission([
+                'manage-branches',
+                'manage-roles',
+                'manage-settings',
+                'manage-organization',
+            ])) {
+                return true;
+            }
+        }
         
         return false;
     }

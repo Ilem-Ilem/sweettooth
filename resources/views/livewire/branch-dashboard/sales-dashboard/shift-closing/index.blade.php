@@ -43,7 +43,9 @@
                     <div class="space-y-3">
                         <div class="flex justify-between">
                             <span class="text-gray-600 dark:text-gray-400">Total Sales:</span>
-                            <span class="font-semibold text-green-600 dark:text-green-400">₦{{ number_format($salesSummary['total_sales'] ?? 0, 2) }}</span>
+                            <span class="font-semibold text-green-600 dark:text-green-400">
+                                {{ \App\Helpers\LocalizationHelper::formatCurrency($salesSummary['total_sales'] ?? 0) }}
+                            </span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-gray-600 dark:text-gray-400">Total Orders:</span>
@@ -51,11 +53,15 @@
                         </div>
                         <div class="flex justify-between">
                             <span class="text-gray-600 dark:text-gray-400">Avg Order Value:</span>
-                            <span class="font-semibold text-gray-900 dark:text-gray-100">₦{{ number_format($salesSummary['avg_order_value'] ?? 0, 2) }}</span>
+                            <span class="font-semibold text-gray-900 dark:text-gray-100">
+                                {{ \App\Helpers\LocalizationHelper::formatCurrency($salesSummary['avg_order_value'] ?? 0) }}
+                            </span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-gray-600 dark:text-gray-400">Total Discount:</span>
-                            <span class="font-semibold text-red-600 dark:text-red-400">₦{{ number_format($salesSummary['total_discount'] ?? 0, 2) }}</span>
+                            <span class="font-semibold text-red-600 dark:text-red-400">
+                                {{ \App\Helpers\LocalizationHelper::formatCurrency($salesSummary['total_discount'] ?? 0) }}
+                            </span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-gray-600 dark:text-gray-400">Cancelled Orders:</span>
@@ -71,7 +77,9 @@
                         @forelse(($salesSummary['payment_breakdown'] ?? []) as $method => $amount)
                         <div class="flex justify-between">
                             <span class="text-gray-600 dark:text-gray-400 capitalize">{{ $method }}:</span>
-                            <span class="font-semibold text-gray-900 dark:text-gray-100">₦{{ number_format($amount, 2) }}</span>
+                            <span class="font-semibold text-gray-900 dark:text-gray-100">
+                                {{ \App\Helpers\LocalizationHelper::formatCurrency($amount ?? 0) }}
+                            </span>
                         </div>
                         @empty
                         <p class="text-sm text-gray-500 dark:text-gray-400">No payment data</p>
@@ -89,7 +97,9 @@
                                 <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ $product['product_name'] }}</p>
                                 <p class="text-xs text-gray-500 dark:text-gray-400">Qty: {{ number_format($product['quantity'], 0) }}</p>
                             </div>
-                            <span class="ml-2 text-sm font-semibold text-gray-900 dark:text-gray-100">₦{{ number_format($product['revenue'], 2) }}</span>
+                            <span class="ml-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                {{ \App\Helpers\LocalizationHelper::formatCurrency($product['revenue'] ?? 0) }}
+                            </span>
                         </div>
                         @empty
                         <p class="text-sm text-gray-500 dark:text-gray-400">No sales data</p>
@@ -109,7 +119,9 @@
                         <div class="space-y-2">
                             <div class="flex justify-between text-sm">
                                 <span class="text-gray-600 dark:text-gray-400">Expected:</span>
-                                <span class="font-medium">₦{{ number_format($cashReconciliation['expected_cash'] ?? 0, 2) }}</span>
+                                <span class="font-medium">
+                                    {{ \App\Helpers\LocalizationHelper::formatCurrency($cashReconciliation['expected_cash'] ?? 0) }}
+                                </span>
                             </div>
                             <div>
                                 <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">Actual Count:</label>
@@ -120,7 +132,7 @@
                             <div class="flex justify-between text-sm pt-2 border-t dark:border-gray-700">
                                 <span class="text-gray-600 dark:text-gray-400">Variance:</span>
                                 <span class="font-semibold {{ abs($cashReconciliation['cash_variance'] ?? 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400' }}">
-                                    ₦{{ number_format($cashReconciliation['cash_variance'] ?? 0, 2) }}
+                                    {{ \App\Helpers\LocalizationHelper::formatCurrency($cashReconciliation['cash_variance'] ?? 0) }}
                                 </span>
                             </div>
                             @if(($cashReconciliation['cash_requires_reason'] ?? false))
@@ -140,7 +152,9 @@
                         <div class="space-y-2">
                             <div class="flex justify-between text-sm">
                                 <span class="text-gray-600 dark:text-gray-400">Expected:</span>
-                                <span class="font-medium">₦{{ number_format($cashReconciliation['expected_pos'] ?? 0, 2) }}</span>
+                                <span class="font-medium">
+                                    {{ \App\Helpers\LocalizationHelper::formatCurrency($cashReconciliation['expected_pos'] ?? 0) }}
+                                </span>
                             </div>
                             <div>
                                 <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">Actual Count:</label>
@@ -151,7 +165,7 @@
                             <div class="flex justify-between text-sm pt-2 border-t dark:border-gray-700">
                                 <span class="text-gray-600 dark:text-gray-400">Variance:</span>
                                 <span class="font-semibold {{ abs($cashReconciliation['pos_variance'] ?? 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400' }}">
-                                    ₦{{ number_format($cashReconciliation['pos_variance'] ?? 0, 2) }}
+                                    {{ \App\Helpers\LocalizationHelper::formatCurrency($cashReconciliation['pos_variance'] ?? 0) }}
                                 </span>
                             </div>
                             @if(($cashReconciliation['pos_requires_reason'] ?? false))
@@ -171,7 +185,9 @@
                         <div class="space-y-2">
                             <div class="flex justify-between text-sm">
                                 <span class="text-gray-600 dark:text-gray-400">Expected:</span>
-                                <span class="font-medium">₦{{ number_format($cashReconciliation['expected_transfer'] ?? 0, 2) }}</span>
+                                <span class="font-medium">
+                                    {{ \App\Helpers\LocalizationHelper::formatCurrency($cashReconciliation['expected_transfer'] ?? 0) }}
+                                </span>
                             </div>
                             <div>
                                 <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">Actual Count:</label>
@@ -182,7 +198,7 @@
                             <div class="flex justify-between text-sm pt-2 border-t dark:border-gray-700">
                                 <span class="text-gray-600 dark:text-gray-400">Variance:</span>
                                 <span class="font-semibold {{ abs($cashReconciliation['transfer_variance'] ?? 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400' }}">
-                                    ₦{{ number_format($cashReconciliation['transfer_variance'] ?? 0, 2) }}
+                                    {{ \App\Helpers\LocalizationHelper::formatCurrency($cashReconciliation['transfer_variance'] ?? 0) }}
                                 </span>
                             </div>
                             @if(($cashReconciliation['transfer_requires_reason'] ?? false))
@@ -202,7 +218,7 @@
                     <div class="flex justify-between items-center">
                         <span class="text-lg font-semibold text-gray-900 dark:text-white">Total Variance:</span>
                         <span class="text-xl font-bold {{ abs($cashReconciliation['total_variance'] ?? 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400' }}">
-                            ₦{{ number_format($cashReconciliation['total_variance'] ?? 0, 2) }}
+                            {{ \App\Helpers\LocalizationHelper::formatCurrency($cashReconciliation['total_variance'] ?? 0) }}
                         </span>
                     </div>
                 </div>

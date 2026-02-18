@@ -252,14 +252,14 @@
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Salary</label>
                 <p class="text-gray-900 dark:text-white">
-                    {{ $employee->salary ? '$' . number_format($employee->salary, 2) : '—' }}
+                    {{ $employee->salary ? \App\Helpers\LocalizationHelper::formatCurrency($employee->salary) : '—' }}
                 </p>
             </div>
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hourly Rate</label>
                 <p class="text-gray-900 dark:text-white">
-                    {{ $employee->hourly_rate ? '$' . number_format($employee->hourly_rate, 2) : '—' }}
+                    {{ $employee->hourly_rate ? \App\Helpers\LocalizationHelper::formatCurrency($employee->hourly_rate) : '—' }}
                 </p>
             </div>
 

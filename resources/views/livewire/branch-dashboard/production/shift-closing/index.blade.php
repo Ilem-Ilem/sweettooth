@@ -82,7 +82,8 @@
                             </div>
                             <div class="text-right">
                                 <p class="font-bold {{ $variance['cost_variance'] > 0 ? 'text-red-600' : 'text-green-600' }}">
-                                    {{ $variance['cost_variance'] > 0 ? '+' : '' }}₦{{ number_format(abs($variance['cost_variance']), 2) }}
+                                    {{ $variance['cost_variance'] > 0 ? '+' : '' }}
+                                    {{ \App\Helpers\LocalizationHelper::formatCurrency(abs($variance['cost_variance'] ?? 0)) }}
                                 </p>
                                 <span class="px-2 py-1 text-xs rounded-full {{ $variance['severity'] === 'high' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800' }}">
                                     {{ ucfirst($variance['severity']) }}
@@ -138,7 +139,8 @@
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 text-sm font-semibold text-right {{ $usage['cost_variance'] > 0 ? 'text-red-600' : ($usage['cost_variance'] < 0 ? 'text-green-600' : 'text-gray-600') }}">
-                                    {{ $usage['cost_variance'] > 0 ? '+' : '' }}₦{{ number_format(abs($usage['cost_variance']), 2) }}
+                                    {{ $usage['cost_variance'] > 0 ? '+' : '' }}
+                                    {{ \App\Helpers\LocalizationHelper::formatCurrency(abs($usage['cost_variance'] ?? 0)) }}
                                 </td>
                             </tr>
                             @endforeach

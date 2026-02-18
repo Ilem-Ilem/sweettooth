@@ -163,7 +163,15 @@
         <x-modal wire:model="showReportModal" title="Quality Report Generated" size="lg">
             <div class="space-y-4">
                 <p class="text-sm text-gray-600">Report has been saved successfully.</p>
-                <div class="flex justify-end gap-4 mt-6">
+                <div class="flex flex-wrap justify-end gap-3 mt-6">
+                    <a class="inline-flex items-center justify-center rounded-lg border border-zinc-200 px-3 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                       href="{{ branch_route('branch-dashboard.production.reporting.show', ['id' => $generatedReport->id, 'b_id' => $b_id ?? current_branch_id()]) }}">
+                        View Report
+                    </a>
+                    <a class="inline-flex items-center justify-center rounded-lg border border-zinc-200 px-3 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                       href="{{ branch_route('branch-dashboard.prints.department-report', ['reportId' => $generatedReport->id, 'b_id' => $b_id ?? current_branch_id()]) }}" target="_blank">
+                        Print
+                    </a>
                     <x-button wire:click="$set('showReportModal', false)" color="secondary">Close</x-button>
                     <x-button wire:click="submitForReview('{{ $generatedReport->id }}')" color="primary">
                         Submit for Review

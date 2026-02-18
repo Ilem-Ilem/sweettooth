@@ -201,7 +201,7 @@
 
         @interact('column_average_cost', $row)
             <span class="text-zinc-900 dark:text-zinc-100">
-                ₦{{ number_format($row->average_cost, 2) }}
+                {{ \App\Helpers\LocalizationHelper::formatCurrency($row->average_cost ?? 0) }}
             </span>
         @endinteract
 

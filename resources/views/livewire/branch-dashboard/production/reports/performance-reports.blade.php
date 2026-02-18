@@ -14,7 +14,7 @@
     <!-- Report Type Tabs -->
     <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700">
         <div class="border-b border-zinc-200 dark:border-zinc-700">
-            <nav class="flex">
+            <nav class="flex flex-wrap">
                 <button wire:click="switchReport('recipe-performance')"
                         class="flex-1 py-3 px-4 text-center text-sm font-medium border-b-2 transition-colors
                                {{ $activeReport === 'recipe-performance'
@@ -45,6 +45,16 @@
                     </svg>
                     Ingredient Utilization
                 </button>
+                <button wire:click="switchReport('production-activities')"
+                        class="flex-1 py-3 px-4 text-center text-sm font-medium border-b-2 transition-colors
+                               {{ $activeReport === 'production-activities'
+                                   ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                                   : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300' }}">
+                    <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h18v6H3V3zm0 8h18v10H3V11zm4 2v6m4-6v6m4-6v6"/>
+                    </svg>
+                    Production Activities
+                </button>
             </nav>
         </div>
     </div>
@@ -57,6 +67,8 @@
             @livewire('branch-dashboard.production.reports.shift-summary.index', ['b_id' => $b_id], key('shift-summary'))
         @elseif($activeReport === 'ingredient-utilization')
             @livewire('branch-dashboard.production.reports.ingredient-utilization.index', ['b_id' => $b_id], key('ingredient-utilization'))
+        @elseif($activeReport === 'production-activities')
+            @livewire('branch-dashboard.production.reports.production-activities.index', ['b_id' => $b_id], key('production-activities'))
         @endif
     </div>
 

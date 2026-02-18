@@ -3,14 +3,14 @@
         <div class="bg-zinc-50 dark:bg-zinc-900 p-4 rounded-lg border-2 border-blue-200 dark:border-blue-800">
             <label class="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase mb-1">Monthly Salary</label>
             <p class="text-zinc-900 dark:text-white font-bold text-lg">
-                {{ $employee->salary ? '₦' . number_format($employee->salary, 2) : '—' }}
+                {{ $employee->salary ? \App\Helpers\LocalizationHelper::formatCurrency($employee->salary) : '—' }}
             </p>
         </div>
 
         <div class="bg-zinc-50 dark:bg-zinc-900 p-4 rounded-lg">
             <label class="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase mb-1">Hourly Rate</label>
             <p class="text-zinc-900 dark:text-white font-medium">
-                {{ $employee->hourly_rate ? '₦' . number_format($employee->hourly_rate, 2) : '—' }}
+                {{ $employee->hourly_rate ? \App\Helpers\LocalizationHelper::formatCurrency($employee->hourly_rate) : '—' }}
             </p>
         </div>
 

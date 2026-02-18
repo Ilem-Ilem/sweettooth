@@ -12,11 +12,15 @@
         </div>
         <div class="bg-green-50 dark:bg-green-900/20 rounded-lg shadow-sm p-4">
             <p class="text-sm text-gray-600 dark:text-gray-400">Total Spent</p>
-            <p class="text-2xl font-bold text-green-600 dark:text-green-500">₦{{ number_format($summary['total_spent'], 2) }}</p>
+            <p class="text-2xl font-bold text-green-600 dark:text-green-500">
+                {{ \App\Helpers\LocalizationHelper::formatCurrency($summary['total_spent'] ?? 0) }}
+            </p>
         </div>
         <div class="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg shadow-sm p-4">
             <p class="text-sm text-gray-600 dark:text-gray-400">Avg Purchase Value</p>
-            <p class="text-2xl font-bold text-yellow-600 dark:text-yellow-500">₦{{ number_format($summary['avg_purchase_value'], 2) }}</p>
+            <p class="text-2xl font-bold text-yellow-600 dark:text-yellow-500">
+                {{ \App\Helpers\LocalizationHelper::formatCurrency($summary['avg_purchase_value'] ?? 0) }}
+            </p>
         </div>
         <div class="bg-purple-50 dark:bg-purple-900/20 rounded-lg shadow-sm p-4">
             <p class="text-sm text-gray-600 dark:text-gray-400">Total Items</p>
@@ -145,7 +149,9 @@
                             <td class="px-4 py-3 text-zinc-900 dark:text-zinc-100">{{ $purchase->purchase_number }}</td>
                             <td class="px-4 py-3 text-zinc-900 dark:text-zinc-100">{{ \Carbon\Carbon::parse($purchase->purchase_date)->format('M d, Y') }}</td>
                             <td class="px-4 py-3 text-zinc-900 dark:text-zinc-100">{{ $purchase->supplier_name }}</td>
-                            <td class="px-4 py-3 text-zinc-900 dark:text-zinc-100">₦{{ number_format($purchase->total_cost, 2) }}</td>
+                            <td class="px-4 py-3 text-zinc-900 dark:text-zinc-100">
+                                {{ \App\Helpers\LocalizationHelper::formatCurrency($purchase->total_cost ?? 0) }}
+                            </td>
                             <td class="px-4 py-3">
                                 @php
                                     $badgeColors = match($purchase->payment_status) {
@@ -173,6 +179,10 @@
     </div>
 
 
+    @php
+        $currencyCode = \App\Helpers\Settings::currencyLocalization('primary_currency', 'USD');
+    @endphp
+
     @push('scripts')
 <script src="https://code.highcharts.com/highcharts.js"></script>
 <script src="https://code.highcharts.com/modules/exporting.js"></script>
@@ -181,6 +191,7 @@
 
 <script>
     let trendChart, supplierChart, costChart, topItemsChart;
+    const currencyCode = @js($currencyCode);
     let chartData = {
         trendData: @js($trendData),
         supplierAnalysis: @js($supplierAnalysis),
@@ -252,10 +263,10 @@
                 gridLineColor: themeColors.gridColor
             },
             yAxis: [{
-                title: { text: 'Total Cost (₦)', style: { color: themeColors.textColor } },
+                title: { text: `Total Cost (${currencyCode})`, style: { color: themeColors.textColor } },
                 labels: {
                     style: { color: themeColors.textColor },
-                    formatter: function() { return '₦' + Highcharts.numberFormat(this.value, 0, '.', ','); }
+                    formatter: function() { return currencyCode + ' ' + Highcharts.numberFormat(this.value, 0, '.', ','); }
                 },
                 gridLineColor: themeColors.gridColor
             }, {
@@ -291,17 +302,17 @@
                 labels: { style: { color: themeColors.textColor, fontSize: '10px' } }
             },
             yAxis: {
-                title: { text: 'Total (₦)', style: { color: themeColors.textColor } },
+                title: { text: `Total (${currencyCode})`, style: { color: themeColors.textColor } },
                 labels: {
                     style: { color: themeColors.textColor },
-                    formatter: function() { return '₦' + Highcharts.numberFormat(this.value, 0, '.', ','); }
+                    formatter: function() { return currencyCode + ' ' + Highcharts.numberFormat(this.value, 0, '.', ','); }
                 }
             },
             tooltip: {
                 backgroundColor: themeColors.backgroundColor,
-                formatter: function() { return '<b>' + this.point.category + '</b><br/>₦' + Highcharts.numberFormat(this.y, 2, '.', ','); }
+                formatter: function() { return '<b>' + this.point.category + '</b><br/>' + currencyCode + ' ' + Highcharts.numberFormat(this.y, 2, '.', ','); }
             },
-            plotOptions: { bar: { dataLabels: { enabled: true, formatter: function() { return '₦' + Highcharts.numberFormat(this.y, 0, '.', ','); } } } },
+            plotOptions: { bar: { dataLabels: { enabled: true, formatter: function() { return currencyCode + ' ' + Highcharts.numberFormat(this.y, 0, '.', ','); } } } },
             series: [{ name: 'Total Spent', data: chartData.supplierAnalysis.series[0].data, color: '#3B82F6', showInLegend: false }],
             exporting: { enabled: true }
         });
@@ -316,7 +327,7 @@
             chart: { type: 'pie', height: 320, backgroundColor: 'transparent' },
             title: { text: null },
             credits: { enabled: false },
-            tooltip: { pointFormat: '<b>₦{point.y:,.2f}</b> ({point.percentage:.1f}%)', backgroundColor: themeColors.backgroundColor },
+            tooltip: { pointFormat: `<b>${currencyCode}{point.y:,.2f}</b> ({point.percentage:.1f}%)`, backgroundColor: themeColors.backgroundColor },
             plotOptions: {
                 pie: {
                     allowPointSelect: true,
@@ -343,20 +354,20 @@
                 labels: { style: { color: themeColors.textColor, fontSize: '10px' } }
             },
             yAxis: {
-                title: { text: 'Cost (₦)', style: { color: themeColors.textColor } },
+                title: { text: `Cost (${currencyCode})`, style: { color: themeColors.textColor } },
                 labels: {
                     style: { color: themeColors.textColor },
-                    formatter: function() { return '₦' + Highcharts.numberFormat(this.value, 0, '.', ','); }
+                    formatter: function() { return currencyCode + ' ' + Highcharts.numberFormat(this.value, 0, '.', ','); }
                 }
             },
             tooltip: {
                 backgroundColor: themeColors.backgroundColor,
                 formatter: function() {
                     const item = chartData.topItems[this.point.index];
-                    return '<b>' + this.point.category + '</b><br/>Cost: ₦' + Highcharts.numberFormat(this.y, 2, '.', ',') + '<br/>Qty: ' + Highcharts.numberFormat(item.total_quantity, 2) + ' ' + item.uom;
+                    return '<b>' + this.point.category + '</b><br/>Cost: ' + currencyCode + ' ' + Highcharts.numberFormat(this.y, 2, '.', ',') + '<br/>Qty: ' + Highcharts.numberFormat(item.total_quantity, 2) + ' ' + item.uom;
                 }
             },
-            plotOptions: { bar: { dataLabels: { enabled: true, formatter: function() { return '₦' + Highcharts.numberFormat(this.y, 0, '.', ','); } }, colorByPoint: true } },
+            plotOptions: { bar: { dataLabels: { enabled: true, formatter: function() { return currencyCode + ' ' + Highcharts.numberFormat(this.y, 0, '.', ','); } }, colorByPoint: true } },
             series: [{ name: 'Total Cost', data: topItemsData, showInLegend: false }],
             colors: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6', '#F97316', '#84CC16'],
             exporting: { enabled: true }

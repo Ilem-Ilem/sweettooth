@@ -40,7 +40,9 @@
             </div>
             <div class="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg">
                 <p class="text-sm text-purple-600 dark:text-purple-400 font-medium">Cost per Unit</p>
-                <p class="text-lg font-bold text-purple-900 dark:text-purple-100">₦{{ number_format($this->costPerUnit, 2) }}</p>
+                <p class="text-lg font-bold text-purple-900 dark:text-purple-100">
+                    {{ \App\Helpers\LocalizationHelper::formatCurrency($this->costPerUnit ?? 0) }}
+                </p>
             </div>
             <div class="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg">
                 <p class="text-sm text-orange-600 dark:text-orange-400 font-medium">Prep Time</p>
@@ -85,12 +87,16 @@
 
                 <div class="bg-white dark:bg-zinc-800 p-4 rounded-lg border border-zinc-200 dark:border-zinc-700">
                     <p class="text-sm text-zinc-600 dark:text-zinc-400 font-medium">Total Cost</p>
-                    <p class="text-2xl font-bold text-green-600 dark:text-green-400">₦{{ number_format($this->totalCost, 2) }}</p>
+                    <p class="text-2xl font-bold text-green-600 dark:text-green-400">
+                        {{ \App\Helpers\LocalizationHelper::formatCurrency($this->totalCost ?? 0) }}
+                    </p>
                 </div>
 
                 <div class="bg-white dark:bg-zinc-800 p-4 rounded-lg border border-zinc-200 dark:border-zinc-700">
                     <p class="text-sm text-zinc-600 dark:text-zinc-400 font-medium">Cost per {{ $recipe->unitOfMeasure?->symbol ?? 'N/A' }}</p>
-                    <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($this->totalCost / max($this->totalYield, 1), 2) }}</p>
+                    <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                        {{ \App\Helpers\LocalizationHelper::formatCurrency(($this->totalYield ?? 0) > 0 ? ($this->totalCost / $this->totalYield) : 0) }}
+                    </p>
                 </div>
             </div>
         </div>
@@ -148,10 +154,14 @@
                             <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ $ingredient['uom_symbol'] }}</span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="text-sm text-zinc-700 dark:text-zinc-300">₦{{ number_format($ingredient['cost_per_unit'], 2) }}</span>
+                            <span class="text-sm text-zinc-700 dark:text-zinc-300">
+                                {{ \App\Helpers\LocalizationHelper::formatCurrency($ingredient['cost_per_unit'] ?? 0) }}
+                            </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="text-sm font-bold text-green-600 dark:text-green-400">₦{{ number_format($ingredient['total_cost'], 2) }}</span>
+                            <span class="text-sm font-bold text-green-600 dark:text-green-400">
+                                {{ \App\Helpers\LocalizationHelper::formatCurrency($ingredient['total_cost'] ?? 0) }}
+                            </span>
                         </td>
                         <td class="px-6 py-4">
                             @if($ingredient['preparation_notes'] || $ingredient['notes'])
@@ -176,7 +186,9 @@
                             TOTAL COST:
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="text-lg font-bold text-green-600 dark:text-green-400">₦{{ number_format($this->totalCost, 2) }}</span>
+                            <span class="text-lg font-bold text-green-600 dark:text-green-400">
+                                {{ \App\Helpers\LocalizationHelper::formatCurrency($this->totalCost ?? 0) }}
+                            </span>
                         </td>
                         <td></td>
                     </tr>

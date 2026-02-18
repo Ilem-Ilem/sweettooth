@@ -115,7 +115,9 @@
             <div class="flex items-start justify-between">
                 <div class="flex-1 min-w-0">
                     <p class="text-sm opacity-90 font-medium truncate">Total Stock Value</p>
-                    <p class="text-3xl font-bold mt-2">₦{{ number_format($summary['total_stock_value'], 2) }}</p>
+                    <p class="text-3xl font-bold mt-2">
+                        {{ \App\Helpers\LocalizationHelper::formatCurrency($summary['total_stock_value'] ?? 0) }}
+                    </p>
                     <p class="text-xs opacity-75 mt-2 truncate">{{ $summary['total_items'] }} items in inventory</p>
                 </div>
                 <div class="bg-white/20 p-3 rounded-lg flex-shrink-0">
@@ -148,7 +150,9 @@
             <div class="flex items-start justify-between">
                 <div class="flex-1 min-w-0">
                     <p class="text-sm opacity-90 font-medium truncate">Purchase Value</p>
-                    <p class="text-3xl font-bold mt-2">₦{{ number_format($summary['total_purchase_value'], 2) }}</p>
+                    <p class="text-3xl font-bold mt-2">
+                        {{ \App\Helpers\LocalizationHelper::formatCurrency($summary['total_purchase_value'] ?? 0) }}
+                    </p>
                     <p class="text-xs opacity-75 mt-2 truncate">{{ $summary['total_purchases'] }} purchases</p>
                 </div>
                 <div class="bg-white/20 p-3 rounded-lg flex-shrink-0">
@@ -495,7 +499,7 @@
                                     <div class="text-xs text-zinc-500">{{ $dept['item_count'] }} items</div>
                                 </td>
                                 <td class="px-4 py-3 text-right font-semibold text-zinc-900 dark:text-zinc-100">
-                                    ₦{{ number_format($dept['stock_value'], 2) }}
+                                    {{ \App\Helpers\LocalizationHelper::formatCurrency($dept['stock_value'] ?? 0) }}
                                 </td>
                                 <td class="px-4 py-3 text-center">
                                     <span class="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 rounded text-xs font-medium">

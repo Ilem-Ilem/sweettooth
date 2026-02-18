@@ -280,7 +280,9 @@ class SidebarVisibilityService
 
     public static function canSeeAdministration($user = null): bool
     {
-        return self::getRoleLevel($user) >= self::LEVEL_ADMIN;
+        $user = $user ?? auth()->user();
+        return self::getRoleLevel($user) >= self::LEVEL_ADMIN
+            || self::hasAnyPermission($user, ['manage-organization', 'manage-branches']);
     }
 
     public static function canSeeOrganization($user = null): bool
@@ -335,7 +337,9 @@ class SidebarVisibilityService
 
     public static function canSeeDepartments($user = null): bool
     {
-        return self::getRoleLevel($user) >= self::LEVEL_ADMIN;
+        $user = $user ?? auth()->user();
+        return self::getRoleLevel($user) >= self::LEVEL_ADMIN
+            || self::hasAnyPermission($user, ['manage-departments', 'manage-organization']);
     }
 
     public static function canSeeLeaveManagement($user = null): bool
@@ -349,7 +353,9 @@ class SidebarVisibilityService
 
     public static function canSeeAuditManagement($user = null): bool
     {
-        return self::getRoleLevel($user) >= self::LEVEL_SUPER_ADMIN;
+        $user = $user ?? auth()->user();
+        return self::getRoleLevel($user) >= self::LEVEL_SUPER_ADMIN
+            || self::hasAnyPermission($user, ['manage-roles', 'manage-branches', 'manage-settings']);
     }
 
     public static function canSeeInventory($user = null): bool
@@ -391,12 +397,15 @@ class SidebarVisibilityService
             return true;
         }
 
-        return false;
+        return self::hasAnyPermission($user, ['view-inventory', 'manage-inventory', 'view-inventory-reports']);
     }
 
     public static function canSeeInventoryManagement($user = null): bool
     {
-        return self::canSeeInventory($user) && self::getRoleLevel($user) >= self::LEVEL_MANAGER;
+        return self::canSeeInventory($user) && (
+            self::getRoleLevel($user) >= self::LEVEL_MANAGER
+            || self::hasAnyPermission($user, ['manage-inventory'])
+        );
     }
 
     public static function canSeeInventoryCallbacks($user = null): bool
@@ -406,7 +415,10 @@ class SidebarVisibilityService
             return true;
         }
 
-        return self::canSeeInventory($user) && self::getRoleLevel($user) >= self::LEVEL_MANAGER;
+        return self::canSeeInventory($user) && (
+            self::getRoleLevel($user) >= self::LEVEL_MANAGER
+            || self::hasAnyPermission($user, ['manage-inventory'])
+        );
     }
 
     public static function canSeeAnalytics($user = null): bool
@@ -561,27 +573,37 @@ class SidebarVisibilityService
 
     public static function canSeeRoleAssignments($user = null): bool
     {
-        return self::getRoleLevel($user) >= self::LEVEL_ADMIN;
+        $user = $user ?? auth()->user();
+        return self::getRoleLevel($user) >= self::LEVEL_ADMIN
+            || self::hasAnyPermission($user, ['manage-organization', 'manage-employees']);
     }
 
     public static function canSeeRolesPermissions($user = null): bool
     {
-        return self::getRoleLevel($user) >= self::LEVEL_SUPER_ADMIN;
+        $user = $user ?? auth()->user();
+        return self::getRoleLevel($user) >= self::LEVEL_SUPER_ADMIN
+            || self::hasAnyPermission($user, ['manage-roles']);
     }
 
     public static function canSeeBranchManagement($user = null): bool
     {
-        return self::getRoleLevel($user) >= self::LEVEL_SUPER_ADMIN;
+        $user = $user ?? auth()->user();
+        return self::getRoleLevel($user) >= self::LEVEL_SUPER_ADMIN
+            || self::hasAnyPermission($user, ['manage-branches']);
     }
 
     public static function canSeeMDReports($user = null): bool
     {
-        return self::getRoleLevel($user) >= self::LEVEL_ADMIN;
+        $user = $user ?? auth()->user();
+        return self::getRoleLevel($user) >= self::LEVEL_ADMIN
+            || self::hasAnyPermission($user, ['view-reports', 'export-reports']);
     }
 
     public static function canSeeSettings($user = null): bool
     {
-        return self::getRoleLevel($user) >= self::LEVEL_SUPER_ADMIN;
+        $user = $user ?? auth()->user();
+        return self::getRoleLevel($user) >= self::LEVEL_SUPER_ADMIN
+            || self::hasAnyPermission($user, ['manage-settings']);
     }
 
     // =========================================================================

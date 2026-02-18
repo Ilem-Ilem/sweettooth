@@ -162,7 +162,9 @@
         </div>
         <div class="bg-green-50 dark:bg-green-900/20 rounded-lg shadow-sm p-3 border border-green-200 dark:border-green-700">
             <p class="text-xs text-gray-600 dark:text-gray-400">Total Cost</p>
-            <p class="text-2xl font-bold text-green-600 dark:text-green-500">₦{{ number_format($summary['total_cost'], 0) }}</p>
+            <p class="text-2xl font-bold text-green-600 dark:text-green-500">
+                {{ \App\Helpers\LocalizationHelper::formatCurrency($summary['total_cost'] ?? 0) }}
+            </p>
         </div>
         <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg shadow-sm p-3 border border-blue-200 dark:border-blue-700">
             <p class="text-xs text-gray-600 dark:text-gray-400">Paid</p>
@@ -237,7 +239,7 @@
                              <td class="px-3 py-2 text-xs text-gray-900 dark:text-zinc-100">{{ $purchase->supplier_name }}</td>
                              <td class="px-3 py-2 text-xs text-gray-600 dark:text-gray-400">{{ $purchase->currency }}</td>
                              <td class="px-3 py-2 text-xs font-medium text-gray-900 dark:text-zinc-100">
-                                 ₦{{ number_format($purchase->landing_cost, 2) }}</td>
+                                 {{ \App\Helpers\LocalizationHelper::formatCurrency($purchase->landing_cost ?? 0) }}</td>
                              <td class="px-3 py-2 text-xs">
                                  <span
                                      class="px-2 py-0.5 rounded-full text-xs font-medium
@@ -306,7 +308,9 @@
                         <div class="border-t border-zinc-200 dark:border-zinc-700 pt-2 mt-2">
                             <div class="flex justify-between">
                                 <span class="text-zinc-600 dark:text-zinc-400">Total:</span>
-                                <span class="font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($purchase->landing_cost, 0) }}</span>
+                                <span class="font-bold text-blue-600 dark:text-blue-400">
+                                    {{ \App\Helpers\LocalizationHelper::formatCurrency($purchase->landing_cost ?? 0) }}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -339,7 +343,9 @@
                         </div>
                         <div>
                             <div class="text-xs text-gray-500 dark:text-gray-400">Cost</div>
-                            <div class="font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($purchase->landing_cost, 0) }}</div>
+                            <div class="font-bold text-blue-600 dark:text-blue-400">
+                                {{ \App\Helpers\LocalizationHelper::formatCurrency($purchase->landing_cost ?? 0) }}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -377,7 +383,10 @@
                             </span>
                         </div>
                         <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">{{ $purchase->supplier_name }} • {{ $purchase->branch->name }}</p>
-                        <p class="text-sm font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($purchase->landing_cost, 2) }} • {{ $purchase->purchaseItems->count() }} items</p>
+                        <p class="text-sm font-bold text-blue-600 dark:text-blue-400">
+                            {{ \App\Helpers\LocalizationHelper::formatCurrency($purchase->landing_cost ?? 0) }}
+                            • {{ $purchase->purchaseItems->count() }} items
+                        </p>
                     </div>
                 </div>
             @empty
@@ -406,7 +415,9 @@
                                 <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ ucfirst($statusData['status']) }}</span>
                                 <p class="text-xs text-gray-500 dark:text-gray-400">{{ $statusData['count'] }} purchases</p>
                             </div>
-                            <span class="text-sm font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($statusData['total_cost'], 0) }}</span>
+                            <span class="text-sm font-bold text-blue-600 dark:text-blue-400">
+                                {{ \App\Helpers\LocalizationHelper::formatCurrency($statusData['total_cost'] ?? 0) }}
+                            </span>
                         </div>
                         @php
                             $percentage = ($statusData['total_cost'] / $summary['total_cost']) * 100;
@@ -428,9 +439,14 @@
                         <div class="flex justify-between items-center mb-2">
                             <div>
                                 <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $branchData['branch'] }}</span>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">{{ $branchData['count'] }} purchases • Avg: ₦{{ number_format($branchData['avg_cost'], 0) }}</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">
+                                    {{ $branchData['count'] }} purchases • Avg:
+                                    {{ \App\Helpers\LocalizationHelper::formatCurrency($branchData['avg_cost'] ?? 0) }}
+                                </p>
                             </div>
-                            <span class="text-sm font-bold text-green-600 dark:text-green-400">₦{{ number_format($branchData['total_cost'], 0) }}</span>
+                            <span class="text-sm font-bold text-green-600 dark:text-green-400">
+                                {{ \App\Helpers\LocalizationHelper::formatCurrency($branchData['total_cost'] ?? 0) }}
+                            </span>
                         </div>
                         @php
                             $percentage = ($branchData['total_cost'] / $summary['total_cost']) * 100;
@@ -520,6 +536,13 @@
                             </div>
                         </div>
 
+                        @php
+                            $ngnSymbol = preg_replace('/[0-9\.\,\s]/', '', \App\Helpers\LocalizationHelper::formatCurrency(0, 'NGN'));
+                            $usdSymbol = preg_replace('/[0-9\.\,\s]/', '', \App\Helpers\LocalizationHelper::formatCurrency(0, 'USD'));
+                            $eurSymbol = preg_replace('/[0-9\.\,\s]/', '', \App\Helpers\LocalizationHelper::formatCurrency(0, 'EUR'));
+                            $gbpSymbol = preg_replace('/[0-9\.\,\s]/', '', \App\Helpers\LocalizationHelper::formatCurrency(0, 'GBP'));
+                        @endphp
+
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                             <div>
                                 <label class="block text-xs font-medium text-gray-700 mb-1">
@@ -527,10 +550,10 @@
                                 </label>
                                 <select wire:model.live="currency"
                                     class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                                    <option value="NGN">NGN (₦)</option>
-                                    <option value="USD">USD ($)</option>
-                                    <option value="EUR">EUR (€)</option>
-                                    <option value="GBP">GBP (£)</option>
+                                    <option value="NGN">NGN ({{ $ngnSymbol }})</option>
+                                    <option value="USD">USD ({{ $usdSymbol }})</option>
+                                    <option value="EUR">EUR ({{ $eurSymbol }})</option>
+                                    <option value="GBP">GBP ({{ $gbpSymbol }})</option>
                                 </select>
                                 @error('currency')
                                     <span class="text-xs text-red-600">{{ $message }}</span>
@@ -551,7 +574,8 @@
 
                             <div>
                                 <label class="block text-xs font-medium text-gray-700 mb-1">
-                                    Other Costs (₦) <span class="text-red-500">*</span>
+                                    Other Costs ({{ \App\Helpers\Settings::currencyLocalization('primary_currency', 'USD') }})
+                                    <span class="text-red-500">*</span>
                                 </label>
                                 <input type="number" step="0.01" wire:model="other_costs"
                                     class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">

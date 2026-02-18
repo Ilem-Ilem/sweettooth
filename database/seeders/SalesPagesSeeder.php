@@ -34,7 +34,7 @@ class SalesPagesSeeder extends Seeder
             return;
         }
 
-        $this->command->info("Found {$departments->count()} production departments");
+        $this->command->info("Found {$departments->count()} sales departments");
 
         foreach ($departments as $department) {
             // Generate slug if not exists

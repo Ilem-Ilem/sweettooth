@@ -5,7 +5,9 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg shadow-sm p-4">
                 <p class="text-sm opacity-90">Total Stock Value</p>
-                <p class="text-3xl font-bold">₦{{ number_format($metrics['total_stock_value'], 2) }}</p>
+                <p class="text-3xl font-bold">
+                    {{ \App\Helpers\LocalizationHelper::formatCurrency($metrics['total_stock_value'] ?? 0) }}
+                </p>
             </div>
             <div class="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg shadow-sm p-4">
                 <p class="text-sm opacity-90">Fulfillment Rate</p>

@@ -37,11 +37,15 @@
                     <div class="space-y-3">
                         <div>
                             <p class="text-xs text-zinc-600 dark:text-zinc-400 mb-1">Revenue</p>
-                            <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ '$' . number_format($branch['revenue'], 0) }}</p>
+                            <p class="text-2xl font-bold text-green-600 dark:text-green-400">
+                                {{ \App\Helpers\LocalizationHelper::formatCurrency($branch['revenue'] ?? 0) }}
+                            </p>
                         </div>
                         <div>
                             <p class="text-xs text-zinc-600 dark:text-zinc-400 mb-1">Inventory</p>
-                            <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ '$' . number_format($branch['inventory'], 0) }}</p>
+                            <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                                {{ \App\Helpers\LocalizationHelper::formatCurrency($branch['inventory'] ?? 0) }}
+                            </p>
                         </div>
                         <div>
                             <p class="text-xs text-zinc-600 dark:text-zinc-400 mb-1">Staff</p>

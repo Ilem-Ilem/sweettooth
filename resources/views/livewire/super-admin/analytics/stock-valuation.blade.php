@@ -22,19 +22,27 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
             <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg shadow-sm p-4">
                 <p class="text-sm opacity-90">Total Value</p>
-                <p class="text-2xl font-bold">₦{{ number_format($summary['total_value'], 2) }}</p>
+                <p class="text-2xl font-bold">
+                    {{ \App\Helpers\LocalizationHelper::formatCurrency($summary['total_value'] ?? 0) }}
+                </p>
             </div>
             <div class="bg-green-50 dark:bg-green-900/20 rounded-lg shadow-sm p-4">
                 <p class="text-sm text-gray-600 dark:text-gray-400">Available</p>
-                <p class="text-2xl font-bold text-green-600 dark:text-green-500">₦{{ number_format($summary['available_value'], 2) }}</p>
+                <p class="text-2xl font-bold text-green-600 dark:text-green-500">
+                    {{ \App\Helpers\LocalizationHelper::formatCurrency($summary['available_value'] ?? 0) }}
+                </p>
             </div>
             <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg shadow-sm p-4">
                 <p class="text-sm text-gray-600 dark:text-gray-400">Reserved</p>
-                <p class="text-2xl font-bold text-blue-600 dark:text-blue-500">₦{{ number_format($summary['reserved_value'], 2) }}</p>
+                <p class="text-2xl font-bold text-blue-600 dark:text-blue-500">
+                    {{ \App\Helpers\LocalizationHelper::formatCurrency($summary['reserved_value'] ?? 0) }}
+                </p>
             </div>
             <div class="bg-red-50 dark:bg-red-900/20 rounded-lg shadow-sm p-4">
                 <p class="text-sm text-gray-600 dark:text-gray-400">Damaged</p>
-                <p class="text-2xl font-bold text-red-600 dark:text-red-500">₦{{ number_format($summary['damaged_value'], 2) }}</p>
+                <p class="text-2xl font-bold text-red-600 dark:text-red-500">
+                    {{ \App\Helpers\LocalizationHelper::formatCurrency($summary['damaged_value'] ?? 0) }}
+                </p>
             </div>
             <div class="bg-purple-50 dark:bg-purple-900/20 rounded-lg shadow-sm p-4">
                 <p class="text-sm text-gray-600 dark:text-gray-400">Total Items</p>
@@ -89,7 +97,9 @@
                             @forelse($categoryValuation['labels'] as $index => $category)
                                 <tr class="bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/50">
                                     <td class="px-4 py-3 font-medium">{{ $category }}</td>
-                                    <td class="px-4 py-3 text-right text-blue-600 dark:text-blue-400 font-semibold">₦{{ number_format($categoryValuation['series'][$index] ?? 0, 2) }}</td>
+                                    <td class="px-4 py-3 text-right text-blue-600 dark:text-blue-400 font-semibold">
+                                        {{ \App\Helpers\LocalizationHelper::formatCurrency($categoryValuation['series'][$index] ?? 0) }}
+                                    </td>
                                     <td class="px-4 py-3 text-right">{{ number_format(($categoryValuation['series'][$index] ?? 0) / array_sum($categoryValuation['series']) * 100, 1) }}%</td>
                                 </tr>
                             @empty
@@ -118,8 +128,12 @@
                                 <tr class="bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/50">
                                     <td class="px-4 py-3 font-medium">{{ $item->item->name }}</td>
                                     <td class="px-4 py-3 text-right">{{ number_format($item->quantity_available + $item->quantity_reserved, 2) }}</td>
-                                    <td class="px-4 py-3 text-right">₦{{ number_format($item->average_cost, 2) }}</td>
-                                    <td class="px-4 py-3 text-right text-blue-600 dark:text-blue-400 font-bold">₦{{ number_format($item->total_value, 2) }}</td>
+                                    <td class="px-4 py-3 text-right">
+                                        {{ \App\Helpers\LocalizationHelper::formatCurrency($item->average_cost ?? 0) }}
+                                    </td>
+                                    <td class="px-4 py-3 text-right text-blue-600 dark:text-blue-400 font-bold">
+                                        {{ \App\Helpers\LocalizationHelper::formatCurrency($item->total_value ?? 0) }}
+                                    </td>
                                 </tr>
                             @empty
                                 <tr>
@@ -165,9 +179,15 @@
                                 </td>
                                 <td class="px-4 py-3 text-zinc-900 dark:text-zinc-100">{{ number_format($stock->quantity_available, 2) }}</td>
                                 <td class="px-4 py-3 text-zinc-900 dark:text-zinc-100">{{ number_format($stock->quantity_reserved, 2) }}</td>
-                                <td class="px-4 py-3 text-zinc-900 dark:text-zinc-100">₦{{ number_format($stock->average_cost, 2) }}</td>
-                                <td class="px-4 py-3 font-medium text-green-600 dark:text-green-400">₦{{ number_format($stock->available_value, 2) }}</td>
-                                <td class="px-4 py-3 font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($stock->total_value, 2) }}</td>
+                                <td class="px-4 py-3 text-zinc-900 dark:text-zinc-100">
+                                    {{ \App\Helpers\LocalizationHelper::formatCurrency($stock->average_cost ?? 0) }}
+                                </td>
+                                <td class="px-4 py-3 font-medium text-green-600 dark:text-green-400">
+                                    {{ \App\Helpers\LocalizationHelper::formatCurrency($stock->available_value ?? 0) }}
+                                </td>
+                                <td class="px-4 py-3 font-bold text-blue-600 dark:text-blue-400">
+                                    {{ \App\Helpers\LocalizationHelper::formatCurrency($stock->total_value ?? 0) }}
+                                </td>
                             </tr>
                         @empty
                             <tr>
@@ -208,12 +228,16 @@
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-zinc-600 dark:text-zinc-400">Avg Cost:</span>
-                                <span class="font-medium text-zinc-900 dark:text-zinc-100">₦{{ number_format($stock->average_cost, 2) }}</span>
+                                <span class="font-medium text-zinc-900 dark:text-zinc-100">
+                                    {{ \App\Helpers\LocalizationHelper::formatCurrency($stock->average_cost ?? 0) }}
+                                </span>
                             </div>
                             <div class="border-t border-zinc-200 dark:border-zinc-700 pt-2 mt-2">
                                 <div class="flex justify-between">
                                     <span class="text-zinc-600 dark:text-zinc-400">Total Value:</span>
-                                    <span class="font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($stock->total_value, 2) }}</span>
+                                    <span class="font-bold text-blue-600 dark:text-blue-400">
+                                        {{ \App\Helpers\LocalizationHelper::formatCurrency($stock->total_value ?? 0) }}
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -246,7 +270,9 @@
                             </div>
                             <div>
                                 <div class="text-xs text-gray-500 dark:text-gray-400">Value</div>
-                                <div class="font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($stock->total_value, 0) }}</div>
+                                <div class="font-bold text-blue-600 dark:text-blue-400">
+                                    {{ \App\Helpers\LocalizationHelper::formatCurrency($stock->total_value ?? 0) }}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -278,7 +304,9 @@
                                 <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ Str::limit($stock->item->name, 30) }}</div>
                                 <div class="text-xs text-gray-500 dark:text-gray-400">{{ $stock->item->sku }}</div>
                             </div>
-                            <div class="text-sm font-bold text-blue-600 dark:text-blue-400 min-w-fit ml-2">₦{{ number_format($stock->total_value, 0) }}</div>
+                            <div class="text-sm font-bold text-blue-600 dark:text-blue-400 min-w-fit ml-2">
+                                {{ \App\Helpers\LocalizationHelper::formatCurrency($stock->total_value ?? 0) }}
+                            </div>
                         </div>
                         <div class="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-2">
                             <div class="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full" style="width: {{ $percentage }}%"></div>
@@ -312,7 +340,9 @@
                                 </p>
                             </div>
                             <div class="text-right">
-                                <div class="font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($categoryData['total_value'], 0) }}</div>
+                                <div class="font-bold text-blue-600 dark:text-blue-400">
+                                    {{ \App\Helpers\LocalizationHelper::formatCurrency($categoryData['total_value'] ?? 0) }}
+                                </div>
                                 <div class="text-xs text-gray-500 dark:text-gray-400">{{ number_format(($categoryData['total_value'] / $totalValue) * 100, 1) }}%</div>
                             </div>
                         </div>
@@ -326,7 +356,9 @@
                                 </div>
                                 <div class="text-right">
                                     <div class="text-xs text-gray-600 dark:text-gray-400">{{ number_format($item->quantity_available + $item->quantity_reserved, 1) }} units</div>
-                                    <div class="font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($item->total_value, 0) }}</div>
+                                    <div class="font-bold text-blue-600 dark:text-blue-400">
+                                        {{ \App\Helpers\LocalizationHelper::formatCurrency($item->total_value ?? 0) }}
+                                    </div>
                                 </div>
                             </div>
                         @empty

@@ -66,7 +66,7 @@
                     <div>
                         <p class="text-sm text-zinc-600 dark:text-zinc-400">Total Revenue</p>
                         <p class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-1">
-                            ₦{{ number_format($summaryMetrics['total_revenue'] ?? 0, 2) }}
+                            {{ \App\Helpers\LocalizationHelper::formatCurrency($summaryMetrics['total_revenue'] ?? 0) }}
                         </p>
                     </div>
                     <div class="p-3 bg-emerald-100 dark:bg-emerald-900 rounded-lg">
@@ -94,7 +94,7 @@
                     <div>
                         <p class="text-sm text-zinc-600 dark:text-zinc-400">Avg Order Value</p>
                         <p class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-1">
-                            ₦{{ number_format($summaryMetrics['average_order_value'] ?? 0, 2) }}
+                            {{ \App\Helpers\LocalizationHelper::formatCurrency($summaryMetrics['average_order_value'] ?? 0) }}
                         </p>
                     </div>
                     <div class="p-3 bg-purple-100 dark:bg-purple-900 rounded-lg">
@@ -108,7 +108,7 @@
                     <div>
                         <p class="text-sm text-zinc-600 dark:text-zinc-400">Total Discounts</p>
                         <p class="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">
-                            ₦{{ number_format($summaryMetrics['total_discount'] ?? 0, 2) }}
+                            {{ \App\Helpers\LocalizationHelper::formatCurrency($summaryMetrics['total_discount'] ?? 0) }}
                         </p>
                     </div>
                     <div class="p-3 bg-amber-100 dark:bg-amber-900 rounded-lg">
@@ -122,7 +122,7 @@
                     <div>
                         <p class="text-sm text-zinc-600 dark:text-zinc-400">Avg Daily Revenue</p>
                         <p class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-1">
-                            ₦{{ number_format($summaryMetrics['average_daily_revenue'] ?? 0, 2) }}
+                            {{ \App\Helpers\LocalizationHelper::formatCurrency($summaryMetrics['average_daily_revenue'] ?? 0) }}
                         </p>
                     </div>
                     <div class="p-3 bg-sky-100 dark:bg-sky-900 rounded-lg">

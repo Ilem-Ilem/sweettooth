@@ -44,11 +44,15 @@
         </div>
         <div class="bg-green-50 dark:bg-green-900/20 rounded-lg shadow-sm p-4">
             <p class="text-sm text-gray-600 dark:text-gray-400">Total Spent</p>
-            <p class="text-2xl font-bold text-green-600 dark:text-green-500">₦{{ number_format($summary['total_spent'], 2) }}</p>
+            <p class="text-2xl font-bold text-green-600 dark:text-green-500">
+                {{ \App\Helpers\LocalizationHelper::formatCurrency($summary['total_spent'] ?? 0) }}
+            </p>
         </div>
         <div class="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg shadow-sm p-4">
             <p class="text-sm text-gray-600 dark:text-gray-400">Avg Purchase Value</p>
-            <p class="text-2xl font-bold text-yellow-600 dark:text-yellow-500">₦{{ number_format($summary['avg_purchase_value'], 2) }}</p>
+            <p class="text-2xl font-bold text-yellow-600 dark:text-yellow-500">
+                {{ \App\Helpers\LocalizationHelper::formatCurrency($summary['avg_purchase_value'] ?? 0) }}
+            </p>
         </div>
         <div class="bg-purple-50 dark:bg-purple-900/20 rounded-lg shadow-sm p-4">
             <p class="text-sm text-gray-600 dark:text-gray-400">Total Items</p>
@@ -152,15 +156,21 @@
             <div class="space-y-2">
                 <div class="flex justify-between items-center p-3 bg-zinc-50 dark:bg-zinc-700/50 rounded">
                     <span class="text-zinc-700 dark:text-zinc-300">FOB Cost (NGN)</span>
-                    <span class="font-bold text-lg text-zinc-900 dark:text-zinc-100">₦{{ number_format($costBreakdown['series'][0] ?? 0, 2) }}</span>
+                    <span class="font-bold text-lg text-zinc-900 dark:text-zinc-100">
+                        {{ \App\Helpers\LocalizationHelper::formatCurrency($costBreakdown['series'][0] ?? 0) }}
+                    </span>
                 </div>
                 <div class="flex justify-between items-center p-3 bg-zinc-50 dark:bg-zinc-700/50 rounded">
                     <span class="text-zinc-700 dark:text-zinc-300">Other Costs</span>
-                    <span class="font-bold text-lg text-zinc-900 dark:text-zinc-100">₦{{ number_format($costBreakdown['series'][1] ?? 0, 2) }}</span>
+                    <span class="font-bold text-lg text-zinc-900 dark:text-zinc-100">
+                        {{ \App\Helpers\LocalizationHelper::formatCurrency($costBreakdown['series'][1] ?? 0) }}
+                    </span>
                 </div>
                 <div class="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-800">
                     <span class="font-medium text-green-900 dark:text-green-100">Total Landing Cost</span>
-                    <span class="font-bold text-lg text-green-600 dark:text-green-400">₦{{ number_format($costBreakdown['series'][2] ?? 0, 2) }}</span>
+                    <span class="font-bold text-lg text-green-600 dark:text-green-400">
+                        {{ \App\Helpers\LocalizationHelper::formatCurrency($costBreakdown['series'][2] ?? 0) }}
+                    </span>
                 </div>
             </div>
         </div>
@@ -239,7 +249,10 @@
                             <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $supplier->supplier_name }}</span>
                             <p class="text-xs text-zinc-600 dark:text-zinc-400">{{ $supplier->purchase_count }} purchases</p>
                         </div>
-                        <span class="text-sm font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($supplier->total_spent, 0) }} ({{ round($percentage, 1) }}%)</span>
+                        <span class="text-sm font-bold text-blue-600 dark:text-blue-400">
+                            {{ \App\Helpers\LocalizationHelper::formatCurrency($supplier->total_spent ?? 0) }}
+                            ({{ round($percentage, 1) }}%)
+                        </span>
                     </div>
                     <div class="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-2">
                         <div class="bg-blue-500 h-2 rounded-full" style="width: {{ $percentage }}%"></div>
@@ -270,7 +283,10 @@
                             <p class="font-medium text-zinc-900 dark:text-zinc-100">{{ $item->item->name ?? 'N/A' }}</p>
                             <p class="text-xs text-zinc-600 dark:text-zinc-400">Qty: {{ number_format($item->total_quantity, 2) }} {{ $item->item->uom ?? 'units' }}</p>
                         </div>
-                        <span class="text-sm font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($item->total_cost, 2) }} ({{ round($percentage, 1) }}%)</span>
+                        <span class="text-sm font-bold text-blue-600 dark:text-blue-400">
+                            {{ \App\Helpers\LocalizationHelper::formatCurrency($item->total_cost ?? 0) }}
+                            ({{ round($percentage, 1) }}%)
+                        </span>
                     </div>
                     <div class="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-1.5">
                         <div class="bg-blue-500 h-1.5 rounded-full" style="width: {{ $percentage }}%"></div>
@@ -307,7 +323,9 @@
                             <td class="px-4 py-2 text-sm text-zinc-900 dark:text-zinc-100 font-mono">{{ $purchase->purchase_number }}</td>
                             <td class="px-4 py-2 text-sm text-zinc-600 dark:text-zinc-400">{{ $purchase->purchase_date->format('d M Y') }}</td>
                             <td class="px-4 py-2 text-sm text-zinc-900 dark:text-zinc-100">{{ $purchase->supplier_name }}</td>
-                            <td class="px-4 py-2 text-sm text-right font-bold text-zinc-900 dark:text-zinc-100">₦{{ number_format($purchase->landing_cost, 2) }}</td>
+                            <td class="px-4 py-2 text-sm text-right font-bold text-zinc-900 dark:text-zinc-100">
+                                {{ \App\Helpers\LocalizationHelper::formatCurrency($purchase->landing_cost ?? 0) }}
+                            </td>
                             <td class="px-4 py-2 text-sm">
                                 <span class="px-2 py-1 text-xs font-semibold rounded 
                                     @if($purchase->payment_status === 'paid') bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400

@@ -12,7 +12,7 @@ class ImportItemsFromProductionData extends Command
 {
     use ParsesProductionJson;
 
-    protected $signature = 'import:production-items
+    protected $signature = 'import:production-items-new
         {path? : Path to JSON file or directory (defaults to real_data/receips-sweetooth-main)}
         {--branch-id= : Branch UUID to assign items to}
         {--dry-run : Parse only, do not write to database}';
@@ -235,62 +235,18 @@ class ImportItemsFromProductionData extends Command
     {
         $name = strtolower($name);
 
-        // Dairy products
-        if (preg_match('/(milk|butter|cream|yogurt|cheese|ghee)/i', $name)) {
-            return 'dairy';
-        }
-
-        // Flour and grains
-        if (preg_match('/(flour|wheat|oats|rice|corn|maize|barley|quinoa|pasta|noodle)/i', $name)) {
-            return 'grains';
-        }
-
-        // Sugar and sweeteners
-        if (preg_match('/(sugar|honey|syrup|molasses|stevia|sweetener)/i', $name)) {
-            return 'sweeteners';
-        }
-
-        // Fruits and vegetables
-        if (preg_match('/(apple|banana|orange|lemon|lime|tomato|potato|onion|garlic|carrot|lettuce|spinach|fruit|vegetable|berry|mango|pineapple|papaya|peach|pear|plum|grape)/i', $name)) {
-            return 'produce';
-        }
-
-        // Meat and protein
-        if (preg_match('/(beef|chicken|pork|lamb|fish|salmon|tuna|shrimp|bacon|sausage|ham|turkey|duck|egg)/i', $name)) {
-            return 'protein';
-        }
-
-        // Spices and seasonings
-        if (preg_match('/(salt|pepper|spice|seasoning|herb|cinnamon|vanilla|cumin|paprika|turmeric|oregano|basil|thyme|rosemary)/i', $name)) {
-            return 'spices';
-        }
-
-        // Oils and fats
-        if (preg_match('/(oil|fat|lard|shortening|margarine)/i', $name)) {
-            return 'oils_fats';
-        }
-
-        // Beverages
-        if (preg_match('/(coffee|tea|juice|soda|water|wine|beer|liqueur|baileys)/i', $name)) {
-            return 'beverages';
-        }
-
-        // Baking ingredients
-        if (preg_match('/(yeast|baking.*powder|baking.*soda|gelatin|pectin|cocoa|chocolate)/i', $name)) {
-            return 'baking';
-        }
-
         // Packaging
-        if (preg_match('/(cup|container|box|bag|pack|wrap|foil|paper|napkin|straw)/i', $name)) {
+        if (preg_match('/(cup|container|box|bag|pack|wrap|foil|paper|napkin|straw|roll|lid|film|tray)/i', $name)) {
             return 'packaging';
         }
 
-        // WIP (Work in Progress)
-        if (preg_match('/(\bwip\b)/i', $name)) {
-            return 'wip';
+        // Equipment
+        if (preg_match('/(machine|oven|freezer|refrigerator|mixer|blender|grinder|cooker|pot|pan|kettle|scale|thermometer|timer|dishwasher|dish|plate|utensil|tool|brush|equipment)/i', $name)) {
+            return 'equipment';
         }
 
-        return 'other';
+        // Raw materials - everything else that's an ingredient
+        return 'raw_material';
     }
 
     protected function generateUniqueSku(string $name, string $prefix = 'ITM'): string

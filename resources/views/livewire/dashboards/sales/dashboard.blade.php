@@ -99,7 +99,9 @@
                                             @endif
                                         </div>
                                     </div>
-                                    <span class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 w-20 text-right">{{ '$' . number_format($data->sales, 2) }}</span>
+                                    <span class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 w-20 text-right">
+                                        {{ \App\Helpers\LocalizationHelper::formatCurrency($data->sales ?? 0) }}
+                                    </span>
                                 </div>
                             @endforeach
                         </div>
@@ -125,7 +127,9 @@
                                         <div class="flex-1 bg-zinc-200 dark:bg-zinc-700 rounded-full h-1.5 mr-2">
                                             <div class="bg-green-500 h-full rounded-full" style="width: {{ ($item->total_qty / 50) * 100 }}%"></div>
                                         </div>
-                                        <span class="text-xs text-zinc-600 dark:text-zinc-400">{{ '$' . number_format($item->total_sales, 2) }}</span>
+                                        <span class="text-xs text-zinc-600 dark:text-zinc-400">
+                                            {{ \App\Helpers\LocalizationHelper::formatCurrency($item->total_sales ?? 0) }}
+                                        </span>
                                     </div>
                                 </div>
                             @endforeach
@@ -160,7 +164,9 @@
                             <tr class="border-b border-zinc-100 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700/50">
                                 <td class="py-3 px-4 font-medium text-zinc-900 dark:text-zinc-100">#{{ $transaction->id }}</td>
                                 <td class="py-3 px-4 text-zinc-600 dark:text-zinc-400">{{ $transaction->item_count ?? 0 }} items</td>
-                                <td class="py-3 px-4 text-right font-semibold text-zinc-900 dark:text-zinc-100">{{ '$' . number_format($transaction->total_amount, 2) }}</td>
+                                <td class="py-3 px-4 text-right font-semibold text-zinc-900 dark:text-zinc-100">
+                                    {{ \App\Helpers\LocalizationHelper::formatCurrency($transaction->total_amount ?? 0) }}
+                                </td>
                                 <td class="py-3 px-4 text-zinc-600 dark:text-zinc-400 text-xs">{{ $transaction->created_at->diffForHumans() }}</td>
                             </tr>
                         @empty

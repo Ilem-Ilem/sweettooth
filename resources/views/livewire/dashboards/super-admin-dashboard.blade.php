@@ -12,7 +12,9 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm text-gray-600 font-medium">Total Revenue (Today)</p>
-                    <p class="text-2xl font-bold text-gray-900 mt-2">{{ $totalRevenue ?? '$0.00' }}</p>
+                    <p class="text-2xl font-bold text-gray-900 mt-2">
+                        {{ \App\Helpers\LocalizationHelper::formatCurrency($totalRevenue ?? 0) }}
+                    </p>
                 </div>
                 <div class="p-3 bg-green-100 rounded-lg">
                     <svg class="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
@@ -27,7 +29,9 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm text-gray-600 font-medium">Total Inventory Value</p>
-                    <p class="text-2xl font-bold text-gray-900 mt-2">{{ $totalInventory ?? '$0.00' }}</p>
+                    <p class="text-2xl font-bold text-gray-900 mt-2">
+                        {{ \App\Helpers\LocalizationHelper::formatCurrency($totalInventory ?? 0) }}
+                    </p>
                 </div>
                 <div class="p-3 bg-blue-100 rounded-lg">
                     <svg class="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
@@ -88,11 +92,15 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div class="p-4 bg-blue-50 rounded-lg">
                     <p class="text-sm text-gray-600">Branch Revenue</p>
-                    <p class="text-2xl font-bold text-gray-900 mt-2">{{ $branchRevenue ?? '$0.00' }}</p>
+                    <p class="text-2xl font-bold text-gray-900 mt-2">
+                        {{ \App\Helpers\LocalizationHelper::formatCurrency($branchRevenue ?? 0) }}
+                    </p>
                 </div>
                 <div class="p-4 bg-green-50 rounded-lg">
                     <p class="text-sm text-gray-600">Branch Inventory</p>
-                    <p class="text-2xl font-bold text-gray-900 mt-2">{{ $branchInventory ?? '$0.00' }}</p>
+                    <p class="text-2xl font-bold text-gray-900 mt-2">
+                        {{ \App\Helpers\LocalizationHelper::formatCurrency($branchInventory ?? 0) }}
+                    </p>
                 </div>
                 <div class="p-4 bg-purple-50 rounded-lg">
                     <p class="text-sm text-gray-600">Branch Staff</p>
@@ -117,15 +125,21 @@
             <div class="space-y-3">
                 <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <span class="text-sm font-medium text-gray-900">Downtown Branch</span>
-                    <span class="text-sm font-bold text-green-600">$5,200</span>
+                    <span class="text-sm font-bold text-green-600">
+                        {{ \App\Helpers\LocalizationHelper::formatCurrency(5200) }}
+                    </span>
                 </div>
                 <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <span class="text-sm font-medium text-gray-900">Mall Branch</span>
-                    <span class="text-sm font-bold text-green-600">$4,800</span>
+                    <span class="text-sm font-bold text-green-600">
+                        {{ \App\Helpers\LocalizationHelper::formatCurrency(4800) }}
+                    </span>
                 </div>
                 <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <span class="text-sm font-medium text-gray-900">Airport Branch</span>
-                    <span class="text-sm font-bold text-green-600">$3,500</span>
+                    <span class="text-sm font-bold text-green-600">
+                        {{ \App\Helpers\LocalizationHelper::formatCurrency(3500) }}
+                    </span>
                 </div>
             </div>
         </div>

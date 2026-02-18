@@ -1,15 +1,22 @@
 <div class="p-3 space-y-3">
 
-    <x-breadcrumb
-        title="Operations Reports"
-        :items="[
-            ['label' => 'Dashboard', 'url' => branch_route('branch-dashboard.index')],
-            ['label' => 'Production'],
-            ['label' => 'Reports'],
-            ['label' => 'Operations']
-        ]"
-        :compact="false"
-        :with-icons="true"/>
+    <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <x-breadcrumb
+            title="Operations Reports"
+            :items="[
+                ['label' => 'Dashboard', 'url' => branch_route('branch-dashboard.index')],
+                ['label' => 'Production'],
+                ['label' => 'Reports'],
+                ['label' => 'Operations']
+            ]"
+            :compact="false"
+            :with-icons="true"/>
+
+        <a class="inline-flex items-center justify-center rounded-lg border border-zinc-200 px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+           href="{{ branch_route('branch-dashboard.production.reporting.index', ['b_id' => $b_id]) }}">
+            Reports Library
+        </a>
+    </div>
 
     <!-- Report Type Tabs -->
     <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700">

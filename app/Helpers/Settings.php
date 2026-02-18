@@ -50,6 +50,19 @@ abstract class Settings
     }
 
     /**
+     * Get localization settings (locale, timezone, formats)
+     */
+    public static function localizationSettings(string $key, $default = null)
+    {
+        return self::getSetting(
+            GlobalCurrencyLocalization::class,
+            BranchCurrencyLocalization::class,
+            $key,
+            $default
+        );
+    }
+
+    /**
      * Get business configuration settings
      */
     public static function businessConfiguration(string $key, $default = null)

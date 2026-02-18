@@ -351,7 +351,7 @@
 
         @interact('column_salary', $row)
             <span class="text-zinc-900 dark:text-zinc-100">
-                ₦{{ number_format($row->salary, 2) }}
+                {{ \App\Helpers\LocalizationHelper::formatCurrency($row->salary ?? 0) }}
             </span>
         @endinteract
 
@@ -649,4 +649,3 @@
     @endif
 
     </div>
-

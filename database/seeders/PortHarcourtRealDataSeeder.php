@@ -163,22 +163,22 @@ class PortHarcourtRealDataSeeder extends Seeder
     {
         $definitions = [
             'hot_kitchen' => [
-                'name' => 'Hot Kitchen Production',
+                'name' => 'HOT KITCHEN',
                 'category_id' => $categories['production']->id,
                 'description' => 'Handles hot-kitchen production workflows.',
             ],
             'pastry' => [
-                'name' => 'Pastry Production',
+                'name' => 'PASTRY',
                 'category_id' => $categories['production']->id,
                 'description' => 'Handles pastry production workflows.',
             ],
             'gelato' => [
-                'name' => 'Gelato Production',
+                'name' => 'GELATO',
                 'category_id' => $categories['production']->id,
                 'description' => 'Handles gelato production workflows.',
             ],
             'cornerstone' => [
-                'name' => 'Cornerstone Production',
+                'name' => 'CORNERSTONE',
                 'category_id' => $categories['production']->id,
                 'description' => 'Production-only corner-store preparation line.',
             ],
@@ -1090,9 +1090,19 @@ class PortHarcourtRealDataSeeder extends Seeder
             ]
         );
 
-        $role = Role::where('name', 'Super Admin')->where('guard_name', 'web')->first();
-        if ($role !== null) {
-            $superAdmin->syncRoles([$role]);
+        $superAdminRole = Role::where('name', 'Super Admin')->where('guard_name', 'web')->first();
+        $managingDirectorRole = Role::where('name', 'Managing Director')->where('guard_name', 'web')->first();
+
+        $roles = [];
+        if ($superAdminRole !== null) {
+            $roles[] = $superAdminRole;
+        }
+        if ($managingDirectorRole !== null) {
+            $roles[] = $managingDirectorRole;
+        }
+
+        if (! empty($roles)) {
+            $superAdmin->syncRoles($roles);
         }
     }
 

@@ -12,7 +12,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm text-gray-600 font-medium">Today's Revenue</p>
-                    <p class="text-2xl font-bold text-gray-900 mt-2">{{ $dailyRevenue ?? '$0.00' }}</p>
+                    <p class="text-2xl font-bold text-gray-900 mt-2">{{ $dailyRevenue ?? \App\Helpers\LocalizationHelper::formatCurrency(0) }}</p>
                 </div>
                 <div class="p-3 bg-green-100 rounded-lg">
                     <svg class="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
@@ -27,7 +27,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm text-gray-600 font-medium">Inventory Value</p>
-                    <p class="text-2xl font-bold text-gray-900 mt-2">{{ $inventoryValue ?? '$0.00' }}</p>
+                    <p class="text-2xl font-bold text-gray-900 mt-2">{{ $inventoryValue ?? \App\Helpers\LocalizationHelper::formatCurrency(0) }}</p>
                 </div>
                 <div class="p-3 bg-blue-100 rounded-lg">
                     <svg class="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
@@ -100,7 +100,7 @@
                 </div>
             </div>
             <div class="space-y-2">
-                <p class="text-sm text-gray-600"><span class="font-bold text-gray-900">${{ $dailyRevenue ?? '0' }}</span> today</p>
+                <p class="text-sm text-gray-600"><span class="font-bold text-gray-900">{{ \App\Helpers\LocalizationHelper::formatCurrency((float) ($dailyRevenue ?? 0)) }}</span> today</p>
                 <p class="text-sm text-gray-600"><span class="font-bold text-gray-900">127</span> transactions</p>
                 <button class="mt-4 w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm font-medium">
                     Go to Dashboard →
@@ -119,7 +119,7 @@
                 </div>
             </div>
             <div class="space-y-2">
-                <p class="text-sm text-gray-600"><span class="font-bold text-gray-900">{{ $inventoryValue ?? '$0' }}</span> in stock</p>
+                <p class="text-sm text-gray-600"><span class="font-bold text-gray-900">{{ \App\Helpers\LocalizationHelper::formatCurrency((float) ($inventoryValue ?? 0)) }}</span> in stock</p>
                 <p class="text-sm text-gray-600"><span class="font-bold text-gray-900">5</span> low stock alerts</p>
                 <button class="mt-4 w-full px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition text-sm font-medium">
                     Go to Dashboard →

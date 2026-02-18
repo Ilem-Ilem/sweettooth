@@ -130,7 +130,9 @@
         </div>
         <div class="bg-green-50 dark:bg-green-900/20 rounded-lg shadow-sm p-3 border border-green-200 dark:border-green-700">
             <p class="text-xs text-gray-600 dark:text-gray-400">Total Cost</p>
-            <p class="text-2xl font-bold text-green-600 dark:text-green-500">₦{{ number_format($summary['total_cost'], 0) }}</p>
+            <p class="text-2xl font-bold text-green-600 dark:text-green-500">
+                {{ \App\Helpers\LocalizationHelper::formatCurrency($summary['total_cost'] ?? 0) }}
+            </p>
         </div>
         <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg shadow-sm p-3 border border-blue-200 dark:border-blue-700">
             <p class="text-xs text-gray-600 dark:text-gray-400">Paid</p>
@@ -197,7 +199,9 @@
                              <td class="px-3 py-2 text-xs font-medium text-gray-900 dark:text-zinc-100">{{ $purchase->purchase_number }}</td>
                              <td class="px-3 py-2 text-xs text-gray-600 dark:text-gray-400">{{ $purchase->purchase_date->format('d M Y') }}</td>
                              <td class="px-3 py-2 text-xs text-gray-900 dark:text-zinc-100">{{ $purchase->supplier_name }}</td>
-                             <td class="px-3 py-2 text-xs font-medium text-gray-900 dark:text-zinc-100">₦{{ number_format($purchase->landing_cost, 2) }}</td>
+                             <td class="px-3 py-2 text-xs font-medium text-gray-900 dark:text-zinc-100">
+                                 {{ \App\Helpers\LocalizationHelper::formatCurrency($purchase->landing_cost ?? 0) }}
+                             </td>
                              <td class="px-3 py-2 text-xs">
                                  <div class="flex items-center gap-2">
                                      <select wire:change="updatePaymentStatus({{ $purchase->id }}, $event.target.value)"
@@ -274,7 +278,9 @@
                         <div class="border-t border-zinc-200 dark:border-zinc-700 pt-2 mt-2">
                             <div class="flex justify-between">
                                 <span class="text-zinc-600 dark:text-zinc-400">Total:</span>
-                                <span class="font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($purchase->landing_cost, 0) }}</span>
+                                <span class="font-bold text-blue-600 dark:text-blue-400">
+                                    {{ \App\Helpers\LocalizationHelper::formatCurrency($purchase->landing_cost ?? 0) }}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -314,7 +320,9 @@
                         </div>
                         <div>
                             <div class="text-xs text-gray-500 dark:text-gray-400">Cost</div>
-                            <div class="font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($purchase->landing_cost, 0) }}</div>
+                            <div class="font-bold text-blue-600 dark:text-blue-400">
+                                {{ \App\Helpers\LocalizationHelper::formatCurrency($purchase->landing_cost ?? 0) }}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -352,7 +360,10 @@
                             </span>
                         </div>
                         <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">{{ $purchase->supplier_name }}</p>
-                        <p class="text-sm font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($purchase->landing_cost, 2) }} • {{ $purchase->purchaseItems->count() }} items</p>
+                        <p class="text-sm font-bold text-blue-600 dark:text-blue-400">
+                            {{ \App\Helpers\LocalizationHelper::formatCurrency($purchase->landing_cost ?? 0) }}
+                            • {{ $purchase->purchaseItems->count() }} items
+                        </p>
                     </div>
                 </div>
             @empty
@@ -381,7 +392,9 @@
                                 <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ ucfirst($statusData['status']) }}</span>
                                 <p class="text-xs text-gray-500 dark:text-gray-400">{{ $statusData['count'] }} purchases</p>
                             </div>
-                            <span class="text-sm font-bold text-blue-600 dark:text-blue-400">₦{{ number_format($statusData['total_cost'], 0) }}</span>
+                            <span class="text-sm font-bold text-blue-600 dark:text-blue-400">
+                                {{ \App\Helpers\LocalizationHelper::formatCurrency($statusData['total_cost'] ?? 0) }}
+                            </span>
                         </div>
                         @php
                             $percentage = ($statusData['total_cost'] / ($summary['total_cost'] ?: 1)) * 100;
@@ -639,11 +652,15 @@
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-zinc-600 dark:text-zinc-400">Total FOB (NGN):</span>
-                                <span class="text-zinc-900 dark:text-zinc-100">₦{{ number_format($pendingPurchaseData['total_fob_ngn'] ?? 0, 2) }}</span>
+                                <span class="text-zinc-900 dark:text-zinc-100">
+                                    {{ \App\Helpers\LocalizationHelper::formatCurrency($pendingPurchaseData['total_fob_ngn'] ?? 0) }}
+                                </span>
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-zinc-600 dark:text-zinc-400">Landing Cost:</span>
-                                <span class="text-zinc-900 dark:text-zinc-100 font-semibold">₦{{ number_format($pendingPurchaseData['landing_cost'] ?? 0, 2) }}</span>
+                                <span class="text-zinc-900 dark:text-zinc-100 font-semibold">
+                                    {{ \App\Helpers\LocalizationHelper::formatCurrency($pendingPurchaseData['landing_cost'] ?? 0) }}
+                                </span>
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-zinc-600 dark:text-zinc-400">Items:</span>
@@ -795,8 +812,12 @@
                                         </td>
                                         <td class="px-4 py-2 text-zinc-900 dark:text-zinc-100">{{ number_format($item->quantity, 2) }}</td>
                                         <td class="px-4 py-2 text-zinc-900 dark:text-zinc-100">{{ $item->uom }}</td>
-                                        <td class="px-4 py-2 text-right text-zinc-900 dark:text-zinc-100">₦{{ number_format($item->fob_ngn ?? 0, 2) }}</td>
-                                        <td class="px-4 py-2 text-right font-medium text-zinc-900 dark:text-zinc-100">₦{{ number_format($item->total_cost ?? 0, 2) }}</td>
+                                        <td class="px-4 py-2 text-right text-zinc-900 dark:text-zinc-100">
+                                            {{ \App\Helpers\LocalizationHelper::formatCurrency($item->fob_ngn ?? 0) }}
+                                        </td>
+                                        <td class="px-4 py-2 text-right font-medium text-zinc-900 dark:text-zinc-100">
+                                            {{ \App\Helpers\LocalizationHelper::formatCurrency($item->total_cost ?? 0) }}
+                                        </td>
                                     </tr>
                                     @empty
                                     <tr>
@@ -812,15 +833,21 @@
                     <div class="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-4 space-y-2">
                         <div class="flex justify-between text-sm">
                             <span class="text-zinc-600 dark:text-zinc-400">Items Subtotal:</span>
-                            <span class="font-medium text-zinc-900 dark:text-zinc-100">₦{{ number_format($detailPurchase->purchaseItems->sum('total_cost') ?? 0, 2) }}</span>
+                            <span class="font-medium text-zinc-900 dark:text-zinc-100">
+                                {{ \App\Helpers\LocalizationHelper::formatCurrency($detailPurchase->purchaseItems->sum('total_cost') ?? 0) }}
+                            </span>
                         </div>
                         <div class="flex justify-between text-sm">
                             <span class="text-zinc-600 dark:text-zinc-400">Other Costs:</span>
-                            <span class="font-medium text-zinc-900 dark:text-zinc-100">₦{{ number_format($detailPurchase->other_costs ?? 0, 2) }}</span>
+                            <span class="font-medium text-zinc-900 dark:text-zinc-100">
+                                {{ \App\Helpers\LocalizationHelper::formatCurrency($detailPurchase->other_costs ?? 0) }}
+                            </span>
                         </div>
                         <div class="border-t border-zinc-200 dark:border-zinc-700 pt-2 mt-2 flex justify-between text-base font-bold">
                             <span class="text-zinc-900 dark:text-zinc-100">Total Cost:</span>
-                            <span class="text-zinc-900 dark:text-zinc-100">₦{{ number_format($detailPurchase->landing_cost, 2) }}</span>
+                            <span class="text-zinc-900 dark:text-zinc-100">
+                                {{ \App\Helpers\LocalizationHelper::formatCurrency($detailPurchase->landing_cost ?? 0) }}
+                            </span>
                         </div>
                     </div>
 

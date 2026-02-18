@@ -31,7 +31,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm text-gray-600 font-medium">Total Stock Value</p>
-                    <p class="text-2xl font-bold text-gray-900 mt-2">{{ $totalStockValue ?? '$0.00' }}</p>
+                    <p class="text-2xl font-bold text-gray-900 mt-2">{{ $totalStockValue ?? \App\Helpers\LocalizationHelper::formatCurrency(0) }}</p>
                 </div>
                 <div class="p-3 bg-blue-100 rounded-lg">
                     <svg class="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">

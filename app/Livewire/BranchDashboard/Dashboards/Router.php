@@ -31,6 +31,9 @@ class Router extends Component
         $roleLevel = SidebarVisibilityService::getRoleLevel($currentUser);
         $category = SidebarVisibilityService::getDepartmentCategory($currentUser);
         $deptSlug = $currentUser->department?->slug;
+        $canSuperAdmin = $currentUser->hasAnyPermission(['manage-branches', 'manage-roles', 'manage-settings']) || is_super_admin();
+        $canAdminDashboard = $roleLevel >= SidebarVisibilityService::LEVEL_ADMIN
+            || $currentUser->hasAnyPermission(['manage-organization', 'manage-branches']);
 
         \Log::info('Router: Department-based routing', [
             'user_id' => $currentUser->id,
@@ -41,12 +44,12 @@ class Router extends Component
         ]);
 
         // LEVEL 5: Super Admin -> Super Admin Dashboard
-        if ($roleLevel >= SidebarVisibilityService::LEVEL_SUPER_ADMIN) {
+        if ($canSuperAdmin || $roleLevel >= SidebarVisibilityService::LEVEL_SUPER_ADMIN) {
             return Redirect::route('branch-dashboard.dashboards.super-admin', ['b_id' => $branchId]);
         }
 
         // LEVEL 4: Admin -> Admin Dashboard
-        if ($roleLevel >= SidebarVisibilityService::LEVEL_ADMIN) {
+        if ($canAdminDashboard) {
             return Redirect::route('branch-dashboard.dashboards.admin', ['b_id' => $branchId]);
         }
 

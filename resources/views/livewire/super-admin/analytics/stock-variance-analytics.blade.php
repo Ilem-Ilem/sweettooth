@@ -21,7 +21,9 @@
             </div>
             <div class="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg shadow-sm p-4">
                 <p class="text-sm text-gray-600 dark:text-gray-400">Variance Value</p>
-                <p class="text-2xl font-bold text-yellow-600 dark:text-yellow-500">₦{{ number_format($summary['total_variance_value'], 2) }}</p>
+                <p class="text-2xl font-bold text-yellow-600 dark:text-yellow-500">
+                    {{ \App\Helpers\LocalizationHelper::formatCurrency($summary['total_variance_value'] ?? 0) }}
+                </p>
             </div>
         </div>
 

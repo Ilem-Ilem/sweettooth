@@ -276,17 +276,48 @@ class Index extends BaseComponent
         
         if (is_super_admin()) {
             // ===== SUPER ADMIN BULK DELETE =====
+            $departments = Department::whereIn('id', $this->selectedIds)
+                ->withCount([
+                    'productTypes',
+                    'pages',
+                    'tables',
+                    'employees',
+                    'products',
+                    'primarySalesProducts',
+                    'salesProductionRequests',
+                    'salesProductionRequestItems',
+                ])
+                ->get();
+
+            $blocked = $departments->filter(function ($department) {
+                return $department->product_types_count > 0
+                    || $department->pages_count > 0
+                    || $department->tables_count > 0
+                    || $department->employees_count > 0
+                    || $department->products_count > 0
+                    || $department->primary_sales_products_count > 0
+                    || $department->sales_production_requests_count > 0
+                    || $department->sales_production_request_items_count > 0;
+            });
+
+            $deletable = $departments->diff($blocked);
+
             // Log each department deletion as completed
-            foreach ($this->selectedIds as $id) {
-                $department = Department::find($id);
-                if ($department) {
-                    AuditService::log($user, 'delete', $department, 'Department deleted by super admin (bulk)', 'completed');
-                }
+            foreach ($deletable as $department) {
+                AuditService::log($user, 'delete', $department, 'Department deleted by super admin (bulk)', 'completed');
             }
-            
-            // Single batch delete query for efficiency
-            Department::whereIn('id', $this->selectedIds)->delete();
-            $this->dialog()->success('Success', count($this->selectedIds) . ' department(s) deleted successfully!')->send();
+
+            if ($deletable->isNotEmpty()) {
+                Department::whereIn('id', $deletable->pluck('id'))->delete();
+            }
+
+            if ($blocked->isNotEmpty()) {
+                $this->toast()->warning(
+                    $blocked->count() . ' department(s) were not deleted because they have related records.'
+                )->send();
+            }
+
+            $this->dialog()->success('Success', $deletable->count() . ' department(s) deleted successfully!')->send();
         } else {
             // ===== EMPLOYEE BULK DELETE (APPROVAL REQUIRED) =====
             // Validate deletion reason length

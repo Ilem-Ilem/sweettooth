@@ -642,6 +642,11 @@
                     :current="request()->routeIs('branch-dashboard.production.reports.planning')" wire:navigate>
                     {{ __('Planning Reports') }}
                 </flux:navlist.item>
+                <flux:navlist.item icon="document-text"
+                    :href="branch_route('branch-dashboard.production.reporting.index')"
+                    :current="request()->routeIs('branch-dashboard.production.reporting.*')" wire:navigate>
+                    {{ __('Reports Library') }}
+                </flux:navlist.item>
             </flux:navlist.group>
             @endif
             {{-- ==================== END PRODUCTION MENU ==================== --}}

@@ -62,13 +62,17 @@
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg shadow-sm p-4">
             <p class="text-sm opacity-90">Total Stock Value</p>
-            <p class="text-3xl font-bold">₦{{ number_format($summary['total_stock_value'], 2) }}</p>
+            <p class="text-3xl font-bold">
+                {{ \App\Helpers\LocalizationHelper::formatCurrency($summary['total_stock_value'] ?? 0) }}
+            </p>
             <p class="text-xs opacity-75 mt-2">{{ $summary['total_items'] }} items in inventory</p>
         </div>
 
         <div class="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg shadow-sm p-4">
             <p class="text-sm opacity-90">Purchase Value</p>
-            <p class="text-3xl font-bold">₦{{ number_format($summary['total_purchase_value'], 2) }}</p>
+            <p class="text-3xl font-bold">
+                {{ \App\Helpers\LocalizationHelper::formatCurrency($summary['total_purchase_value'] ?? 0) }}
+            </p>
             <p class="text-xs opacity-75 mt-2">{{ $summary['total_purchases'] }} purchases</p>
         </div>
 

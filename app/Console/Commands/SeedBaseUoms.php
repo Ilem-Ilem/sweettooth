@@ -4,14 +4,24 @@ namespace App\Console\Commands;
 
 use App\Models\UnitOfMeasure;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Schema;
 
 class SeedBaseUoms extends Command
 {
-    protected $signature = 'uoms:seed';
+    protected $signature = 'uoms:seed {--force : Force re-seed all UOMs}';
     protected $description = 'Seed base units of measure required for production data import';
 
     public function handle(): int
     {
+        $force = $this->option('force');
+
+        if ($force) {
+            $this->warn("Force mode: Truncating existing UOMs...");
+            UnitOfMeasure::truncate();
+        }
+
+        $hasLegacyColumn = Schema::hasColumn('units_of_measure', 'legacy_dispatch_uom');
+
         $uoms = [
             // Weight/Mass
             ['code' => 'g', 'name' => 'Grams', 'symbol' => 'g', 'category' => 'weight', 'sort_order' => 1],
@@ -20,67 +30,64 @@ class SeedBaseUoms extends Command
             
             // Volume/Liquid
             ['code' => 'ml', 'name' => 'Milliliters', 'symbol' => 'ml', 'category' => 'volume', 'sort_order' => 4],
-            ['code' => 'l', 'name' => 'Liters', 'symbol' => 'l', 'category' => 'volume', 'sort_order' => 5],
+            ['code' => 'l', 'name' => 'Liters', 'symbol' => 'L', 'category' => 'volume', 'sort_order' => 5],
             ['code' => 'cl', 'name' => 'Centiliters', 'symbol' => 'cl', 'category' => 'volume', 'sort_order' => 6],
             
             // Count/Units
             ['code' => 'pcs', 'name' => 'Pieces', 'symbol' => 'pcs', 'category' => 'count', 'sort_order' => 7],
             ['code' => 'unit', 'name' => 'Units', 'symbol' => 'unit', 'category' => 'count', 'sort_order' => 8],
-            ['code' => 'dozen', 'name' => 'Dozen', 'symbol' => 'doz', 'category' => 'count', 'sort_order' => 9],
+            ['code' => 'dozen', 'name' => 'Dozen', 'symbol' => 'dz', 'category' => 'count', 'sort_order' => 9],
             
             // Portion/Serving
-            ['code' => 'portion', 'name' => 'Portions', 'symbol' => 'portion', 'category' => 'portion', 'sort_order' => 10],
-            ['code' => 'serving', 'name' => 'Servings', 'symbol' => 'serving', 'category' => 'portion', 'sort_order' => 11],
+            ['code' => 'portion', 'name' => 'Portions', 'symbol' => 'portion', 'category' => 'serving', 'sort_order' => 10],
+            ['code' => 'serving', 'name' => 'Servings', 'symbol' => 'serving', 'category' => 'serving', 'sort_order' => 11],
+            ['code' => 'scoop', 'name' => 'Scoops', 'symbol' => 'scoop', 'category' => 'serving', 'sort_order' => 12],
+            ['code' => 'cone', 'name' => 'Cones', 'symbol' => 'cone', 'category' => 'serving', 'sort_order' => 13],
+            ['code' => 'cup_serving', 'name' => 'Cups (Serving)', 'symbol' => 'cup', 'category' => 'serving', 'sort_order' => 14],
             
             // Container/Packaging
-            ['code' => 'pack', 'name' => 'Packs', 'symbol' => 'pk', 'category' => 'package', 'sort_order' => 12],
-            ['code' => 'box', 'name' => 'Boxes', 'symbol' => 'box', 'category' => 'package', 'sort_order' => 13],
-            ['code' => 'bottle', 'name' => 'Bottles', 'symbol' => 'btl', 'category' => 'package', 'sort_order' => 14],
-            ['code' => 'jar', 'name' => 'Jars', 'symbol' => 'jar', 'category' => 'package', 'sort_order' => 15],
-            ['code' => 'bag', 'name' => 'Bags', 'symbol' => 'bag', 'category' => 'package', 'sort_order' => 16],
-            ['code' => 'container', 'name' => 'Containers', 'symbol' => 'cnt', 'category' => 'package', 'sort_order' => 17],
+            ['code' => 'pack', 'name' => 'Packs', 'symbol' => 'pk', 'category' => 'package', 'sort_order' => 15],
+            ['code' => 'box', 'name' => 'Boxes', 'symbol' => 'box', 'category' => 'package', 'sort_order' => 16],
+            ['code' => 'bottle', 'name' => 'Bottles', 'symbol' => 'btl', 'category' => 'package', 'sort_order' => 17],
+            ['code' => 'jar', 'name' => 'Jars', 'symbol' => 'jar', 'category' => 'package', 'sort_order' => 18],
+            ['code' => 'bag', 'name' => 'Bags', 'symbol' => 'bag', 'category' => 'package', 'sort_order' => 19],
+            ['code' => 'container', 'name' => 'Containers', 'symbol' => 'cnt', 'category' => 'package', 'sort_order' => 20],
+            ['code' => 'roll', 'name' => 'Rolls', 'symbol' => 'roll', 'category' => 'package', 'sort_order' => 21],
             
             // Kitchen/Cooking
-            ['code' => 'cup', 'name' => 'Cups', 'symbol' => 'cup', 'category' => 'cooking', 'sort_order' => 18],
-            ['code' => 'tbsp', 'name' => 'Tablespoons', 'symbol' => 'tbsp', 'category' => 'cooking', 'sort_order' => 19],
-            ['code' => 'tsp', 'name' => 'Teaspoons', 'symbol' => 'tsp', 'category' => 'cooking', 'sort_order' => 20],
-            ['code' => 'scoop', 'name' => 'Scoops', 'symbol' => 'scoop', 'category' => 'cooking', 'sort_order' => 21],
-            ['code' => 'pinch', 'name' => 'Pinches', 'symbol' => 'pinch', 'category' => 'cooking', 'sort_order' => 22],
+            ['code' => 'cup', 'name' => 'Cups (US)', 'symbol' => 'cup', 'category' => 'volume', 'sort_order' => 22],
+            ['code' => 'tbsp', 'name' => 'Tablespoons', 'symbol' => 'tbsp', 'category' => 'volume', 'sort_order' => 23],
+            ['code' => 'tsp', 'name' => 'Teaspoons', 'symbol' => 'tsp', 'category' => 'volume', 'sort_order' => 24],
             
             // Recipe/WIP
-            ['code' => 'recipe', 'name' => 'Recipe Units', 'symbol' => 'recipe', 'category' => 'recipe', 'sort_order' => 23],
-            ['code' => 'batch', 'name' => 'Batches', 'symbol' => 'batch', 'category' => 'recipe', 'sort_order' => 24],
+            ['code' => 'recipe', 'name' => 'Recipe Units', 'symbol' => 'recipe', 'category' => 'recipe', 'sort_order' => 25],
+            ['code' => 'batch', 'name' => 'Batches', 'symbol' => 'batch', 'category' => 'recipe', 'sort_order' => 26],
             
-            // Miscellaneous
-            ['code' => 'roll', 'name' => 'Rolls', 'symbol' => 'roll', 'category' => 'misc', 'sort_order' => 25],
-            ['code' => 'sheet', 'name' => 'Sheets', 'symbol' => 'sheet', 'category' => 'misc', 'sort_order' => 26],
-            ['code' => 'set', 'name' => 'Sets', 'symbol' => 'set', 'category' => 'misc', 'sort_order' => 27],
+            // Additional UOMs from production data
+            ['code' => 'ro', 'name' => 'Rolls', 'symbol' => 'ro', 'category' => 'package', 'sort_order' => 27],
+            ['code' => 'spn', 'name' => 'Spoons', 'symbol' => 'spn', 'category' => 'count', 'sort_order' => 28],
+            ['code' => 'cp', 'name' => 'Cups (Coffee)', 'symbol' => 'cp', 'category' => 'serving', 'sort_order' => 29],
+            ['code' => 'cu', 'name' => 'Cups (Universal)', 'symbol' => 'cu', 'category' => 'serving', 'sort_order' => 30],
         ];
 
         $created = 0;
         $updated = 0;
-        $skipped = 0;
 
         foreach ($uoms as $uomData) {
             $uom = UnitOfMeasure::where('code', $uomData['code'])->first();
 
+            $uomData['description'] = "{$uomData['name']} ({$uomData['symbol']})";
+            $uomData['is_active'] = true;
+            
+            if ($hasLegacyColumn) {
+                $uomData['legacy_dispatch_uom'] = null;
+            }
+
             if ($uom) {
-                // Update existing UOM
-                $uom->update([
-                    'name' => $uomData['name'],
-                    'symbol' => $uomData['symbol'],
-                    'category' => $uomData['category'],
-                    'sort_order' => $uomData['sort_order'],
-                    'is_active' => true,
-                ]);
+                $uom->update($uomData);
                 $updated++;
             } else {
-                // Create new UOM
-                UnitOfMeasure::create([
-                    ...$uomData,
-                    'description' => "{$uomData['name']} ({$uomData['symbol']})",
-                    'is_active' => true,
-                ]);
+                UnitOfMeasure::create($uomData);
                 $created++;
             }
         }
@@ -88,9 +95,8 @@ class SeedBaseUoms extends Command
         $this->info("UOM seeding completed:");
         $this->info("  Created: {$created}");
         $this->info("  Updated: {$updated}");
-        $this->info("  Skipped: {$skipped}");
 
-        // Create UOM conversions for weight
+        // Create UOM conversions
         $this->createUomConversions();
 
         return 0;
@@ -104,13 +110,13 @@ class SeedBaseUoms extends Command
             ['from' => 'g', 'to' => 'kg', 'factor' => 0.001],
             ['from' => 'g', 'to' => 'mg', 'factor' => 1000],
             ['from' => 'mg', 'to' => 'g', 'factor' => 0.001],
-            
+
             // Volume conversions (base: milliliters)
             ['from' => 'l', 'to' => 'ml', 'factor' => 1000],
             ['from' => 'ml', 'to' => 'l', 'factor' => 0.001],
             ['from' => 'cl', 'to' => 'ml', 'factor' => 10],
             ['from' => 'ml', 'to' => 'cl', 'factor' => 0.1],
-            
+
             // Count conversions
             ['from' => 'dozen', 'to' => 'pcs', 'factor' => 12],
             ['from' => 'pcs', 'to' => 'dozen', 'factor' => 1/12],
@@ -129,7 +135,7 @@ class SeedBaseUoms extends Command
                         'to_uom_id' => $toUom->id,
                     ],
                     [
-                        'conversion_factor' => $conv['factor'],
+                        'factor' => $conv['factor'],
                         'is_active' => true,
                     ]
                 );

@@ -35,7 +35,7 @@ class RoleLevelMiddleware
 
         $userLevel = $this->getUserLevel($user);
 
-        if ($userLevel < $minLevel) {
+        if ($userLevel < $minLevel && ! $this->hasPermissionForLevel($user, $minLevel)) {
             $levelNames = [
                 1 => 'Staff',
                 2 => 'Supervisor',
@@ -52,6 +52,30 @@ class RoleLevelMiddleware
         $request->attributes->set('user_role_level', $userLevel);
 
         return $next($request);
+    }
+
+    /**
+     * Allow permission-based access when roles are missing/misaligned.
+     */
+    private function hasPermissionForLevel(User $user, int $minLevel): bool
+    {
+        if (!method_exists($user, 'hasAnyPermission')) {
+            return false;
+        }
+
+        $permissionMap = [
+            5 => ['manage-branches', 'manage-roles', 'manage-settings'],
+            4 => ['manage-organization', 'manage-branches'],
+            3 => ['manage-inventory', 'manage-sales', 'manage-production', 'manage-accounting', 'manage-departments', 'view-analytics'],
+            2 => ['view-inventory', 'view-sales', 'view-production', 'view-accounting', 'view-employees', 'manage-employees', 'manage-leave', 'view-reports'],
+        ];
+
+        $permissions = $permissionMap[$minLevel] ?? [];
+        if (empty($permissions)) {
+            return false;
+        }
+
+        return $user->hasAnyPermission($permissions);
     }
 
     /**

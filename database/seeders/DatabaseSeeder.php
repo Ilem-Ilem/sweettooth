@@ -12,7 +12,9 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            // Core authorization
+            // Core authorization - Permissions and Roles
+            PermissionSeeder::class,
+            RoleSeeder::class,
             AssignPermissionsToRolesSeeder::class,
 
             // Shared setup

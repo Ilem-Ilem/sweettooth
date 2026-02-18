@@ -13,89 +13,52 @@ class ShiftConfigurationSeeder extends Seeder
      */
     public function run(): void
     {
-        // Get all branches
-        $branches = Branch::all();
+        $this->command->info('Seeding shift configurations...');
 
-        foreach ($branches as $branch) {
-            // Morning Shift
-            ShiftConfiguration::updateOrCreate(
-                [
-                    'branch_id' => $branch->id,
-                    'shift_type' => 'morning',
-                ],
-                [
-                    'name' => 'Morning Shift',
-                    'start_time' => '06:00:00',
-                    'end_time' => '14:00:00',
-                    'clock_in_start' => '05:30:00',
-                    'clock_in_end' => '06:30:00',
-                    'auto_clock_out_minutes' => 15,
-                    'max_overtime_hours' => 2.00,
-                    'break_duration_minutes' => 60,
-                    'timezone' => $branch->timezone ?? 'Africa/Lagos',
-                    'is_active' => true,
-                ]
-            );
-
-            // Afternoon Shift
-            ShiftConfiguration::updateOrCreate(
-                [
-                    'branch_id' => $branch->id,
-                    'shift_type' => 'afternoon',
-                ],
-                [
-                    'name' => 'Afternoon Shift',
-                    'start_time' => '14:00:00',
-                    'end_time' => '18:00:00',
-                    'clock_in_start' => '14:00:00',
-                    'clock_in_end' => '18:00:00',
-                    'auto_clock_out_minutes' => 15,
-                    'max_overtime_hours' => 2.00,
-                    'break_duration_minutes' => 60,
-                    'timezone' => $branch->timezone ?? 'Africa/Lagos',
-                    'is_active' => true,
-                ]
-            );
-
-            // Night Shift
-            ShiftConfiguration::updateOrCreate(
-                [
-                    'branch_id' => $branch->id,
-                    'shift_type' => 'night',
-                ],
-                [
-                    'name' => 'Night Shift',
-                    'start_time' => '22:00:00',
-                    'end_time' => '06:00:00',
-                    'clock_in_start' => '21:30:00',
-                    'clock_in_end' => '22:30:00',
-                    'auto_clock_out_minutes' => 15,
-                    'max_overtime_hours' => 2.00,
-                    'break_duration_minutes' => 60,
-                    'timezone' => $branch->timezone ?? 'Africa/Lagos',
-                    'is_active' => true,
-                ]
-            );
-
-            // Full Time Shift
-            ShiftConfiguration::updateOrCreate(
-                [
-                    'branch_id' => $branch->id,
-                    'shift_type' => 'full_time',
-                ],
-                [
-                    'name' => 'Full Time Shift',
-                    'start_time' => '08:00:00',
-                    'end_time' => '17:00:00',
-                    'clock_in_start' => '07:30:00',
-                    'clock_in_end' => '08:30:00',
-                    'auto_clock_out_minutes' => 480, // 8 hours
-                    'max_overtime_hours' => 2.00,
-                    'break_duration_minutes' => 60,
-                    'timezone' => $branch->timezone ?? 'Africa/Lagos',
-                    'is_active' => true,
-                ]
-            );
+        $branch = Branch::where('code', 'PHC-002')->first();
+        if (! $branch) {
+            $this->command->warn('Branch not found. Skipping shift configuration seeding.');
+            return;
         }
+
+        $created = 0;
+        $skipped = 0;
+
+        // Define shift configurations for the branch
+        $configs = [
+            'morning' => ['name' => 'Morning Shift', 'start' => '08:00', 'end' => '16:00'],
+            'afternoon' => ['name' => 'Afternoon Shift', 'start' => '16:00', 'end' => '00:00'],
+        ];
+
+        foreach ($configs as $shiftType => $config) {
+            $existing = ShiftConfiguration::query()
+                ->where('branch_id', $branch->id)
+                ->where('shift_type', $shiftType)
+                ->first();
+
+            if ($existing) {
+                $skipped++;
+                continue;
+            }
+
+            ShiftConfiguration::create([
+                'branch_id' => $branch->id,
+                'shift_type' => $shiftType,
+                'name' => $config['name'],
+                'start_time' => $config['start'],
+                'end_time' => $config['end'],
+                'clock_in_start' => date('H:i', strtotime($config['start'] . ' - 30 minutes')),
+                'clock_in_end' => date('H:i', strtotime($config['start'] . ' + 30 minutes')),
+                'auto_clock_out_minutes' => 30,
+                'is_active' => true,
+                'max_overtime_hours' => 2,
+                'break_duration_minutes' => 60,
+                'timezone' => 'Africa/Lagos',
+            ]);
+            $created++;
+        }
+
+        $this->command->info("Shift configurations created: {$created}");
+        $this->command->info("Shift configurations skipped: {$skipped}");
     }
 }

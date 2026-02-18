@@ -16,12 +16,10 @@ class ImportProductsFromProductionData extends Command
 {
     use ParsesProductionJson;
 
-    protected $signature = 'import:production-products
+    protected $signature = 'import:production-products-new
         {path? : Path to JSON file or directory (defaults to real_data/receips-sweetooth-main)}
         {--branch-id= : Branch UUID to assign products to}
         {--prices-path= : Path to SWEETTOOTH PRODUCT PRICES.xlsx for price import}
-        {--create-departments : Create departments if missing}
-        {--department-category-id= : Category ID for auto-created departments}
         {--dry-run : Parse only, do not write to database}';
 
     protected $description = 'Import products from production JSON files with optional price import from Excel';
@@ -355,29 +353,35 @@ class ImportProductsFromProductionData extends Command
             return null;
         }
 
-        $locKey = $this->normalizeKey($location);
+        // Map location names from production data to actual department names
+        $locationMap = [
+            'HOT KITCHEN' => 'Hot Kitchen Production',
+            'PASTRY' => 'Pastry Production',
+            'GELATO' => 'Gelato Production',
+            'CORNER STORE' => 'Corner Store',
+            'TILL' => 'Till Sales',
+            'CONCESSION' => 'Concession',
+            'CORNERSTORE' => 'Corner Store',
+        ];
         
-        if (isset($this->departmentCache[$locKey])) {
+        $locUpper = strtoupper($location);
+        $mappedLocation = $locationMap[$locUpper] ?? $location;
+        $locKey = $this->normalizeKey($mappedLocation);
+        
+        // Return cached value if already looked up
+        if (array_key_exists($locKey, $this->departmentCache)) {
             return $this->departmentCache[$locKey];
         }
 
-        $department = Department::whereRaw('UPPER(name) = ?', [$location])->first();
-
-        if (! $department && $this->option('create-departments')) {
-            $categoryId = $this->option('department-category-id') ?: DepartmentCategory::value('id');
-            
-            if ($categoryId && ! $dryRun) {
-                $department = Department::create([
-                    'branch_id' => $branchId,
-                    'category_id' => $categoryId,
-                    'name' => $location,
-                    'description' => "{$location} (imported)",
-                ]);
-                $this->warn("Created department: {$location}");
-            }
-        }
-
+        $department = Department::whereRaw('UPPER(name) = ?', [$mappedLocation])->first();
+        
+        // Cache the result (even if null to avoid repeated lookups)
         $this->departmentCache[$locKey] = $department?->id;
+        
+        if (! $department) {
+            $this->warn("Department not found for location: {$location} (mapped to: {$mappedLocation})");
+        }
+        
         return $department?->id;
     }
 
@@ -387,20 +391,36 @@ class ImportProductsFromProductionData extends Command
             return null;
         }
 
-        $locKey = $this->normalizeKey($location);
+        // Map location to product type
+        $typeMap = [
+            'HOT KITCHEN' => ['name' => 'Hot Kitchen Items', 'code' => 'HK'],
+            'PASTRY' => ['name' => 'Pastry Items', 'code' => 'PS'],
+            'GELATO' => ['name' => 'Gelato Items', 'code' => 'GL'],
+            'CORNER STORE' => ['name' => 'Cornerstone Items', 'code' => 'CS'],
+            'TILL' => ['name' => 'Till Items', 'code' => 'TL'],
+            'CONCESSION' => ['name' => 'Concession Items', 'code' => 'CN'],
+            'CORNERSTORE' => ['name' => 'Cornerstone Items', 'code' => 'CS'],
+        ];
         
+        $locUpper = strtoupper($location);
+        $meta = $typeMap[$locUpper] ?? $this->defaultProductTypeMeta($location);
+        
+        $locKey = $this->normalizeKey($meta['code']);
+
         if (isset($this->productTypeCache[$locKey])) {
             return $this->productTypeCache[$locKey];
         }
 
-        $meta = $this->defaultProductTypeMeta($location);
-        $productType = ProductType::where('name', $meta['name'])
-            ->orWhere('code', $meta['code'])
+        $productType = ProductType::withTrashed()
+            ->where(function ($q) use ($meta) {
+                $q->where('name', $meta['name'])
+                  ->orWhere('code', $meta['code']);
+            })
             ->first();
 
         if (! $productType && $departmentId) {
             $code = $this->generateUniqueProductTypeCode($meta['code']);
-            
+
             if (! $dryRun) {
                 $productType = ProductType::create([
                     'department_id' => $departmentId,
@@ -410,8 +430,11 @@ class ImportProductsFromProductionData extends Command
                     'status' => 'active',
                     'sort_order' => 0,
                 ]);
-                $this->warn("Created product type: {$productType->name}");
             }
+        }
+
+        if ($productType && $productType->trashed()) {
+            $productType->restore();
         }
 
         $this->productTypeCache[$locKey] = $productType?->id;

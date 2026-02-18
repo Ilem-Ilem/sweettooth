@@ -45,7 +45,9 @@
                 <div class="flex justify-between items-start">
                     <div class="flex-1">
                         <p class="text-gray-600 dark:text-gray-400 text-xs font-medium uppercase">My Total Sales</p>
-                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mt-1">₦{{ number_format($overview['total_sales'], 2) }}</h3>
+                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                            {{ \App\Helpers\LocalizationHelper::formatCurrency($overview['total_sales'] ?? 0) }}
+                        </h3>
                         <p class="text-xs mt-1 {{ $overview['growth_rate'] >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400' }}">
                             <i class="fas fa-{{ $overview['growth_rate'] >= 0 ? 'arrow-up' : 'arrow-down' }}"></i>
                             {{ number_format(abs($overview['growth_rate']), 1) }}% vs previous
@@ -74,7 +76,9 @@
                 <div class="flex justify-between items-start">
                     <div class="flex-1">
                         <p class="text-gray-600 dark:text-gray-400 text-xs font-medium uppercase">Avg Order Value</p>
-                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mt-1">₦{{ number_format($overview['avg_order_value'], 2) }}</h3>
+                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                            {{ \App\Helpers\LocalizationHelper::formatCurrency($overview['avg_order_value'] ?? 0) }}
+                        </h3>
                         <p class="text-xs mt-1 text-gray-500 dark:text-gray-400">Per transaction</p>
                     </div>
                     <div class="bg-purple-100 dark:bg-purple-900 p-2 rounded-lg">
@@ -87,7 +91,9 @@
                 <div class="flex justify-between items-start">
                     <div class="flex-1">
                         <p class="text-gray-600 dark:text-gray-400 text-xs font-medium uppercase">Discounts Given</p>
-                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mt-1">₦{{ number_format($overview['total_discount'], 2) }}</h3>
+                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                            {{ \App\Helpers\LocalizationHelper::formatCurrency($overview['total_discount'] ?? 0) }}
+                        </h3>
                         <p class="text-xs mt-1 text-gray-500 dark:text-gray-400">Total discounts</p>
                     </div>
                     <div class="bg-orange-100 dark:bg-orange-900 p-2 rounded-lg">
@@ -148,7 +154,9 @@
                                     @forelse($hourlySales as $hour)
                                     <tr>
                                         <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{{ $hour->hour }}:00</td>
-                                        <td class="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100">₦{{ number_format($hour->total, 2) }}</td>
+                                        <td class="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                            {{ \App\Helpers\LocalizationHelper::formatCurrency($hour->total ?? 0) }}
+                                        </td>
                                         <td class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{{ number_format($hour->count) }}</td>
                                     </tr>
                                     @empty
@@ -200,7 +208,7 @@
                                             </td>
                                             <td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{{ number_format($payment->count) }}</td>
                                             <td class="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
-                                                ₦{{ number_format($payment->total, 2) }}
+                                                {{ \App\Helpers\LocalizationHelper::formatCurrency($payment->total ?? 0) }}
                                                 <span class="text-xs text-gray-500">({{ number_format(($payment->total / $totalPayments) * 100, 1) }}%)</span>
                                             </td>
                                         </tr>
@@ -247,9 +255,13 @@
                                     @forelse($dailySales as $day)
                                     <tr>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ \Carbon\Carbon::parse($day->date)->format('M d, Y') }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-gray-100">₦{{ number_format($day->total, 2) }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                            {{ \App\Helpers\LocalizationHelper::formatCurrency($day->total ?? 0) }}
+                                        </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ number_format($day->count) }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">₦{{ number_format($day->avg_order, 2) }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                                            {{ \App\Helpers\LocalizationHelper::formatCurrency($day->avg_order ?? 0) }}
+                                        </td>
                                     </tr>
                                     @empty
                                     <tr>
@@ -284,8 +296,12 @@
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ number_format($orderType->count) }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-gray-100">₦{{ number_format($orderType->total, 2) }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">₦{{ number_format($orderType->total / $orderType->count, 2) }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                        {{ \App\Helpers\LocalizationHelper::formatCurrency($orderType->total ?? 0) }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                                        {{ \App\Helpers\LocalizationHelper::formatCurrency(($orderType->count ?? 0) > 0 ? ($orderType->total / $orderType->count) : 0) }}
+                                    </td>
                                 </tr>
                                 @empty
                                 <tr>
@@ -331,7 +347,9 @@
                                         <div class="text-xs text-gray-500 dark:text-gray-400">{{ $item->product->sku ?? '' }}</div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ number_format($item->total_quantity, 2) }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-gray-100">₦{{ number_format($item->total_revenue, 2) }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                        {{ \App\Helpers\LocalizationHelper::formatCurrency($item->total_revenue ?? 0) }}
+                                    </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{{ number_format($item->order_count) }}</td>
                                 </tr>
                                 @empty
@@ -372,11 +390,15 @@
                                 </div>
                                 <div>
                                     <span class="text-gray-600 dark:text-gray-400">Subtotal:</span>
-                                    <span class="ml-2 text-gray-900 dark:text-gray-100">₦{{ number_format($sale->subtotal, 2) }}</span>
+                                    <span class="ml-2 text-gray-900 dark:text-gray-100">
+                                        {{ \App\Helpers\LocalizationHelper::formatCurrency($sale->subtotal ?? 0) }}
+                                    </span>
                                 </div>
                                 <div>
                                     <span class="text-gray-600 dark:text-gray-400">Total:</span>
-                                    <span class="ml-2 font-semibold text-gray-900 dark:text-gray-100">₦{{ number_format($sale->total, 2) }}</span>
+                                    <span class="ml-2 font-semibold text-gray-900 dark:text-gray-100">
+                                        {{ \App\Helpers\LocalizationHelper::formatCurrency($sale->total ?? 0) }}
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -390,6 +412,10 @@
                 </div>
             </div>
         </div>
+
+        @php
+            $currencyCode = \App\Helpers\Settings::currencyLocalization('primary_currency', 'USD');
+        @endphp
 
         @push('scripts')
         <script src="https://code.highcharts.com/highcharts.js"></script>
@@ -408,7 +434,7 @@
                         categories: hourlyData.map(h => h.hour + ':00'),
                         title: { text: 'Hour' }
                     },
-                    yAxis: { title: { text: 'Sales (₦)' } },
+                    yAxis: { title: { text: `Sales (${currencyCode})` } },
                     series: [{
                         name: 'Sales',
                         data: hourlyData.map(h => parseFloat(h.total)),
@@ -453,7 +479,7 @@
                         categories: dailyData.map(d => new Date(d.date).toLocaleDateString()),
                         title: { text: 'Date' }
                     },
-                    yAxis: { title: { text: 'Amount (₦)' } },
+                    yAxis: { title: { text: `Amount (${currencyCode})` } },
                     series: [{
                         name: 'Total Sales',
                         data: dailyData.map(d => parseFloat(d.total)),
@@ -473,7 +499,7 @@
                     },
                     yAxis: {
                         min: 0,
-                        title: { text: 'Revenue (₦)' }
+                        title: { text: `Revenue (${currencyCode})` }
                     },
                     series: [{
                         name: 'Revenue',
