@@ -70,7 +70,11 @@ class Items extends BaseComponent
 
     public ?float $max_stock_level = null;
 
+    public ?float $unit_price = null;
+
     public string $status = 'active';
+
+    public bool $requires_request = false;
 
     public bool $isEditing = false;
 
@@ -142,7 +146,10 @@ class Items extends BaseComponent
             'uom_id' => $this->uom_id,
             'reorder_level' => $this->reorder_level ?? 0,
             'max_stock_level' => $this->max_stock_level ?? 0,
+            'unit_price' => $this->unit_price ?? 0,
+            'last_unit_price' => $this->unit_price ?? 0,
             'status' => $this->status,
+            'requires_request' => (bool) $this->requires_request,
         ];
 
         // Only Super Admin level users can create items directly without approval
@@ -171,7 +178,9 @@ class Items extends BaseComponent
             'uom_id' => 'required|exists:units_of_measure,id',
             'reorder_level' => 'nullable|numeric|min:0',        // ← FIXED
             'max_stock_level' => 'nullable|numeric|min:0',      // ← also make sure this one is correct
+            'unit_price' => 'nullable|numeric|min:0',
             'status' => 'required|in:active,inactive',
+            'requires_request' => 'required|boolean',
         ];
 
         if ($this->isEditing) {
@@ -196,7 +205,9 @@ class Items extends BaseComponent
             $oldUom = $item->unitOfMeasure?->symbol;
             $oldReorderLevel = $item->reorder_level;
             $oldMaxStockLevel = $item->max_stock_level;
+            $oldUnitPrice = (float) ($item->unit_price ?? 0);
             $oldStatus = $item->status;
+            $oldRequiresRequest = (bool) $item->requires_request;
 
             $item->update($data);
 
@@ -218,8 +229,14 @@ class Items extends BaseComponent
             if ((float) $oldMaxStockLevel !== (float) $this->max_stock_level) {
                 $changes[] = "Max Stock: {$oldMaxStockLevel} → {$this->max_stock_level}";
             }
+            if ((float) $oldUnitPrice !== (float) ($this->unit_price ?? 0)) {
+                $changes[] = "Unit Price: {$oldUnitPrice} → ".($this->unit_price ?? 0);
+            }
             if ($oldStatus !== $this->status) {
                 $changes[] = "Status: {$oldStatus} → {$this->status}";
+            }
+            if ($oldRequiresRequest !== (bool) $this->requires_request) {
+                $changes[] = 'Requires Request: '.($oldRequiresRequest ? 'Yes' : 'No').' → '.($this->requires_request ? 'Yes' : 'No');
             }
 
             AuditService::log(
@@ -251,7 +268,8 @@ class Items extends BaseComponent
                 'create',
                 $item,
                 "Created item '{$item->name}' (SKU: {$item->sku}) in category '{$item->category}'. ".
-                "UOM: {$item->unitOfMeasure?->symbol}, Reorder Level: {$item->reorder_level}, Max Stock: {$item->max_stock_level}",
+                "UOM: {$item->unitOfMeasure?->symbol}, Reorder Level: {$item->reorder_level}, Max Stock: {$item->max_stock_level}, Unit Price: {$item->unit_price}, ".
+                'Requires Request: '.($item->requires_request ? 'Yes' : 'No'),
                 'completed'
             );
 
@@ -351,7 +369,9 @@ class Items extends BaseComponent
         $this->uom_id = $item->uom_id;
         $this->reorder_level = $item->reorder_level;
         $this->max_stock_level = $item->max_stock_level;
+        $this->unit_price = (float) ($item->unit_price ?? 0);
         $this->status = $item->status;
+        $this->requires_request = (bool) $item->requires_request;
         $this->isEditing = true;
         $this->showModal = true;
     }
@@ -411,6 +431,7 @@ class Items extends BaseComponent
         );
 
         $old = $stock->quantity_available;
+        $oldDamaged = $stock->quantity_damaged;
         $stock->update([
             'quantity_available' => $this->stockQuantity,
             'quantity_reserved' => $this->stockReserved,
@@ -420,19 +441,52 @@ class Items extends BaseComponent
 
         $actor = current_actor();
 
-        StockMovement::create([
-            'stock_id' => $stock->id,
-            'type' => 'adjustment',
-            'quantity' => abs($this->stockQuantity - $old),
-            'quantity_before' => $old,
-            'quantity_after' => $this->stockQuantity,
-            'reference_type' => null,
-            'reference_id' => null,
-            'moved_by_id' => $actor->id,
-            'moved_by_type' => get_class($actor),
-            'notes' => $this->stockNotes ?: 'Manual adjustment',
-            'movement_date' => now(),
-        ]);
+        $unitCost = (float) ($stock->average_cost ?? 0);
+        $quantityDiff = (float) $this->stockQuantity - (float) $old;
+        if ($quantityDiff != 0.0) {
+            StockMovement::create([
+                'stock_id' => $stock->id,
+                'type' => 'adjustment',
+                'adjustment_reason' => 'adjustment',
+                'quantity' => abs($quantityDiff),
+                'quantity_before' => $old,
+                'quantity_after' => $this->stockQuantity,
+                'unit_cost' => $unitCost,
+                'cost_impact' => abs($quantityDiff) * $unitCost,
+                'reference_type' => null,
+                'reference_id' => null,
+                'moved_by_id' => $actor->id,
+                'moved_by_type' => get_class($actor),
+                'approved_by_id' => $actor->id,
+                'approved_by_type' => get_class($actor),
+                'approved_at' => now(),
+                'notes' => $this->stockNotes ?: 'Manual adjustment',
+                'movement_date' => now(),
+            ]);
+        }
+
+        $damagedDiff = (float) $this->stockDamaged - (float) $oldDamaged;
+        if ($damagedDiff != 0.0) {
+            StockMovement::create([
+                'stock_id' => $stock->id,
+                'type' => 'damaged',
+                'adjustment_reason' => 'damage',
+                'quantity' => abs($damagedDiff),
+                'quantity_before' => $oldDamaged,
+                'quantity_after' => $this->stockDamaged,
+                'unit_cost' => $unitCost,
+                'cost_impact' => abs($damagedDiff) * $unitCost,
+                'reference_type' => null,
+                'reference_id' => null,
+                'moved_by_id' => $actor->id,
+                'moved_by_type' => get_class($actor),
+                'approved_by_id' => $actor->id,
+                'approved_by_type' => get_class($actor),
+                'approved_at' => now(),
+                'notes' => $this->stockNotes ?: 'Manual damage adjustment',
+                'movement_date' => now(),
+            ]);
+        }
 
         $this->toast()->success('Stock updated!')->send();
         $this->closeStockModal();
@@ -700,7 +754,9 @@ class Items extends BaseComponent
             $this->uom_id = $this->pendingItemData['uom_id'] ?? null;
             $this->reorder_level = $this->pendingItemData['reorder_level'] ?? null;
             $this->max_stock_level = $this->pendingItemData['max_stock_level'] ?? null;
+            $this->unit_price = $this->pendingItemData['unit_price'] ?? 0;
             $this->status = $this->pendingItemData['status'] ?? 'active';
+            $this->requires_request = (bool) ($this->pendingItemData['requires_request'] ?? false);
             $this->isEditing = $this->itemId ? true : false;
             $this->showModal = true;
         }
@@ -713,7 +769,9 @@ class Items extends BaseComponent
 
     private function resetForm()
     {
-        $this->reset(['itemId', 'name', 'sku', 'category', 'uom_id', 'reorder_level', 'max_stock_level', 'status', 'isEditing']);
+        $this->reset(['itemId', 'name', 'sku', 'category', 'uom_id', 'reorder_level', 'max_stock_level', 'unit_price', 'status', 'requires_request', 'isEditing']);
+        $this->unit_price = 0;
+        $this->requires_request = false;
     }
 
     public function updatedName()
@@ -767,9 +825,11 @@ class Items extends BaseComponent
                 ['index' => 'sku', 'label' => 'SKU'],
                 ['index' => 'name', 'label' => 'Item Name'],
                 ['index' => 'category', 'label' => 'Category'],
+                ['index' => 'requires_request', 'label' => 'Request Flow'],
                 ['index' => 'uom', 'label' => 'UOM'],
                 ['index' => 'stock', 'label' => 'Current Stock'],
                 ['index' => 'reorder_level', 'label' => 'Reorder Level'],
+                ['index' => 'unit_price', 'label' => 'Unit Price'],
                 ['index' => 'status', 'label' => 'Status'],
                 ['index' => 'action', 'label' => 'Actions', 'display' => true],
             ],
@@ -821,7 +881,7 @@ class Items extends BaseComponent
                 ->get();
 
             $csvData = [
-                ['SKU', 'Name', 'Category', 'Reorder Level', 'Status', 'UOM'],
+                ['SKU', 'Name', 'Category', 'Reorder Level', 'Unit Price', 'Status', 'UOM'],
             ];
 
             foreach ($items as $item) {
@@ -830,6 +890,7 @@ class Items extends BaseComponent
                     $item->name,
                     $item->category,
                     $item->reorder_level,
+                    $item->unit_price,
                     $item->status,
                     $item->uom,
                 ];

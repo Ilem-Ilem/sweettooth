@@ -8,6 +8,7 @@ use App\Models\Department;
 use App\Services\Reports\AnalyticsSnapshotReportService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
@@ -86,19 +87,21 @@ class RequestDispatchAnalytics extends Component
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
-        $requests = ItemRequest::where('branch_id', $branchId)
+        $requestsQuery = ItemRequest::where('branch_id', $branchId)
             ->whereBetween('request_date', [$dateFrom, $dateTo])
             ->when($this->departmentFilter, fn($q) => $q->where('department_id', $this->departmentFilter))
-            ->when($this->shiftFilter, fn($q) => $q->where('shift', $this->shiftFilter))
-            ->get();
+            ->when($this->shiftFilter, fn($q) => $q->where('shift', $this->shiftFilter));
+
+        $this->applyStatusFilter($requestsQuery);
+        $requests = $requestsQuery->get();
 
         return [
             'total_requests' => $requests->count(),
-            'pending' => $requests->where('status', 'pending')->count(),
-            'approved' => $requests->where('status', 'approved')->count(),
-            'rejected' => $requests->where('status', 'rejected')->count(),
-            'completed' => $requests->where('status', 'completed')->count(),
-            'partially_fulfilled' => $requests->where('status', 'partially_fulfilled')->count(),
+            'pending' => $requests->filter(fn($r) => Str::lower((string) $r->status) === 'pending')->count(),
+            'approved' => $requests->filter(fn($r) => Str::lower((string) $r->status) === 'approved')->count(),
+            'rejected' => $requests->filter(fn($r) => Str::lower((string) $r->status) === 'rejected')->count(),
+            'completed' => $requests->filter(fn($r) => Str::lower((string) $r->status) === 'completed')->count(),
+            'partially_fulfilled' => $requests->filter(fn($r) => Str::lower((string) $r->status) === 'partially_fulfilled')->count(),
         ];
     }
 
@@ -114,7 +117,7 @@ class RequestDispatchAnalytics extends Component
         $dispatches = ItemDispatch::where('branch_id', $branchId)
             ->whereBetween('dispatch_time', [$dateFrom, $dateTo])
             ->when($this->departmentFilter, function($q) {
-                $q->whereHas('request', fn($query) => $query->where('department_id', $this->departmentFilter));
+                $q->whereHas('itemRequest', fn($query) => $query->where('department_id', $this->departmentFilter));
             })
             ->get();
 
@@ -167,7 +170,7 @@ class RequestDispatchAnalytics extends Component
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
-        return DB::table('item_request_details')
+        $query = DB::table('item_request_details')
             ->join('item_requests', 'item_request_details.request_id', '=', 'item_requests.id')
             ->join('items', 'item_request_details.item_id', '=', 'items.id')
             ->leftJoin('units_of_measure', 'items.uom_id', '=', 'units_of_measure.id')
@@ -186,8 +189,11 @@ class RequestDispatchAnalytics extends Component
             )
             ->groupBy('items.id', 'items.name', 'items.sku', 'units_of_measure.name')
             ->orderByDesc('request_count')
-            ->limit(10)
-            ->get();
+            ->limit(10);
+
+        $this->applyStatusFilter($query, 'item_requests.status');
+
+        return $query->get();
     }
 
     /**
@@ -199,13 +205,16 @@ class RequestDispatchAnalytics extends Component
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
-        return ItemRequest::with('department')
+        $query = ItemRequest::with('department')
             ->where('branch_id', $branchId)
             ->whereBetween('request_date', [$dateFrom, $dateTo])
             ->when($this->shiftFilter, fn($q) => $q->where('shift', $this->shiftFilter))
-            ->select('department_id', 'status', DB::raw('COUNT(*) as count'))
-            ->groupBy('department_id', 'status')
-            ->get()
+            ->select('department_id', DB::raw('LOWER(status) as status'), DB::raw('COUNT(*) as count'))
+            ->groupBy('department_id', 'status');
+
+        $this->applyStatusFilter($query);
+
+        return $query->get()
             ->groupBy('department_id')
             ->map(function ($group, $deptId) {
                 $dept = Department::find($deptId);
@@ -231,12 +240,15 @@ class RequestDispatchAnalytics extends Component
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
-        return ItemRequest::where('branch_id', $branchId)
+        $query = ItemRequest::where('branch_id', $branchId)
             ->whereBetween('request_date', [$dateFrom, $dateTo])
             ->when($this->departmentFilter, fn($q) => $q->where('department_id', $this->departmentFilter))
-            ->select('shift', 'status', DB::raw('COUNT(*) as count'))
-            ->groupBy('shift', 'status')
-            ->get()
+            ->select('shift', DB::raw('LOWER(status) as status'), DB::raw('COUNT(*) as count'))
+            ->groupBy('shift', 'status');
+
+        $this->applyStatusFilter($query);
+
+        return $query->get()
             ->groupBy('shift')
             ->map(function ($group, $shift) {
                 return [
@@ -260,14 +272,18 @@ class RequestDispatchAnalytics extends Component
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
-        $approvedRequests = ItemRequest::where('branch_id', $branchId)
+        $approvedRequestsQuery = ItemRequest::where('branch_id', $branchId)
             ->whereIn('status', ['approved', 'completed'])
             ->whereNotNull('approved_at')
             ->whereBetween('request_date', [$dateFrom, $dateTo])
             ->when($this->departmentFilter, fn($q) => $q->where('department_id', $this->departmentFilter))
             ->when($this->shiftFilter, fn($q) => $q->where('shift', $this->shiftFilter))
             ->select('id', 'request_number', 'request_date', 'approved_at')
-            ->get()
+            ;
+
+        $this->applyStatusFilter($approvedRequestsQuery);
+
+        $approvedRequests = $approvedRequestsQuery->get()
             ->map(function ($request) {
                 $requestDate = Carbon::parse($request->request_date);
                 $approvedDate = Carbon::parse($request->approved_at);
@@ -300,11 +316,13 @@ class RequestDispatchAnalytics extends Component
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
-        $requests = ItemRequest::where('branch_id', $branchId)
+        $requestsQuery = ItemRequest::where('branch_id', $branchId)
             ->whereBetween('request_date', [$dateFrom, $dateTo])
             ->when($this->departmentFilter, fn($q) => $q->where('department_id', $this->departmentFilter))
-            ->when($this->shiftFilter, fn($q) => $q->where('shift', $this->shiftFilter))
-            ->get();
+            ->when($this->shiftFilter, fn($q) => $q->where('shift', $this->shiftFilter));
+
+        $this->applyStatusFilter($requestsQuery);
+        $requests = $requestsQuery->get();
 
         $total = $requests->count();
         $completed = $requests->where('status', 'completed')->count();
@@ -326,7 +344,7 @@ class RequestDispatchAnalytics extends Component
         $dateFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
-        return ItemRequest::where('branch_id', $branchId)
+        $query = ItemRequest::where('branch_id', $branchId)
             ->whereBetween('request_date', [$dateFrom, $dateTo])
             ->when($this->departmentFilter, fn($q) => $q->where('department_id', $this->departmentFilter))
             ->when($this->shiftFilter, fn($q) => $q->where('shift', $this->shiftFilter))
@@ -337,8 +355,11 @@ class RequestDispatchAnalytics extends Component
             )
             ->groupBy('date', 'status')
             ->orderBy('date', 'desc')
-            ->limit(84) // 14 days * 6 possible statuses
-            ->get()
+            ->limit(84);
+
+        $this->applyStatusFilter($query);
+
+        return $query->get()
             ->groupBy('date')
             ->map(function ($group, $date) {
                 return [
@@ -366,21 +387,25 @@ class RequestDispatchAnalytics extends Component
         $daysDiff = $dateFrom->diffInDays($dateTo);
 
         // Current period
-        $currentRequests = ItemRequest::where('branch_id', $branchId)
+        $currentQuery = ItemRequest::where('branch_id', $branchId)
             ->whereBetween('request_date', [$dateFrom, $dateTo])
             ->when($this->departmentFilter, fn($q) => $q->where('department_id', $this->departmentFilter))
-            ->when($this->shiftFilter, fn($q) => $q->where('shift', $this->shiftFilter))
-            ->count();
+            ->when($this->shiftFilter, fn($q) => $q->where('shift', $this->shiftFilter));
+
+        $this->applyStatusFilter($currentQuery);
+        $currentRequests = $currentQuery->count();
 
         // Previous period
-        $previousRequests = ItemRequest::where('branch_id', $branchId)
+        $previousQuery = ItemRequest::where('branch_id', $branchId)
             ->whereBetween('request_date', [
                 $dateFrom->copy()->subDays($daysDiff)->startOfDay(),
                 $dateFrom->copy()->subDay()->endOfDay()
             ])
             ->when($this->departmentFilter, fn($q) => $q->where('department_id', $this->departmentFilter))
-            ->when($this->shiftFilter, fn($q) => $q->where('shift', $this->shiftFilter))
-            ->count();
+            ->when($this->shiftFilter, fn($q) => $q->where('shift', $this->shiftFilter));
+
+        $this->applyStatusFilter($previousQuery);
+        $previousRequests = $previousQuery->count();
 
         $change = $previousRequests > 0 ? (($currentRequests - $previousRequests) / $previousRequests) * 100 : 0;
 
@@ -491,7 +516,6 @@ class RequestDispatchAnalytics extends Component
             $requestRows = ItemRequest::with(['department', 'requestedBy', 'approver', 'requestDetails'])
                 ->where('branch_id', $branchId)
                 ->whereBetween('request_date', [$dateFrom, $dateTo])
-                ->when($this->statusFilter, fn($q) => $q->where('status', $this->statusFilter))
                 ->when($this->departmentFilter, fn($q) => $q->where('department_id', $this->departmentFilter))
                 ->when($this->shiftFilter, fn($q) => $q->where('shift', $this->shiftFilter))
                 ->when($this->searchTerm, function ($q) {
@@ -505,7 +529,11 @@ class RequestDispatchAnalytics extends Component
                             });
                     });
                 })
-                ->latest('request_date')
+                ;
+
+            $this->applyStatusFilter($requestRows);
+
+            $requestRows = $requestRows->latest('request_date')
                 ->limit(300)
                 ->get()
                 ->map(function ($request) {
@@ -587,10 +615,9 @@ class RequestDispatchAnalytics extends Component
         $dateTo = Carbon::parse($this->dateTo)->endOfDay();
 
         // Main requests table with all filters applied
-        $requests = ItemRequest::with(['department', 'requestedBy', 'approver', 'requestDetails'])
+        $requestsQuery = ItemRequest::with(['department', 'requestedBy', 'approver', 'requestDetails'])
             ->where('branch_id', $branchId)
             ->whereBetween('request_date', [$dateFrom, $dateTo])
-            ->when($this->statusFilter, fn($q) => $q->where('status', $this->statusFilter))
             ->when($this->departmentFilter, fn($q) => $q->where('department_id', $this->departmentFilter))
             ->when($this->shiftFilter, fn($q) => $q->where('shift', $this->shiftFilter))
             ->when($this->searchTerm, function($q) {
@@ -604,8 +631,10 @@ class RequestDispatchAnalytics extends Component
                         });
                 });
             })
-            ->latest('request_date')
-            ->paginate(15);
+            ;
+
+        $this->applyStatusFilter($requestsQuery);
+        $requests = $requestsQuery->latest('request_date')->paginate(15);
 
         $departments = Department::orderBy('name')->get();
         $statuses = ['pending', 'approved', 'rejected', 'completed', 'partially_fulfilled'];
@@ -628,5 +657,31 @@ class RequestDispatchAnalytics extends Component
             'periodComparison' => $this->getPeriodComparison(),
             'smartInsights' => $this->getSmartInsights(),
         ]);
+    }
+
+    private function statusFilterValues(): ?array
+    {
+        $status = trim((string) $this->statusFilter);
+        if ($status === '') {
+            return null;
+        }
+
+        $status = Str::lower($status);
+        if ($status === 'approved') {
+            return ['approved', 'completed'];
+        }
+
+        return [$status];
+    }
+
+    private function applyStatusFilter($query, string $column = 'status'): void
+    {
+        $values = $this->statusFilterValues();
+        if (! $values) {
+            return;
+        }
+
+        $placeholders = implode(',', array_fill(0, count($values), '?'));
+        $query->whereRaw("LOWER({$column}) in ({$placeholders})", $values);
     }
 }

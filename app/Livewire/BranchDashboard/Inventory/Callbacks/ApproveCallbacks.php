@@ -3,8 +3,8 @@
 namespace App\Livewire\BranchDashboard\Inventory\Callbacks;
 
 use App\Livewire\BaseComponent;
+use App\Enums\CallbackStatus;
 use App\Models\ProductionCallback;
-use App\Models\Shift;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
@@ -198,23 +198,14 @@ class ApproveCallbacks extends BaseComponent
             }
 
             // Get current employee ID
-            $employeeId = $this->getEmployeeId();
-            if (! $employeeId) {
-                $this->toast()->error('Employee not found. Please ensure you are logged in.')->send();
+            $actor = current_actor();
+            if (! $actor) {
+                $this->toast()->error('No authenticated actor found. Please ensure you are logged in.')->send();
 
                 return;
             }
 
-            $callback->approve($employeeId);
-
-            // Update stock based on source_type
-            if ($callback->isRawMaterial()) {
-                // Raw material return: Update Stock
-                $this->handleRawMaterialCallback($callback);
-            } elseif ($callback->isFinishedProduct()) {
-                // Finished product reject: Update DailyProduce
-                $this->handleFinishedProductCallback($callback);
-            }
+            $callback->approve($actor);
 
             DB::commit();
 
@@ -272,14 +263,14 @@ class ApproveCallbacks extends BaseComponent
             }
 
             // Get current employee ID
-            $employeeId = $this->getEmployeeId();
-            if (! $employeeId) {
-                $this->toast()->error('Employee not found. Please ensure you are logged in.')->send();
+            $actor = current_actor();
+            if (! $actor) {
+                $this->toast()->error('No authenticated actor found. Please ensure you are logged in.')->send();
 
                 return;
             }
 
-            $callback->reject($employeeId, $this->rejectReason);
+            $callback->reject($actor, $this->rejectReason);
 
             DB::commit();
 
@@ -311,7 +302,7 @@ class ApproveCallbacks extends BaseComponent
                 return;
             }
 
-            if ($callback->status !== 'approved_by_inventory') {
+            if ($callback->status !== CallbackStatus::APPROVED_BY_INVENTORY) {
                 $this->toast()->error('Callback must be approved before completion. Current status: '.$callback->formatted_status)->send();
 
                 return;
@@ -335,91 +326,17 @@ class ApproveCallbacks extends BaseComponent
         }
     }
 
-    protected function getEmployeeId()
-    {
-        // Get the authenticated user's employee ID
-        return session('employee_id') ?? auth()->user()?->employee_id ?? null;
-    }
-
     public function getStatusBadgeClass($status)
     {
-        return match ($status) {
+        $value = $status instanceof CallbackStatus ? $status->value : $status;
+
+        return match ($value) {
             'pending' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
             'approved_by_inventory' => 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
             'completed' => 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
             'rejected' => 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
             default => 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400',
         };
-    }
-
-    /**
-     * Handle raw material callback stock updates
-     */
-    protected function handleRawMaterialCallback(ProductionCallback $callback): void
-    {
-        if (! $callback->item_id) {
-            throw new \Exception('Raw material callback missing item_id');
-        }
-
-        // Get the branch ID from the shift
-        $branchId = $callback->shift->branch_id ?? $this->getBranchId();
-
-        // Find the stock record for this item and branch
-        $stock = \App\Models\Stock::where('item_id', $callback->item_id)
-            ->where('branch_id', $branchId)
-            ->first();
-
-        if (! $stock) {
-            throw new \Exception('Stock record not found for item ID: '.$callback->item_id);
-        }
-
-        // Decrease available quantity and increase damaged quantity
-        $stock->quantity_available = max(0, $stock->quantity_available - $callback->quantity);
-        $stock->quantity_damaged = $stock->quantity_damaged + $callback->quantity;
-        $stock->save();
-
-        // Log the stock movement (optional but recommended)
-        \App\Models\StockMovement::create([
-            'stock_id' => $stock->id,
-            'type' => 'callback',
-            'quantity' => -$callback->quantity,
-            'reference_type' => 'production_callback',
-            'reference_id' => $callback->id,
-            'notes' => 'Production callback: '.$callback->reason.' (Callback #'.$callback->id.')',
-            'movement_date' => now(),
-        ]);
-    }
-
-    /**
-     * Handle finished product callback updates
-     */
-    protected function handleFinishedProductCallback(ProductionCallback $callback): void
-    {
-        if (! $callback->product_id) {
-            throw new \Exception('Finished product callback missing product_id');
-        }
-
-        // Find the DailyProduce record for this shift and recipe/product
-        // First, get the recipe for this product
-        $recipe = \App\Models\Recipe::where('product_id', $callback->product_id)->first();
-
-        if (! $recipe) {
-            throw new \Exception('Recipe not found for product ID: '.$callback->product_id);
-        }
-
-        $dailyProduce = \App\Models\DailyProduce::where('shift_id', $callback->shift_id)
-            ->where('recipe_id', $recipe->id)
-            ->first();
-
-        if (! $dailyProduce) {
-            throw new \Exception('DailyProduce record not found for shift ID: '.$callback->shift_id.' and recipe ID: '.$recipe->id);
-        }
-
-        // Increase callback quantity
-        $dailyProduce->callback_quantity = $dailyProduce->callback_quantity + $callback->quantity;
-
-        // Recalculate expected closing and variance
-        $dailyProduce->updateCalculations();
     }
 
     public function render()
@@ -432,19 +349,19 @@ class ApproveCallbacks extends BaseComponent
 
             'pending' => ProductionCallback::whereHas('shift', function ($q) {
                 $q->where('branch_id', $this->getBranchId());
-            })->where('status', 'pending')->count(),
+            })->where('status', CallbackStatus::PENDING->value)->count(),
 
             'approved' => ProductionCallback::whereHas('shift', function ($q) {
                 $q->where('branch_id', $this->getBranchId());
-            })->where('status', 'approved_by_inventory')->count(),
+            })->where('status', CallbackStatus::APPROVED_BY_INVENTORY->value)->count(),
 
             'completed' => ProductionCallback::whereHas('shift', function ($q) {
                 $q->where('branch_id', $this->getBranchId());
-            })->where('status', 'completed')->count(),
+            })->where('status', CallbackStatus::COMPLETED->value)->count(),
 
             'rejected' => ProductionCallback::whereHas('shift', function ($q) {
                 $q->where('branch_id', $this->getBranchId());
-            })->where('status', 'rejected')->count(),
+            })->where('status', CallbackStatus::REJECTED->value)->count(),
         ];
 
         return view('livewire.branch-dashboard.inventory.callbacks.approve-callbacks', [

@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Enums\CallbackStatus;
 use App\Models\ProductDispatchCallback;
 use App\Models\User;
 use App\Services\SidebarVisibilityService;
@@ -101,7 +102,7 @@ class HandleStuckCallbacksJob implements ShouldQueue
             Log::warning('Stuck callback detected', [
                 'callback_id' => $callback->id,
                 'product' => $callback->product?->name,
-                'status' => $callback->status,
+                'status' => $callback->formatted_status ?? ($callback->status instanceof CallbackStatus ? $callback->status->value : $callback->status),
                 'hours_stuck' => $hoursStuck,
                 'branch_id' => $branchId,
                 'callback_time' => $callback->callback_time,
@@ -124,7 +125,8 @@ class HandleStuckCallbacksJob implements ShouldQueue
      */
     protected function addEscalationNote(ProductDispatchCallback $callback, int $hoursStuck): void
     {
-        $note = "\n[ESCALATED " . now()->format('Y-m-d H:i') . "]: Callback has been stuck in '{$callback->status}' status for {$hoursStuck} hours.";
+        $statusLabel = $callback->formatted_status ?? ($callback->status instanceof CallbackStatus ? $callback->status->value : $callback->status);
+        $note = "\n[ESCALATED " . now()->format('Y-m-d H:i') . "]: Callback has been stuck in '{$statusLabel}' status for {$hoursStuck} hours.";
 
         $callback->update([
             'notes' => ($callback->notes ?? '') . $note,
@@ -149,8 +151,8 @@ class HandleStuckCallbacksJob implements ShouldQueue
         }
 
         // Group callbacks by status
-        $pendingCount = $callbacks->where('status', 'pending')->count();
-        $approvedCount = $callbacks->where('status', 'approved_by_production')->count();
+        $pendingCount = $callbacks->where('status', CallbackStatus::PENDING)->count();
+        $approvedCount = $callbacks->where('status', CallbackStatus::APPROVED_BY_PRODUCTION)->count();
 
         $message = "Stuck Callbacks Alert:\n";
         $message .= "- {$pendingCount} callbacks pending for over {$this->pendingTimeoutHours} hours\n";

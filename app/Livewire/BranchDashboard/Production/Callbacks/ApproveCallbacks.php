@@ -3,6 +3,7 @@
 namespace App\Livewire\BranchDashboard\Production\Callbacks;
 
 use App\Livewire\BaseComponent;
+use App\Enums\CallbackStatus;
 use App\Models\ProductDispatchCallback;
 use App\Models\ProductDispatch;
 use Illuminate\Support\Facades\DB;
@@ -291,7 +292,7 @@ class ApproveCallbacks extends BaseComponent
                 return;
             }
 
-            if ($callback->status !== 'received_by_production') {
+            if ($callback->status !== CallbackStatus::RECEIVED_BY_PRODUCTION) {
                 $this->toast()->error('Callback must be received before completion. Current status: ' . $callback->formatted_status)->send();
                 return;
             }
@@ -347,10 +348,10 @@ class ApproveCallbacks extends BaseComponent
 
                 return [
                     'total' => (clone $baseQuery)->count(),
-                    'pending' => (clone $baseQuery)->where('status', 'pending')->count(),
-                    'approved' => (clone $baseQuery)->where('status', 'approved_by_production')->count(),
-                    'received' => (clone $baseQuery)->where('status', 'received_by_production')->count(),
-                    'completed' => (clone $baseQuery)->where('status', 'completed')->count(),
+                    'pending' => (clone $baseQuery)->where('status', CallbackStatus::PENDING->value)->count(),
+                    'approved' => (clone $baseQuery)->where('status', CallbackStatus::APPROVED_BY_PRODUCTION->value)->count(),
+                    'received' => (clone $baseQuery)->where('status', CallbackStatus::RECEIVED_BY_PRODUCTION->value)->count(),
+                    'completed' => (clone $baseQuery)->where('status', CallbackStatus::COMPLETED->value)->count(),
                     'stuck' => (clone $baseQuery)->stuck()->count(),
                 ];
             }
@@ -361,7 +362,9 @@ class ApproveCallbacks extends BaseComponent
 
     public function getStatusBadgeClass($status)
     {
-        return match ($status) {
+        $value = $status instanceof CallbackStatus ? $status->value : $status;
+
+        return match ($value) {
             'pending' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
             'approved_by_production' => 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
             'received_by_production' => 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',

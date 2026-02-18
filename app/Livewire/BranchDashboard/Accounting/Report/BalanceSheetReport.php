@@ -30,13 +30,14 @@ class BalanceSheetReport extends Component
 
     public function render()
     {
+        $branchId = current_branch_id();
         if ($this->isComparative && $this->comparePeriodId) {
-            $data = $this->bsService->getComparativeBalanceSheet($this->periodId, $this->comparePeriodId);
+            $data = $this->bsService->getComparativeBalanceSheet($this->periodId, $this->comparePeriodId, $branchId);
         } else {
-            $data = $this->bsService->getBalanceSheet($this->periodId);
+            $data = $this->bsService->getBalanceSheet($this->periodId, $branchId);
         }
 
-        $ratios = $this->bsService->getFinancialRatios($this->periodId);
+        $ratios = $this->bsService->getFinancialRatios($this->periodId, $branchId);
 
         return view('livewire.branch-dashboard.accounting.report.balance-sheet-report', [
             'data' => $data,
@@ -59,7 +60,7 @@ class BalanceSheetReport extends Component
 
     public function exportToCsv()
     {
-        $data = $this->bsService->exportBalanceSheet($this->periodId);
+        $data = $this->bsService->exportBalanceSheet($this->periodId, current_branch_id());
         $filename = 'balance_sheet_'.now()->format('Y-m-d_His').'.csv';
 
         return response()->streamDownload(function () use ($data) {

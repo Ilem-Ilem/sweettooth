@@ -438,10 +438,6 @@
                 
                 <flux:navlist.group :heading="__('Reports')" expandable
                     :expanded="request()->routeIs('branch-dashboard.accounting.reports.*')" class="grid">
-                    <flux:navlist.item icon="document-text" :href="branch_route('branch-dashboard.accounting.reports.unified')"
-                        :current="request()->routeIs('branch-dashboard.accounting.reports.unified')" wire:navigate>
-                        {{ __('Unified Reports') }}
-                    </flux:navlist.item>
                     <flux:navlist.item icon="list-bullet" :href="branch_route('branch-dashboard.accounting.reports.general-ledger')"
                         :current="request()->routeIs('branch-dashboard.accounting.reports.general-ledger')" wire:navigate>
                         {{ __('General Ledger') }}

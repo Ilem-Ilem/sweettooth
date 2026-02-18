@@ -237,21 +237,54 @@ class Stocks extends BaseComponent
             }
 
             // Record stock movement if quantity changed
+            $unitCost = (float) ($this->average_cost ?? $oldAverageCost);
+            $actorId = Auth::guard('web')->id();
+
             if ((float) $oldQuantityAvailable != (float) $this->quantity_available) {
                 $quantityDiff = (float) $this->quantity_available - (float) $oldQuantityAvailable;
 
                 StockMovement::create([
                     'stock_id' => $stock->id,
-                    'type' => $quantityDiff > 0 ? 'adjustment' : 'adjustment',
+                    'type' => 'adjustment',
+                    'adjustment_reason' => 'adjustment',
                     'quantity' => (float) abs($quantityDiff),
                     'quantity_before' => (float) $oldQuantityAvailable,
                     'quantity_after' => (float) $this->quantity_available,
+                    'unit_cost' => $unitCost,
+                    'cost_impact' => (float) abs($quantityDiff) * $unitCost,
                     'reference_type' => null,
                     'reference_id' => null,
-                    'moved_by_id' => Auth::guard('web')->id(),
+                    'moved_by_id' => $actorId,
                     'moved_by_type' => \App\Models\Employee::class,
+                    'approved_by_id' => $actorId,
+                    'approved_by_type' => \App\Models\Employee::class,
+                    'approved_at' => now(),
                     'movement_date' => now(),
                     'notes' => $this->notes ?: 'Manual stock adjustment from Stocks page',
+                ]);
+            }
+
+            if ((float) $oldQuantityDamaged != (float) $this->quantity_damaged) {
+                $damagedDiff = (float) $this->quantity_damaged - (float) $oldQuantityDamaged;
+
+                StockMovement::create([
+                    'stock_id' => $stock->id,
+                    'type' => 'damaged',
+                    'adjustment_reason' => 'damage',
+                    'quantity' => (float) abs($damagedDiff),
+                    'quantity_before' => (float) $oldQuantityDamaged,
+                    'quantity_after' => (float) $this->quantity_damaged,
+                    'unit_cost' => $unitCost,
+                    'cost_impact' => (float) abs($damagedDiff) * $unitCost,
+                    'reference_type' => null,
+                    'reference_id' => null,
+                    'moved_by_id' => $actorId,
+                    'moved_by_type' => \App\Models\Employee::class,
+                    'approved_by_id' => $actorId,
+                    'approved_by_type' => \App\Models\Employee::class,
+                    'approved_at' => now(),
+                    'movement_date' => now(),
+                    'notes' => $this->notes ?: 'Manual damage adjustment from Stocks page',
                 ]);
             }
 

@@ -504,7 +504,7 @@ class Index extends BaseComponent
     protected function getRolesGroupedByDepartment()
     {
         $query = Role::where('guard_name', 'web')
-            ->where('name', '!=', 'MD');
+            ->where('name', '!=', 'Managing Director');
 
         // Apply search filter if provided
         if (! empty($this->roleSearch)) {
@@ -569,7 +569,7 @@ class Index extends BaseComponent
         $statuses = ['active', 'inactive', 'terminated', 'on_probation', 'on_leave'];
         $genders = ['male', 'female', 'other', 'prefer_not_to_say'];
         $shifts = ['morning', 'afternoon', 'night', 'rotating', 'flexible'];
-        $roles = Role::where('guard_name', 'web')->where('name', '!=', 'MD')->get();
+        $roles = Role::where('guard_name', 'web')->where('name', '!=', 'Managing Director')->get();
         $rolesGroupedByDepartment = $this->getRolesGroupedByDepartment();
 
         return view('livewire.branch-dashboard.employee-module.index', [

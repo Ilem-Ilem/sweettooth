@@ -16,6 +16,11 @@ use App\Models\CreditNote;
 use App\Models\DebitNote;
 use App\Models\ProductionOrder;
 use App\Models\InventoryAdjustment;
+use App\Models\Payroll;
+use App\Models\PurchasePayment;
+use App\Models\TaxPayment;
+use App\Models\FixedAsset;
+use App\Models\AssetDepreciation;
 use App\Observers\DepartmentObserver;
 use App\Observers\SalesPageObserver;
 use App\Observers\RoleObserver;
@@ -30,6 +35,11 @@ use App\Observers\CreditNoteObserver;
 use App\Observers\DebitNoteObserver;
 use App\Observers\ProductionOrderObserver;
 use App\Observers\InventoryAdjustmentObserver;
+use App\Observers\PayrollObserver;
+use App\Observers\PurchasePaymentObserver;
+use App\Observers\TaxPaymentObserver;
+use App\Observers\FixedAssetObserver;
+use App\Observers\AssetDepreciationObserver;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -71,6 +81,11 @@ class AppServiceProvider extends ServiceProvider
         DebitNote::observe(DebitNoteObserver::class);
         ProductionOrder::observe(ProductionOrderObserver::class);
         InventoryAdjustment::observe(InventoryAdjustmentObserver::class);
+        Payroll::observe(PayrollObserver::class);
+        PurchasePayment::observe(PurchasePaymentObserver::class);
+        TaxPayment::observe(TaxPaymentObserver::class);
+        FixedAsset::observe(FixedAssetObserver::class);
+        AssetDepreciation::observe(AssetDepreciationObserver::class);
 
         // Register morph aliases for polymorphic relationships
         Relation::morphMap([

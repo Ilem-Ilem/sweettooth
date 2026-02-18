@@ -86,6 +86,9 @@ class InventoryApprovalService
 
             $oldQuantity = (float) $stock->quantity_available;
             $newQuantity = (float) ($payload['quantity_available'] ?? 0);
+            $oldDamaged = (float) $stock->quantity_damaged;
+            $newDamaged = (float) ($payload['quantity_damaged'] ?? 0);
+            $unitCost = (float) ($payload['average_cost'] ?? $stock->average_cost ?? 0);
 
             // Update stock
             $stock->update([
@@ -106,20 +109,51 @@ class InventoryApprovalService
                 ]);
             }
 
-            // Record stock movement
-            StockMovement::create([
-                'stock_id' => $stock->id,
-                'type' => 'adjustment',
-                'quantity' => (float) abs($newQuantity - $oldQuantity),
-                'quantity_before' => $oldQuantity,
-                'quantity_after' => $newQuantity,
-                'reference_type' => ApprovalAuditRequest::class,
-                'reference_id' => $request->id,
-                'moved_by_id' => $approver->id,
-                'moved_by_type' => get_class($approver),
-                'notes' => 'Approved adjustment: ' . ($payload['notes'] ?? ''),
-                'movement_date' => now(),
-            ]);
+            $quantityDiff = (float) ($newQuantity - $oldQuantity);
+            if ($quantityDiff != 0.0) {
+                StockMovement::create([
+                    'stock_id' => $stock->id,
+                    'type' => 'adjustment',
+                    'adjustment_reason' => 'adjustment',
+                    'quantity' => (float) abs($quantityDiff),
+                    'quantity_before' => $oldQuantity,
+                    'quantity_after' => $newQuantity,
+                    'unit_cost' => $unitCost,
+                    'cost_impact' => (float) abs($quantityDiff) * $unitCost,
+                    'reference_type' => ApprovalAuditRequest::class,
+                    'reference_id' => $request->id,
+                    'moved_by_id' => $approver->id,
+                    'moved_by_type' => get_class($approver),
+                    'approved_by_id' => $approver->id,
+                    'approved_by_type' => get_class($approver),
+                    'approved_at' => now(),
+                    'notes' => 'Approved adjustment: ' . ($payload['notes'] ?? ''),
+                    'movement_date' => now(),
+                ]);
+            }
+
+            $damagedDiff = (float) ($newDamaged - $oldDamaged);
+            if ($damagedDiff != 0.0) {
+                StockMovement::create([
+                    'stock_id' => $stock->id,
+                    'type' => 'damaged',
+                    'adjustment_reason' => 'damage',
+                    'quantity' => (float) abs($damagedDiff),
+                    'quantity_before' => $oldDamaged,
+                    'quantity_after' => $newDamaged,
+                    'unit_cost' => $unitCost,
+                    'cost_impact' => (float) abs($damagedDiff) * $unitCost,
+                    'reference_type' => ApprovalAuditRequest::class,
+                    'reference_id' => $request->id,
+                    'moved_by_id' => $approver->id,
+                    'moved_by_type' => get_class($approver),
+                    'approved_by_id' => $approver->id,
+                    'approved_by_type' => get_class($approver),
+                    'approved_at' => now(),
+                    'notes' => 'Approved damage adjustment: ' . ($payload['notes'] ?? ''),
+                    'movement_date' => now(),
+                ]);
+            }
 
             return $stock;
         });

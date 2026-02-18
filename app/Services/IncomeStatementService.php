@@ -12,29 +12,30 @@ class IncomeStatementService
     /**
      * Get income statement (P&L) for a period
      */
-    public function getIncomeStatement(?int $periodId = null): array
+    public function getIncomeStatement(?int $periodId = null, ?string $branchId = null): array
     {
+        $branchId = $branchId ?? current_branch_id();
         // Revenue accounts (4000-4099)
-        $revenues = $this->getAccountsByRange(4000, 4099, $periodId);
+        $revenues = $this->getAccountsByRange(4000, 4099, $periodId, $branchId);
         $totalRevenue = $revenues->sum('balance');
 
         // COGS accounts (5000-5099)
-        $cogs = $this->getAccountsByRange(5000, 5099, $periodId);
+        $cogs = $this->getAccountsByRange(5000, 5099, $periodId, $branchId);
         $totalCogs = $cogs->sum('balance');
 
         // Gross Profit
         $grossProfit = $totalRevenue - $totalCogs;
 
         // Operating Expenses (6000-6999)
-        $opex = $this->getAccountsByRange(6000, 6999, $periodId);
+        $opex = $this->getAccountsByRange(6000, 6999, $periodId, $branchId);
         $totalOpex = $opex->sum('balance');
 
         // Administrative Expenses (7000-7999)
-        $admin = $this->getAccountsByRange(7000, 7999, $periodId);
+        $admin = $this->getAccountsByRange(7000, 7999, $periodId, $branchId);
         $totalAdmin = $admin->sum('balance');
 
         // Finance Costs (8000-8999)
-        $finance = $this->getAccountsByRange(8000, 8999, $periodId);
+        $finance = $this->getAccountsByRange(8000, 8999, $periodId, $branchId);
         $totalFinance = $finance->sum('balance');
 
         // Total Expenses
@@ -47,7 +48,7 @@ class IncomeStatementService
         $ebt = $ebit - $totalFinance;
 
         // Taxes (9000-9999)
-        $taxes = $this->getAccountsByRange(9000, 9999, $periodId);
+        $taxes = $this->getAccountsByRange(9000, 9999, $periodId, $branchId);
         $totalTaxes = $taxes->sum('balance');
 
         // Net Income
@@ -98,6 +99,7 @@ class IncomeStatementService
         int $startNumber,
         int $endNumber,
         ?int $periodId = null,
+        ?string $branchId = null,
     ) {
         $accounts = GlAccount::where('is_active', true)
             ->whereBetween('account_number', [(string)$startNumber, (string)$endNumber])
@@ -105,8 +107,8 @@ class IncomeStatementService
             ->orderBy('account_number')
             ->get();
 
-        return $accounts->map(function ($account) use ($periodId) {
-            $balance = $this->getAccountBalance($account->id, $periodId);
+        return $accounts->map(function ($account) use ($periodId, $branchId) {
+            $balance = $this->getAccountBalance($account->id, $periodId, $branchId);
             return [
                 'account_id' => $account->id,
                 'account_number' => $account->account_number,
@@ -120,10 +122,14 @@ class IncomeStatementService
     /**
      * Get account balance
      */
-    protected function getAccountBalance(int $accountId, ?int $periodId = null): float
+    protected function getAccountBalance(int $accountId, ?int $periodId = null, ?string $branchId = null): float
     {
         $query = GlEntry::where('gl_account_id', $accountId)
             ->where('status', 'posted');
+
+        if ($branchId) {
+            $query->where('branch_id', $branchId);
+        }
 
         if ($periodId) {
             $query->where('accounting_period_id', $periodId);
@@ -146,9 +152,10 @@ class IncomeStatementService
     public function getComparativeIncomeStatement(
         ?int $periodId1 = null,
         ?int $periodId2 = null,
+        ?string $branchId = null,
     ): array {
-        $is1 = $this->getIncomeStatement($periodId1);
-        $is2 = $this->getIncomeStatement($periodId2);
+        $is1 = $this->getIncomeStatement($periodId1, $branchId);
+        $is2 = $this->getIncomeStatement($periodId2, $branchId);
 
         return [
             'period1' => $is1,
@@ -169,9 +176,9 @@ class IncomeStatementService
     /**
      * Export income statement
      */
-    public function exportIncomeStatement(?int $periodId = null): array
+    public function exportIncomeStatement(?int $periodId = null, ?string $branchId = null): array
     {
-        $is = $this->getIncomeStatement($periodId);
+        $is = $this->getIncomeStatement($periodId, $branchId);
 
         $data = [
             ['INCOME STATEMENT', '', ''],

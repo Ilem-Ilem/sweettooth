@@ -7,9 +7,9 @@ use App\Models\Branch;
 use App\Models\Employee;
 
 /**
- * Admin Dashboard - Administrative/MD level view
+ * Admin Dashboard - Administrative/Managing Director level view
  * 
- * Provides Admin/MD roles with:
+ * Provides Admin/Managing Director roles with:
  * - Branch-wide statistics
  * - Employee management overview
  * - Report summaries

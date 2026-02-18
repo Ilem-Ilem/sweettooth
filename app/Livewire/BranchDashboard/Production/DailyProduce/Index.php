@@ -8,6 +8,7 @@ use App\Models\Department;
 use App\Models\Product;
 use App\Models\ProductDispatch;
 use App\Models\ProductionRequest;
+use App\Models\SalesProductionItemMaterialRequest;
 use App\Models\SalesProductionRequestItem;
 use App\Models\Shift;
 use App\Services\ProductionAuditService;
@@ -50,6 +51,7 @@ class Index extends Component
     public $batchQuantities = []; // Stores sent_out and order quantities for each batch
     public $batchSalesDepartments = []; // Stores sales_department_id for each batch (legacy)
     public $batchDispatches = []; // Stores multiple dispatch allocations per batch: [[sales_dept_id, quantity], ...]
+    public $batchDispatchLocks = []; // batch_id => true when dispatch rows already exist (immutable allocations)
     public $batchAllowedSalesDepartments = []; // batch_id => allowed sales_department_id (if restricted)
     public $batchSalesDepartmentOptions = []; // batch_id => options allowed for UI selection
     public $batchProductAllowedSalesDepartmentIds = []; // batch_id => enforceable allowed IDs by product ownership
@@ -224,6 +226,7 @@ class Index extends Component
         }
 
         $this->salesRequestLimits = [];
+        $this->batchDispatchLocks = [];
         $this->batchAllowedSalesDepartments = [];
         $this->batchSalesDepartmentOptions = [];
         $this->batchProductAllowedSalesDepartmentIds = [];
@@ -265,6 +268,13 @@ class Index extends Component
                         ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
                         : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200');
                 
+                $requestedBatches = (int) ($prodRequest->batches_requested
+                    ?? ($recipe && $recipe->yield_quantity > 0
+                        ? ceil(((float) $prodRequest->planned_production_quantity) / (float) $recipe->yield_quantity)
+                        : 0));
+                $producedBatches = (int) ($prodRequest->batches_produced ?? 0);
+                $pendingBatches = max(0, (int) ($prodRequest->batches_pending ?? ($requestedBatches - $producedBatches)));
+
                 return [
                     'id' => $prodRequest->id,
                     'recipe_id' => $recipe?->id,
@@ -292,6 +302,9 @@ class Index extends Component
                     'computed_status' => $computedStatus,
                     'status_badge_color' => $statusBadge,
                     'production_records_count' => 0,
+                    'requested_batches' => $requestedBatches,
+                    'produced_batches' => $producedBatches,
+                    'pending_batches' => $pendingBatches,
                     'manual_status' => null,
                     'is_no_shift' => true,
                     'request_source_label' => $sourceLabel,
@@ -349,10 +362,17 @@ class Index extends Component
             $requestedUnits = $salesDemandContext['requested_units'];
             $recipeProductId = $this->resolveProductIdForRecipe($produce->recipe);
             $productAllowedDeptIds = $this->resolveAllowedSalesDepartmentIdsForProduct($recipeProductId);
+            if ($allowedSalesDeptId && ! in_array((int) $allowedSalesDeptId, $productAllowedDeptIds, true)) {
+                $productAllowedDeptIds[] = (int) $allowedSalesDeptId;
+            }
             $productAllowedDeptOptions = $this->filterSalesDepartmentsByIds($productAllowedDeptIds);
             if ($allowedSalesDeptId) {
                 $this->salesRequestLimits[$produce->id] = $requestedUnits;
             }
+
+            $requestedBatches = (int) ($productionRequest?->batches_requested ?? 0);
+            $producedBatches = (int) ($productionRequest?->batches_produced ?? 0);
+            $pendingBatches = (int) ($productionRequest?->batches_pending ?? 0);
 
             // Get item request status from ItemRequest model (not ProductionRequest)
             $itemRequestStatus = 'N/A';
@@ -410,7 +430,9 @@ class Index extends Component
                             'status' => $dispatch->status,
                         ];
                     })->toArray();
+                $isDispatchLocked = count($existingDispatches) > 0;
 
+                $this->batchDispatchLocks[$batch->id] = $isDispatchLocked;
                 $this->batchAllowedSalesDepartments[$batch->id] = $allowedSalesDeptId;
                 $this->batchProductAllowedSalesDepartmentIds[$batch->id] = $productAllowedDeptIds;
 
@@ -437,10 +459,12 @@ class Index extends Component
                     'production_time' => $batch->production_time->format('M d, h:i A'),
                     'produced_by' => $batch->producedBy->name ?? 'N/A',
                     'dispatches' => $existingDispatches,
+                    'dispatch_locked' => $isDispatchLocked,
                     'allowed_sales_department_id' => $allowedSalesDeptId,
                     'product_allowed_sales_department_ids' => $productAllowedDeptIds,
                 ];
             })->toArray();
+            $totalRejectedQty = (float) $produce->productionRecords->sum('quantity_rejected');
 
             return [
                 'id' => $produce->id,
@@ -452,6 +476,7 @@ class Index extends Component
                 'requested_units' => $requestedUnits,
                 'excess_to_stock' => $requestedUnits !== null ? max(0, (float) $produce->requested_quantity - $requestedUnits) : 0,
                 'produced_quantity' => (float) $actualProducedQty,
+                'rejected_quantity' => $totalRejectedQty,
                 'net_available' => (float) $produce->getNetAvailable(),
                 'sent_out_quantity' => (float) $produce->sent_out_quantity,
                 'order_quantity' => (float) $produce->order_quantity,
@@ -462,6 +487,9 @@ class Index extends Component
                 'has_variance_issue' => $produce->hasVarianceIssue(),
                 'variance_percentage' => $produce->getVariancePercentage(),
                 'production_records_count' => $produce->productionRecords->count(),
+                'requested_batches' => $requestedBatches,
+                'produced_batches' => $producedBatches,
+                'pending_batches' => $pendingBatches,
 
                 // Computed status based on ItemRequest and production progress
                 'computed_status' => $produce->getComputedProductionStatus(),
@@ -668,7 +696,7 @@ class Index extends Component
     public function updateQuantity($produceId, $field)
     {
         try {
-            $produce = DailyProduce::with(['recipe', 'shift'])->find($produceId);
+            $produce = DailyProduce::with(['recipe', 'shift', 'productionRecords:id,daily_produce_id'])->find($produceId);
 
             if (!$produce) {
                 $this->toast()->error('Daily produce record not found.')->send();
@@ -680,6 +708,18 @@ class Index extends Component
 
             // CRITICAL VALIDATION: Prevent sending out more than available
             if ($field === 'sent_out_quantity') {
+                $hasLockedBatchDispatches = ProductDispatch::query()
+                    ->whereHas('productionRecord', function ($query) use ($produce) {
+                        $query->where('daily_produce_id', $produce->id);
+                    })
+                    ->exists();
+
+                if ($hasLockedBatchDispatches && abs($newValue - $oldValue) > 0.0001) {
+                    $this->toast()->error('Sent Out is locked after batch dispatch. Use callbacks to reverse dispatched stock.')->send();
+                    $this->editingQuantities[$produceId][$field] = $oldValue;
+                    return;
+                }
+
                 $netAvailable = $produce->getNetAvailable();
                 $requestedQty = (float) $produce->requested_quantity;
                 $salesRequestedUnits = $this->getSalesRequestedUnitsLimit($produce);
@@ -718,12 +758,13 @@ class Index extends Component
             // Update the field from editing quantities array
             $produce->$field = $newValue;
 
-            // Auto-calculate closing quantity when any quantity field changes
-            // This prevents variance issues
-            $produce->closing_quantity = $produce->opening_quantity +
-                                        $produce->getNetAvailable() -
-                                        $produce->sent_out_quantity -
-                                        $produce->order_quantity;
+            // Auto-calculate closing quantity for flow fields, but respect manual physical count edits.
+            if ($field !== 'closing_quantity') {
+                $produce->closing_quantity = $produce->opening_quantity +
+                                            $produce->getNetAvailable() -
+                                            $produce->sent_out_quantity -
+                                            $produce->order_quantity;
+            }
 
             // Recalculate expected closing and variance
             $produce->updateCalculations();
@@ -750,10 +791,23 @@ class Index extends Component
                         continue;
                     }
 
+                    $newSentOut = (float) ($quantities['sent_out_quantity'] ?? 0);
+                    $oldSentOutCurrent = (float) $produce->sent_out_quantity;
+                    $hasLockedBatchDispatches = ProductDispatch::query()
+                        ->whereHas('productionRecord', function ($query) use ($produce) {
+                            $query->where('daily_produce_id', $produce->id);
+                        })
+                        ->exists();
+
+                    if ($hasLockedBatchDispatches && abs($newSentOut - $oldSentOutCurrent) > 0.0001) {
+                        throw new \RuntimeException('Sent Out is locked after batch dispatch. Use callbacks to reverse dispatched stock.');
+                    }
+
                     // Store old values for audit trail
                     $oldSentOut = $produce->sent_out_quantity;
                     $oldOrder = $produce->order_quantity;
                     $oldCallback = $produce->callback_quantity;
+                    $oldClosing = (float) $produce->closing_quantity;
 
                     // Update ONLY editable quantities (produced is auto-calculated)
                     $produce->sent_out_quantity = (float) ($quantities['sent_out_quantity'] ?? 0);
@@ -763,12 +817,18 @@ class Index extends Component
                     // Auto-update produced quantity from production records
                     $produce->produced_quantity = $produce->getTotalProducedFromRecords();
 
-                    // Auto-update closing quantity to match expected closing (prevents variance issues)
-                    // User can manually override if needed, but default to calculated value
-                    $produce->closing_quantity = $produce->opening_quantity +
-                                                $produce->getNetAvailable() -
-                                                $produce->sent_out_quantity -
-                                                $produce->order_quantity;
+                    $newClosing = (float) ($quantities['closing_quantity'] ?? $oldClosing);
+                    $closingWasEdited = abs($newClosing - $oldClosing) > 0.0001;
+
+                    // If closing was edited, respect physical count. Otherwise keep auto-calculated closing.
+                    if ($closingWasEdited) {
+                        $produce->closing_quantity = $newClosing;
+                    } else {
+                        $produce->closing_quantity = $produce->opening_quantity +
+                                                    $produce->getNetAvailable() -
+                                                    $produce->sent_out_quantity -
+                                                    $produce->order_quantity;
+                    }
 
                     // Recalculate expected closing and variance
                     $produce->updateCalculations();
@@ -830,7 +890,7 @@ class Index extends Component
         $requestedQty = (float) ($this->recordingProduce->requested_quantity ?? 0);
         $yieldPerBatch = (float) ($this->recordingProduce->recipe->yield_quantity ?? 0);
         if ($requestedQty > 0 && $yieldPerBatch > 0) {
-            $this->batchesProduced = max(0.01, $requestedQty / $yieldPerBatch);
+            $this->batchesProduced = max(1, (int) ceil($requestedQty / $yieldPerBatch));
             $this->batchQuantityProduced = $requestedQty;
             $this->batchQuantityApproved = $requestedQty;
             $this->batchQuantityRejected = 0;
@@ -884,7 +944,7 @@ class Index extends Component
         if ($this->recordingProduce && $this->recordingProduce->recipe) {
             $yieldPerBatch = (float) $this->recordingProduce->recipe->yield_quantity;
             if ($yieldPerBatch > 0) {
-                $this->batchesProduced = max(0.01, (float) $this->batchQuantityProduced / $yieldPerBatch);
+                $this->batchesProduced = max(1, (int) round((float) $this->batchQuantityProduced / $yieldPerBatch));
             }
         }
 
@@ -919,7 +979,7 @@ class Index extends Component
         }
 
         $this->validate([
-            'batchesProduced' => 'required|numeric|min:0.01',
+            'batchesProduced' => 'required|integer|min:1',
             'batchQuantityProduced' => 'required|numeric|min:0.01',
             'batchQuantityApproved' => 'required|numeric|min:0',
             'batchQuantityRejected' => 'required|numeric|min:0',
@@ -927,6 +987,7 @@ class Index extends Component
         ], [
             'batchesProduced.required' => 'Number of batches is required',
             'batchesProduced.min' => 'Number of batches must be greater than 0',
+            'batchesProduced.integer' => 'Number of batches must be a whole number',
             'batchQuantityProduced.required' => 'Quantity produced is required',
             'batchQuantityProduced.min' => 'Quantity produced must be greater than 0',
         ]);
@@ -1024,6 +1085,7 @@ class Index extends Component
                                         $produce->order_quantity;
 
             $produce->updateCalculations();
+            $produce->syncBatchFulfillmentFields();
 
             $this->toast()->success("Production batch recorded successfully! Total produced: {$totalProduced}")->send();
             $this->closeRecordModal();
@@ -1109,6 +1171,13 @@ class Index extends Component
      */
     public function addBatchDispatch($batchId)
     {
+        $batchId = (int) $batchId;
+        if ($this->isBatchDispatchLocked($batchId, true)) {
+            $this->toast()->error('Dispatch is locked for this batch. Use callbacks to reverse or adjust dispatched stock.')->send();
+
+            return;
+        }
+
         if (!isset($this->batchDispatches[$batchId])) {
             $this->batchDispatches[$batchId] = [];
         }
@@ -1143,6 +1212,13 @@ class Index extends Component
      */
     public function removeBatchDispatch($batchId, $dispatchIndex)
     {
+        $batchId = (int) $batchId;
+        if ($this->isBatchDispatchLocked($batchId, true)) {
+            $this->toast()->error('Dispatch is locked for this batch. Use callbacks to reverse or adjust dispatched stock.')->send();
+
+            return;
+        }
+
         if (isset($this->batchDispatches[$batchId][$dispatchIndex])) {
             unset($this->batchDispatches[$batchId][$dispatchIndex]);
             // Reindex array
@@ -1157,6 +1233,14 @@ class Index extends Component
      */
     public function updateBatchDispatch($batchId, $dispatchIndex, $field, $value)
     {
+        $batchId = (int) $batchId;
+        if ($this->isBatchDispatchLocked($batchId, true)) {
+            $this->toast()->error('Dispatch is locked for this batch. Use callbacks to reverse or adjust dispatched stock.')->send();
+            $this->loadDailyProduces();
+
+            return;
+        }
+
         if (isset($this->batchDispatches[$batchId][$dispatchIndex])) {
             $this->batchDispatches[$batchId][$dispatchIndex][$field] = $value;
             $this->updateBatchTotals($batchId);
@@ -1170,7 +1254,17 @@ class Index extends Component
     {
         // Extract batchId from the key (format: "batchId.index.field")
         $parts = explode('.', $key);
-        $batchId = $parts[0];
+        $batchId = isset($parts[0]) ? (int) $parts[0] : 0;
+        if ($batchId <= 0) {
+            return;
+        }
+
+        if ($this->isBatchDispatchLocked($batchId, true)) {
+            $this->toast()->error('Dispatch is locked for this batch. Use callbacks to reverse or adjust dispatched stock.')->send();
+            $this->loadDailyProduces();
+
+            return;
+        }
 
         // Validate dispatch allocations don't exceed approved quantity
         $this->validateBatchDispatches($batchId);
@@ -1183,6 +1277,10 @@ class Index extends Component
      */
     private function validateBatchDispatches($batchId)
     {
+        if ($this->isBatchDispatchLocked((int) $batchId)) {
+            return;
+        }
+
         $batch = \App\Models\ProductionRecord::find($batchId);
         if (!$batch) return;
 
@@ -1195,10 +1293,41 @@ class Index extends Component
         }
 
         $availableForDispatch = max(0, $approvedQuantity - $forOrder);
+        $salesRemainingForBatch = null;
         $totalDispatched = 0;
 
         $restrictedDeptId = $this->batchAllowedSalesDepartments[$batchId] ?? null;
         $allowedDeptIds = $this->getBatchAllowedDepartmentIds((int) $batchId);
+
+        // Sales-demand cap: do not allow allocations beyond requested sales units across all batches.
+        $dailyProduce = $batch->dailyProduce;
+        if ($dailyProduce) {
+            $salesRequestedUnits = $this->getSalesRequestedUnitsLimit($dailyProduce);
+            if ($salesRequestedUnits !== null) {
+                $allocatedAcrossProduce = 0.0;
+                $currentBatchAllocated = 0.0;
+
+                foreach ($dailyProduce->productionRecords as $batchRecord) {
+                    $allocated = 0.0;
+                    if (isset($this->batchDispatches[$batchRecord->id])) {
+                        foreach ($this->batchDispatches[$batchRecord->id] as $dispatchRow) {
+                            $allocated += (float) ($dispatchRow['quantity'] ?? 0);
+                        }
+                    } else {
+                        $allocated = (float) ($batchRecord->quantity_sent_out ?? 0);
+                    }
+
+                    $allocatedAcrossProduce += $allocated;
+                    if ((int) $batchRecord->id === (int) $batchId) {
+                        $currentBatchAllocated = $allocated;
+                    }
+                }
+
+                $otherBatchesAllocated = max(0, $allocatedAcrossProduce - $currentBatchAllocated);
+                $salesRemainingForBatch = max(0, (float) $salesRequestedUnits - $otherBatchesAllocated);
+                $availableForDispatch = min($availableForDispatch, $salesRemainingForBatch);
+            }
+        }
 
         if (isset($this->batchDispatches[$batchId])) {
             foreach ($this->batchDispatches[$batchId] as $index => $dispatch) {
@@ -1236,7 +1365,11 @@ class Index extends Component
                 if ($quantity > $remainingForBatch) {
                     // Reset to maximum allowed
                     $this->batchDispatches[$batchId][$index]['quantity'] = $remainingForBatch;
-                    $this->toast()->error("Dispatch quantity cannot exceed available batch quantity ({$remainingForBatch})!")->send();
+                    if ($salesRemainingForBatch !== null) {
+                        $this->toast()->error("Dispatch quantity cannot exceed sales demand remaining ({$remainingForBatch}) for this batch.")->send();
+                    } else {
+                        $this->toast()->error("Dispatch quantity cannot exceed available batch quantity ({$remainingForBatch})!")->send();
+                    }
                 }
 
                 $totalDispatched += (float) $this->batchDispatches[$batchId][$index]['quantity'];
@@ -1245,7 +1378,11 @@ class Index extends Component
 
         // Check total doesn't exceed approved
         if ($totalDispatched > $availableForDispatch) {
-            $this->toast()->error("Total dispatch allocations ({$totalDispatched}) cannot exceed available batch quantity ({$availableForDispatch})!")->send();
+            if ($salesRemainingForBatch !== null) {
+                $this->toast()->error("Total dispatch allocations ({$totalDispatched}) cannot exceed sales demand remaining ({$availableForDispatch}) for this batch.")->send();
+            } else {
+                $this->toast()->error("Total dispatch allocations ({$totalDispatched}) cannot exceed available batch quantity ({$availableForDispatch})!")->send();
+            }
 
             // Reset all dispatches to zero to prevent invalid state
             foreach ($this->batchDispatches[$batchId] as $index => $dispatch) {
@@ -1261,6 +1398,17 @@ class Index extends Component
     {
         $batch = \App\Models\ProductionRecord::find($batchId);
         if (!$batch) return;
+
+        if ($this->isBatchDispatchLocked((int) $batchId, true)) {
+            $totalSentOut = (float) ProductDispatch::query()
+                ->where('production_record_id', $batch->id)
+                ->sum('quantity');
+
+            $this->batchQuantities[$batchId]['quantity_sent_out'] = $totalSentOut;
+            $this->updateBatchQuantity($batchId, 'quantity_sent_out');
+
+            return;
+        }
 
         // Calculate total sent out from all dispatches
         $totalSentOut = 0;
@@ -1295,6 +1443,13 @@ class Index extends Component
             // Skip sales department validation for quantity_sent_out since dispatch allocations are now handled separately
             // through the batchDispatches array which supports multiple allocations per batch
             if ($field === 'quantity_sent_out') {
+                if ($this->isBatchDispatchLocked((int) $batchId, true)) {
+                    $newValue = (float) ProductDispatch::query()
+                        ->where('production_record_id', $batch->id)
+                        ->sum('quantity');
+                    $this->batchQuantities[$batchId]['quantity_sent_out'] = $newValue;
+                }
+
                 // The quantity_sent_out is now calculated based on all dispatch allocations in batchDispatches
                 // Validation happens in the dispatch allocation UI, not here
             }
@@ -1402,7 +1557,11 @@ class Index extends Component
                 if ($salesRequestedUnits !== null) {
                     $totalAcrossBatches = 0;
                     foreach ($produce->productionRecords as $batch) {
-                        if (isset($this->batchDispatches[$batch->id])) {
+                        if ($this->isBatchDispatchLocked((int) $batch->id, true)) {
+                            $totalAcrossBatches += (float) ProductDispatch::query()
+                                ->where('production_record_id', $batch->id)
+                                ->sum('quantity');
+                        } elseif (isset($this->batchDispatches[$batch->id])) {
                             foreach ($this->batchDispatches[$batch->id] as $dispatchData) {
                                 $totalAcrossBatches += (float) ($dispatchData['quantity'] ?? 0);
                             }
@@ -1414,21 +1573,55 @@ class Index extends Component
                 }
 
                 foreach ($produce->productionRecords as $batch) {
+                    $isDispatchLocked = $this->isBatchDispatchLocked((int) $batch->id, true);
+                    $lockedDispatchTotal = 0.0;
+                    if ($isDispatchLocked) {
+                        $existingDispatches = ProductDispatch::query()
+                            ->where('production_record_id', $batch->id)
+                            ->get(['sales_department_id', 'quantity']);
+                        $lockedDispatchRows = $existingDispatches->map(static function ($dispatch): array {
+                            return [
+                                'sales_department_id' => (int) $dispatch->sales_department_id,
+                                'quantity' => (float) $dispatch->quantity,
+                            ];
+                        })->all();
+                        $lockedDispatchTotal = (float) $existingDispatches->sum('quantity');
+
+                        $incomingDispatchRows = $this->batchDispatches[$batch->id] ?? $lockedDispatchRows;
+                        if ($this->normalizeDispatchAllocations($incomingDispatchRows) !== $this->normalizeDispatchAllocations($lockedDispatchRows)) {
+                            throw new \RuntimeException("Batch {$batch->batch_number} dispatch is locked. Use callbacks to reverse or adjust dispatched stock.");
+                        }
+
+                        $this->batchDispatches[$batch->id] = $lockedDispatchRows;
+                        $this->batchQuantities[$batch->id]['quantity_sent_out'] = $lockedDispatchTotal;
+                    }
+
                     $restrictedDeptId = (int) ($this->batchAllowedSalesDepartments[$batch->id] ?? 0);
                     $productAllowedDeptIds = $this->getBatchAllowedDepartmentIds((int) $batch->id);
-                    if ($restrictedDeptId > 0) {
+                    if ($restrictedDeptId > 0 && ! $isDispatchLocked) {
                         // Ensure sales-request batches use dispatch allocations, not for_order.
                         $this->normalizeLockedSalesBatchAllocations($batch->id, $restrictedDeptId);
                     }
 
                     // Update batch quantities (legacy support)
-                    if (isset($this->batchQuantities[$batch->id])) {
-                        $batch->quantity_sent_out = (float) ($this->batchQuantities[$batch->id]['quantity_sent_out'] ?? 0);
-                        $batch->quantity_for_order = (float) ($this->batchQuantities[$batch->id]['quantity_for_order'] ?? 0);
-                        $batch->updateQuantityRemaining();
+                    if (! isset($this->batchQuantities[$batch->id])) {
+                        $this->batchQuantities[$batch->id] = [
+                            'quantity_sent_out' => (float) $batch->quantity_sent_out,
+                            'quantity_for_order' => (float) $batch->quantity_for_order,
+                        ];
                     }
 
+                    $batch->quantity_sent_out = $isDispatchLocked
+                        ? $lockedDispatchTotal
+                        : (float) ($this->batchQuantities[$batch->id]['quantity_sent_out'] ?? 0);
+                    $batch->quantity_for_order = (float) ($this->batchQuantities[$batch->id]['quantity_for_order'] ?? 0);
+                    $batch->updateQuantityRemaining();
+
                     // Create/update product dispatches from batchDispatches
+                    if ($isDispatchLocked) {
+                        continue;
+                    }
+
                     if (isset($this->batchDispatches[$batch->id])) {
                         $approvedQuantity = (float) $batch->quantity_approved;
                         $forOrder = (float) ($this->batchQuantities[$batch->id]['quantity_for_order'] ?? $batch->quantity_for_order);
@@ -1587,6 +1780,51 @@ class Index extends Component
 
         $this->batchQuantities[$batchId]['quantity_sent_out'] = $totalSentOut;
         $this->batchQuantities[$batchId]['quantity_for_order'] = 0;
+    }
+
+    private function isBatchDispatchLocked(int $batchId, bool $fresh = false): bool
+    {
+        if (! $fresh && array_key_exists($batchId, $this->batchDispatchLocks)) {
+            return (bool) $this->batchDispatchLocks[$batchId];
+        }
+
+        $isLocked = ProductDispatch::query()
+            ->where('production_record_id', $batchId)
+            ->exists();
+
+        $this->batchDispatchLocks[$batchId] = $isLocked;
+
+        return $isLocked;
+    }
+
+    /**
+     * Normalize allocations to a deterministic [sales_department_id => quantity] map for immutable checks.
+     *
+     * @param  array<int, array<string, mixed>>  $dispatchRows
+     * @return array<int, float>
+     */
+    private function normalizeDispatchAllocations(array $dispatchRows): array
+    {
+        $normalized = [];
+
+        foreach ($dispatchRows as $dispatchRow) {
+            $salesDepartmentId = (int) ($dispatchRow['sales_department_id'] ?? 0);
+            $quantity = (float) ($dispatchRow['quantity'] ?? 0);
+
+            if ($salesDepartmentId <= 0 || $quantity <= 0) {
+                continue;
+            }
+
+            $normalized[$salesDepartmentId] = ($normalized[$salesDepartmentId] ?? 0.0) + $quantity;
+        }
+
+        ksort($normalized);
+
+        foreach ($normalized as $salesDepartmentId => $quantity) {
+            $normalized[$salesDepartmentId] = round((float) $quantity, 4);
+        }
+
+        return $normalized;
     }
 
     /**
@@ -1788,37 +2026,23 @@ class Index extends Component
             return $this->productSalesDepartmentIdsCache[$cacheKey] = [];
         }
 
-        $ownerDept = Department::query()
-            ->select('id', 'slug')
-            ->find((int) $product->sales_department_id);
+        $salesDepartmentId = (int) $product->sales_department_id;
+        $ownerDeptExists = Department::query()->whereKey($salesDepartmentId)->exists();
 
-        if (! $ownerDept) {
-            return $this->productSalesDepartmentIdsCache[$cacheKey] = [(int) $product->sales_department_id];
+        // Self-heal stale linkage (legacy DBs without FK or after manual deletes).
+        if (! $ownerDeptExists) {
+            try {
+                $product->sales_department_id = null;
+                $product->saveQuietly();
+            } catch (\Throwable $e) {
+                // Non-fatal: keep runtime behavior even if persistence fails.
+            }
+
+            return $this->productSalesDepartmentIdsCache[$cacheKey] = [];
         }
 
-        $branchId = $this->getBranchId();
-        $ids = Department::query()
-            ->whereHas('category', function ($query) {
-                $query->whereRaw('LOWER(name) = ?', ['sales']);
-            })
-            ->where('slug', $ownerDept->slug)
-            ->when($branchId, function ($query) use ($branchId) {
-                $query->where(function ($scopeQuery) use ($branchId) {
-                    $scopeQuery->where('branch_id', $branchId)
-                        ->orWhereNull('branch_id');
-                });
-            })
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->unique()
-            ->values()
-            ->all();
-
-        if (! in_array((int) $product->sales_department_id, $ids, true)) {
-            $ids[] = (int) $product->sales_department_id;
-        }
-
-        return $this->productSalesDepartmentIdsCache[$cacheKey] = array_values(array_unique($ids));
+        // Strict ID-based ownership: product can dispatch only to its primary sales_department_id.
+        return $this->productSalesDepartmentIdsCache[$cacheKey] = [$salesDepartmentId];
     }
 
     /**
@@ -1831,9 +2055,33 @@ class Index extends Component
             return [];
         }
 
-        return array_values(array_filter($this->salesDepartments, function (array $dept) use ($departmentIds): bool {
+        $filtered = array_values(array_filter($this->salesDepartments, function (array $dept) use ($departmentIds): bool {
             return in_array((int) ($dept['id'] ?? 0), $departmentIds, true);
         }));
+
+        $presentIds = array_values(array_map(static fn (array $dept): int => (int) ($dept['id'] ?? 0), $filtered));
+        $missingIds = array_values(array_diff(
+            array_values(array_unique(array_map(static fn ($id): int => (int) $id, $departmentIds))),
+            $presentIds
+        ));
+
+        // ID-based fallback: include explicitly allowed department IDs even when
+        // they are outside the preloaded "sales category" list for this branch context.
+        if (! empty($missingIds)) {
+            $fallback = Department::query()
+                ->whereIn('id', $missingIds)
+                ->get(['id', 'name', 'slug'])
+                ->map(static fn ($dept): array => [
+                    'id' => (int) $dept->id,
+                    'name' => (string) $dept->name,
+                    'slug' => $dept->slug,
+                ])
+                ->all();
+
+            $filtered = array_values(array_merge($filtered, $fallback));
+        }
+
+        return $filtered;
     }
 
     private function isSalesDepartmentAllowedForProduct(string $productId, int $salesDepartmentId): bool
@@ -1938,40 +2186,98 @@ class Index extends Component
         }
 
         if (
-            $productionRequest->source_type !== ProductionRequestSourceType::SALES_DEMAND->value
-            || empty($productionRequest->source_id)
+            $productionRequest->source_type === ProductionRequestSourceType::SALES_DEMAND->value
+            && ! empty($productionRequest->source_id)
         ) {
-            return $default;
-        }
+            $cacheKey = (string) $productionRequest->source_id;
+            if (array_key_exists($cacheKey, $this->salesDemandContextCache)) {
+                return $this->salesDemandContextCache[$cacheKey];
+            }
 
-        $cacheKey = (string) $productionRequest->source_id;
-        if (array_key_exists($cacheKey, $this->salesDemandContextCache)) {
-            return $this->salesDemandContextCache[$cacheKey];
-        }
+            $salesItem = SalesProductionRequestItem::query()
+                ->with('request.salesDepartment:id,name')
+                ->find((int) $productionRequest->source_id);
 
-        $salesItem = SalesProductionRequestItem::query()
-            ->with('request.salesDepartment:id,name')
-            ->find((int) $productionRequest->source_id);
+            if (! $salesItem || ! $salesItem->request) {
+                return $this->salesDemandContextCache[$cacheKey] = [
+                    'is_sales_request' => true,
+                    'sales_request_item_id' => null,
+                    'sales_department_id' => null,
+                    'sales_department_name' => null,
+                    'requested_units' => (float) $salesItem?->quantity_requested ?: null,
+                ];
+            }
 
-        if (! $salesItem || ! $salesItem->request) {
             return $this->salesDemandContextCache[$cacheKey] = [
                 'is_sales_request' => true,
-                'sales_request_item_id' => null,
-                'sales_department_id' => null,
-                'sales_department_name' => null,
-                'requested_units' => (float) $salesItem?->quantity_requested ?: null,
+                'sales_request_item_id' => (int) $salesItem->id,
+                'sales_department_id' => $salesItem->request->sales_department_id
+                    ? (int) $salesItem->request->sales_department_id
+                    : null,
+                'sales_department_name' => $salesItem->request->salesDepartment?->name,
+                'requested_units' => (float) $salesItem->quantity_requested,
             ];
         }
 
-        return $this->salesDemandContextCache[$cacheKey] = [
-            'is_sales_request' => true,
-            'sales_request_item_id' => (int) $salesItem->id,
-            'sales_department_id' => $salesItem->request->sales_department_id
-                ? (int) $salesItem->request->sales_department_id
-                : null,
-            'sales_department_name' => $salesItem->request->salesDepartment?->name,
-            'requested_units' => (float) $salesItem->quantity_requested,
-        ];
+        // Backward-compatible fallback: older execution rows may miss source_type/source_id
+        // but are still linked to sales demand via item_request_id.
+        if (! empty($productionRequest->item_request_id)) {
+            $cacheKey = 'itemreq:' . (string) $productionRequest->item_request_id;
+            if (array_key_exists($cacheKey, $this->salesDemandContextCache)) {
+                return $this->salesDemandContextCache[$cacheKey];
+            }
+
+            $materialLink = SalesProductionItemMaterialRequest::query()
+                ->with('salesItem.request.salesDepartment:id,name')
+                ->where('item_request_id', (int) $productionRequest->item_request_id)
+                ->latest('id')
+                ->first();
+
+            $salesItem = $materialLink?->salesItem;
+            if ($salesItem && $salesItem->request) {
+                return $this->salesDemandContextCache[$cacheKey] = [
+                    'is_sales_request' => true,
+                    'sales_request_item_id' => (int) $salesItem->id,
+                    'sales_department_id' => $salesItem->request->sales_department_id
+                        ? (int) $salesItem->request->sales_department_id
+                        : null,
+                    'sales_department_name' => $salesItem->request->salesDepartment?->name,
+                    'requested_units' => (float) $salesItem->quantity_requested,
+                ];
+            }
+        }
+
+        // Legacy fallback: execution request created from sales demand but not linked by source/item_request.
+        // We recover sales context from token in notes: [SPRI:<sales_item_id>]
+        if (! empty($productionRequest->notes)) {
+            if (preg_match('/\[SPRI:(\d+)\]/', (string) $productionRequest->notes, $matches) === 1) {
+                $salesItemId = (int) ($matches[1] ?? 0);
+                if ($salesItemId > 0) {
+                    $cacheKey = 'spri:' . $salesItemId;
+                    if (array_key_exists($cacheKey, $this->salesDemandContextCache)) {
+                        return $this->salesDemandContextCache[$cacheKey];
+                    }
+
+                    $salesItem = SalesProductionRequestItem::query()
+                        ->with('request.salesDepartment:id,name')
+                        ->find($salesItemId);
+
+                    if ($salesItem && $salesItem->request) {
+                        return $this->salesDemandContextCache[$cacheKey] = [
+                            'is_sales_request' => true,
+                            'sales_request_item_id' => (int) $salesItem->id,
+                            'sales_department_id' => $salesItem->request->sales_department_id
+                                ? (int) $salesItem->request->sales_department_id
+                                : null,
+                            'sales_department_name' => $salesItem->request->salesDepartment?->name,
+                            'requested_units' => (float) $salesItem->quantity_requested,
+                        ];
+                    }
+                }
+            }
+        }
+
+        return $default;
     }
 
     /**
@@ -2027,6 +2333,9 @@ class Index extends Component
             'opening_quantity' => $openingQty,
             'requested_quantity' => $productionRequest->planned_production_quantity,
             'produced_quantity' => 0,
+            'batches_produced_this_shift' => 0,
+            'batches_remaining' => $productionRequest->batches_requested,
+            'fulfillment_status' => 'pending',
             'sent_out_quantity' => 0,
             'order_quantity' => 0,
             'callback_quantity' => 0,

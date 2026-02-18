@@ -148,6 +148,34 @@ class Edit extends Component
         }
     }
 
+    /**
+     * When ingredient item changes, sync uom and default cost from item pricing.
+     */
+    public function updatedIngredients($value, $key): void
+    {
+        $parts = explode('.', $key);
+        if (count($parts) !== 2 || $parts[1] !== 'item_id' || empty($value)) {
+            return;
+        }
+
+        $index = (int) $parts[0];
+        $item = Item::where('branch_id', $this->getBranchId())
+            ->with(['stocks' => function ($query) {
+                $query->where('branch_id', $this->getBranchId());
+            }])->find($value);
+
+        if (! $item) {
+            return;
+        }
+
+        $stock = $item->stocks->first();
+        $itemUnitPrice = (float) ($item->unit_price ?? 0);
+        $stockAverageCost = (float) ($stock?->average_cost ?? 0);
+
+        $this->ingredients[$index]['uom'] = $item->uom ?? 'grams';
+        $this->ingredients[$index]['cost_per_unit'] = $itemUnitPrice > 0 ? $itemUnitPrice : $stockAverageCost;
+    }
+
     public function addIngredient()
     {
         $this->ingredients[] = [

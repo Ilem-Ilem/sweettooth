@@ -46,9 +46,9 @@ class ShiftConfigurationSeeder extends Seeder
                 [
                     'name' => 'Afternoon Shift',
                     'start_time' => '14:00:00',
-                    'end_time' => '22:00:00',
-                    'clock_in_start' => '13:30:00',
-                    'clock_in_end' => '14:30:00',
+                    'end_time' => '18:00:00',
+                    'clock_in_start' => '14:00:00',
+                    'clock_in_end' => '18:00:00',
                     'auto_clock_out_minutes' => 15,
                     'max_overtime_hours' => 2.00,
                     'break_duration_minutes' => 60,

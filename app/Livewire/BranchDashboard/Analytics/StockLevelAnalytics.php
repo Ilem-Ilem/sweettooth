@@ -7,6 +7,7 @@ use App\Models\StockMovement;
 use App\Services\Reports\AnalyticsSnapshotReportService;
 use App\Traits\Exportable;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\{Layout, Url};
@@ -371,13 +372,13 @@ class StockLevelAnalytics extends Component
     public function exportCSV()
     {
         $branchId = Auth::guard('web')->user()?->branch_id ?? request()->get('b_id');
-        return redirect(branch_route('branch-dashboard.exports.stock-level-analytics', [
-            'format' => 'csv',
-            'search' => $this->searchTerm,
-            'category' => $this->selectedCategory,
-            'health' => $this->healthFilter,
-            'b_id' => $branchId,
-        ]));
+        $stocks = $this->getFilteredStocksQuery($branchId)->get();
+
+        return $this->export(
+            'stock-level-analytics',
+            $stocks,
+            'exports.analytics.stock-level-analytics'
+        );
     }
 
     public function generateReport(): void
@@ -466,6 +467,9 @@ class StockLevelAnalytics extends Component
 
     private function getFilteredStocksQuery(?string $branchId)
     {
+        $selectedCategory = Str::of((string) $this->selectedCategory)->lower()->replace(' ', '_')->value();
+        $healthFilter = Str::of((string) $this->healthFilter)->lower()->value();
+
         return Stock::with(['item'])
             ->where('branch_id', $branchId)
             ->when($this->searchTerm, function ($query) {
@@ -474,13 +478,13 @@ class StockLevelAnalytics extends Component
                         ->orWhere('sku', 'like', '%' . $this->searchTerm . '%');
                 });
             })
-            ->when($this->selectedCategory, function ($query) {
-                $query->whereHas('item', function ($q) {
-                    $q->where('category', $this->selectedCategory);
+            ->when($selectedCategory, function ($query) use ($selectedCategory) {
+                $query->whereHas('item', function ($q) use ($selectedCategory) {
+                    $q->whereRaw("REPLACE(LOWER(category), ' ', '_') = ?", [$selectedCategory]);
                 });
             })
-            ->when($this->healthFilter, function ($query) {
-                $query->where('health_status', $this->healthFilter);
+            ->when($healthFilter, function ($query) use ($healthFilter) {
+                $query->whereRaw("LOWER(health_status) = ?", [$healthFilter]);
             });
     }
 

@@ -195,15 +195,14 @@ class ShiftNotificationService
             return null;
         }
 
-        $config = $shift->configuration;
         $now = Carbon::now();
-
-        // Calculate expected end time
-        $expectedEnd = Carbon::createFromTimeString($config->end_time)
-            ->setDateFrom($shift->shift_date);
+        $expectedEnd = $this->resolveShiftEndTime($shift);
+        if (! $expectedEnd) {
+            return null;
+        }
 
         // Check warning thresholds
-        $warningThresholds = [30, 15, 5]; // minutes before end
+        $warningThresholds = [30, 25, 15]; // minutes before end
 
         foreach ($warningThresholds as $threshold) {
             $warningTime = $expectedEnd->copy()->subMinutes($threshold);
@@ -225,16 +224,16 @@ class ShiftNotificationService
             return null;
         }
 
-        $config = $shift->configuration;
         $now = Carbon::now();
+        $expectedEnd = $this->resolveShiftEndTime($shift);
+        if (! $expectedEnd) {
+            return null;
+        }
 
-        // Calculate auto clock out time
-        $expectedEnd = Carbon::createFromTimeString($config->end_time)
-            ->setDateFrom($shift->shift_date);
-        $autoClockOutTime = $expectedEnd->copy()->addMinutes($config->auto_clock_out_minutes);
+        $autoClockOutTime = $expectedEnd->copy()->addMinutes((int) $shift->configuration->auto_clock_out_minutes);
 
         // Check warning thresholds
-        $warningThresholds = [10, 5, 1]; // minutes before auto clock out
+        $warningThresholds = [30, 25, 15]; // minutes before auto clock out
 
         foreach ($warningThresholds as $threshold) {
             $warningTime = $autoClockOutTime->copy()->subMinutes($threshold);
@@ -290,8 +289,10 @@ class ShiftNotificationService
         $now = Carbon::now();
 
         // Calculate times
-        $expectedEnd = Carbon::createFromTimeString($config->end_time)
-            ->setDateFrom($activeShift->shift_date);
+        $expectedEnd = $this->resolveShiftEndTime($activeShift);
+        if (! $expectedEnd) {
+            return ['status' => 'no_active_shift'];
+        }
         $autoClockOutTime = $expectedEnd->copy()->addMinutes($config->auto_clock_out_minutes);
 
         $minutesToEnd = $now->diffInMinutes($expectedEnd, false);
@@ -305,5 +306,36 @@ class ShiftNotificationService
             'warnings_needed' => $this->checkShiftEndingWarnings($activeShift) !== null,
             'auto_clock_warning_needed' => $this->checkAutoClockOutWarnings($activeShift) !== null
         ];
+    }
+
+    private function resolveShiftEndTime(Shift $shift): ?Carbon
+    {
+        if (! $shift->configuration) {
+            return null;
+        }
+
+        $shiftDate = $shift->shift_date instanceof Carbon
+            ? $shift->shift_date->toDateString()
+            : Carbon::parse($shift->shift_date)->toDateString();
+
+        $startTimeRaw = $shift->configuration->start_time instanceof Carbon
+            ? $shift->configuration->start_time->format('H:i:s')
+            : (string) $shift->configuration->start_time;
+        $endTimeRaw = $shift->configuration->end_time instanceof Carbon
+            ? $shift->configuration->end_time->format('H:i:s')
+            : (string) $shift->configuration->end_time;
+
+        try {
+            $start = Carbon::parse("{$shiftDate} {$startTimeRaw}");
+            $end = Carbon::parse("{$shiftDate} {$endTimeRaw}");
+
+            if ($end <= $start) {
+                $end->addDay();
+            }
+
+            return $end;
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 }

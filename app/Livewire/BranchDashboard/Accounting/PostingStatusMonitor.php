@@ -4,6 +4,7 @@ namespace App\Livewire\BranchDashboard\Accounting;
 
 use App\Models\Payment;
 use App\Models\Purchase;
+use App\Models\PurchasePayment;
 use App\Models\Sale;
 use App\Models\StockMovement;
 use App\Models\AccountingPostingFailure;
@@ -17,7 +18,7 @@ class PostingStatusMonitor extends Component
 {
     use WithPagination;
 
-    public string $transactionType = 'sales'; // sales, purchases, payments, adjustments
+    public string $transactionType = 'sales'; // sales, purchases, payments, purchase_payments, adjustments
 
     public string $status = 'all'; // all, pending, posted, failed
 
@@ -62,6 +63,15 @@ class PostingStatusMonitor extends Component
                     'posted' => Payment::where('gl_posting_status', 'posted')->count(),
                     'pending' => Payment::where('gl_posting_status', 'pending')->count(),
                     'failed' => Payment::where('gl_posting_status', 'failed')->count(),
+                ];
+                break;
+            case 'purchase_payments':
+                $failedTransactions = $this->getPurchasePaymentsData();
+                $stats = [
+                    'total' => PurchasePayment::count(),
+                    'posted' => PurchasePayment::where('gl_posting_status', 'posted')->count(),
+                    'pending' => PurchasePayment::where('gl_posting_status', 'pending')->count(),
+                    'failed' => PurchasePayment::where('gl_posting_status', 'failed')->count(),
                 ];
                 break;
 
@@ -126,6 +136,20 @@ class PostingStatusMonitor extends Component
             ->paginate($this->perPage);
     }
 
+    private function getPurchasePaymentsData()
+    {
+        $query = PurchasePayment::query();
+
+        if ($this->status !== 'all') {
+            $query->where('gl_posting_status', $this->status);
+        }
+
+        return $query
+            ->with(['purchase', 'bankAccount'])
+            ->orderBy('payment_date', 'desc')
+            ->paginate($this->perPage);
+    }
+
     private function getStockMovementsData()
     {
         $query = $this->adjustmentQuery();
@@ -161,6 +185,7 @@ class PostingStatusMonitor extends Component
             'sales' => Sale::find($transactionId),
             'purchases' => Purchase::find($transactionId),
             'payments' => Payment::find($transactionId),
+            'purchase_payments' => PurchasePayment::find($transactionId),
             'adjustments' => StockMovement::find($transactionId),
             default => null,
         };
@@ -178,6 +203,7 @@ class PostingStatusMonitor extends Component
                 'sales' => $postingService->postSaleTransaction($model),
                 'purchases' => $postingService->postPurchaseTransaction($model),
                 'payments' => $postingService->postPaymentTransaction($model),
+                'purchase_payments' => $postingService->postPurchasePayment($model),
                 'adjustments' => $postingService->postInventoryAdjustment($model),
                 default => null,
             };

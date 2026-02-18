@@ -138,18 +138,21 @@ class Add extends Component
             $itemId = $value;
 
             // Get item with stock details
-            $item = Item::with(['stocks' => function ($q) {
-                $q->where('branch_id', $this->getBranchId());
-            }])->find($itemId);
+            $item = Item::where('branch_id', $this->getBranchId())
+                ->with(['stocks' => function ($q) {
+                    $q->where('branch_id', $this->getBranchId());
+                }])->find($itemId);
 
             if ($item) {
                 // Get stock for this branch
                 $stock = $item->stocks->first();
+                $itemUnitPrice = (float) ($item->unit_price ?? 0);
+                $stockAverageCost = (float) ($stock?->average_cost ?? 0);
                 
                 // Auto-populate ingredient fields from item
                 $this->ingredients[$index]['quantity'] = null; // User must enter this
                 $this->ingredients[$index]['uom'] = $item->uom ?? 'grams';
-                $this->ingredients[$index]['cost_per_unit'] = $stock?->average_cost ?? 0;
+                $this->ingredients[$index]['cost_per_unit'] = $itemUnitPrice > 0 ? $itemUnitPrice : $stockAverageCost;
                 $this->ingredients[$index]['waste_percentage'] = 0;
             }
         }

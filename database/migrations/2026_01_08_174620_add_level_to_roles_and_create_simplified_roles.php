@@ -79,7 +79,8 @@ return new class extends Migration
         $managerRoles = [
             'Head of Production', 'Chef', 'Head of Gelato', 'Confectionaries Manager',
             'Sales Manager', 'HR Manager', 'Inventory Manager', 'Corner Store Manager',
-            'MD', 'Managing Director'
+            'Managing Director', 'Production Manager', 'Accounting Manager', 'Head Chef',
+            'Gelato Chef', 'Floor Manager',
         ];
         Role::whereIn('name', $managerRoles)->update(['level' => 3]);
 

@@ -9,6 +9,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ProductStock extends Model
 {
+    public static function normalizeShiftType(?string $shiftType): string
+    {
+        $shiftType = strtolower(trim((string) $shiftType));
+
+        if (in_array($shiftType, ['morning', 'afternoon'], true)) {
+            return $shiftType;
+        }
+
+        // Product stocks only support morning/afternoon. Map others (night, etc.) to afternoon.
+        return 'afternoon';
+    }
+
     protected $fillable = [
         'sales_shift_id',
         'department_id',

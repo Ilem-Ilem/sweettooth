@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\CallbackStatus;
 use App\Models\ProductDispatchCallback;
 use App\Models\User;
 use App\Services\SidebarVisibilityService;
@@ -152,7 +153,7 @@ class ProductDispatchCallbackPolicy
     public function delete(User $user, ProductDispatchCallback $callback): bool
     {
         // Only pending callbacks can be deleted
-        if ($callback->status !== 'pending') {
+        if ($callback->status !== CallbackStatus::PENDING) {
             return false;
         }
 

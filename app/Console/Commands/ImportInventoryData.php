@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use App\Models\Item;
 use App\Models\Stock;
+use App\Models\UnitOfMeasure;
 
 class ImportInventoryData extends Command
 {
@@ -65,12 +66,14 @@ class ImportInventoryData extends Command
                 }
 
                 // Create item
+                $uomId = $this->resolveUomId($measurement);
+
                 $item = Item::create([
                     'branch_id' => $branchId,
                     'name' => $product,
                     'sku' => $this->generateSku($product),
                     'category' => $this->classifyCategory($product),
-                    'uom' => $this->convertUom($measurement),
+                    'uom_id' => $uomId,
                     'status' => 'active',
                 ]);
 
@@ -221,6 +224,29 @@ class ImportInventoryData extends Command
             default:
                 return 'units'; // Default fallback
         }
+    }
+
+    private function resolveUomId($measurement): ?int
+    {
+        $codeMap = [
+            'grams' => 'g',
+            'kg' => 'kg',
+            'liters' => 'l',
+            'ml' => 'ml',
+            'pcs' => 'pcs',
+            'units' => 'unit',
+            'bags' => 'unit',
+            'cartons' => 'unit',
+        ];
+
+        $legacy = $this->convertUom($measurement);
+        $code = $codeMap[$legacy] ?? null;
+
+        if (! $code) {
+            return null;
+        }
+
+        return UnitOfMeasure::query()->where('code', $code)->value('id');
     }
 
     private function parseQuantity($quantity)

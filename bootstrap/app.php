@@ -55,7 +55,6 @@ return Application::configure(basePath: dirname(__DIR__))
         // Auto clock out expired shifts every 5 minutes during business hours
         $schedule->command('shifts:auto-clock-out')
             ->everyFiveMinutes()
-            ->between('6:00', '22:00') // Only during business hours
             ->withoutOverlapping(10) // 10 minute timeout
             ->runInBackground()
             ->evenInMaintenanceMode()
@@ -65,8 +64,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Send shift reminders every hour during business hours
         $schedule->command('shifts:send-reminders')
-            ->hourly()
-            ->between('7:00', '18:00')
+            ->everyFiveMinutes()
             ->withoutOverlapping()
             ->runInBackground();
 

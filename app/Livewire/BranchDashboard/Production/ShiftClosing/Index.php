@@ -233,7 +233,7 @@ class Index extends BaseComponent
 
                 $itemId = $item->id;
                 $actualQuantity = $detail->quantity_dispatched ?? 0;
-                $actualCost = $actualQuantity * ($item->average_cost ?? $detail->cost_per_unit ?? 0);
+                $actualCost = $actualQuantity * ((float) ($item->unit_price ?? $detail->cost_per_unit ?? 0));
 
                 if (isset($materialUsageByItem[$itemId])) {
                     $materialUsageByItem[$itemId]['actual_quantity'] += $actualQuantity;

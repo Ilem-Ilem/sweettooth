@@ -29,7 +29,7 @@ class ProcessExcelData extends Command
         $this->info('Starting Excel data extraction...');
         
         // Define the path to your Excel files
-        $dataDir = base_path('real data/');
+        $dataDir = base_path('real_data/');
         $outputFile = base_path('extracted_data.json');
 
         // Excel files to process
@@ -38,7 +38,8 @@ class ProcessExcelData extends Command
             'HOT KITCHEN RECIPES EXCEL.xlsx',
             'PRODUCTION_ANALYSIS_DECEMBER_2025.xlsx',
             'PRODUCTION_ANALYSIS_DECEMBER_2025 (1).xlsx',
-            'SWEETTOOTH PRODUCT PRICES.xlsx'
+            'SWEETTOOTH PRODUCT PRICES.xlsx',
+            'SWEETTOOTH STAFFS.xlsx'
         ];
 
         $extractedData = [];

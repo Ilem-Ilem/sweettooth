@@ -33,7 +33,7 @@ class AuthService
      * 
      * Super admins have any of these roles:
      * - super-admin / Super Admin / super_admin
-     * - MD / Managing Director
+     * - Managing Director
      * - admin / Admin (legacy)
      */
     public static function isSuperAdmin(): bool
@@ -55,7 +55,7 @@ class AuthService
             return $user->hasAnyRole([
                 'super-admin', 'Super Admin', 'super_admin',
                 'SuperAdmin',
-                'MD', 'Managing Director',
+                'Managing Director',
                 'admin', 'Admin'
             ]);
         }
@@ -65,7 +65,6 @@ class AuthService
                 || $user->hasRole('super-admin')
                 || $user->hasRole('super_admin')
                 || $user->hasRole('SuperAdmin')
-                || $user->hasRole('MD')
                 || $user->hasRole('Managing Director')
                 || $user->hasRole('admin')
                 || $user->hasRole('Admin');

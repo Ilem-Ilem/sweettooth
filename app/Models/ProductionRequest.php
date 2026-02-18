@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class ProductionRequest extends Model
 {
@@ -16,6 +18,11 @@ class ProductionRequest extends Model
         'recipe_id',
         'planned_production_quantity',
         'requested_units',
+        'batches_requested',
+        'batches_produced',
+        'batches_pending',
+        'partial_fulfillment_allowed',
+        'fulfillment_status',
         'notes',
         'production_department_id',
         'status',
@@ -31,10 +38,21 @@ class ProductionRequest extends Model
     protected $casts = [
         'planned_production_quantity' => 'decimal:2',
         'requested_units' => 'decimal:2',
+        'batches_requested' => 'integer',
+        'batches_produced' => 'integer',
+        'batches_pending' => 'integer',
+        'partial_fulfillment_allowed' => 'boolean',
         'eta_override_minutes' => 'integer',
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
     ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $request) {
+            self::normalizeBatchTracking($request);
+        });
+    }
 
     /**
      * Scope to filter by shift
@@ -108,6 +126,29 @@ class ProductionRequest extends Model
     public function dispatches()
     {
         return $this->hasMany(ProductDispatch::class, 'production_request_id');
+    }
+
+    /**
+     * Daily produce rows linked to this production request.
+     */
+    public function dailyProduces(): HasMany
+    {
+        return $this->hasMany(DailyProduce::class, 'production_request_id');
+    }
+
+    /**
+     * Production records linked through daily produce rows.
+     */
+    public function productionRecords(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            ProductionRecord::class,
+            DailyProduce::class,
+            'production_request_id',
+            'daily_produce_id',
+            'id',
+            'id'
+        );
     }
 
     /**
@@ -241,5 +282,85 @@ class ProductionRequest extends Model
     public function isProductionToStoreRequest(): bool
     {
         return !is_null($this->item_request_id);
+    }
+
+    public static function calculateBatchesFromQuantity(float $quantity, float $yieldPerBatch): int
+    {
+        if ($quantity <= 0 || $yieldPerBatch <= 0) {
+            return 0;
+        }
+
+        return (int) ceil($quantity / $yieldPerBatch);
+    }
+
+    public function getPendingBatches(): int
+    {
+        return max(0, (int) ($this->batches_pending ?? 0));
+    }
+
+    public function canProduceMoreBatches(int $count = 1): bool
+    {
+        return $this->partial_fulfillment_allowed &&
+            $this->getPendingBatches() >= $count &&
+            ($this->fulfillment_status ?? 'pending') !== 'completed';
+    }
+
+    /**
+     * Recalculate batch counters based on linked daily produce production.
+     */
+    public function syncBatchFulfillmentFromDailyProduces(bool $persist = true): void
+    {
+        $yieldPerBatch = (float) ($this->recipe?->yield_quantity ?? 0);
+        $totalProducedUnits = (float) $this->dailyProduces()->sum('produced_quantity');
+
+        $producedBatches = $yieldPerBatch > 0
+            ? (int) floor($totalProducedUnits / $yieldPerBatch)
+            : 0;
+
+        $requestedBatches = (int) ($this->batches_requested ?? 0);
+        $this->batches_produced = $producedBatches;
+        $this->batches_pending = max(0, $requestedBatches - $producedBatches);
+        $this->fulfillment_status = self::deriveFulfillmentStatus($requestedBatches, $producedBatches);
+
+        if ($persist) {
+            $this->saveQuietly();
+        }
+    }
+
+    public static function deriveFulfillmentStatus(int $requestedBatches, int $producedBatches): string
+    {
+        if ($requestedBatches <= 0) {
+            return 'pending';
+        }
+        if ($producedBatches > $requestedBatches) {
+            return 'exceeded';
+        }
+        if ($producedBatches === 0) {
+            return 'pending';
+        }
+        if ($producedBatches >= $requestedBatches) {
+            return 'completed';
+        }
+
+        return 'partial';
+    }
+
+    private static function normalizeBatchTracking(self $request): void
+    {
+        $plannedQty = (float) ($request->planned_production_quantity ?? 0);
+        $yieldPerBatch = (float) ($request->recipe?->yield_quantity ?? 0);
+
+        if ($yieldPerBatch <= 0 && $request->recipe_id) {
+            $yieldPerBatch = (float) (Recipe::whereKey($request->recipe_id)->value('yield_quantity') ?? 0);
+        }
+
+        if ($yieldPerBatch > 0 && $plannedQty > 0) {
+            $request->batches_requested = self::calculateBatchesFromQuantity($plannedQty, $yieldPerBatch);
+        }
+
+        $requestedBatches = max(0, (int) ($request->batches_requested ?? 0));
+        $producedBatches = max(0, (int) ($request->batches_produced ?? 0));
+        $request->batches_pending = max(0, $requestedBatches - $producedBatches);
+        $request->fulfillment_status = self::deriveFulfillmentStatus($requestedBatches, $producedBatches);
     }
 }

@@ -2,12 +2,14 @@
 
 namespace App\Services;
 
+use App\Enums\CallbackStatus;
 use App\Models\DailyProduce;
 use App\Models\ProductDispatchCallback;
 use App\Models\ProductionCallback;
 use App\Models\ProductStock;
 use App\Models\Recipe;
 use App\Models\Stock;
+use App\Models\StockMovement;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
@@ -170,15 +172,23 @@ class StockUpdateService
             ->first();
 
         if (!$stock) {
-            Log::warning('Stock not found for raw material callback', [
-                'callback_id' => $callback->id,
-                'item_id' => $callback->item_id,
-            ]);
-            return;
+            throw new RuntimeException('Stock not found for raw material callback');
         }
 
-        // Decrease stock for damaged/defective raw materials
-        $stock->decrement('quantity', $callback->quantity);
+        // Decrease available, increase damaged
+        $stock->quantity_available = max(0, $stock->quantity_available - $callback->quantity);
+        $stock->quantity_damaged += $callback->quantity;
+        $stock->save();
+
+        StockMovement::create([
+            'stock_id' => $stock->id,
+            'type' => 'callback',
+            'quantity' => -$callback->quantity,
+            'reference_type' => 'production_callback',
+            'reference_id' => $callback->id,
+            'notes' => 'Production callback: '.$callback->reason,
+            'movement_date' => now(),
+        ]);
 
         Log::debug('Raw material stock updated', [
             'stock_id' => $stock->id,
@@ -208,8 +218,8 @@ class StockUpdateService
                 ->first();
 
             if ($dailyProduce) {
-                // Add to waste/callback quantity
-                $dailyProduce->increment('waste_quantity', $callback->quantity);
+                // Add to callback quantity
+                $dailyProduce->increment('callback_quantity', $callback->quantity);
 
                 if (method_exists($dailyProduce, 'updateCalculations')) {
                     $dailyProduce->updateCalculations();
@@ -217,7 +227,7 @@ class StockUpdateService
 
                 Log::debug('Finished product stock updated via DailyProduce', [
                     'daily_produce_id' => $dailyProduce->id,
-                    'waste_quantity_added' => $callback->quantity,
+                    'callback_quantity_added' => $callback->quantity,
                 ]);
             }
         }
@@ -231,7 +241,7 @@ class StockUpdateService
      */
     public function reverseProductDispatchCallback(ProductDispatchCallback $callback): void
     {
-        if ($callback->status !== 'completed') {
+        if ($callback->status !== CallbackStatus::COMPLETED) {
             return;
         }
 

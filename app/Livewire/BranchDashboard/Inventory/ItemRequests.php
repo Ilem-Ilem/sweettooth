@@ -11,6 +11,7 @@ use App\Services\AuditService;
 use App\Traits\Exportable;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
@@ -56,6 +57,8 @@ class ItemRequests extends Component
     public $showDetailModal = false;
 
     public $selectedRequest = null;
+
+    public bool $isNonProductionDepartmentSelected = false;
 
     protected $rules = [
         'department_id' => 'required|exists:departments,id',
@@ -112,13 +115,33 @@ class ItemRequests extends Component
             ->orderBy('created_at', 'desc');
 
         $requests = $query->paginate($this->table_quantity);
-        $departments = Department::where('branch_id', $branchId)->orWhere('branch_id', null)->orderBy('name')->get();
-        $items = Item::where('branch_id', $branchId)->where('status', 'active')->orderBy('name')->get();
+        $departments = Department::with('category')
+            ->where(function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId)->orWhere('branch_id', null);
+            })
+            ->orderBy('name')
+            ->get();
+
+        $selectedDepartment = null;
+        if (!empty($this->department_id)) {
+            $selectedDepartment = $departments->firstWhere('id', (int) $this->department_id);
+        }
+        $this->isNonProductionDepartmentSelected = $this->isNonProductionDepartment($selectedDepartment);
+
+        $itemsQuery = Item::where('branch_id', $branchId)
+            ->where('status', 'active');
+
+        if ($this->isNonProductionDepartmentSelected) {
+            $itemsQuery->where('requires_request', true);
+        }
+
+        $items = $itemsQuery->orderBy('name')->get();
 
         return view('livewire.branch-dashboard.inventory.item-requests', [
             'requests' => $requests,
             'departments' => $departments,
             'items' => $items,
+            'isNonProductionDepartmentSelected' => $this->isNonProductionDepartmentSelected,
         ]);
     }
 
@@ -151,9 +174,44 @@ class ItemRequests extends Component
         // $this->authorize('create-item-requests'); // TODO: Enable permissions after testing
         $this->validate();
 
-        // Validate stock availability
         $branchId = $this->getBranchId();
+        $department = Department::with('category')
+            ->where('id', $this->department_id)
+            ->where(function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId)
+                    ->orWhereNull('branch_id');
+            })
+            ->first();
+
+        if (! $department) {
+            session()->flash('error', 'Selected department is invalid for this branch.');
+            return;
+        }
+
+        $isNonProduction = $this->isNonProductionDepartment($department);
+        $branch = Auth::guard('web')->employee()->branch;
+
+        // Validate request item constraints before write transaction.
         foreach ($this->requestItems as $index => $item) {
+            $selectedItem = Item::where('branch_id', $branchId)
+                ->where('status', 'active')
+                ->find($item['item_id']);
+
+            if (!$selectedItem) {
+                $this->addError("requestItems.{$index}.item_id", 'Selected item is invalid for this branch.');
+                session()->flash('error', 'Some items are invalid for this branch.');
+                return;
+            }
+
+            if ($isNonProduction && ! $selectedItem->requires_request) {
+                $this->addError(
+                    "requestItems.{$index}.item_id",
+                    "{$selectedItem->name} is not marked as request-only. Non-production departments can only request items with Requires Request enabled."
+                );
+                session()->flash('error', 'Request blocked. Non-production departments can only request durable/request-required items.');
+                return;
+            }
+
             $stock = Stock::where('branch_id', $branchId)
                 ->where('item_id', $item['item_id'])
                 ->first();
@@ -161,26 +219,18 @@ class ItemRequests extends Component
             $availableQuantity = $stock ? (float) $stock->quantity_available : 0.0;
 
             if ((float) $item['quantity_requested'] > $availableQuantity) {
-                $selectedItem = Item::find($item['item_id']);
-                $this->addError("requestItems.{$index}.quantity_requested",
-                    "Requested quantity for {$selectedItem->name} ({$item['quantity_requested']}) exceeds available stock ({$availableQuantity}).");
+                $this->addError(
+                    "requestItems.{$index}.quantity_requested",
+                    "Requested quantity for {$selectedItem->name} ({$item['quantity_requested']}) exceeds available stock ({$availableQuantity})."
+                );
                 session()->flash('error', 'Some items have insufficient stock. Please adjust quantities.');
-
                 return;
             }
         }
 
         DB::beginTransaction();
         try {
-            $branch = Auth::guard('web')->employee()->branch;
-
-            // Verify department belongs to this branch or is a global department
-            $department = Department::where('id', $this->department_id)
-                ->where(function ($q) use ($branchId) {
-                    $q->where('branch_id', $branchId)
-                        ->orWhereNull('branch_id');
-                })
-                ->firstOrFail();
+            $actor = current_actor();
 
             $requestNumber = ItemRequest::generateRequestNumber($branch->code, $department->name);
 
@@ -188,7 +238,8 @@ class ItemRequests extends Component
                 'branch_id' => $branchId,
                 'department_id' => $this->department_id,
                 'request_number' => $requestNumber,
-                'requested_by' => Auth::guard('web')->id(),
+                'requested_by_id' => $actor->id,
+                'requested_by_type' => get_class($actor),
                 'request_date' => $this->request_date,
                 'status' => 'pending',
                 'notes' => $this->notes,
@@ -207,6 +258,7 @@ class ItemRequests extends Component
                 ItemRequestDetail::create([
                     'request_id' => $request->id,
                     'item_id' => $item['item_id'],
+                    'requires_request' => (bool) $selectedItem->requires_request,
                     'quantity_requested' => $item['quantity_requested'] ?? 0,
                     'quantity_approved' => 0,
                     'quantity_dispatched' => 0,
@@ -247,6 +299,7 @@ class ItemRequests extends Component
     {
         $this->requestId = null;
         $this->department_id = '';
+        $this->isNonProductionDepartmentSelected = false;
         $this->request_date = now()->addDays(1)->format('Y-m-d');
         $this->notes = '';
         $this->requestItems = [];
@@ -259,6 +312,21 @@ class ItemRequests extends Component
         $this->filterDepartment = '';
         $this->filterStatus = '';
         $this->resetPage();
+    }
+
+    private function isNonProductionDepartment(?Department $department): bool
+    {
+        if (! $department) {
+            return false;
+        }
+
+        $categoryName = Str::lower((string) ($department->category->name ?? ''));
+
+        if ($categoryName === '') {
+            return false;
+        }
+
+        return ! Str::contains($categoryName, 'production');
     }
 
     public function updatedSearch()

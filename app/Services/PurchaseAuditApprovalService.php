@@ -138,6 +138,12 @@ class PurchaseAuditApprovalService
                         'movement_date' => $purchase->purchase_date,
                         'notes' => 'Purchase: ' . $purchase->purchase_number,
                     ]);
+
+                    if ($costPerUnit > 0) {
+                        $itemModel->unit_price = $costPerUnit;
+                        $itemModel->last_unit_price = $costPerUnit;
+                        $itemModel->save();
+                    }
                 }
             }
 
@@ -335,6 +341,12 @@ class PurchaseAuditApprovalService
                     'movement_date' => $purchase->purchase_date,
                     'notes' => 'Purchase: ' . $purchase->purchase_number,
                 ]);
+
+                if ((float) $costPerUnit > 0) {
+                    $itemModel->unit_price = (float) $costPerUnit;
+                    $itemModel->last_unit_price = (float) $costPerUnit;
+                    $itemModel->save();
+                }
             }
 
             // Mark request as approved

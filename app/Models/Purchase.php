@@ -110,6 +110,11 @@ class Purchase extends Model
         return $this->hasMany(PurchaseItem::class);
     }
 
+    public function purchasePayments(): HasMany
+    {
+        return $this->hasMany(PurchasePayment::class);
+    }
+
     /**
      * Get the approval request for this purchase
      */
@@ -149,6 +154,37 @@ class Purchase extends Model
     public function calculateTotalCost(): float
     {
         return $this->total_fob_ngn + $this->other_costs;
+    }
+
+    /**
+     * Sync purchase payment status from accounting payment records.
+     */
+    public function syncPaymentStatusFromPayments(bool $persist = true): string
+    {
+        $totalCost = (float) ($this->landing_cost ?? 0);
+        if ($totalCost <= 0) {
+            $totalCost = (float) ($this->total_cost ?? 0);
+        }
+        if ($totalCost <= 0) {
+            $totalCost = (float) $this->calculateTotalCost();
+        }
+
+        $totalPaid = (float) $this->purchasePayments()
+            ->where('status', 'paid')
+            ->sum('amount');
+
+        $status = 'pending';
+        if ($totalCost > 0 && $totalPaid >= $totalCost) {
+            $status = 'paid';
+        } elseif ($totalPaid > 0) {
+            $status = 'partial';
+        }
+
+        if ($persist && $this->payment_status !== $status) {
+            $this->forceFill(['payment_status' => $status])->saveQuietly();
+        }
+
+        return $status;
     }
 
     /**

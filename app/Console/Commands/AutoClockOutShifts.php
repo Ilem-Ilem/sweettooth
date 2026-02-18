@@ -131,29 +131,15 @@ class AutoClockOutShifts extends Command
             $query->limit($maxShifts);
         }
 
-        // Get shifts that have exceeded their configured end time + grace period
-        return $query->where(function ($q) {
-            if ($this->option('force')) {
-                // Force mode: clock out any active shift (for emergency use)
-                return $q;
-            }
+        $shifts = $query->orderBy('clock_in')->get();
 
-            // Normal mode: use configuration-based logic
-            $q->where(function ($sq) {
-                // Shifts with explicit configuration
-                $sq->whereNotNull('metadata->config_id')
-                   ->whereRaw("
-                       DATE_ADD(
-                           DATE(CONCAT(shift_date, ' ', JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.expected_end')))),
-                           INTERVAL JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.auto_clock_out_minutes')) MINUTE
-                       ) < NOW()
-                   ");
-            })->orWhere(function ($sq) {
-                // Legacy shifts without configuration (fallback)
-                $sq->whereNull('metadata->config_id')
-                   ->whereRaw("DATE_ADD(clock_in, INTERVAL 9 HOUR) < NOW()"); // 8 hours + 1 hour grace
-            });
-        })->orderBy('clock_in')->get();
+        if ($this->option('force')) {
+            return $shifts;
+        }
+
+        return $shifts->filter(function (Shift $shift) {
+            return $this->isShiftExpired($shift);
+        });
     }
 
     protected function showDryRunResults($expiredShifts)
@@ -258,15 +244,65 @@ class AutoClockOutShifts extends Command
         if (isset($shift->metadata['config_id'])) {
             $config = ShiftConfiguration::find($shift->metadata['config_id']);
             if ($config) {
-                $shiftEnd = Carbon::createFromTimeString($config->end_time)
-                    ->setDateFrom($shift->shift_date);
+                $shiftDate = $shift->shift_date instanceof Carbon
+                    ? $shift->shift_date->toDateString()
+                    : Carbon::parse($shift->shift_date)->toDateString();
 
-                return $shiftEnd->addMinutes($config->auto_clock_out_minutes);
+                $startTimeRaw = $config->start_time instanceof Carbon
+                    ? $config->start_time->format('H:i:s')
+                    : (string) $config->start_time;
+                $endTimeRaw = $config->end_time instanceof Carbon
+                    ? $config->end_time->format('H:i:s')
+                    : (string) $config->end_time;
+
+                $start = Carbon::parse("{$shiftDate} {$startTimeRaw}");
+                $end = Carbon::parse("{$shiftDate} {$endTimeRaw}");
+
+                if ($end <= $start) {
+                    $end->addDay();
+                }
+
+                return $end->addMinutes($config->auto_clock_out_minutes);
             }
         }
 
         // Fallback: 8 hours from clock in + 1 hour grace
         return $shift->clock_in->copy()->addHours(9);
+    }
+
+    protected function isShiftExpired(Shift $shift): bool
+    {
+        if (! $shift->clock_in) {
+            return false;
+        }
+
+        $config = $shift->configuration;
+        if ($config) {
+            $shiftDate = $shift->shift_date instanceof Carbon
+                ? $shift->shift_date->toDateString()
+                : Carbon::parse($shift->shift_date)->toDateString();
+
+            $startTimeRaw = $config->start_time instanceof Carbon
+                ? $config->start_time->format('H:i:s')
+                : (string) $config->start_time;
+            $endTimeRaw = $config->end_time instanceof Carbon
+                ? $config->end_time->format('H:i:s')
+                : (string) $config->end_time;
+
+            $start = Carbon::parse("{$shiftDate} {$startTimeRaw}");
+            $end = Carbon::parse("{$shiftDate} {$endTimeRaw}");
+
+            if ($end <= $start) {
+                $end->addDay();
+            }
+
+            $autoClockOutTime = $end->copy()->addMinutes((int) $config->auto_clock_out_minutes);
+
+            return now()->greaterThan($autoClockOutTime);
+        }
+
+        // Legacy fallback
+        return now()->greaterThan($shift->clock_in->copy()->addHours(9));
     }
 
     protected function sendBatchNotifications()

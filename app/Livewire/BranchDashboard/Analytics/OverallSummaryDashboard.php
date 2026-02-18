@@ -68,8 +68,7 @@ class OverallSummaryDashboard extends Component
     public function getOverallSummary()
     {
         $branchId = $this->b_id;
-        $dateFrom = Carbon::parse($this->dateFrom);
-        $dateTo = Carbon::parse($this->dateTo);
+        [$dateFrom, $dateTo] = $this->getDateRange();
         
         // Ensure database connection uses UTF-8
         DB::statement("SET NAMES utf8mb4");
@@ -98,15 +97,15 @@ class OverallSummaryDashboard extends Component
             : 0;
 
         $purchases = Purchase::where('branch_id', $branchId)
-            ->whereBetween('purchase_date', [$this->dateFrom, $this->dateTo])
+            ->whereBetween('purchase_date', [$dateFrom->toDateString(), $dateTo->toDateString()])
             ->get();
 
         $movements = StockMovement::whereHas('stock', fn($q) => $q->where('branch_id', $branchId))
-            ->whereBetween('movement_date', [$this->dateFrom, $this->dateTo])
+            ->whereBetween('movement_date', [$dateFrom, $dateTo])
             ->get();
 
         $requests = ItemRequest::where('branch_id', $branchId)
-            ->whereBetween('request_date', [$this->dateFrom, $this->dateTo])
+            ->whereBetween('request_date', [$dateFrom->toDateString(), $dateTo->toDateString()])
             ->get();
 
         return [
@@ -147,11 +146,11 @@ class OverallSummaryDashboard extends Component
     public function getRecentActivity()
     {
         $branchId = $this->b_id ?? request()->get('b_id');
-
+        [$dateFrom, $dateTo] = $this->getDateRange();
 
         return StockMovement::with(['stock.item', 'mover'])
             ->whereHas('stock', fn($q) => $q->where('branch_id', $branchId))
-            ->whereBetween('movement_date', [$this->dateFrom, $this->dateTo])
+            ->whereBetween('movement_date', [$dateFrom, $dateTo])
             ->latest('movement_date')
             ->limit(10)
             ->get();
@@ -220,6 +219,7 @@ class OverallSummaryDashboard extends Component
     public function getInsights()
     {
         $branchId = $this->b_id ?? request()->get('b_id');
+        [$dateFrom, $dateTo] = $this->getDateRange();
 
         $summary = $this->getOverallSummary();
         $insights = [];
@@ -237,7 +237,7 @@ class OverallSummaryDashboard extends Component
         // Insight 2: Top depleting items
         $topDepletingItems = StockMovement::whereHas('stock', fn($q) => $q->where('branch_id', $branchId))
             ->where('type', 'out')
-            ->whereBetween('movement_date', [$this->dateFrom, $this->dateTo])
+            ->whereBetween('movement_date', [$dateFrom, $dateTo])
             ->select('stock_id', DB::raw('SUM(ABS(quantity)) as total_out'))
             ->groupBy('stock_id')
             ->orderByDesc('total_out')
@@ -284,7 +284,7 @@ class OverallSummaryDashboard extends Component
         }
 
         // Insight 6: Average daily consumption
-        $days = max(1, Carbon::parse($this->dateTo)->diffInDays(Carbon::parse($this->dateFrom)));
+        $days = max(1, $dateTo->diffInDays($dateFrom));
         $avgDailyConsumption = round($summary['stock_out'] / $days, 2);
         if ($avgDailyConsumption > 0) {
             $insights[] = [
@@ -299,11 +299,17 @@ class OverallSummaryDashboard extends Component
 
     public function getStockHealthTable()
     {
-       $branchId = $this->b_id ?? request()->get('b_id');
+        $branchId = $this->b_id ?? request()->get('b_id');
 
+        $latestMovements = StockMovement::select('stock_id', DB::raw('MAX(movement_date) as last_movement'))
+            ->groupBy('stock_id');
 
         return Stock::where('branch_id', $branchId)
             ->with('item')
+            ->leftJoinSub($latestMovements, 'latest_movements', function ($join) {
+                $join->on('stocks.id', '=', 'latest_movements.stock_id');
+            })
+            ->select('stocks.*', 'latest_movements.last_movement')
             ->get()
             ->map(function ($stock) {
                 $item = $stock->item;
@@ -332,10 +338,6 @@ class OverallSummaryDashboard extends Component
                     $statusColor = 'orange';
                 }
 
-                $lastMovement = StockMovement::where('stock_id', $stock->id)
-                    ->latest('movement_date')
-                    ->first();
-
                 return [
                     'id' => $stock->id,
                     'item_name' => $item->name,
@@ -345,7 +347,7 @@ class OverallSummaryDashboard extends Component
                     'status_icon' => $statusIcon,
                     'status_color' => $statusColor,
                     'health_percentage' => $healthPercentage,
-                    'last_movement' => $lastMovement ? $lastMovement->movement_date->format('d M Y') : 'N/A',
+                    'last_movement' => $stock->last_movement ? Carbon::parse($stock->last_movement)->format('d M Y') : 'N/A',
                     'uom' => $item->uom ?? 'units',
                 ];
             })
@@ -358,6 +360,7 @@ class OverallSummaryDashboard extends Component
     public function getDepartmentBreakdown()
     {
         $branchId = $this->b_id ?? request()->get('b_id');
+        [$dateFrom, $dateTo] = $this->getDateRange();
 
 
         return Stock::where('branch_id', $branchId)
@@ -374,7 +377,7 @@ class OverallSummaryDashboard extends Component
 
                 $stockIds = $stocks->pluck('id');
                 $movements = StockMovement::whereIn('stock_id', $stockIds)
-                    ->whereBetween('movement_date', [$this->dateFrom, $this->dateTo])
+                    ->whereBetween('movement_date', [$dateFrom, $dateTo])
                     ->get();
 
                 $stockIn = $movements->where('type', 'in')->sum('quantity');
@@ -384,7 +387,7 @@ class OverallSummaryDashboard extends Component
 
                 $requests = ItemRequest::whereHas('requestDetails', function ($query) use ($stocks) {
                     $query->whereIn('item_id', $stocks->pluck('item_id'));
-                })->whereBetween('request_date', [$this->dateFrom, $this->dateTo])->count();
+                })->whereBetween('request_date', [$dateFrom->toDateString(), $dateTo->toDateString()])->count();
 
                 return [
                     'category' => ucfirst($category),
@@ -404,14 +407,15 @@ class OverallSummaryDashboard extends Component
     public function getPerformanceMetrics()
     {
        $branchId = $this->b_id ?? request()->get('b_id');
+       [$dateFrom, $dateTo] = $this->getDateRange();
 
         $summary = $this->getOverallSummary();
-        $days = max(1, Carbon::parse($this->dateTo)->diffInDays(Carbon::parse($this->dateFrom)));
+        $days = max(1, $dateTo->diffInDays($dateFrom));
 
         // Fastest moving item
         $fastestMoving = StockMovement::whereHas('stock', fn($q) => $q->where('branch_id', $branchId))
             ->where('type', 'out')
-            ->whereBetween('movement_date', [$this->dateFrom, $this->dateTo])
+            ->whereBetween('movement_date', [$dateFrom, $dateTo])
             ->select('stock_id', DB::raw('SUM(ABS(quantity)) as total'))
             ->groupBy('stock_id')
             ->orderByDesc('total')
@@ -421,7 +425,7 @@ class OverallSummaryDashboard extends Component
         // Slowest moving item
         $slowestMoving = StockMovement::whereHas('stock', fn($q) => $q->where('branch_id', $branchId))
             ->where('type', 'out')
-            ->whereBetween('movement_date', [$this->dateFrom, $this->dateTo])
+            ->whereBetween('movement_date', [$dateFrom, $dateTo])
             ->select('stock_id', DB::raw('SUM(ABS(quantity)) as total'))
             ->groupBy('stock_id')
             ->orderBy('total')
@@ -430,7 +434,7 @@ class OverallSummaryDashboard extends Component
 
         // Most requested item
         $mostRequested = ItemRequest::where('branch_id', $branchId)
-            ->whereBetween('request_date', [$this->dateFrom, $this->dateTo])
+            ->whereBetween('request_date', [$dateFrom->toDateString(), $dateTo->toDateString()])
             ->with('requestDetails.item')
             ->get()
             ->flatMap(fn($request) => $request->requestDetails)
@@ -642,6 +646,18 @@ class OverallSummaryDashboard extends Component
         return $data;
     }
 
+    private function getDateRange(): array
+    {
+        $dateFrom = Carbon::parse($this->dateFrom);
+        $dateTo = Carbon::parse($this->dateTo);
+
+        if ($dateFrom->greaterThan($dateTo)) {
+            [$dateFrom, $dateTo] = [$dateTo, $dateFrom];
+        }
+
+        return [$dateFrom, $dateTo];
+    }
+
     private function sanitizeRecentActivity($activities)
     {
         try {
@@ -651,12 +667,14 @@ class OverallSummaryDashboard extends Component
                     $moverName = $activity->mover->name ?? 'System';
                 }
 
+                $reference = $this->formatActivityReference($activity->reference ?? null);
+
                 return [
                     'date' => $activity->movement_date ? (string)$activity->movement_date->format('d M Y H:i') : 'N/A',
                     'item' => (string)($activity->stock?->item?->name ?? 'N/A'),
                     'type' => (string)($activity->type ?? 'N/A'),
                     'quantity' => (float)($activity->quantity ?? 0),
-                    'reference' => (string)($activity->reference ?? 'N/A'),
+                    'reference' => $reference,
                     'notes' => (string)($activity->notes ?? ''),
                     'mover' => (string)$moverName,
                 ];
@@ -664,6 +682,26 @@ class OverallSummaryDashboard extends Component
         } catch (\Exception $e) {
             return [];
         }
+    }
+
+    private function formatActivityReference($reference): string
+    {
+        if (is_array($reference)) {
+            return (string) ($reference['request_number'] ?? $reference['reference'] ?? $reference['id'] ?? 'N/A');
+        }
+
+        if (is_string($reference)) {
+            $decoded = json_decode($reference, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                return (string) ($decoded['request_number'] ?? $decoded['reference'] ?? $decoded['id'] ?? 'N/A');
+            }
+        }
+
+        if (is_null($reference) || $reference === '') {
+            return 'N/A';
+        }
+
+        return (string) $reference;
     }
 
     private function sanitizeArray($data)

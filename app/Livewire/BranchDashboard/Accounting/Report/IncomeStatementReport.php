@@ -28,10 +28,11 @@ class IncomeStatementReport extends Component
 
     public function render()
     {
+        $branchId = current_branch_id();
         if ($this->isComparative && $this->comparePeriodId) {
-            $data = $this->isService->getComparativeIncomeStatement($this->periodId, $this->comparePeriodId);
+            $data = $this->isService->getComparativeIncomeStatement($this->periodId, $this->comparePeriodId, $branchId);
         } else {
-            $data = $this->isService->getIncomeStatement($this->periodId);
+            $data = $this->isService->getIncomeStatement($this->periodId, $branchId);
         }
 
         return view('livewire.branch-dashboard.accounting.report.income-statement-report', [
@@ -48,7 +49,7 @@ class IncomeStatementReport extends Component
 
     public function exportToCsv()
     {
-        $data = $this->isService->exportIncomeStatement($this->periodId);
+        $data = $this->isService->exportIncomeStatement($this->periodId, current_branch_id());
         $filename = 'income_statement_'.now()->format('Y-m-d_His').'.csv';
 
         return response()->streamDownload(function () use ($data) {

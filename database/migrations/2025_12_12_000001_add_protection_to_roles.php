@@ -36,7 +36,7 @@ return new class extends Migration
 
         // Mark existing critical roles as protected
         \Spatie\Permission\Models\Role::query()
-            ->whereIn('name', ['Super Admin', 'Managing Director', 'MD', 'Admin'])
+            ->whereIn('name', ['Super Admin', 'Managing Director', 'Admin'])
             ->update(['is_protected' => true]);
     }
 

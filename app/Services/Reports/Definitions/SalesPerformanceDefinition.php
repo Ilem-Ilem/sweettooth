@@ -27,7 +27,7 @@ class SalesPerformanceDefinition implements ReportDefinition
         $to = $context['period_to'] ?? null;
 
         $sales = Sale::query()
-            ->with(['soldBy', 'department', 'salesShift'])
+            ->with(['soldBy', 'department', 'salesShift', 'saleItems.product', 'saleItems.salesUom', 'payments'])
             ->where('branch_id', $branchId)
             ->when($departmentId, fn($q) => $q->where('department_id', $departmentId))
             ->whereBetween('sale_time', [$from, $to])
@@ -52,6 +52,7 @@ class SalesPerformanceDefinition implements ReportDefinition
             'payment_analysis' => $this->generatePaymentAnalysis($sales),
             'hourly_distribution' => $this->generateHourlyDistribution($sales),
             'sales_trends' => $this->generateSalesTrends($sales),
+            'sales_details' => $this->buildSalesDetails($sales),
             'period_info' => [
                 'from' => $from,
                 'to' => $to,
@@ -161,6 +162,27 @@ class SalesPerformanceDefinition implements ReportDefinition
     public function tables(array $data, array $summary, array $context): array
     {
         return [
+            'sales_details' => [
+                'headers' => ['Sale #', 'Time', 'Shift', 'Sold By', 'Items', 'Subtotal', 'Discount', 'Tax', 'Total', 'Cash', 'Card', 'Mobile', 'Other', 'Status'],
+                'rows' => array_map(function ($row) {
+                    return [
+                        $row['sale_number'],
+                        $row['sale_time'],
+                        $row['shift'],
+                        $row['sold_by'],
+                        $row['items'],
+                        $row['subtotal'],
+                        $row['discount'],
+                        $row['tax'],
+                        $row['total'],
+                        $row['payment_breakdown']['cash'] ?? 0,
+                        $row['payment_breakdown']['card'] ?? 0,
+                        $row['payment_breakdown']['mobile_money'] ?? 0,
+                        $row['payment_breakdown']['other'] ?? 0,
+                        $row['status'],
+                    ];
+                }, $data['sales_details'] ?? []),
+            ],
             'daily_sales' => [
                 'headers' => ['Date', 'Orders', 'Revenue', 'Avg Order', 'Discount', 'Tax'],
                 'rows' => array_map(function ($row) {
@@ -384,5 +406,62 @@ class SalesPerformanceDefinition implements ReportDefinition
         return [
             'weekly' => $weeklyTrends,
         ];
+    }
+
+    private function buildSalesDetails($sales): array
+    {
+        return $sales->sortByDesc('sale_time')->map(function ($sale) {
+            $itemsList = $sale->saleItems->map(function ($item) {
+                $name = $item->product?->name ?? 'Item';
+                $qty = $item->display_quantity ?? $item->quantity;
+                $uom = $item->sales_uom_symbol ?? '';
+                $suffix = $uom ? " {$uom}" : '';
+                return [
+                    'name' => $name,
+                    'quantity' => (float) $qty,
+                    'uom' => $uom,
+                    'unit_price' => (float) $item->unit_price,
+                    'subtotal' => (float) $item->subtotal,
+                    'discount' => (float) $item->discount,
+                    'total' => (float) $item->total,
+                    'display' => sprintf('%s x %s%s', $name, rtrim(rtrim(number_format((float) $qty, 2), '0'), '.'), $suffix),
+                ];
+            });
+
+            $items = $itemsList->pluck('display')->implode(', ');
+
+            $soldBy = $sale->soldBy?->name
+                ?? trim(($sale->soldBy?->first_name ?? '').' '.($sale->soldBy?->last_name ?? ''))
+                ?: 'System';
+
+            $paymentTotals = $sale->payments->groupBy('payment_method')->map(function ($payments) {
+                return (float) $payments->sum('amount');
+            });
+
+            $paymentMethods = $sale->payments->groupBy('payment_method')->map(function ($payments, $method) {
+                return strtoupper(str_replace('_', ' ', (string) $method)) . ' ' . number_format($payments->sum('amount'), 2);
+            })->implode(' | ');
+
+            return [
+                'sale_number' => $sale->sale_number ?? $sale->id,
+                'sale_time' => optional($sale->sale_time)->format('Y-m-d H:i'),
+                'shift' => $sale->salesShift?->shift_type ?? 'N/A',
+                'sold_by' => $soldBy ?: 'System',
+                'items' => $items ?: 'N/A',
+                'items_list' => $itemsList->values()->toArray(),
+                'subtotal' => (float) $sale->subtotal,
+                'discount' => (float) $sale->discount,
+                'tax' => (float) $sale->tax,
+                'total' => (float) $sale->total,
+                'payment_breakdown' => [
+                    'cash' => $paymentTotals->get('cash', 0),
+                    'card' => $paymentTotals->get('card', 0),
+                    'mobile_money' => $paymentTotals->get('mobile_money', 0),
+                    'other' => $paymentTotals->except(['cash', 'card', 'mobile_money'])->sum(),
+                ],
+                'payment_methods' => $paymentMethods ?: 'N/A',
+                'status' => ucfirst((string) $sale->status),
+            ];
+        })->values()->toArray();
     }
 }

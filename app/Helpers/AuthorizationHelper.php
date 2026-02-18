@@ -10,7 +10,7 @@ use App\Models\Branch;
  * All authorization logic should delegate to these functions.
  * 
  * AUTHORIZATION MODEL:
- * - Super Admin: authenticated in 'web' guard AND has super-admin/super_admin role
+ * - Super Admin: authenticated in 'web' guard AND has Super Admin / Managing Director / Admin role
  * - Employee: authenticated via their own guard with employee roles
  */
 
@@ -20,7 +20,7 @@ if (!function_exists('is_super_admin')) {
      *
      * Super admins are users with any of these roles:
      * - super-admin / Super Admin / super_admin
-     * - MD / Managing Director (MD equiv for employees)
+     * - Managing Director
      * - user_type = 'admin' (legacy system)
      *
      * @return bool
@@ -42,9 +42,8 @@ if (!function_exists('is_super_admin')) {
             'super-admin',
             'super_admin',
             'superadmin',
-            'md',
-            'managing director',
             'admin',
+            'managing director',
         ];
 
         // Check if user has super-admin role (include common legacy variants)
@@ -54,7 +53,6 @@ if (!function_exists('is_super_admin')) {
                 'super-admin',
                 'super_admin',
                 'SuperAdmin',
-                'MD',
                 'Managing Director',
                 'admin',
                 'Admin',
@@ -68,7 +66,6 @@ if (!function_exists('is_super_admin')) {
                 || $user->hasRole('super-admin') 
                 || $user->hasRole('super_admin')
                 || $user->hasRole('SuperAdmin')
-                || $user->hasRole('MD')
                 || $user->hasRole('Managing Director')
                 || $user->hasRole('admin')
                 || $user->hasRole('Admin');
@@ -214,12 +211,19 @@ if (!function_exists('get_user_role_level')) {
             if ($user->hasRole('Admin')) return 4;
 
             $managerRoles = [
-                'Head of Production', 'Sales Manager', 'HR Manager',
-                'Inventory Manager', 'Accounting Manager', 'MD', 'Managing Director'
+                'Managing Director', 'Admin', 'Accounting Manager',
+                'Production Manager', 'Sales Manager', 'HR Manager',
+                'Inventory Manager', 'Head Chef', 'Gelato Chef', 'Floor Manager',
             ];
             if ($user->hasAnyRole($managerRoles)) return 3;
 
-            $supervisorRoles = ['Production Supervisor', 'Sales Supervisor', 'Inventory Supervisor', 'HR Officer', 'Accountant'];
+            $supervisorRoles = [
+                'HR Officer', 'Accountant', 'Cost Accountant', 'Till Supervisor', 'Cornerstore Supervisor',
+                'Consession Supervisor', 'Coffee Barista Trainer', 'Lobby Host Supervisor', 'Kitchen Assistant Supervisor',
+                'Hot Kitchen Chef', 'Pastry Chef', 'Assistant Shop Floor Manager', 'Inventory Team Lead',
+                'Procurement Officer', 'Facility Officer', 'Cleaners Supervisor', 'Chief Security Officer',
+                'Social Media Manager',
+            ];
             if ($user->hasAnyRole($supervisorRoles)) return 2;
         }
 

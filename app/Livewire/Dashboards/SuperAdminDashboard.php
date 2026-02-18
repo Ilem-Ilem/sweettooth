@@ -19,18 +19,7 @@ class SuperAdminDashboard extends BaseDashboard
 
     private function verifyAccess(): void
     {
-        $role = $this->getUserRoleName();
-        $allowedRoles = [
-            'super_admin',
-            'managing_director',
-            'admin',
-            'branch_admin',
-        ];
-
-        // Allow access if user has allowed role OR is super admin
-        $isAllowed = in_array($role, $allowedRoles) || is_super_admin();
-        
-        if (!$isAllowed) {
+        if (! is_super_admin()) {
             abort(403, 'Unauthorized access to admin dashboard');
         }
     }

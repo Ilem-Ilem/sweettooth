@@ -5,9 +5,6 @@ namespace App\Livewire\BranchDashboard\Production\Callbacks;
 use App\Livewire\BaseComponent;
 use App\Models\ProductionCallback;
 use App\Models\Shift;
-use App\Models\Item;
-use App\Models\Product;
-use App\Models\Stock;
 use App\Models\DailyProduce;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
@@ -66,6 +63,7 @@ class CreateInventoryCallback extends BaseComponent
     // Callback form
     public $showCallbackModal = false;
     public $callbackType; // raw_material or finished_product - initialized in mount to preserve state
+    public $selectedRawDispatchId = null;
     public $selectedItemId = null;
     public $selectedProductId = null;
     public $callbackQuantity = 0;
@@ -193,32 +191,13 @@ class CreateInventoryCallback extends BaseComponent
     }
 
     /**
-     * Get available raw materials dispatched to this production shift
+     * Get callback-eligible raw materials.
      */
     public function getRawMaterialsProperty()
     {
-        $shiftId = $this->selectedShiftId ?? $this->currentShiftId;
-
-        if (!$shiftId) {
+        $query = $this->getEligibleRawMaterialDispatchesQuery();
+        if (! $query) {
             return collect([]);
-        }
-
-        // Get ItemRequests for this production shift through ProductionRequests
-        $itemRequestIds = \App\Models\ProductionRequest::where('shift_id', $shiftId)
-            ->pluck('item_request_id')
-            ->unique();
-
-        // Get ItemDispatches for these requests
-        $query = \App\Models\ItemDispatch::with(['item', 'itemRequest'])
-            ->whereIn('request_id', $itemRequestIds)
-            ->whereNotNull('received_time'); // Only show received dispatches
-
-        // Search filter
-        if ($this->search) {
-            $query->whereHas('item', function ($q) {
-                $q->where('name', 'like', '%' . $this->search . '%')
-                  ->orWhere('sku', 'like', '%' . $this->search . '%');
-            });
         }
 
         return $query->orderBy('dispatch_time', 'desc')->paginate($this->quantity);
@@ -235,7 +214,10 @@ class CreateInventoryCallback extends BaseComponent
             return collect([]);
         }
 
-        $query = DailyProduce::with(['recipe.product'])
+        $query = DailyProduce::with([
+            'recipe.product',
+            'productionRecords:id,daily_produce_id,quantity_rejected',
+        ])
             ->where('shift_id', $shiftId)
             ->where('produced_quantity', '>', 0);
 
@@ -252,14 +234,18 @@ class CreateInventoryCallback extends BaseComponent
 
     public function openRawMaterialCallbackModal($dispatchId)
     {
-        $dispatch = \App\Models\ItemDispatch::with('item')->find($dispatchId);
+        $query = $this->getEligibleRawMaterialDispatchesQuery();
+        $dispatch = $query
+            ? $query->whereKey($dispatchId)->first()
+            : null;
 
         if (!$dispatch) {
-            $this->toast()->error('Dispatch not found.')->send();
+            $this->toast()->error('Dispatch not available for callback. It may already be in production or outside this branch.')->send();
             return;
         }
 
         $this->callbackType = 'raw_material';
+        $this->selectedRawDispatchId = $dispatch->id;
         $this->selectedItemId = $dispatch->item_id;
         $this->selectedProductId = null;
         $this->callbackQuantity = 0;
@@ -274,15 +260,19 @@ class CreateInventoryCallback extends BaseComponent
 
     public function openFinishedProductCallbackModal($dailyProduceId)
     {
-        $dailyProduce = DailyProduce::with(['recipe.product'])->find($dailyProduceId);
+        $dailyProduce = DailyProduce::with([
+            'recipe.product',
+            'productionRecords:id,daily_produce_id,quantity_rejected',
+        ])->find($dailyProduceId);
 
         if (!$dailyProduce) {
             $this->toast()->error('Daily produce record not found.')->send();
             return;
         }
 
-        if ((float) ($dailyProduce->callback_quantity ?? 0) <= 0) {
-            $this->toast()->error('Record damaged quantity in Daily Produce before creating a callback.')->send();
+        $callbackPool = $this->getFinishedProductCallbackPool($dailyProduce);
+        if ($callbackPool <= 0) {
+            $this->toast()->error('No damaged/rejected quantity is available for callback on this product.')->send();
             return;
         }
 
@@ -292,7 +282,7 @@ class CreateInventoryCallback extends BaseComponent
             ->where('status', '!=', 'rejected')
             ->sum('quantity');
 
-        $remaining = (float) $dailyProduce->callback_quantity - (float) $usedQty;
+        $remaining = (float) $callbackPool - (float) $usedQty;
 
         if ($remaining <= 0) {
             $this->toast()->error('Callback quantity already fully used for this product and shift.')->send();
@@ -315,6 +305,7 @@ class CreateInventoryCallback extends BaseComponent
     {
         $this->showCallbackModal = false;
         // Don't reset callbackType - preserve the user's selection
+        $this->selectedRawDispatchId = null;
         $this->selectedItemId = null;
         $this->selectedProductId = null;
         $this->callbackQuantity = 0;
@@ -330,41 +321,69 @@ class CreateInventoryCallback extends BaseComponent
             ? array_keys($this->rawMaterialReasonOptions)
             : array_keys($this->finishedProductReasonOptions);
 
-        $this->validate([
+        $rules = [
             'callbackQuantity' => 'required|numeric|min:0.01',
             'callbackReason' => 'required|in:' . implode(',', $reasonOptions),
             'callbackUom' => 'required|string',
-        ], [
+            'callbackNotes' => $this->callbackType === 'raw_material'
+                ? 'required|string|min:5|max:1000'
+                : 'nullable|string|max:1000',
+        ];
+
+        $this->validate($rules, [
             'callbackQuantity.required' => 'Callback quantity is required',
             'callbackQuantity.min' => 'Callback quantity must be greater than 0',
             'callbackReason.required' => 'Please select a callback reason',
             'callbackUom.required' => 'Unit of measure is required',
+            'callbackNotes.required' => 'Please add notes for raw material callbacks.',
+            'callbackNotes.min' => 'Notes must be at least 5 characters.',
         ]);
 
         try {
             DB::beginTransaction();
+            $shiftId = $this->selectedShiftId ?? $this->currentShiftId;
+            if (! $shiftId) {
+                throw new \Exception('Please select a production shift before submitting callback.');
+            }
 
             // Validate quantity based on type
             if ($this->callbackType === 'raw_material') {
-                // Note: We're not validating against dispatched quantity because
-                // production may have already used some of the materials
-                // The callback is about returning damaged/unusable items
+                $query = $this->getEligibleRawMaterialDispatchesQuery();
+                $dispatch = $query
+                    ? $query->lockForUpdate()->find($this->selectedRawDispatchId)
+                    : null;
+
+                if (! $dispatch) {
+                    throw new \Exception('Selected raw material dispatch is no longer eligible for callback. It may already be in production.');
+                }
+
+                if ($this->callbackQuantity > (float) $dispatch->quantity) {
+                    $this->toast()->error("Callback quantity cannot exceed dispatched quantity ({$dispatch->quantity}).")->send();
+                    return;
+                }
+
+                // Enforce source identity from selected dispatch (prevents tampering).
+                $this->selectedItemId = $dispatch->item_id;
+                $this->callbackUom = $dispatch->uom
+                    ?? $dispatch->item?->unitOfMeasure?->symbol
+                    ?? $dispatch->item?->uom
+                    ?? 'units';
             } else {
                 // For finished products, check daily produce
-                $shiftId = $this->selectedShiftId ?? $this->currentShiftId;
-
                 $dailyProduce = DailyProduce::where('shift_id', $shiftId)
                     ->whereHas('recipe', function ($q) {
                         $q->where('product_id', $this->selectedProductId);
                     })
+                    ->with('productionRecords:id,daily_produce_id,quantity_rejected')
                     ->first();
 
                 if (!$dailyProduce) {
                     throw new \Exception('Daily produce record not found');
                 }
 
-                if ((float) ($dailyProduce->callback_quantity ?? 0) <= 0) {
-                    $this->toast()->error('Record damaged quantity in Daily Produce before creating a callback.')->send();
+                $callbackPool = $this->getFinishedProductCallbackPool($dailyProduce);
+                if ($callbackPool <= 0) {
+                    $this->toast()->error('No damaged/rejected quantity is available for callback on this product.')->send();
                     return;
                 }
 
@@ -374,7 +393,7 @@ class CreateInventoryCallback extends BaseComponent
                     ->where('status', '!=', 'rejected')
                     ->sum('quantity');
 
-                $remaining = (float) $dailyProduce->callback_quantity - (float) $usedQty;
+                $remaining = (float) $callbackPool - (float) $usedQty;
 
                 if ($remaining <= 0) {
                     $this->toast()->error('Callback quantity already fully used for this product and shift.')->send();
@@ -402,8 +421,6 @@ class CreateInventoryCallback extends BaseComponent
                 ? 'raw_material_from_stock'
                 : 'finished_product_reject';
 
-            $shiftId = $this->selectedShiftId ?? $this->currentShiftId;
-
             ProductionCallback::create([
                 'shift_id' => $shiftId,
                 'source_type' => $sourceType,
@@ -415,7 +432,7 @@ class CreateInventoryCallback extends BaseComponent
                 'uom' => $this->callbackUom,
                 'reason' => $this->callbackReason,
                 'status' => 'pending',
-                'notes' => $this->callbackNotes,
+                'notes' => trim((string) $this->callbackNotes),
                 'callback_time' => now(),
             ]);
 
@@ -432,6 +449,39 @@ class CreateInventoryCallback extends BaseComponent
         }
     }
 
+    /**
+     * Query raw material dispatches that can still be called back.
+     * Business rule: once any production starts for a linked request, callbacks are blocked.
+     */
+    private function getEligibleRawMaterialDispatchesQuery()
+    {
+        $branchId = $this->getBranchId();
+        if (! $branchId) {
+            return null;
+        }
+
+        $query = \App\Models\ItemDispatch::query()
+            ->with(['item', 'itemRequest', 'itemRequest.requestedBy'])
+            ->where('branch_id', $branchId)
+            ->whereNotNull('dispatch_time')
+            // Only material dispatches tied to production requests.
+            ->whereHas('itemRequest.productionRequests')
+            // Allow cross-shift + no-shift requests only while nothing has been produced.
+            ->whereDoesntHave('itemRequest.productionRequests.dailyProduces', function ($dailyProduceQuery) {
+                $dailyProduceQuery->where('produced_quantity', '>', 0);
+            })
+            ->whereDoesntHave('itemRequest.productionRequests.productionRecords');
+
+        if ($this->search) {
+            $query->whereHas('item', function ($q) {
+                $q->where('name', 'like', '%' . $this->search . '%')
+                    ->orWhere('sku', 'like', '%' . $this->search . '%');
+            });
+        }
+
+        return $query;
+    }
+
     public function render()
     {
         $shiftId = $this->selectedShiftId ?? $this->currentShiftId;
@@ -441,7 +491,7 @@ class CreateInventoryCallback extends BaseComponent
             $finished = $this->finishedProducts;
             if ($finished instanceof \Illuminate\Pagination\LengthAwarePaginator) {
                 $finished->getCollection()->transform(function ($row) {
-                    $callbackQty = (float) ($row->callback_quantity ?? 0);
+                    $callbackQty = $this->getFinishedProductCallbackPool($row);
                     $usedQty = ProductionCallback::where('shift_id', $row->shift_id)
                         ->where('product_id', $row->recipe->product_id)
                         ->where('source_type', 'finished_product_reject')
@@ -460,5 +510,19 @@ class CreateInventoryCallback extends BaseComponent
             'rawMaterials' => $this->rawMaterials,
             'finishedProducts' => $this->finishedProducts,
         ]);
+    }
+
+    /**
+     * Total finished-product quantity allowed for callback on a daily produce row.
+     * Uses the larger of manually tracked callback quantity and batch rejected quantity.
+     */
+    private function getFinishedProductCallbackPool(DailyProduce $dailyProduce): float
+    {
+        $manualDamaged = (float) ($dailyProduce->callback_quantity ?? 0);
+        $batchRejected = $dailyProduce->relationLoaded('productionRecords')
+            ? (float) $dailyProduce->productionRecords->sum('quantity_rejected')
+            : (float) $dailyProduce->productionRecords()->sum('quantity_rejected');
+
+        return max($manualDamaged, $batchRejected);
     }
 }

@@ -15,7 +15,7 @@ class RolePermissionService
 {
     const CACHE_TTL = 600;
 
-    const PROTECTED_ROLES = ['Super Admin', 'Managing Director', 'MD', 'Admin'];
+    const PROTECTED_ROLES = ['Super Admin', 'Managing Director', 'Admin'];
 
     /**
      * Get current authenticated user
@@ -265,7 +265,7 @@ class RolePermissionService
         }
 
         // Only Super Admin can assign protected roles
-        if ($role->is_protected && ! $user->hasAnyRole(['Super Admin', 'MD'])) {
+        if ($role->is_protected && ! $user->hasAnyRole(['Super Admin', 'Managing Director', 'Admin'])) {
             return false;
         }
 
@@ -449,13 +449,13 @@ class RolePermissionService
     {
         // Check web guard first (web users are super admins)
         $webUser = Auth::guard('web')->user();
-        if ($webUser && $webUser->hasAnyRole(['Super Admin', 'MD', 'Managing Director', 'Admin'], 'web')) {
+        if ($webUser && $webUser->hasAnyRole(['Super Admin', 'Managing Director', 'Admin'], 'web')) {
             return true;
         }
 
         // Check employees guard
         $employeeUser = Auth::guard('web')->user();
-        if ($employeeUser && $employeeUser->hasAnyRole(['Super Admin', 'MD'], 'employees')) {
+        if ($employeeUser && $employeeUser->hasAnyRole(['Super Admin', 'Managing Director', 'Admin'], 'employees')) {
             return true;
         }
 
@@ -539,7 +539,7 @@ class RolePermissionService
      */
     public static function hasSuperAdmin(): bool
     {
-        return Role::whereIn('name', ['Super Admin', 'MD'])
+        return Role::whereIn('name', ['Super Admin', 'Managing Director', 'Admin'])
             ->withCount('users')
             ->get()
             ->sum('users_count') > 0;
@@ -553,28 +553,55 @@ class RolePermissionService
         $hierarchy = [
             // Level 5 - Executive
             'Super Admin' => 5,
-            'MD' => 5,
             'Managing Director' => 5,
 
             // Level 4 - Admin
             'Admin' => 4,
-            'Head of Production' => 3,
+            'Accounting Manager' => 4,
+
+            // Level 3 - Managers
+            'Production Manager' => 3,
             'Sales Manager' => 3,
             'HR Manager' => 3,
             'Inventory Manager' => 3,
-            'Accounting Manager' => 3,
+            'Head Chef' => 3,
+            'Gelato Chef' => 3,
+            'Floor Manager' => 3,
 
             // Level 2 - Supervisors
-            'Production Supervisor' => 2,
-            'Sales Supervisor' => 2,
-            'Inventory Supervisor' => 2,
             'HR Officer' => 2,
             'Accountant' => 2,
+            'Cost Accountant' => 2,
+            'Till Supervisor' => 2,
+            'Cornerstore Supervisor' => 2,
+            'Consession Supervisor' => 2,
+            'Coffee Barista Trainer' => 2,
+            'Lobby Host Supervisor' => 2,
+            'Kitchen Assistant Supervisor' => 2,
+            'Hot Kitchen Chef' => 2,
+            'Pastry Chef' => 2,
+            'Assistant Shop Floor Manager' => 2,
+            'Inventory Team Lead' => 2,
+            'Procurement Officer' => 2,
+            'Facility Officer' => 2,
+            'Cleaners Supervisor' => 2,
+            'Chief Security Officer' => 2,
+            'Social Media Manager' => 2,
 
             // Level 1 - Staff
             'Production Staff' => 1,
             'Sales Staff' => 1,
             'Inventory Staff' => 1,
+            'Kitchen Assistant' => 1,
+            'Data Processor' => 1,
+            'Coffee Barista' => 1,
+            'Cashier' => 1,
+            'Wait Staff' => 1,
+            'Lobby Host' => 1,
+            'Consession Attendant' => 1,
+            'Store Keeper' => 1,
+            'Security Officer' => 1,
+            'Driver' => 1,
         ];
 
         return $hierarchy[$role] ?? 0;
@@ -590,27 +617,52 @@ class RolePermissionService
         return [
             // All roles are department-agnostic by default
             'Super Admin' => ['*'],
-            'MD' => ['*'],
             'Managing Director' => ['*'],
             'Admin' => ['*'],
 
-            'Head of Production' => ['*'],
-            'Production Supervisor' => ['*'],
+            'Production Manager' => ['*'],
+            'Head Chef' => ['*'],
+            'Gelato Chef' => ['*'],
+            'Hot Kitchen Chef' => ['*'],
+            'Pastry Chef' => ['*'],
+            'Kitchen Assistant Supervisor' => ['*'],
+            'Kitchen Assistant' => ['*'],
+            'Data Processor' => ['*'],
             'Production Staff' => ['*'],
 
             'Sales Manager' => ['*'],
-            'Sales Supervisor' => ['*'],
+            'Floor Manager' => ['*'],
+            'Assistant Shop Floor Manager' => ['*'],
+            'Till Supervisor' => ['*'],
+            'Cornerstore Supervisor' => ['*'],
+            'Consession Supervisor' => ['*'],
+            'Coffee Barista Trainer' => ['*'],
+            'Lobby Host Supervisor' => ['*'],
             'Sales Staff' => ['*'],
+            'Coffee Barista' => ['*'],
+            'Cashier' => ['*'],
+            'Wait Staff' => ['*'],
+            'Lobby Host' => ['*'],
+            'Consession Attendant' => ['*'],
 
             'Inventory Manager' => ['*'],
-            'Inventory Supervisor' => ['*'],
+            'Inventory Team Lead' => ['*'],
             'Inventory Staff' => ['*'],
+            'Procurement Officer' => ['*'],
+            'Store Keeper' => ['*'],
 
             'HR Manager' => ['*'],
             'HR Officer' => ['*'],
 
             'Accounting Manager' => ['*'],
             'Accountant' => ['*'],
+            'Cost Accountant' => ['*'],
+            'Facility Officer' => ['*'],
+            'Cleaners Supervisor' => ['*'],
+            'Chief Security Officer' => ['*'],
+            'Security Officer' => ['*'],
+            'Social Media Manager' => ['*'],
+            'Driver' => ['*'],
         ];
     }
 

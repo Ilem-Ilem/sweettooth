@@ -24,6 +24,10 @@ class PurchaseAnalytics extends Component
     public $sortColumn = 'total_spent';
     public $sortDirection = 'desc';
     public ?string $generatedReportId = null;
+    public bool $showItemsModal = false;
+    public ?Purchase $selectedPurchase = null;
+    public array $selectedPurchaseItems = [];
+    public array $selectedPurchaseTotals = [];
 
     protected $queryString = ['dateFrom', 'dateTo', 'supplierFilter', 'paymentStatus'];
 
@@ -87,6 +91,45 @@ class PurchaseAnalytics extends Component
     public function updatedPaymentStatus()
     {
         $this->resetPage();
+    }
+
+    public function openPurchaseItems(string $purchaseId): void
+    {
+        $branchId = $this->getBranchId();
+
+        $purchase = Purchase::with(['purchaseItems.item'])
+            ->where('branch_id', $branchId)
+            ->findOrFail($purchaseId);
+
+        $items = $purchase->purchaseItems ?? collect();
+
+        $this->selectedPurchase = $purchase;
+        $this->selectedPurchaseItems = $items->map(function ($row) {
+            return [
+                'item_name' => $row->item?->name ?? 'N/A',
+                'sku' => $row->item?->sku ?? 'N/A',
+                'quantity' => (float) $row->quantity,
+                'uom' => $row->uom ?? ($row->item?->uom ?? 'units'),
+                'total_cost' => (float) ($row->total_cost ?? 0),
+                'cost_per_unit' => (float) ($row->cost_per_unit ?? 0),
+            ];
+        })->toArray();
+
+        $this->selectedPurchaseTotals = [
+            'items_count' => $items->count(),
+            'total_qty' => (float) $items->sum('quantity'),
+            'total_cost' => (float) $items->sum('total_cost'),
+        ];
+
+        $this->showItemsModal = true;
+    }
+
+    public function closeItemsModal(): void
+    {
+        $this->showItemsModal = false;
+        $this->selectedPurchase = null;
+        $this->selectedPurchaseItems = [];
+        $this->selectedPurchaseTotals = [];
     }
 
     private function validateDateRange()
@@ -365,6 +408,7 @@ class PurchaseAnalytics extends Component
         $branchId = $this->getBranchId();
 
         $purchases = $this->buildFilteredPurchasesQuery($branchId)
+            ->withCount('purchaseItems')
             ->latest('purchase_date')
             ->paginate(15);
 

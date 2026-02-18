@@ -5,6 +5,7 @@ namespace App\Livewire\BranchDashboard\SalesDashboard\Callbacks;
 use App\Livewire\BaseComponent;
 use App\Models\ProductDispatchCallback;
 use App\Models\SalesShift;
+use App\Models\Department;
 use App\Traits\Exportable;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
@@ -20,7 +21,12 @@ class Index extends BaseComponent
     public ?string $b_id = null;
 
     #[Url(keep: true)]
-    public ?string $sales_dept_slug;
+    public ?string $salesDeptSlug = null;
+
+    public ?string $branchId = null;
+    public ?int $departmentId = null;
+    /** @var array<int> */
+    public array $departmentIds = [];
 
     public ?int $quantity = 20;
     public ?string $search = null;
@@ -116,17 +122,49 @@ class Index extends BaseComponent
     {
         $this->startDate = \Carbon\Carbon::today()->subDays(30)->format('Y-m-d');
         $this->endDate = \Carbon\Carbon::today()->format('Y-m-d');
+        if (! $this->salesDeptSlug) {
+            $this->salesDeptSlug = request()->route('salesDeptSlug')
+                ?? request()->query('sales_dept_slug')
+                ?? request()->query('salesDeptSlug');
+        }
+        $this->loadBranchAndDepartment();
         $this->loadAvailableShifts();
         $this->loadCurrentSalesShift();
+    }
+
+    protected function loadBranchAndDepartment(): void
+    {
+        $this->branchId = $this->getBranchId();
+
+        if (! $this->salesDeptSlug) {
+            return;
+        }
+
+        $department = Department::where('slug', $this->salesDeptSlug)
+            ->when($this->branchId, fn ($q) => $q->where('branch_id', $this->branchId))
+            ->first();
+
+        if (! $department) {
+            $department = Department::where('slug', $this->salesDeptSlug)
+                ->whereNull('branch_id')
+                ->first();
+        }
+
+        if ($department) {
+            $this->departmentId = (int) $department->id;
+            $this->departmentIds = $this->resolveEquivalentSalesDepartmentIds($department);
+        }
     }
 
     protected function loadAvailableShifts()
     {
         $branchId = $this->getBranchId();
+        $departmentFilterIds = $this->getDepartmentFilterIds();
 
         // Get sales shifts from last 30 days
         $this->availableShifts = \App\Models\SalesShift::where('branch_id', $branchId)
             ->where('shift_date', '>=', now()->subDays(30))
+            ->when(! empty($departmentFilterIds), fn ($q) => $q->whereIn('department_id', $departmentFilterIds))
             ->with('department')
             ->orderBy('shift_date', 'desc')
             ->orderBy('shift_type', 'desc')
@@ -136,12 +174,14 @@ class Index extends BaseComponent
     protected function loadCurrentSalesShift()
     {
         $employee = auth()->user();
+        $departmentFilterIds = $this->getDepartmentFilterIds();
 
         // First try to find active sales shift for this employee
         $activeShift = \App\Models\SalesShift::where('branch_id', $this->getBranchId())
             ->where('shift_date', \Carbon\Carbon::today())
             ->where('status', 'active')
             ->where('employee_id', $employee->id)
+            ->when(! empty($departmentFilterIds), fn ($q) => $q->whereIn('department_id', $departmentFilterIds))
             ->first();
 
         // If not found, try to find any active sales shift in the employee's department
@@ -149,7 +189,8 @@ class Index extends BaseComponent
             $activeShift = \App\Models\SalesShift::where('branch_id', $this->getBranchId())
                 ->where('shift_date', \Carbon\Carbon::today())
                 ->where('status', 'active')
-                ->where('department_id', $employee->department_id)
+                ->when(! empty($departmentFilterIds), fn ($q) => $q->whereIn('department_id', $departmentFilterIds))
+                ->when(empty($departmentFilterIds), fn ($q) => $q->where('department_id', $employee->department_id))
                 ->first();
         }
 
@@ -210,7 +251,8 @@ class Index extends BaseComponent
                 'product_dispatch_id' => null, // Direct callback without dispatch
                 'sales_shift_id' => $this->currentSalesShiftId,
                 'product_id' => $this->selectedProduct,
-                'recorded_by' => $employee->id,
+                'recorded_by_id' => $employee->id,
+                'recorded_by_type' => get_class($employee),
                 'quantity' => $this->callbackQuantity,
                 'uom' => $this->callbackUom,
                 'reason' => $this->callbackReason,
@@ -233,10 +275,16 @@ class Index extends BaseComponent
 
     public function getRowsProperty()
     {
+        $departmentFilterIds = $this->getDepartmentFilterIds();
         $query = ProductDispatchCallback::with(['product', 'salesShift', 'recordedBy', 'approvedBy', 'receivedBy'])
             ->whereHas('salesShift', function ($q) {
                 $q->where('branch_id', $this->getBranchId());
             });
+        if (! empty($departmentFilterIds)) {
+            $query->whereHas('salesShift', function ($q) use ($departmentFilterIds) {
+                $q->whereIn('department_id', $departmentFilterIds);
+            });
+        }
 
         // Search filter
         if ($this->search) {
@@ -313,7 +361,7 @@ class Index extends BaseComponent
                     $callback->quantity ?? 0,
                     $callback->uom ?? 'kg',
                     ucfirst(str_replace('_', ' ', $callback->reason ?? 'N/A')),
-                    ucfirst(str_replace('_', ' ', $callback->status ?? 'pending')),
+                    $callback->formatted_status ?? 'Pending',
                     $callback->callback_time ? \Carbon\Carbon::parse($callback->callback_time)->format('Y-m-d H:i') : 'N/A',
                     $callback->recordedBy?->name ?? 'N/A',
                     $callback->approvedBy?->name ?? 'N/A',
@@ -352,7 +400,9 @@ class Index extends BaseComponent
 
     public function getStatusBadgeClass($status)
     {
-        return match ($status) {
+        $value = $status instanceof \App\Enums\CallbackStatus ? $status->value : $status;
+
+        return match ($value) {
             'pending' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
             'approved_by_production' => 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
             'received_by_production' => 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
@@ -363,11 +413,13 @@ class Index extends BaseComponent
 
     public function render()
     {
+        $departmentFilterIds = $this->getDepartmentFilterIds();
         $products = \App\Models\Product::where('is_active', 1)
             ->where(function ($query) {
                 $query->whereNull('branch_id')
                     ->orWhere('branch_id', $this->getBranchId());
             })
+            ->when(! empty($departmentFilterIds), fn ($q) => $q->whereIn('sales_department_id', $departmentFilterIds))
             ->orderBy('name')
             ->get();
 
@@ -379,5 +431,52 @@ class Index extends BaseComponent
             'currentSalesShift' => $currentSalesShift,
             'availableShifts' => $this->availableShifts,
         ]);
+    }
+
+    /**
+     * @return array<int>
+     */
+    private function getDepartmentFilterIds(): array
+    {
+        if (! empty($this->departmentIds)) {
+            return $this->departmentIds;
+        }
+
+        return $this->departmentId ? [(int) $this->departmentId] : [];
+    }
+
+    /**
+     * Resolve equivalent sales department IDs for slug across branch/global scope.
+     *
+     * @return array<int>
+     */
+    private function resolveEquivalentSalesDepartmentIds(Department $department): array
+    {
+        $branchId = $this->getBranchId();
+
+        $query = Department::query()
+            ->whereHas('category', function ($categoryQuery) {
+                $categoryQuery->whereRaw('LOWER(name) = ?', ['sales']);
+            })
+            ->where('slug', $department->slug);
+
+        if ($branchId) {
+            $query->where(function ($scopeQuery) use ($branchId) {
+                $scopeQuery->where('branch_id', $branchId)
+                    ->orWhereNull('branch_id');
+            });
+        }
+
+        $ids = $query->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (! in_array((int) $department->id, $ids, true)) {
+            $ids[] = (int) $department->id;
+        }
+
+        return $ids;
     }
 }

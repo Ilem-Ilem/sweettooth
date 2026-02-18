@@ -146,10 +146,13 @@ class ItemDispatches extends Component
             $stockAvailableBase = $stock ? (float) $stock->quantity_available : 0.0;
             $stockAvailableInRequestUom = $this->convertStockBaseQuantityToRequestUom($detail, $stockAvailableBase);
 
+            $requiresRequest = (bool) ($detail->requires_request ?? $detail->item?->requires_request ?? false);
+
             $this->dispatchedItems[] = [
                 'detail_id' => $detail->id,
                 'item_id' => $detail->item_id,
                 'item_name' => $detail->item->name,
+                'requires_request' => $requiresRequest,
                 'quantity_requested' => $detail->quantity_requested,
                 'quantity_approved' => $detail->quantity_approved,
                 'quantity_dispatched' => $detail->quantity_dispatched,
@@ -164,6 +167,10 @@ class ItemDispatches extends Component
                 'is_partially_dispatched' => $detail->quantity_dispatched > 0 && $remainingToDispatch > 0,
                 'has_sufficient_stock' => $stockAvailableInRequestUom >= $remainingToDispatch,
             ];
+        }
+
+        if (collect($this->dispatchedItems)->contains(fn (array $item) => (bool) ($item['requires_request'] ?? false))) {
+            $this->modalWarning = 'This request contains durable/request-required items. Dispatch must proceed through this approved request flow only.';
         }
 
         $this->showDispatchModal = true;
@@ -257,6 +264,10 @@ class ItemDispatches extends Component
                     $detail = ItemRequestDetail::with(['item', 'itemRequest'])->find($item['detail_id']);
                     if (! $detail) {
                         throw new \Exception("Request detail missing for {$item['item_name']}.");
+                    }
+
+                    if ((bool) ($detail->requires_request ?? $detail->item?->requires_request ?? false) && ! $detail->request_id) {
+                        throw new \Exception("{$item['item_name']} requires a valid request before approval/dispatch.");
                     }
 
                     $remainingToApprove = $detail->quantity_requested - $detail->quantity_approved;
@@ -396,6 +407,10 @@ class ItemDispatches extends Component
                         throw new \Exception("Request detail missing for {$item['item_name']}.");
                     }
 
+                    if ((bool) ($detail->requires_request ?? $detail->item?->requires_request ?? false) && ! $detail->request_id) {
+                        throw new \Exception("{$item['item_name']} requires a valid request before dispatch.");
+                    }
+
                     $dispatchQtyRequestUom = (float) $detail->quantity_approved - (float) $detail->quantity_dispatched;
                     $dispatchQtyBaseUom = $this->convertRequestQuantityToStockBase($detail, $dispatchQtyRequestUom);
 
@@ -461,10 +476,14 @@ class ItemDispatches extends Component
                         'item_id' => $item['item_id'],
                         'dispatched_by_id' => Auth::guard('web')->id(),
                         'dispatched_by_type' => \App\Models\Employee::class,
+                        'received_by_id' => null,
+                        'received_by_type' => null,
                         'quantity' => $dispatchQtyRequestUom,
                         'uom' => $mappedUom,
                         'dispatch_time' => now(),
+                        'received_time' => null,
                         'shift' => $request->shift,
+                        'notes' => $request->notes,
                     ]);
 
                     // Update request detail (track total dispatched)

@@ -24,9 +24,8 @@ class DashboardRouter extends Component
 
         $branchId = request()->query('b_id');
 
-        // WEB GUARD (Super Admin)
-        // Web guard users (super admins) should always go to super-admin dashboard
-        if (auth()->check() && !auth()->check()) {
+        // Super admin -> super-admin dashboard
+        if (\App\Services\SidebarVisibilityService::isSuperAdmin($user)) {
             return redirect()->route('branch-dashboard.dashboards.super-admin', ['b_id' => $branchId]);
         }
 
@@ -47,6 +46,10 @@ class DashboardRouter extends Component
         }
 
         // Route by permissions/capabilities
+        if ($sidebarService::canSeeAccounting($user)) {
+            return redirect()->route('branch-dashboard.accounting.dashboard', ['b_id' => $branchId]);
+        }
+
         if ($sidebarService::canSeeProduction($user)) {
             return redirect()->route('branch-dashboard.dashboard.production', ['b_id' => $branchId]);
         }

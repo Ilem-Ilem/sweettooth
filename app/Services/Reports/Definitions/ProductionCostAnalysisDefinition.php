@@ -291,7 +291,7 @@ class ProductionCostAnalysisDefinition implements ReportDefinition
             'total_production_cost' => $totalCost,
             'total_units_produced' => $totalProduced,
             'average_cost_per_unit' => $totalProduced > 0 ? $totalCost / $totalProduced : 0,
-            'cost_efficiency_score' => $totalProduced > 0 ? min(100, 1000 / ($totalCost / $totalProduced)) : 0,
+            'cost_efficiency_score' => ($totalProduced > 0 && $totalCost > 0) ? min(100, 1000 / ($totalCost / $totalProduced)) : 0,
         ];
     }
 

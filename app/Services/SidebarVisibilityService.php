@@ -58,7 +58,6 @@ class SidebarVisibilityService
             'super-admin',
             'super_admin',
             'SuperAdmin',
-            'MD',
             'Managing Director',
             'admin',
             'Admin',
@@ -69,22 +68,38 @@ class SidebarVisibilityService
         if ($user->hasAnyRole($adminRoles)) return self::LEVEL_ADMIN;
 
         $managerRoles = [
-            'Head of Production',
+            'Managing Director',
+            'Admin',
+            'Accounting Manager',
+            'Production Manager',
             'Sales Manager',
             'HR Manager',
             'Inventory Manager',
-            'Accounting Manager',
-            'MD',
-            'Managing Director',
+            'Head Chef',
+            'Gelato Chef',
+            'Floor Manager',
         ];
         if ($user->hasAnyRole($managerRoles)) return self::LEVEL_MANAGER;
 
         $supervisorRoles = [
-            'Production Supervisor',
-            'Sales Supervisor',
-            'Inventory Supervisor',
             'HR Officer',
             'Accountant',
+            'Cost Accountant',
+            'Till Supervisor',
+            'Cornerstore Supervisor',
+            'Consession Supervisor',
+            'Coffee Barista Trainer',
+            'Lobby Host Supervisor',
+            'Kitchen Assistant Supervisor',
+            'Hot Kitchen Chef',
+            'Pastry Chef',
+            'Assistant Shop Floor Manager',
+            'Inventory Team Lead',
+            'Procurement Officer',
+            'Facility Officer',
+            'Cleaners Supervisor',
+            'Chief Security Officer',
+            'Social Media Manager',
         ];
         if ($user->hasAnyRole($supervisorRoles)) return self::LEVEL_SUPERVISOR;
 
@@ -506,7 +521,7 @@ class SidebarVisibilityService
         }
 
         // Managers can only see reporting if they are in relevant departments
-        if ($level >= self::LEVEL_MANAGER && in_array($category, ['Support', 'HR'])) {
+        if ($level >= self::LEVEL_MANAGER && in_array($category, ['Support', 'HR', 'Production', 'Sales', 'Accounting'])) {
             return true;
         }
 

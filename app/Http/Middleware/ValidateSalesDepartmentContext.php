@@ -55,15 +55,14 @@ class ValidateSalesDepartmentContext
                     return $next($request);
                 }
                 
-                // Sales Supervisor can access all sales departments.
-                // Sales Manager/Sales Staff are restricted to their assigned sales department.
+                // Sales managers can access all sales departments in the category.
+                // Other roles are restricted to their assigned sales department.
                 $userLevel = $this->getUserRoleLevel($employee);
-                $isSalesSupervisor = $employee->hasRole('Sales Supervisor');
-                $isSalesManager = $employee->hasRole('Sales Manager');
+                $isSalesManager = $employee->hasAnyRole(['Sales Manager', 'Floor Manager']);
                 $sameCategory = $userDept && $userDept->category_id === $department->category_id;
                 $isSalesDepartment = $department->category?->name === 'Sales';
 
-                if (($isSalesSupervisor && $isSalesDepartment) || ($userLevel >= 3 && $sameCategory && !$isSalesManager)) {
+                if (($userLevel >= 3 && $sameCategory && $isSalesDepartment) || ($isSalesManager && $isSalesDepartment)) {
                     $request->merge(['current_department' => $department]);
                     return $next($request);
                 }
@@ -105,13 +104,20 @@ class ValidateSalesDepartmentContext
 
         // Manager-level roles
         $managerRoles = [
-            'Head of Production', 'Sales Manager', 'HR Manager',
-            'Inventory Manager', 'Accounting Manager', 'MD', 'Managing Director'
+            'Managing Director', 'Admin', 'Accounting Manager',
+            'Production Manager', 'Sales Manager', 'HR Manager',
+            'Inventory Manager', 'Head Chef', 'Gelato Chef', 'Floor Manager',
         ];
         if ($user->hasAnyRole($managerRoles)) return 3;
 
         // Supervisor-level roles
-        $supervisorRoles = ['Production Supervisor', 'Sales Supervisor', 'Inventory Supervisor', 'HR Officer', 'Accountant'];
+        $supervisorRoles = [
+            'HR Officer', 'Accountant', 'Cost Accountant', 'Till Supervisor', 'Cornerstore Supervisor',
+            'Consession Supervisor', 'Coffee Barista Trainer', 'Lobby Host Supervisor', 'Kitchen Assistant Supervisor',
+            'Hot Kitchen Chef', 'Pastry Chef', 'Assistant Shop Floor Manager', 'Inventory Team Lead',
+            'Procurement Officer', 'Facility Officer', 'Cleaners Supervisor', 'Chief Security Officer',
+            'Social Media Manager',
+        ];
         if ($user->hasAnyRole($supervisorRoles)) return 2;
 
         return 1; // Staff level

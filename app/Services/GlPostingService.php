@@ -15,6 +15,11 @@ use App\Models\CreditNote;
 use App\Models\DebitNote;
 use App\Models\ProductionOrder;
 use App\Models\InventoryAdjustment;
+use App\Models\Payroll;
+use App\Models\PurchasePayment;
+use App\Models\TaxPayment;
+use App\Models\FixedAsset;
+use App\Models\AssetDepreciation;
 use Illuminate\Support\Facades\DB;
 use Exception;
 
@@ -387,40 +392,76 @@ class GlPostingService
             }
 
             $inventoryAccount = $this->getGlAccount('1220');
-            $lossAccount = $this->getAdjustmentAccountForType($reason);
+            $adjustmentAccount = $this->getAdjustmentAccountForType($reason);
 
             $amount = $movement->cost_impact ?? ($movement->quantity * ($movement->unit_cost ?? 0));
+            $amount = abs((float) $amount);
 
-            // Debit: Loss, Credit: Inventory
-            GlEntry::create([
-                'gl_account_id' => $lossAccount->id,
-                'accounting_period_id' => $period->id,
-                'entry_type' => 'adjustment',
-                'reference_type' => StockMovement::class,
-                'reference_id' => $movement->id,
-                'reference_number' => "ADJ-{$movement->id}",
-                'description' => ucfirst($reason) . " Loss - {$movement->quantity} units",
-                'debit' => $amount,
-                'credit' => 0,
-                'entry_date' => $movement->movement_date ?? $movement->created_at,
-                'status' => 'draft',
-                'entered_by_id' => auth()->id(),
-            ])->post(auth()->id());
+            $isIncrease = (float) $movement->quantity_after > (float) $movement->quantity_before;
 
-            GlEntry::create([
-                'gl_account_id' => $inventoryAccount->id,
-                'accounting_period_id' => $period->id,
-                'entry_type' => 'adjustment',
-                'reference_type' => StockMovement::class,
-                'reference_id' => $movement->id,
-                'reference_number' => "ADJ-{$movement->id}",
-                'description' => "Inventory Reduction - {$movement->quantity} units",
-                'debit' => 0,
-                'credit' => $amount,
-                'entry_date' => $movement->movement_date ?? $movement->created_at,
-                'status' => 'draft',
-                'entered_by_id' => auth()->id(),
-            ])->post(auth()->id());
+            if ($isIncrease && $movement->type === 'adjustment') {
+                // Debit Inventory, Credit Adjustment (inventory gain)
+                GlEntry::create([
+                    'gl_account_id' => $inventoryAccount->id,
+                    'accounting_period_id' => $period->id,
+                    'entry_type' => 'adjustment',
+                    'reference_type' => StockMovement::class,
+                    'reference_id' => $movement->id,
+                    'reference_number' => "ADJ-{$movement->id}",
+                    'description' => "Inventory Increase - {$movement->quantity} units",
+                    'debit' => $amount,
+                    'credit' => 0,
+                    'entry_date' => $movement->movement_date ?? $movement->created_at,
+                    'status' => 'draft',
+                    'entered_by_id' => auth()->id(),
+                ])->post(auth()->id());
+
+                GlEntry::create([
+                    'gl_account_id' => $adjustmentAccount->id,
+                    'accounting_period_id' => $period->id,
+                    'entry_type' => 'adjustment',
+                    'reference_type' => StockMovement::class,
+                    'reference_id' => $movement->id,
+                    'reference_number' => "ADJ-{$movement->id}",
+                    'description' => ucfirst($reason) . " Adjustment - {$movement->quantity} units",
+                    'debit' => 0,
+                    'credit' => $amount,
+                    'entry_date' => $movement->movement_date ?? $movement->created_at,
+                    'status' => 'draft',
+                    'entered_by_id' => auth()->id(),
+                ])->post(auth()->id());
+            } else {
+                // Debit Loss/Adjustment, Credit Inventory
+                GlEntry::create([
+                    'gl_account_id' => $adjustmentAccount->id,
+                    'accounting_period_id' => $period->id,
+                    'entry_type' => 'adjustment',
+                    'reference_type' => StockMovement::class,
+                    'reference_id' => $movement->id,
+                    'reference_number' => "ADJ-{$movement->id}",
+                    'description' => ucfirst($reason) . " Loss - {$movement->quantity} units",
+                    'debit' => $amount,
+                    'credit' => 0,
+                    'entry_date' => $movement->movement_date ?? $movement->created_at,
+                    'status' => 'draft',
+                    'entered_by_id' => auth()->id(),
+                ])->post(auth()->id());
+
+                GlEntry::create([
+                    'gl_account_id' => $inventoryAccount->id,
+                    'accounting_period_id' => $period->id,
+                    'entry_type' => 'adjustment',
+                    'reference_type' => StockMovement::class,
+                    'reference_id' => $movement->id,
+                    'reference_number' => "ADJ-{$movement->id}",
+                    'description' => "Inventory Reduction - {$movement->quantity} units",
+                    'debit' => 0,
+                    'credit' => $amount,
+                    'entry_date' => $movement->movement_date ?? $movement->created_at,
+                    'status' => 'draft',
+                    'entered_by_id' => auth()->id(),
+                ])->post(auth()->id());
+            }
 
             DB::commit();
             return true;
@@ -1058,6 +1099,435 @@ class GlPostingService
         ];
 
         return $mapping[$paymentMethod] ?? '1010';
+    }
+
+    /**
+     * Post payroll accrual (approve payroll)
+     * Debit: Salaries Expense, Credit: Payroll Payable
+     */
+    public function postPayrollAccrual(Payroll $payroll): bool
+    {
+        try {
+            DB::beginTransaction();
+
+            if ($this->alreadyPosted(Payroll::class, (int) $payroll->id, ['payroll_accrual'])) {
+                DB::commit();
+                return true;
+            }
+
+            $period = $this->getCurrentPeriod();
+            if (! $period) {
+                throw new Exception('No open accounting period found');
+            }
+
+            $expenseAccount = $this->getGlAccount('6100'); // Salaries & Wages Expense
+            $payableAccount = $this->getGlAccount('2110'); // Payroll Payable
+            $taxPayableAccount = $this->getGlAccount('2120'); // Payroll Tax Payable
+            $deductionPayableAccount = $this->getGlAccount('2130'); // Other Deductions Payable
+
+            $gross = (float) $payroll->gross_salary;
+            $net = (float) $payroll->net_salary;
+            $tax = (float) $payroll->tax_deductions;
+            $other = (float) $payroll->other_deductions;
+
+            GlEntry::create([
+                'gl_account_id' => $expenseAccount->id,
+                'accounting_period_id' => $period->id,
+                'entry_type' => 'payroll_accrual',
+                'reference_type' => Payroll::class,
+                'reference_id' => $payroll->id,
+                'reference_number' => "PAYROLL-{$payroll->id}",
+                'description' => "Payroll Accrual - {$payroll->employee?->name}",
+                'debit' => $gross,
+                'credit' => 0,
+                'entry_date' => $payroll->pay_period_end,
+                'status' => 'draft',
+                'entered_by_id' => auth()->id(),
+            ])->post(auth()->id());
+
+            GlEntry::create([
+                'gl_account_id' => $payableAccount->id,
+                'accounting_period_id' => $period->id,
+                'entry_type' => 'payroll_accrual',
+                'reference_type' => Payroll::class,
+                'reference_id' => $payroll->id,
+                'reference_number' => "PAYROLL-{$payroll->id}",
+                'description' => "Payroll Payable - {$payroll->employee?->name}",
+                'debit' => 0,
+                'credit' => $net,
+                'entry_date' => $payroll->pay_period_end,
+                'status' => 'draft',
+                'entered_by_id' => auth()->id(),
+            ])->post(auth()->id());
+
+            if ($tax > 0) {
+                GlEntry::create([
+                    'gl_account_id' => $taxPayableAccount->id,
+                    'accounting_period_id' => $period->id,
+                    'entry_type' => 'payroll_accrual',
+                    'reference_type' => Payroll::class,
+                    'reference_id' => $payroll->id,
+                    'reference_number' => "PAYROLL-{$payroll->id}",
+                    'description' => "Payroll Tax Payable - {$payroll->employee?->name}",
+                    'debit' => 0,
+                    'credit' => $tax,
+                    'entry_date' => $payroll->pay_period_end,
+                    'status' => 'draft',
+                    'entered_by_id' => auth()->id(),
+                ])->post(auth()->id());
+            }
+
+            if ($other > 0) {
+                GlEntry::create([
+                    'gl_account_id' => $deductionPayableAccount->id,
+                    'accounting_period_id' => $period->id,
+                    'entry_type' => 'payroll_accrual',
+                    'reference_type' => Payroll::class,
+                    'reference_id' => $payroll->id,
+                    'reference_number' => "PAYROLL-{$payroll->id}",
+                    'description' => "Other Deductions Payable - {$payroll->employee?->name}",
+                    'debit' => 0,
+                    'credit' => $other,
+                    'entry_date' => $payroll->pay_period_end,
+                    'status' => 'draft',
+                    'entered_by_id' => auth()->id(),
+                ])->post(auth()->id());
+            }
+
+            DB::commit();
+            return true;
+        } catch (Exception $e) {
+            DB::rollBack();
+            \Log::error('GL Posting Error - Payroll Accrual', [
+                'payroll_id' => $payroll->id,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Post payroll payment
+     * Debit: Payroll Payable, Credit: Cash/Bank
+     */
+    public function postPayrollPayment(Payroll $payroll): bool
+    {
+        try {
+            DB::beginTransaction();
+
+            if ($this->alreadyPosted(Payroll::class, (int) $payroll->id, ['payroll_payment'])) {
+                DB::commit();
+                return true;
+            }
+
+            $period = $this->getCurrentPeriod();
+            if (! $period) {
+                throw new Exception('No open accounting period found');
+            }
+
+            $payableAccount = $this->getGlAccount('2110');
+            $cashAccount = $payroll->bankAccount?->glAccount ?? $this->getGlAccount('1050');
+
+            $amount = (float) $payroll->net_salary;
+
+            GlEntry::create([
+                'gl_account_id' => $payableAccount->id,
+                'accounting_period_id' => $period->id,
+                'entry_type' => 'payroll_payment',
+                'reference_type' => Payroll::class,
+                'reference_id' => $payroll->id,
+                'reference_number' => "PAYROLL-{$payroll->id}",
+                'description' => "Payroll Payment - {$payroll->employee?->name}",
+                'debit' => $amount,
+                'credit' => 0,
+                'entry_date' => $payroll->payment_date ?? now(),
+                'status' => 'draft',
+                'entered_by_id' => auth()->id(),
+            ])->post(auth()->id());
+
+            GlEntry::create([
+                'gl_account_id' => $cashAccount->id,
+                'accounting_period_id' => $period->id,
+                'entry_type' => 'payroll_payment',
+                'reference_type' => Payroll::class,
+                'reference_id' => $payroll->id,
+                'reference_number' => "PAYROLL-{$payroll->id}",
+                'description' => "Payroll Cash/Bank - {$payroll->employee?->name}",
+                'debit' => 0,
+                'credit' => $amount,
+                'entry_date' => $payroll->payment_date ?? now(),
+                'status' => 'draft',
+                'entered_by_id' => auth()->id(),
+            ])->post(auth()->id());
+
+            DB::commit();
+            return true;
+        } catch (Exception $e) {
+            DB::rollBack();
+            \Log::error('GL Posting Error - Payroll Payment', [
+                'payroll_id' => $payroll->id,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Post purchase payment (settle AP)
+     * Debit: Accounts Payable, Credit: Cash/Bank
+     */
+    public function postPurchasePayment(PurchasePayment $payment): bool
+    {
+        try {
+            DB::beginTransaction();
+
+            if ($this->alreadyPosted(PurchasePayment::class, (int) $payment->id, ['purchase_payment'])) {
+                DB::commit();
+                return true;
+            }
+
+            $period = $this->getCurrentPeriod();
+            if (! $period) {
+                throw new Exception('No open accounting period found');
+            }
+
+            $apAccount = $this->getGlAccount('2010');
+            $cashAccount = $payment->bankAccount?->glAccount ?? $this->getGlAccount('1050');
+
+            GlEntry::create([
+                'gl_account_id' => $apAccount->id,
+                'accounting_period_id' => $period->id,
+                'entry_type' => 'purchase_payment',
+                'reference_type' => PurchasePayment::class,
+                'reference_id' => $payment->id,
+                'reference_number' => $payment->reference_number ?? "PPAY-{$payment->id}",
+                'description' => "Purchase Payment - {$payment->purchase?->purchase_number}",
+                'debit' => $payment->amount,
+                'credit' => 0,
+                'entry_date' => $payment->payment_date,
+                'status' => 'draft',
+                'entered_by_id' => auth()->id(),
+            ])->post(auth()->id());
+
+            GlEntry::create([
+                'gl_account_id' => $cashAccount->id,
+                'accounting_period_id' => $period->id,
+                'entry_type' => 'purchase_payment',
+                'reference_type' => PurchasePayment::class,
+                'reference_id' => $payment->id,
+                'reference_number' => $payment->reference_number ?? "PPAY-{$payment->id}",
+                'description' => "Purchase Payment Cash/Bank - {$payment->purchase?->purchase_number}",
+                'debit' => 0,
+                'credit' => $payment->amount,
+                'entry_date' => $payment->payment_date,
+                'status' => 'draft',
+                'entered_by_id' => auth()->id(),
+            ])->post(auth()->id());
+
+            DB::commit();
+            return true;
+        } catch (Exception $e) {
+            DB::rollBack();
+            \Log::error('GL Posting Error - Purchase Payment', [
+                'payment_id' => $payment->id,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Post tax payment
+     * Debit: Tax Payable, Credit: Cash/Bank
+     */
+    public function postTaxPayment(TaxPayment $payment): bool
+    {
+        try {
+            DB::beginTransaction();
+
+            if ($this->alreadyPosted(TaxPayment::class, (int) $payment->id, ['tax_payment'])) {
+                DB::commit();
+                return true;
+            }
+
+            $period = $this->getCurrentPeriod();
+            if (! $period) {
+                throw new Exception('No open accounting period found');
+            }
+
+            $taxAccount = $this->getGlAccount('2100');
+            $cashAccount = $payment->bankAccount?->glAccount ?? $this->getGlAccount('1050');
+
+            GlEntry::create([
+                'gl_account_id' => $taxAccount->id,
+                'accounting_period_id' => $period->id,
+                'entry_type' => 'tax_payment',
+                'reference_type' => TaxPayment::class,
+                'reference_id' => $payment->id,
+                'reference_number' => $payment->reference_number ?? "TAX-{$payment->id}",
+                'description' => "Tax Payment - {$payment->tax_type}",
+                'debit' => $payment->amount,
+                'credit' => 0,
+                'entry_date' => $payment->payment_date,
+                'status' => 'draft',
+                'entered_by_id' => auth()->id(),
+            ])->post(auth()->id());
+
+            GlEntry::create([
+                'gl_account_id' => $cashAccount->id,
+                'accounting_period_id' => $period->id,
+                'entry_type' => 'tax_payment',
+                'reference_type' => TaxPayment::class,
+                'reference_id' => $payment->id,
+                'reference_number' => $payment->reference_number ?? "TAX-{$payment->id}",
+                'description' => "Tax Payment Cash/Bank - {$payment->tax_type}",
+                'debit' => 0,
+                'credit' => $payment->amount,
+                'entry_date' => $payment->payment_date,
+                'status' => 'draft',
+                'entered_by_id' => auth()->id(),
+            ])->post(auth()->id());
+
+            DB::commit();
+            return true;
+        } catch (Exception $e) {
+            DB::rollBack();
+            \Log::error('GL Posting Error - Tax Payment', [
+                'payment_id' => $payment->id,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Post fixed asset acquisition
+     * Debit: Fixed Assets, Credit: Cash/Bank or Accounts Payable
+     */
+    public function postFixedAssetAcquisition(FixedAsset $asset): bool
+    {
+        try {
+            DB::beginTransaction();
+
+            if ($this->alreadyPosted(FixedAsset::class, (int) $asset->id, ['asset_acquisition'])) {
+                DB::commit();
+                return true;
+            }
+
+            $period = $this->getCurrentPeriod();
+            if (! $period) {
+                throw new Exception('No open accounting period found');
+            }
+
+            $assetAccount = $this->getGlAccount('1500'); // Fixed Assets
+            $creditAccount = $asset->funding_source === 'ap'
+                ? $this->getGlAccount('2010')
+                : ($asset->bankAccount?->glAccount ?? $this->getGlAccount('1050'));
+
+            GlEntry::create([
+                'gl_account_id' => $assetAccount->id,
+                'accounting_period_id' => $period->id,
+                'entry_type' => 'asset_acquisition',
+                'reference_type' => FixedAsset::class,
+                'reference_id' => $asset->id,
+                'reference_number' => $asset->asset_tag ?? "ASSET-{$asset->id}",
+                'description' => "Asset Acquisition - {$asset->asset_name}",
+                'debit' => $asset->asset_cost,
+                'credit' => 0,
+                'entry_date' => $asset->acquisition_date,
+                'status' => 'draft',
+                'entered_by_id' => auth()->id(),
+            ])->post(auth()->id());
+
+            GlEntry::create([
+                'gl_account_id' => $creditAccount->id,
+                'accounting_period_id' => $period->id,
+                'entry_type' => 'asset_acquisition',
+                'reference_type' => FixedAsset::class,
+                'reference_id' => $asset->id,
+                'reference_number' => $asset->asset_tag ?? "ASSET-{$asset->id}",
+                'description' => "Asset Funding - {$asset->asset_name}",
+                'debit' => 0,
+                'credit' => $asset->asset_cost,
+                'entry_date' => $asset->acquisition_date,
+                'status' => 'draft',
+                'entered_by_id' => auth()->id(),
+            ])->post(auth()->id());
+
+            DB::commit();
+            return true;
+        } catch (Exception $e) {
+            DB::rollBack();
+            \Log::error('GL Posting Error - Asset Acquisition', [
+                'asset_id' => $asset->id,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Post asset depreciation
+     * Debit: Depreciation Expense, Credit: Accumulated Depreciation
+     */
+    public function postAssetDepreciation(AssetDepreciation $depreciation): bool
+    {
+        try {
+            DB::beginTransaction();
+
+            if ($this->alreadyPosted(AssetDepreciation::class, (int) $depreciation->id, ['asset_depreciation'])) {
+                DB::commit();
+                return true;
+            }
+
+            $period = $this->getCurrentPeriod();
+            if (! $period) {
+                throw new Exception('No open accounting period found');
+            }
+
+            $expenseAccount = $this->getGlAccount('6200'); // Depreciation Expense
+            $accumAccount = $this->getGlAccount('1510');  // Accumulated Depreciation
+
+            GlEntry::create([
+                'gl_account_id' => $expenseAccount->id,
+                'accounting_period_id' => $period->id,
+                'entry_type' => 'asset_depreciation',
+                'reference_type' => AssetDepreciation::class,
+                'reference_id' => $depreciation->id,
+                'reference_number' => "DEP-{$depreciation->id}",
+                'description' => "Depreciation - {$depreciation->asset?->asset_name}",
+                'debit' => $depreciation->depreciation_amount,
+                'credit' => 0,
+                'entry_date' => $depreciation->depreciation_date,
+                'status' => 'draft',
+                'entered_by_id' => auth()->id(),
+            ])->post(auth()->id());
+
+            GlEntry::create([
+                'gl_account_id' => $accumAccount->id,
+                'accounting_period_id' => $period->id,
+                'entry_type' => 'asset_depreciation',
+                'reference_type' => AssetDepreciation::class,
+                'reference_id' => $depreciation->id,
+                'reference_number' => "DEP-{$depreciation->id}",
+                'description' => "Accumulated Depreciation - {$depreciation->asset?->asset_name}",
+                'debit' => 0,
+                'credit' => $depreciation->depreciation_amount,
+                'entry_date' => $depreciation->depreciation_date,
+                'status' => 'draft',
+                'entered_by_id' => auth()->id(),
+            ])->post(auth()->id());
+
+            DB::commit();
+            return true;
+        } catch (Exception $e) {
+            DB::rollBack();
+            \Log::error('GL Posting Error - Asset Depreciation', [
+                'depreciation_id' => $depreciation->id,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
     }
 
     /**

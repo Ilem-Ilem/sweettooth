@@ -149,7 +149,7 @@ class ProductionCallback extends Model
      */
     public function scopePending($query)
     {
-        return $query->where('status', 'pending');
+        return $query->where('status', CallbackStatus::PENDING->value);
     }
 
     /**
@@ -157,7 +157,7 @@ class ProductionCallback extends Model
      */
     public function scopeApproved($query)
     {
-        return $query->where('status', 'approved_by_inventory');
+        return $query->where('status', CallbackStatus::APPROVED_BY_INVENTORY->value);
     }
 
     /**
@@ -165,7 +165,7 @@ class ProductionCallback extends Model
      */
     public function scopeCompleted($query)
     {
-        return $query->where('status', 'completed');
+        return $query->where('status', CallbackStatus::COMPLETED->value);
     }
 
     /**
@@ -173,7 +173,7 @@ class ProductionCallback extends Model
      */
     public function scopeRejected($query)
     {
-        return $query->where('status', 'rejected');
+        return $query->where('status', CallbackStatus::REJECTED->value);
     }
 
     /**
@@ -221,7 +221,7 @@ class ProductionCallback extends Model
      */
     public function canBeApproved(): bool
     {
-        return $this->status === 'pending';
+        return $this->status === CallbackStatus::PENDING;
     }
 
     /**
@@ -269,7 +269,7 @@ class ProductionCallback extends Model
 
             // Then approve
             $this->update([
-                'status' => 'approved_by_inventory',
+                'status' => CallbackStatus::APPROVED_BY_INVENTORY,
                 'approved_by_id' => $actor->id,
                 'approved_by_type' => get_class($actor),
                 'approved_at' => now(),
@@ -312,7 +312,7 @@ class ProductionCallback extends Model
         }
 
         $this->update([
-            'status' => 'rejected',
+            'status' => CallbackStatus::REJECTED,
             'approved_by_id' => $actor->id,
             'approved_by_type' => get_class($actor),
             'approved_at' => now(),
@@ -327,12 +327,12 @@ class ProductionCallback extends Model
      */
     public function complete(): bool
     {
-        if ($this->status !== 'approved_by_inventory') {
+        if ($this->status !== CallbackStatus::APPROVED_BY_INVENTORY) {
             return false;
         }
 
         $this->update([
-            'status' => 'completed',
+            'status' => CallbackStatus::COMPLETED,
         ]);
 
         return true;
@@ -359,7 +359,8 @@ class ProductionCallback extends Model
      */
     public function getFormattedStatusAttribute(): string
     {
-        return ucwords(str_replace('_', ' ', $this->status));
+        $value = $this->status instanceof CallbackStatus ? $this->status->value : $this->status;
+        return ucwords(str_replace('_', ' ', $value));
     }
 
     /**

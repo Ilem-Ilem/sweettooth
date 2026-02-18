@@ -11,22 +11,23 @@ class BalanceSheetService
     /**
      * Get balance sheet for a period
      */
-    public function getBalanceSheet(?int $periodId = null): array
+    public function getBalanceSheet(?int $periodId = null, ?string $branchId = null): array
     {
+        $branchId = $branchId ?? current_branch_id();
         // Assets (1000-1999)
-        $assets = $this->getAccountsByRange(1000, 1999, $periodId);
+        $assets = $this->getAccountsByRange(1000, 1999, $periodId, $branchId);
         $totalAssets = $assets->sum('balance');
 
         // Liabilities (2000-2999)
-        $liabilities = $this->getAccountsByRange(2000, 2999, $periodId);
+        $liabilities = $this->getAccountsByRange(2000, 2999, $periodId, $branchId);
         $totalLiabilities = $liabilities->sum('balance');
 
         // Equity (3000-3999)
-        $equity = $this->getAccountsByRange(3000, 3999, $periodId);
+        $equity = $this->getAccountsByRange(3000, 3999, $periodId, $branchId);
         $totalEquity = $equity->sum('balance');
 
         // Retained Earnings (calculated)
-        $retainedEarnings = $this->calculateRetainedEarnings($periodId);
+        $retainedEarnings = $this->calculateRetainedEarnings($periodId, $branchId);
 
         // Total Equity with Retained Earnings
         $totalEquityWithRE = $totalEquity + $retainedEarnings;
@@ -62,10 +63,10 @@ class BalanceSheetService
     /**
      * Calculate retained earnings from income statement
      */
-    protected function calculateRetainedEarnings(?int $periodId = null): float
+    protected function calculateRetainedEarnings(?int $periodId = null, ?string $branchId = null): float
     {
         $incomeService = new IncomeStatementService();
-        $is = $incomeService->getIncomeStatement($periodId);
+        $is = $incomeService->getIncomeStatement($periodId, $branchId);
         return $is['net_income'];
     }
 
@@ -76,6 +77,7 @@ class BalanceSheetService
         int $startNumber,
         int $endNumber,
         ?int $periodId = null,
+        ?string $branchId = null,
     ) {
         $accounts = GlAccount::where('is_active', true)
             ->whereBetween('account_number', [(string)$startNumber, (string)$endNumber])
@@ -83,8 +85,8 @@ class BalanceSheetService
             ->orderBy('account_number')
             ->get();
 
-        return $accounts->map(function ($account) use ($periodId) {
-            $balance = $this->getAccountBalance($account->id, $periodId);
+        return $accounts->map(function ($account) use ($periodId, $branchId) {
+            $balance = $this->getAccountBalance($account->id, $periodId, $branchId);
             return [
                 'account_id' => $account->id,
                 'account_number' => $account->account_number,
@@ -98,10 +100,14 @@ class BalanceSheetService
     /**
      * Get account balance
      */
-    protected function getAccountBalance(int $accountId, ?int $periodId = null): float
+    protected function getAccountBalance(int $accountId, ?int $periodId = null, ?string $branchId = null): float
     {
         $query = GlEntry::where('gl_account_id', $accountId)
             ->where('status', 'posted');
+
+        if ($branchId) {
+            $query->where('branch_id', $branchId);
+        }
 
         if ($periodId) {
             $query->where('accounting_period_id', $periodId);
@@ -124,9 +130,10 @@ class BalanceSheetService
     public function getComparativeBalanceSheet(
         ?int $periodId1 = null,
         ?int $periodId2 = null,
+        ?string $branchId = null,
     ): array {
-        $bs1 = $this->getBalanceSheet($periodId1);
-        $bs2 = $this->getBalanceSheet($periodId2);
+        $bs1 = $this->getBalanceSheet($periodId1, $branchId);
+        $bs2 = $this->getBalanceSheet($periodId2, $branchId);
 
         return [
             'period1' => $bs1,
@@ -145,9 +152,9 @@ class BalanceSheetService
     /**
      * Get financial ratios
      */
-    public function getFinancialRatios(?int $periodId = null): array
+    public function getFinancialRatios(?int $periodId = null, ?string $branchId = null): array
     {
-        $bs = $this->getBalanceSheet($periodId);
+        $bs = $this->getBalanceSheet($periodId, $branchId);
 
         $currentAssets = collect($bs['assets'])
             ->filter(fn($a) => in_array($a['account_category'], ['cash', 'receivable']))
@@ -177,9 +184,9 @@ class BalanceSheetService
     /**
      * Export balance sheet
      */
-    public function exportBalanceSheet(?int $periodId = null): array
+    public function exportBalanceSheet(?int $periodId = null, ?string $branchId = null): array
     {
-        $bs = $this->getBalanceSheet($periodId);
+        $bs = $this->getBalanceSheet($periodId, $branchId);
 
         $data = [
             ['BALANCE SHEET', '', ''],

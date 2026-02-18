@@ -49,6 +49,9 @@ class Index extends BaseComponent
     public array $payments = [];
     public float $paymentTotal = 0.0;
     public float $paymentRemaining = 0.0;
+    protected ?Collection $productsForView = null;
+    protected ?array $productAvailabilityForView = null;
+    protected ?array $productsPayloadForView = null;
     
     public function __set(string $name, mixed $value): void
     {
@@ -477,6 +480,33 @@ class Index extends BaseComponent
         return $department?->bank_account_id;
     }
 
+    protected function getDefaultDepartmentBankAccountLabel(): string
+    {
+        $bankAccountId = $this->getDefaultDepartmentBankAccountId();
+        if (! $bankAccountId) {
+            return 'No bank linked to department';
+        }
+
+        $bankAccount = BankAccount::find($bankAccountId);
+        if (! $bankAccount) {
+            return 'No bank linked to department';
+        }
+
+        $bankName = trim((string) ($bankAccount->bank_name ?? ''));
+        $accountNumber = trim((string) ($bankAccount->account_number ?? ''));
+        if ($bankName === '' && $accountNumber === '') {
+            return 'Bank linked to department';
+        }
+
+        if ($accountNumber !== '') {
+            return $bankName !== ''
+                ? ($bankName . ' · ' . $accountNumber)
+                : $accountNumber;
+        }
+
+        return $bankName;
+    }
+
     public function completeSale(): void
     {
         try {
@@ -511,6 +541,40 @@ class Index extends BaseComponent
             ]);
 
         DB::transaction(function () {
+            $productIds = array_values(array_unique(array_map(
+                static fn ($line): string => (string) ($line['product_id'] ?? ''),
+                $this->cart
+            )));
+
+            $productsById = Product::query()
+                ->with(['unitOfMeasure', 'salesUom'])
+                ->whereIn('id', $productIds)
+                ->get()
+                ->keyBy('id');
+
+            $stocksByProduct = [];
+            $stockQuery = ProductStock::query()
+                ->whereDate('stock_date', Carbon::today())
+                ->whereIn('product_id', $productIds);
+
+            if (Schema::hasColumn('product_stocks', 'department_id') && $this->departmentId) {
+                $departmentIds = $this->resolveEquivalentSalesDepartmentIds();
+                if (empty($departmentIds)) {
+                    $departmentIds = [(int) $this->departmentId];
+                }
+                $stockQuery->whereIn('department_id', $departmentIds)
+                    ->orderByRaw('department_id = ? DESC', [(int) $this->departmentId]);
+            }
+
+            $stockQuery->orderByDesc('id')->lockForUpdate();
+
+            foreach ($stockQuery->get() as $stock) {
+                $productId = (string) $stock->product_id;
+                if (! isset($stocksByProduct[$productId])) {
+                    $stocksByProduct[$productId] = $stock;
+                }
+            }
+
             $sale = Sale::create([
                 'sales_shift_id' => null, // Nullable - using general shifts table instead
                 'branch_id' => $this->branchId,
@@ -535,7 +599,7 @@ class Index extends BaseComponent
                 $productId = (string)$line['product_id'];
                 $qty = (float)$line['qty'];
 
-                $stock = $this->getTodayStockForProduct($productId, forUpdate: true);
+                $stock = $stocksByProduct[$productId] ?? null;
                 $available = $this->availableQuantity($stock);
 
                 // Process sale with available quantity or full quantity
@@ -547,7 +611,7 @@ class Index extends BaseComponent
 
                 if ($actualQty > 0) {
                     // Get the product for UOM conversion
-                    $product = Product::with(['unitOfMeasure', 'salesUom'])->find($productId);
+                    $product = $productsById->get($productId);
                     
                     // Calculate base quantity for stock deduction
                     $baseQty = $actualQty;
@@ -723,28 +787,7 @@ class Index extends BaseComponent
 
     public function getProductsProperty(): Collection
     {
-        if (! $this->departmentId) {
-            return collect();
-        }
-
-        $q = Product::query()->active()->available();
-        $departmentIds = $this->scopedSalesDepartmentIds();
-        if (empty($departmentIds)) {
-            return collect();
-        }
-
-        // Strict sales ownership filter: only products assigned to this sales department.
-        $q->whereIn('sales_department_id', $departmentIds);
-
-        // Search filter
-        if (strlen($this->search)) {
-            $q->where(function ($query) {
-                $query->where('name', 'like', '%' . $this->search . '%')
-                      ->orWhere('sku', 'like', '%' . $this->search . '%');
-            });
-        }
-
-        return $q->orderBy('name')->limit(50)->get();
+        return $this->getProductsForView();
     }
 
     /**
@@ -806,6 +849,191 @@ class Index extends BaseComponent
     public function getAvailableForProduct(string $productId): float
     {
         return $this->availableQuantity($this->getTodayStockForProduct($productId));
+    }
+
+    protected function getProductsForView(): Collection
+    {
+        if ($this->productsForView !== null) {
+            return $this->productsForView;
+        }
+
+        if (! $this->departmentId) {
+            return $this->productsForView = collect();
+        }
+
+        $departmentIds = $this->scopedSalesDepartmentIds();
+        if (empty($departmentIds)) {
+            return $this->productsForView = collect();
+        }
+
+        $q = Product::query()
+            ->active()
+            ->available()
+            ->whereIn('sales_department_id', $departmentIds)
+            ->select(['id', 'name', 'price', 'sku'])
+            ->orderBy('name');
+
+        if (strlen($this->search)) {
+            $q->where(function ($query) {
+                $query->where('name', 'like', '%' . $this->search . '%')
+                    ->orWhere('sku', 'like', '%' . $this->search . '%');
+            });
+        }
+
+        return $this->productsForView = $q->get();
+    }
+
+    /**
+     * @param  Collection<int, Product>  $products
+     * @return array<string, float>
+     */
+    protected function getProductAvailabilityForView(Collection $products): array
+    {
+        if ($this->productAvailabilityForView !== null) {
+            return $this->productAvailabilityForView;
+        }
+
+        $productIds = $products->pluck('id')
+            ->filter()
+            ->map(static fn ($id): string => (string) $id)
+            ->values()
+            ->all();
+
+        if (empty($productIds)) {
+            return $this->productAvailabilityForView = [];
+        }
+
+        $hasDepartmentColumn = Schema::hasColumn('product_stocks', 'department_id');
+        $departmentIds = [];
+        if ($hasDepartmentColumn) {
+            $departmentIds = $this->resolveEquivalentSalesDepartmentIds();
+            if (empty($departmentIds)) {
+                $departmentIds = [(int) $this->departmentId];
+            }
+        }
+
+        $stockQuery = ProductStock::query()
+            ->whereDate('stock_date', Carbon::today())
+            ->whereIn('product_id', $productIds)
+            ->select([
+                'id',
+                'product_id',
+                'department_id',
+                'opening_quantity',
+                'addition_quantity',
+                'callback_quantity',
+                'redress_quantity',
+                'transfer_quantity',
+                'glovo_quantity',
+                'quantity_sold',
+                'closing_quantity',
+            ]);
+
+        if ($hasDepartmentColumn) {
+            $stockQuery->whereIn('department_id', $departmentIds)
+                ->orderByRaw('department_id = ? DESC', [(int) $this->departmentId])
+                ->orderByDesc('id');
+        } else {
+            $stockQuery->orderByDesc('id');
+        }
+
+        $availability = [];
+        foreach ($stockQuery->get() as $stock) {
+            $productId = (string) $stock->product_id;
+            if (isset($availability[$productId])) {
+                continue;
+            }
+
+            $available = $stock->closing_quantity !== null
+                ? (float) $stock->closing_quantity
+                : (float) (
+                    $stock->opening_quantity
+                    + $stock->addition_quantity
+                    - $stock->callback_quantity
+                    - $stock->redress_quantity
+                    - $stock->transfer_quantity
+                    - $stock->glovo_quantity
+                    - $stock->quantity_sold
+                );
+
+            $availability[$productId] = max(0.0, $available);
+        }
+
+        return $this->productAvailabilityForView = $availability;
+    }
+
+    protected function getProductsPayloadForView(): array
+    {
+        if ($this->productsPayloadForView !== null) {
+            return $this->productsPayloadForView;
+        }
+
+        $products = $this->getProductsForView();
+        $availability = $this->getProductAvailabilityForView($products);
+
+        $productIds = $products->pluck('id')
+            ->filter()
+            ->map(static fn ($id): string => (string) $id)
+            ->values()
+            ->all();
+
+        $conversionMap = [];
+        if (! empty($productIds)) {
+            $conversionMap = Product::query()
+                ->whereIn('id', $productIds)
+                ->select([
+                    'id',
+                    'uom_id',
+                    'sales_uom_id',
+                    'sales_unit_weight',
+                ])
+                ->with(['unitOfMeasure:id,symbol', 'salesUom:id,symbol'])
+                ->get()
+                ->mapWithKeys(static function (Product $product): array {
+                    $hasConversion = $product->hasSalesUomConversion();
+                    $baseSymbol = $product->unitOfMeasure?->symbol ?? 'unit';
+                    $salesSymbol = $product->salesUom?->symbol ?? $baseSymbol;
+                    $conversionFactor = null;
+                    if ($hasConversion) {
+                        $conversionFactor = $product->sales_unit_weight ?: $product->convertSalesToBaseQuantity(1);
+                    }
+
+                    return [
+                        (string) $product->id => [
+                            'has_conversion' => $hasConversion,
+                            'base_uom' => $baseSymbol,
+                            'sales_uom' => $salesSymbol,
+                            'conversion_factor' => $conversionFactor,
+                        ],
+                    ];
+                })
+                ->all();
+        }
+
+        $payload = [];
+        foreach ($products as $product) {
+            $productId = (string) $product->id;
+            $conversion = $conversionMap[$productId] ?? [
+                'has_conversion' => false,
+                'base_uom' => 'unit',
+                'sales_uom' => 'unit',
+                'conversion_factor' => null,
+            ];
+
+            $payload[] = [
+                'id' => $productId,
+                'name' => $product->name,
+                'sku' => $product->sku,
+                'price' => (float) ($product->price ?? 0),
+                'available' => (float) ($availability[$productId] ?? 0),
+                'has_conversion' => $conversion['has_conversion'],
+                'base_uom' => $conversion['base_uom'],
+                'sales_uom' => $conversion['sales_uom'],
+                'conversion_factor' => $conversion['conversion_factor'],
+            ];
+        }
+
+        return $this->productsPayloadForView = $payload;
     }
 
     protected function buildReceiptHtml(Sale $sale): string
@@ -1111,7 +1339,13 @@ class Index extends BaseComponent
 
     public function render()
     {
-        return view('livewire.branch-dashboard.sales-dashboard.pos.index');
+        return view('livewire.branch-dashboard.sales-dashboard.pos.index', [
+            'products' => $this->getProductsPayloadForView(),
+            'currency' => Settings::currencyLocalization('primary_currency', 'NGN'),
+            'currencyLocale' => Settings::currencyLocalization('default_language', 'en_US'),
+            'defaultBankAccount' => $this->getDefaultDepartmentBankAccountId(),
+            'defaultBankAccountLabel' => $this->getDefaultDepartmentBankAccountLabel(),
+        ]);
     }
 
     public function getPendingDispatchesProperty(): int

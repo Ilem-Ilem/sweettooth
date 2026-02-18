@@ -30,7 +30,7 @@ class ContextualAccessControlService
         Branch $branch
     ): bool {
         // Super admins have access everywhere
-        if ($user->hasAnyRole(['Super Admin', 'MD', 'Managing Director'])) {
+        if ($user->hasAnyRole(['Super Admin', 'Managing Director'])) {
             return true;
         }
 
@@ -52,7 +52,7 @@ class ContextualAccessControlService
         Department $department
     ): bool {
         // Super admins have access everywhere
-        if ($user->hasAnyRole(['Super Admin', 'MD', 'Managing Director'])) {
+        if ($user->hasAnyRole(['Super Admin', 'Managing Director'])) {
             return true;
         }
 
@@ -79,7 +79,7 @@ class ContextualAccessControlService
         $shift
     ): bool {
         // Super admins have access everywhere
-        if ($user->hasAnyRole(['Super Admin', 'MD', 'Managing Director'])) {
+        if ($user->hasAnyRole(['Super Admin', 'Managing Director'])) {
             return true;
         }
 
@@ -102,7 +102,7 @@ class ContextualAccessControlService
     public static function userBelongsToBranch(Model $user, Branch $branch): bool
     {
         // Super admins belong to all branches
-        if ($user->hasAnyRole(['Super Admin', 'MD', 'Managing Director'])) {
+        if ($user->hasAnyRole(['Super Admin', 'Managing Director'])) {
             return true;
         }
 
@@ -120,7 +120,7 @@ class ContextualAccessControlService
     public static function userBelongsToDepartment(Model $user, Department $department): bool
     {
         // Super admins belong to all departments
-        if ($user->hasAnyRole(['Super Admin', 'MD', 'Managing Director'])) {
+        if ($user->hasAnyRole(['Super Admin', 'Managing Director'])) {
             return true;
         }
 
@@ -138,7 +138,7 @@ class ContextualAccessControlService
     public static function userBelongsToShift(Model $user, $shift): bool
     {
         // Super admins belong to all shifts
-        if ($user->hasAnyRole(['Super Admin', 'MD', 'Managing Director'])) {
+        if ($user->hasAnyRole(['Super Admin', 'Managing Director'])) {
             return true;
         }
 

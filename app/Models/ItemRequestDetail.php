@@ -14,6 +14,7 @@ class ItemRequestDetail extends Model
     protected $fillable = [
         'request_id',
         'item_id',
+        'requires_request',
         'quantity_requested',
         'quantity_approved',
         'quantity_dispatched',
@@ -22,6 +23,7 @@ class ItemRequestDetail extends Model
     ];
 
     protected $casts = [
+        'requires_request' => 'boolean',
         'quantity_requested' => 'decimal:2',
         'quantity_approved' => 'decimal:2',
         'quantity_dispatched' => 'decimal:2',

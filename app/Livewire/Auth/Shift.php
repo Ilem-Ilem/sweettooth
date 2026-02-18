@@ -113,30 +113,24 @@ class Shift extends Component
             // Set the shift type that's compatible with the database enum
             $this->shift_type = $enumCompatibleShiftType;
 
-            // STEP 1: STRICT TIME WINDOW VALIDATION - DISABLED FOR NOW
+            // STEP 1: STRICT TIME WINDOW VALIDATION
             $timingValidator = app(ShiftTimingValidator::class);
-            /*
-            $timeValidation = $timingValidator->validateStrictTimeWindows(
-                $this->shift_type,
-                $this->b_id
-            );
+            $now = Carbon::now($shiftConfig->timezone ?? config('app.timezone'));
+            if (! $shiftConfig->isWithinStrictClockInWindow($now)) {
+                $message = $shiftConfig->getClockInViolationMessage($now);
+                $this->toast()->error($message)->send();
 
-            if (!$timeValidation->isValid()) {
-                $this->toast()->error($timeValidation->getMessage())->send();
-
-                // Log the violation attempt
                 \Log::warning('Clock-in time violation attempt', [
                     'employee_id' => $user->id,
                     'shift_type' => $this->shift_type,
                     'shift_config_id' => $this->shift_config_id,
                     'branch_id' => $this->b_id,
-                    'requested_time' => now()->toDateTimeString(),
-                    'violation_message' => $timeValidation->getMessage()
+                    'requested_time' => $now->toDateTimeString(),
+                    'violation_message' => $message,
                 ]);
 
                 return;
             }
-            */
 
             // STEP 2: Check for conflicting shifts
             $conflictValidation = $timingValidator->validateNoConflictingShifts(

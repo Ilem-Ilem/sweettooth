@@ -224,9 +224,14 @@ class GeneralLedgerService
         $entries = $this->getEntries($startDate, $endDate, $glAccountId);
 
         return $entries->map(function ($entry) {
+            $account = $entry->glAccount;
+            $accountLabel = $account
+                ? $account->account_number . ' - ' . $account->account_name
+                : 'N/A';
+
             return [
                 'Date' => $entry->entry_date->format('Y-m-d'),
-                'Account' => $entry->glAccount->account_number . ' - ' . $entry->glAccount->account_name,
+                'Account' => $accountLabel,
                 'Description' => $entry->description,
                 'Reference' => $entry->reference_number,
                 'Debit' => $entry->debit > 0 ? number_format($entry->debit, 2) : '',

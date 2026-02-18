@@ -41,16 +41,19 @@ class CashFlowStatementReport extends Component
         $cfs = $this->cfsService->getCashFlowStatement(
             startDate: $this->startDate ? Carbon::createFromFormat('Y-m-d', $this->startDate) : null,
             endDate: $this->endDate ? Carbon::createFromFormat('Y-m-d', $this->endDate) : null,
+            branchId: current_branch_id(),
         );
 
         $bankPositions = $this->cfsService->getBankPositionsSummary(
             startDate: $this->startDate ? Carbon::createFromFormat('Y-m-d', $this->startDate) : null,
             endDate: $this->endDate ? Carbon::createFromFormat('Y-m-d', $this->endDate) : null,
+            branchId: current_branch_id(),
         );
 
         $cashPositions = $this->cfsService->getCashPositionsSummary(
             startDate: $this->startDate ? Carbon::createFromFormat('Y-m-d', $this->startDate) : null,
             endDate: $this->endDate ? Carbon::createFromFormat('Y-m-d', $this->endDate) : null,
+            branchId: current_branch_id(),
         );
 
         return view('livewire.branch-dashboard.accounting.report.cash-flow-statement-report', [
@@ -83,6 +86,7 @@ class CashFlowStatementReport extends Component
         $data = $this->cfsService->exportCashFlowStatement(
             startDate: $this->startDate ? Carbon::createFromFormat('Y-m-d', $this->startDate) : null,
             endDate: $this->endDate ? Carbon::createFromFormat('Y-m-d', $this->endDate) : null,
+            branchId: current_branch_id(),
         );
 
         $filename = 'cash_flow_statement_'.now()->format('Y-m-d_His').'.csv';

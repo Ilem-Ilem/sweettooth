@@ -16,9 +16,12 @@ class StockMovement extends Model
         'stock_id',
         'branch_id',
         'type',
+        'adjustment_reason',
         'quantity',
         'quantity_before',
         'quantity_after',
+        'unit_cost',
+        'cost_impact',
         'reference_type',
         'reference_id',
         'moved_by_type',
@@ -29,13 +32,19 @@ class StockMovement extends Model
         'gl_posting_status',
         'gl_posting_error',
         'gl_posted_at',
+        'approved_by_id',
+        'approved_by_type',
+        'approved_at',
     ];
 
     protected $casts = [
         'quantity' => 'decimal:2',
         'quantity_before' => 'decimal:2',
         'quantity_after' => 'decimal:2',
+        'unit_cost' => 'decimal:2',
+        'cost_impact' => 'decimal:2',
         'movement_date' => 'datetime',
+        'approved_at' => 'datetime',
     ];
 
     protected static function booted()

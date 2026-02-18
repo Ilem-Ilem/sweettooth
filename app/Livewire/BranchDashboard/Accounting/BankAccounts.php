@@ -185,7 +185,7 @@ class BankAccounts extends Component
             return false;
         }
 
-        return $user->hasAnyRole(['Super Admin', 'MD', 'Managing Director', 'Admin', 'Accountant', 'Accounting Manager'])
+        return $user->hasAnyRole(['Super Admin', 'Managing Director', 'Admin', 'Accountant', 'Accounting Manager'])
             || $user->can('create_bank_accounts')
             || $user->can('edit_bank_accounts');
     }
@@ -196,7 +196,7 @@ class BankAccounts extends Component
             return false;
         }
 
-        return $user->hasAnyRole(['Super Admin', 'MD', 'Managing Director', 'Admin', 'Accountant', 'Accounting Manager'])
+        return $user->hasAnyRole(['Super Admin', 'Managing Director', 'Admin', 'Accountant', 'Accounting Manager'])
             || $user->can('edit_bank_accounts');
     }
 

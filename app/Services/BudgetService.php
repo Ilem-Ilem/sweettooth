@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\GlAccount;
 use App\Models\GlEntry;
 use App\Models\AccountingPeriod;
+use App\Models\Budget;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -19,8 +21,22 @@ class BudgetService
         AccountingPeriod $period,
         ?string $notes = null
     ): array {
-        // Store budget in a JSON field or separate table
-        // For now, returning structure for budget management
+        $branchId = function_exists('current_branch_id') ? current_branch_id() : null;
+        $branchId = $branchId ?: auth()->user()?->branch_id;
+
+        $budget = Budget::create([
+            'branch_id' => $branchId,
+            'gl_account_id' => $account->id,
+            'accounting_period_id' => $period->id,
+            'planned_amount' => $budgetAmount,
+            'forecast_amount' => null,
+            'description' => $notes,
+            'is_approved' => true,
+            'approved_at' => now(),
+            'approved_by_id' => auth()->id(),
+            'approved_by_type' => auth()->user()?->getMorphClass() ?? User::class,
+            'created_by_id' => auth()->id(),
+        ]);
 
         return [
             'account_id' => $account->id,
@@ -28,12 +44,12 @@ class BudgetService
             'account_name' => $account->account_name,
             'period_id' => $period->id,
             'period' => $period->getDisplayName(),
-            'budget_amount' => $budgetAmount,
+            'budget_amount' => $budget->planned_amount,
             'actual_amount' => 0,
-            'variance' => $budgetAmount,
+            'variance' => $budget->planned_amount,
             'variance_percentage' => 100,
-            'notes' => $notes,
-            'created_at' => now(),
+            'notes' => $budget->description,
+            'created_at' => $budget->created_at,
         ];
     }
 
@@ -81,9 +97,18 @@ class BudgetService
      */
     private function getAccountBudget(GlAccount $account, AccountingPeriod $period): float
     {
-        // TODO: Implement actual budget storage and retrieval
-        // For now, return 0
-        return 0;
+        $branchId = function_exists('current_branch_id') ? current_branch_id() : null;
+        $branchId = $branchId ?: auth()->user()?->branch_id;
+
+        $query = Budget::where('gl_account_id', $account->id)
+            ->where('accounting_period_id', $period->id)
+            ->where('is_approved', true);
+
+        if ($branchId) {
+            $query->where('branch_id', $branchId);
+        }
+
+        return (float) $query->sum('planned_amount');
     }
 
     /**

@@ -81,6 +81,36 @@ class GlEntry extends Model
         return $this->morphTo();
     }
 
+    public function getReferenceLabelAttribute(): string
+    {
+        if (!empty($this->reference_number)) {
+            return $this->reference_number;
+        }
+
+        if (!$this->reference_type || !$this->reference_id) {
+            return '-';
+        }
+
+        $type = class_basename($this->reference_type);
+
+        $label = match ($type) {
+            'AccountingEntry' => 'Accounting Entry',
+            'Sale' => 'Sale',
+            'Purchase' => 'Purchase',
+            'Payment' => 'Payment',
+            'StockMovement' => 'Stock Movement',
+            'InventoryAdjustment' => 'Inventory Adjustment',
+            'PurchasePayment' => 'Purchase Payment',
+            'TaxPayment' => 'Tax Payment',
+            'Payroll' => 'Payroll',
+            'FixedAsset' => 'Fixed Asset',
+            'AssetDepreciation' => 'Asset Depreciation',
+            default => $type,
+        };
+
+        return $label . ' #' . $this->reference_id;
+    }
+
     // Scopes
     public function scopePosted($query)
     {

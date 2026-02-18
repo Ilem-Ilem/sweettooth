@@ -23,10 +23,15 @@ class GlAccountSeeder extends Seeder
             ['account_number' => '1100', 'account_name' => 'Accounts Receivable', 'account_type' => 'asset'],
             ['account_number' => '1200', 'account_name' => 'Inventory', 'account_type' => 'asset'],
             ['account_number' => '1220', 'account_name' => 'Inventory - Sales', 'account_type' => 'asset'],
+            ['account_number' => '1500', 'account_name' => 'Fixed Assets', 'account_type' => 'asset'],
+            ['account_number' => '1510', 'account_name' => 'Accumulated Depreciation', 'account_type' => 'asset', 'normal_balance' => 'credit'],
 
             // Liabilities
             ['account_number' => '2000', 'account_name' => 'Liabilities', 'account_type' => 'liability', 'is_header' => true],
             ['account_number' => '2010', 'account_name' => 'Accounts Payable', 'account_type' => 'liability'],
+            ['account_number' => '2110', 'account_name' => 'Payroll Payable', 'account_type' => 'liability'],
+            ['account_number' => '2120', 'account_name' => 'Payroll Tax Payable', 'account_type' => 'liability'],
+            ['account_number' => '2130', 'account_name' => 'Other Deductions Payable', 'account_type' => 'liability'],
             ['account_number' => '2020', 'account_name' => 'Sales Tax Payable', 'account_type' => 'tax'],
             ['account_number' => '2100', 'account_name' => 'Tax Payable', 'account_type' => 'tax'],
 
@@ -41,6 +46,8 @@ class GlAccountSeeder extends Seeder
             ['account_number' => '5030', 'account_name' => 'Shrinkage Loss', 'account_type' => 'expense'],
             ['account_number' => '5040', 'account_name' => 'Write-off Loss', 'account_type' => 'expense'],
             ['account_number' => '5050', 'account_name' => 'Inventory Adjustment', 'account_type' => 'expense'],
+            ['account_number' => '6100', 'account_name' => 'Salaries & Wages', 'account_type' => 'expense'],
+            ['account_number' => '6200', 'account_name' => 'Depreciation Expense', 'account_type' => 'expense'],
 
             // Operating Expenses
             ['account_number' => '6300', 'account_name' => 'Travel Expenses', 'account_type' => 'expense'],
@@ -54,13 +61,16 @@ class GlAccountSeeder extends Seeder
 
         $count = 0;
         foreach ($accounts as $account) {
+            $normalBalance = $account['normal_balance']
+                ?? (in_array($account['account_type'], ['asset', 'expense', 'cost_of_goods_sold']) ? 'debit' : 'credit');
+
             GlAccount::create([
                 'account_number' => $account['account_number'],
                 'account_name' => $account['account_name'],
                 'account_type' => $account['account_type'],
                 'account_category' => $account['account_category'] ?? null,
                 'description' => $account['description'] ?? null,
-                'normal_balance' => in_array($account['account_type'], ['asset', 'expense', 'cost_of_goods_sold']) ? 'debit' : 'credit',
+                'normal_balance' => $normalBalance,
                 'is_header' => $account['is_header'] ?? false,
                 'is_active' => true,
                 'allow_manual_entry' => !($account['is_header'] ?? false),

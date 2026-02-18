@@ -144,7 +144,7 @@ class FindProductsWithoutRecipes extends Command
                     'item_id' => $item->id,
                     'quantity' => $ing['quantity'],
                     'uom_id' => $uom->id,
-                    'cost_per_unit' => $item->purchaseItems()->avg('cost_per_unit') ?: 0,
+                    'cost_per_unit' => (float) ($item->unit_price ?: ($item->purchaseItems()->avg('cost_per_unit') ?: 0)),
                     'waste_percentage' => 0,
                     'notes' => 'Auto-generated ingredient - please verify quantities and costs',
                 ]);

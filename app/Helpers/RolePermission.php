@@ -129,7 +129,7 @@ class RolePermission
      */
     public static function isSuperAdmin(?string $guard = null): bool
     {
-        return self::hasRole('Super Admin', $guard);
+        return self::hasAnyRole(['Super Admin', 'Managing Director', 'Admin'], $guard);
     }
 
     /**
@@ -141,11 +141,11 @@ class RolePermission
     }
 
     /**
-     * Check if user is a managing director (MD role)
+     * Check if user is a managing director role
      */
     public static function isManagingDirector(?string $guard = null): bool
     {
-        return self::hasAnyRole(['Managing Director', 'MD'], $guard);
+        return self::hasRole('Managing Director', $guard);
     }
 
     /**
@@ -155,11 +155,15 @@ class RolePermission
     {
         $managerRoles = [
             'Managing Director',
-            'Head of Production',
+            'Admin',
+            'Accounting Manager',
+            'Production Manager',
             'Sales Manager',
             'HR Manager',
-            'Accounting Manager',
-            'Inventory Manager'
+            'Inventory Manager',
+            'Head Chef',
+            'Gelato Chef',
+            'Floor Manager',
         ];
 
         return self::hasAnyRole($managerRoles, $guard);
@@ -203,11 +207,24 @@ class RolePermission
     public static function isSupervisor(?string $guard = null): bool
     {
         $supervisorRoles = [
-            'Production Supervisor',
-            'Sales Supervisor',
-            'Inventory Supervisor',
             'HR Officer',
             'Accountant',
+            'Cost Accountant',
+            'Till Supervisor',
+            'Cornerstore Supervisor',
+            'Consession Supervisor',
+            'Coffee Barista Trainer',
+            'Lobby Host Supervisor',
+            'Kitchen Assistant Supervisor',
+            'Hot Kitchen Chef',
+            'Pastry Chef',
+            'Assistant Shop Floor Manager',
+            'Inventory Team Lead',
+            'Procurement Officer',
+            'Facility Officer',
+            'Cleaners Supervisor',
+            'Chief Security Officer',
+            'Social Media Manager',
         ];
 
         return self::hasAnyRole($supervisorRoles, $guard);
@@ -222,6 +239,16 @@ class RolePermission
             'Production Staff',
             'Sales Staff',
             'Inventory Staff',
+            'Kitchen Assistant',
+            'Data Processor',
+            'Coffee Barista',
+            'Cashier',
+            'Wait Staff',
+            'Lobby Host',
+            'Consession Attendant',
+            'Store Keeper',
+            'Security Officer',
+            'Driver',
         ];
 
         return self::hasAnyRole($staffRoles, $guard);
@@ -540,27 +567,54 @@ class RolePermission
             // Level 5 - Executive
             'Super Admin' => 5,
             'Managing Director' => 5,
-            'MD' => 5,
 
             // Level 4 - Admin
             'Admin' => 4,
-            'Head of Production' => 3,
+            'Accounting Manager' => 4,
+
+            // Level 3 - Managers
+            'Production Manager' => 3,
             'Sales Manager' => 3,
             'HR Manager' => 3,
             'Inventory Manager' => 3,
-            'Accounting Manager' => 3,
+            'Head Chef' => 3,
+            'Gelato Chef' => 3,
+            'Floor Manager' => 3,
 
             // Level 2 - Supervisors
-            'Production Supervisor' => 2,
-            'Sales Supervisor' => 2,
-            'Inventory Supervisor' => 2,
             'HR Officer' => 2,
             'Accountant' => 2,
+            'Cost Accountant' => 2,
+            'Till Supervisor' => 2,
+            'Cornerstore Supervisor' => 2,
+            'Consession Supervisor' => 2,
+            'Coffee Barista Trainer' => 2,
+            'Lobby Host Supervisor' => 2,
+            'Kitchen Assistant Supervisor' => 2,
+            'Hot Kitchen Chef' => 2,
+            'Pastry Chef' => 2,
+            'Assistant Shop Floor Manager' => 2,
+            'Inventory Team Lead' => 2,
+            'Procurement Officer' => 2,
+            'Facility Officer' => 2,
+            'Cleaners Supervisor' => 2,
+            'Chief Security Officer' => 2,
+            'Social Media Manager' => 2,
 
             // Level 1 - Staff
             'Production Staff' => 1,
             'Sales Staff' => 1,
             'Inventory Staff' => 1,
+            'Kitchen Assistant' => 1,
+            'Data Processor' => 1,
+            'Coffee Barista' => 1,
+            'Cashier' => 1,
+            'Wait Staff' => 1,
+            'Lobby Host' => 1,
+            'Consession Attendant' => 1,
+            'Store Keeper' => 1,
+            'Security Officer' => 1,
+            'Driver' => 1,
         ];
 
         return $hierarchy[$role] ?? 0;

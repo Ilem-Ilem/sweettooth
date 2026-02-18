@@ -38,6 +38,8 @@ class Index extends Component
     public bool $isLoading = false;
     public $generatedReport = null;
     public bool $showReportModal = false;
+    public ?array $selectedSaleDetail = null;
+    public bool $showSaleDetailModal = false;
 
     public function mount(?string $salesDeptSlug = null)
     {
@@ -196,6 +198,15 @@ class Index extends Component
         } catch (\Exception $e) {
             $this->toast()->error('Error: '.$e->getMessage())->send();
         }
+    }
+
+    public function openSaleDetail(int $index): void
+    {
+        $salesDetails = data_get($this->reportData, 'report_data.sales_details')
+            ?? data_get($this->reportData, 'sales_details', []);
+
+        $this->selectedSaleDetail = $salesDetails[$index] ?? null;
+        $this->showSaleDetailModal = $this->selectedSaleDetail !== null;
     }
 
     public function render()

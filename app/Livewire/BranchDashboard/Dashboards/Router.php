@@ -47,7 +47,7 @@ class Router extends Component
 
         // LEVEL 4: Admin -> Admin Dashboard
         if ($roleLevel >= SidebarVisibilityService::LEVEL_ADMIN) {
-            return Redirect::route('branch-dashboard.dashboard.admin', ['b_id' => $branchId]);
+            return Redirect::route('branch-dashboard.dashboards.admin', ['b_id' => $branchId]);
         }
 
         // Check shift requirement for employees
@@ -141,7 +141,7 @@ class Router extends Component
             if (!$user->department_id) {
                 abort(403, 'You are not assigned to any department. Please contact your administrator.');
             }
-            return Redirect::route('branch-dashboard.dashboard.admin', ['b_id' => $branchId]);
+            return Redirect::route('branch-dashboard.dashboards.manager', ['b_id' => $branchId]);
         }
 
         // Lower level users need a department

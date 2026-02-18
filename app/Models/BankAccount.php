@@ -14,6 +14,7 @@ class BankAccount extends Model
     protected $table = 'bank_accounts';
 
     protected $fillable = [
+        'branch_id',
         'bank_name',
         'bank_code',
         'account_number',
@@ -31,6 +32,11 @@ class BankAccount extends Model
     ];
 
     // Relationships
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
     public function glAccount(): BelongsTo
     {
         return $this->belongsTo(GlAccount::class);

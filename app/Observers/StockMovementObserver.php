@@ -24,7 +24,23 @@ class StockMovementObserver
         $isDamagedType = $movement->type === 'damaged';
         $isAdjustmentWithReason = $movement->type === 'adjustment' && ! empty($movement->adjustment_reason);
 
-        if ($isDamagedType || $isAdjustmentWithReason) {
+        if (($isDamagedType || $isAdjustmentWithReason) && $movement->approved_by_id) {
+            $this->postToGL($movement);
+        }
+    }
+
+    /**
+     * Handle the StockMovement "updated" event.
+     * Post to GL once approval is granted.
+     */
+    public function updated(StockMovement $movement): void
+    {
+        $isDamagedType = $movement->type === 'damaged';
+        $isAdjustmentWithReason = $movement->type === 'adjustment' && ! empty($movement->adjustment_reason);
+
+        if (($isDamagedType || $isAdjustmentWithReason) &&
+            $movement->wasChanged('approved_by_id') &&
+            $movement->approved_by_id) {
             $this->postToGL($movement);
         }
     }

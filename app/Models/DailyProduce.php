@@ -17,6 +17,9 @@ class DailyProduce extends Model
         'opening_quantity',
         'requested_quantity',
         'produced_quantity',
+        'batches_produced_this_shift',
+        'batches_remaining',
+        'fulfillment_status',
         'sent_out_quantity',
         'order_quantity',
         'callback_quantity',
@@ -33,6 +36,8 @@ class DailyProduce extends Model
         'opening_quantity' => 'decimal:2',
         'requested_quantity' => 'decimal:2',
         'produced_quantity' => 'decimal:2',
+        'batches_produced_this_shift' => 'integer',
+        'batches_remaining' => 'integer',
         'sent_out_quantity' => 'decimal:2',
         'order_quantity' => 'decimal:2',
         'callback_quantity' => 'decimal:2',
@@ -171,6 +176,9 @@ class DailyProduce extends Model
                 'opening_quantity' => $openingQty,
                 'requested_quantity' => $request->planned_production_quantity,
                 'produced_quantity' => 0,
+                'batches_produced_this_shift' => 0,
+                'batches_remaining' => $request->batches_requested,
+                'fulfillment_status' => 'pending',
                 'sent_out_quantity' => 0,
                 'order_quantity' => 0,
                 'callback_quantity' => 0,
@@ -484,5 +492,66 @@ class DailyProduce extends Model
             'ingredient_analysis' => $ingredientAnalysis,
             'can_produce_full_batch' => $producableUnits >= $requestedQty,
         ];
+    }
+
+    /**
+     * Convert quantity-based producability into integer batch output.
+     */
+    public function calculateProducableBatches(): array
+    {
+        $result = $this->calculateProducableQuantity();
+        $yieldPerBatch = (float) ($this->recipe?->yield_quantity ?? 0);
+
+        if ($yieldPerBatch <= 0) {
+            return [
+                'producable_batches' => 0,
+                'requested_batches' => 0,
+                'pending_batches' => 0,
+                'producable_quantity' => (float) ($result['producable_quantity'] ?? 0),
+                'shortage' => (float) ($result['shortage'] ?? 0),
+                'limiting_ingredient' => $result['limiting_ingredient'] ?? null,
+                'ingredient_analysis' => $result['ingredient_analysis'] ?? [],
+                'can_produce_full_request' => false,
+            ];
+        }
+
+        $requestedQuantity = (float) ($result['requested_quantity'] ?? 0);
+        $producableQuantity = (float) ($result['producable_quantity'] ?? 0);
+        $requestedBatches = (int) ceil($requestedQuantity / $yieldPerBatch);
+        $producableBatches = (int) floor($producableQuantity / $yieldPerBatch);
+
+        return [
+            'producable_batches' => max(0, $producableBatches),
+            'requested_batches' => max(0, $requestedBatches),
+            'pending_batches' => max(0, $requestedBatches - $producableBatches),
+            'producable_quantity' => $producableQuantity,
+            'shortage' => (float) ($result['shortage'] ?? 0),
+            'limiting_ingredient' => $result['limiting_ingredient'] ?? null,
+            'ingredient_analysis' => $result['ingredient_analysis'] ?? [],
+            'can_produce_full_request' => $producableBatches >= $requestedBatches,
+        ];
+    }
+
+    /**
+     * Recompute per-shift and request-level batch fulfillment counters.
+     */
+    public function syncBatchFulfillmentFields(bool $persist = true): void
+    {
+        $yieldPerBatch = (float) ($this->recipe?->yield_quantity ?? 0);
+        $producedUnits = (float) ($this->produced_quantity ?? 0);
+        $requestedBatches = (int) ($this->productionRequest?->batches_requested ?? 0);
+
+        $producedBatches = $yieldPerBatch > 0 ? (int) floor($producedUnits / $yieldPerBatch) : 0;
+        $this->batches_produced_this_shift = $producedBatches;
+        $this->batches_remaining = $requestedBatches > 0 ? max(0, $requestedBatches - $producedBatches) : null;
+        $this->fulfillment_status = ProductionRequest::deriveFulfillmentStatus($requestedBatches, $producedBatches);
+
+        if ($persist) {
+            $this->saveQuietly();
+        }
+
+        if ($this->productionRequest) {
+            $this->productionRequest->syncBatchFulfillmentFromDailyProduces();
+        }
     }
 }

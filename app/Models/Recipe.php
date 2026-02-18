@@ -109,8 +109,12 @@ class Recipe extends Model
      */
     public function calculateTotalIngredientCost(): float
     {
+        $this->loadMissing('ingredients.item');
+
         return $this->ingredients->sum(function ($ingredient) {
-            return $ingredient->getTotalCost();
+            $unitCost = $this->resolveIngredientUnitCost($ingredient);
+
+            return $ingredient->getActualQuantityNeeded() * $unitCost;
         });
     }
 
@@ -134,18 +138,23 @@ class Recipe extends Model
      */
     public function calculateIngredientsForBatch(int $batchSize): array
     {
+        $this->loadMissing('ingredients.item');
+
         $ingredients = [];
 
         foreach ($this->ingredients as $ingredient) {
+            $costPerUnit = $this->resolveIngredientUnitCost($ingredient);
+            $quantityForBatch = $ingredient->getQuantityForBatchSize($batchSize);
+
             $ingredients[] = [
                 'item_id' => $ingredient->item_id,
-                'item_name' => $ingredient->item->name ?? 'N/A',
-                'quantity' => $ingredient->getQuantityForBatchSize($batchSize),
+                'item_name' => $ingredient->item?->name ?? 'N/A',
+                'quantity' => $quantityForBatch,
                 'base_quantity' => (float) $ingredient->quantity,
                 'uom_id' => $ingredient->uom_id,
                 'uom_symbol' => $ingredient->unitOfMeasure?->symbol ?? 'N/A',
-                'cost_per_unit' => (float) $ingredient->cost_per_unit,
-                'total_cost' => $ingredient->getCostForBatchSize($batchSize),
+                'cost_per_unit' => $costPerUnit,
+                'total_cost' => $quantityForBatch * $costPerUnit,
                 'waste_percentage' => (float) $ingredient->waste_percentage,
                 'notes' => $ingredient->notes,
                 'preparation_notes' => $ingredient->preparation_notes,
@@ -160,6 +169,8 @@ class Recipe extends Model
      */
     public function calculateIngredientsForQuantity(float $plannedQuantity): array
     {
+        $this->loadMissing('ingredients.item');
+
         $ingredients = [];
         $yieldQty = (float) $this->yield_quantity;
 
@@ -170,15 +181,18 @@ class Recipe extends Model
         $batchFactor = $plannedQuantity / $yieldQty;
 
         foreach ($this->ingredients as $ingredient) {
+            $costPerUnit = $this->resolveIngredientUnitCost($ingredient);
+            $quantityForBatchFactor = $ingredient->getQuantityForBatchFactor($batchFactor);
+
             $ingredients[] = [
                 'item_id' => $ingredient->item_id,
-                'item_name' => $ingredient->item->name ?? 'N/A',
-                'quantity' => $ingredient->getQuantityForBatchFactor($batchFactor),
+                'item_name' => $ingredient->item?->name ?? 'N/A',
+                'quantity' => $quantityForBatchFactor,
                 'base_quantity' => (float) $ingredient->quantity,
                 'uom_id' => $ingredient->uom_id,
                 'uom_symbol' => $ingredient->unitOfMeasure?->symbol ?? 'N/A',
-                'cost_per_unit' => (float) $ingredient->cost_per_unit,
-                'total_cost' => $ingredient->getCostForBatchFactor($batchFactor),
+                'cost_per_unit' => $costPerUnit,
+                'total_cost' => $quantityForBatchFactor * $costPerUnit,
                 'waste_percentage' => (float) $ingredient->waste_percentage,
                 'notes' => $ingredient->notes,
                 'preparation_notes' => $ingredient->preparation_notes,
@@ -193,8 +207,12 @@ class Recipe extends Model
      */
     public function calculateTotalCostForBatch(int $batchSize): float
     {
+        $this->loadMissing('ingredients.item');
+
         return $this->ingredients->sum(function ($ingredient) use ($batchSize) {
-            return $ingredient->getCostForBatchSize($batchSize);
+            $unitCost = $this->resolveIngredientUnitCost($ingredient);
+
+            return $ingredient->getQuantityForBatchSize($batchSize) * $unitCost;
         });
     }
 
@@ -225,17 +243,27 @@ class Recipe extends Model
      */
     public function updateIngredientCostsFromItems(): void
     {
+        $this->loadMissing('ingredients.item');
+
         foreach ($this->ingredients as $ingredient) {
-            // Get the average cost per unit from the item's purchase history
-            $averageCost = $ingredient->item->purchaseItems()->avg('cost_per_unit');
-            
+            $itemUnitPrice = (float) ($ingredient->item?->unit_price ?? 0);
+            if ($itemUnitPrice > 0) {
+                $ingredient->update([
+                    'cost_per_unit' => $itemUnitPrice
+                ]);
+                continue;
+            }
+
+            // Fallback to purchase history if item default price is not set.
+            $averageCost = $ingredient->item?->purchaseItems()?->avg('cost_per_unit');
+
             if ($averageCost !== null && $averageCost > 0) {
                 $ingredient->update([
                     'cost_per_unit' => $averageCost
                 ]);
-            } elseif ($averageCost === null || $averageCost == 0) {
+            } else {
                 // If no purchase history, try to get from the most recent purchase
-                $latestPurchaseItem = $ingredient->item->purchaseItems()
+                $latestPurchaseItem = $ingredient->item?->purchaseItems()
                     ->orderBy('created_at', 'desc')
                     ->first();
                     
@@ -246,5 +274,15 @@ class Recipe extends Model
                 }
             }
         }
+    }
+
+    private function resolveIngredientUnitCost(RecipeIngredient $ingredient): float
+    {
+        $itemUnitPrice = (float) ($ingredient->item?->unit_price ?? 0);
+        if ($itemUnitPrice > 0) {
+            return $itemUnitPrice;
+        }
+
+        return (float) $ingredient->cost_per_unit;
     }
 }

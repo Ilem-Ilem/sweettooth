@@ -5,14 +5,21 @@ namespace Database\Seeders;
 use App\Models\Branch;
 use App\Models\Department;
 use App\Models\DepartmentCategory;
+use App\Models\DailyProduce;
 use App\Models\Item;
+use App\Models\ItemRequest;
+use App\Models\ItemRequestDetail;
 use App\Models\Product;
 use App\Models\ProductType;
+use App\Models\ProductionRecord;
+use App\Models\ProductionRequest;
 use App\Models\Recipe;
 use App\Models\RecipeIngredient;
+use App\Models\Shift;
 use App\Models\Stock;
 use App\Models\UnitOfMeasure;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -33,26 +40,40 @@ class PortHarcourtRealDataSeeder extends Seeder
      */
     public function run(): void
     {
-        $dataDir = base_path('real data');
+        $dataDir = base_path('real_data');
 
-        $paths = [
-            'hr' => $dataDir.'/HR.xlsx',
-            'hot_kitchen_recipes' => $dataDir.'/HOT KITCHEN RECIPES EXCEL.xlsx',
-            'product_prices' => $dataDir.'/SWEETTOOTH PRODUCT PRICES.xlsx',
-            'production_analysis' => [
-                $dataDir.'/PRODUCTION_ANALYSIS_DECEMBER_2025.xlsx',
-                $dataDir.'/PRODUCTION_ANALYSIS_DECEMBER_2025 (1).xlsx',
-            ],
-        ];
+        $workbooks = $this->discoverWorkbooks($dataDir);
+        $recipeJsonData = $this->parseRecipeJsonFiles($this->discoverRecipeJson($dataDir));
 
         $this->command->info('Seeding Port Harcourt real-data workflow from Excel files...');
 
-        $hrUsers = $this->parseHrUsers($paths['hr']);
-        $hotKitchenData = $this->parseHotKitchenRecipes($paths['hot_kitchen_recipes']);
-        $priceProducts = $this->parsePriceWorkbookProducts($paths['product_prices']);
+        $hrUsers = $this->parseHrWorkbooks($workbooks['hr']);
+
+        $hotKitchenData = ['products' => [], 'recipes' => [], 'items' => []];
+        foreach ($workbooks['hot_kitchen'] as $path) {
+            $chunk = $this->parseHotKitchenRecipes($path);
+            $hotKitchenData['products'] = array_merge($hotKitchenData['products'], $chunk['products']);
+            $hotKitchenData['recipes'] = array_merge($hotKitchenData['recipes'], $chunk['recipes']);
+            $hotKitchenData['items'] = array_merge($hotKitchenData['items'], $chunk['items']);
+        }
+
+        if (! empty($recipeJsonData['products'])) {
+            $hotKitchenData['products'] = array_merge($hotKitchenData['products'], $recipeJsonData['products']);
+        }
+        if (! empty($recipeJsonData['recipes'])) {
+            $hotKitchenData['recipes'] = array_merge($hotKitchenData['recipes'], $recipeJsonData['recipes']);
+        }
+        if (! empty($recipeJsonData['items'])) {
+            $hotKitchenData['items'] = array_merge($hotKitchenData['items'], $recipeJsonData['items']);
+        }
+
+        $priceProducts = [];
+        foreach ($workbooks['product_prices'] as $path) {
+            $priceProducts = array_merge($priceProducts, $this->parsePriceWorkbookProducts($path));
+        }
 
         $analysisProducts = [];
-        foreach ($paths['production_analysis'] as $analysisPath) {
+        foreach ($workbooks['production_analysis'] as $analysisPath) {
             $analysisProducts = array_merge($analysisProducts, $this->parseProductionAnalysisProducts($analysisPath));
         }
 
@@ -74,8 +95,18 @@ class PortHarcourtRealDataSeeder extends Seeder
             $items = $this->seedItems($hotKitchenData['items'], $branch, $uomMap);
             $products = $this->seedProducts($compiledProducts, $branch, $productTypes, $uomMap, $departments);
             $this->attachProductsToSalesDepartments($compiledProducts, $products, $departments);
-            $this->seedRecipes($hotKitchenData['recipes'], $products, $items, $branch, $departments, $uomMap, $users);
+            $recipes = $this->seedRecipes($hotKitchenData['recipes'], $products, $items, $branch, $departments, $uomMap, $users);
             $this->ensureSuperAdminUser($branch, $departments);
+            $this->seedProductionFromJson(
+                $recipeJsonData['productions'] ?? [],
+                $branch,
+                $departments,
+                $recipes,
+                $items,
+                $uomMap,
+                $users
+            );
+            User::query()->update(['password' => Hash::make('password')]);
         });
 
         $this->command->info('Port Harcourt real-data seeding completed.');
@@ -308,31 +339,81 @@ class PortHarcourtRealDataSeeder extends Seeder
             $headerRow[$column] = $this->normalizeHeaderName((string) $sheet->getCellByColumnAndRow($column, 1)->getFormattedValue());
         }
 
-        $nameColumn = $this->findColumn($headerRow, ['name']) ?? 2;
-        $resumptionColumn = $this->findColumn($headerRow, ['resumption_date']) ?? 3;
-        $jobColumn = $this->findColumn($headerRow, ['job_description']) ?? 4;
-        $dobColumn = $this->findColumn($headerRow, ['dob']) ?? 5;
-        $emailColumn = $this->findColumn($headerRow, ['email']) ?? 6;
-        $addressColumn = $this->findColumn($headerRow, ['home_address']) ?? 8;
-        $phoneColumn = $this->findColumn($headerRow, ['phone_number']) ?? 9;
-        $emergencyColumn = $this->findColumn($headerRow, ['contact_in_case_of_emergency']) ?? 10;
+        $nameColumn = $this->findColumn($headerRow, ['name', 'staff_name', 'employee_name', 'full_name']);
+        $firstNameColumn = $this->findColumn($headerRow, ['first_name', 'firstname', 'first name']);
+        $lastNameColumn = $this->findColumn($headerRow, ['last_name', 'lastname', 'surname', 'last name']);
+        $resumptionColumn = $this->findColumn($headerRow, [
+            'resumption_date',
+            'resumption',
+            'date_of_resumption',
+            'date_joined',
+            'employment_date',
+            'hire_date',
+        ]);
+        $jobColumn = $this->findColumn($headerRow, [
+            'job_description',
+            'job_title',
+            'designation',
+            'position',
+            'role',
+        ]);
+        $dobColumn = $this->findColumn($headerRow, ['dob', 'date_of_birth', 'birth_date']);
+        $emailColumn = $this->findColumn($headerRow, ['email', 'email_address']);
+        $addressColumn = $this->findColumn($headerRow, ['home_address', 'address', 'residential_address']);
+        $phoneColumn = $this->findColumn($headerRow, ['phone_number', 'phone', 'mobile', 'mobile_number']);
+        $emergencyColumn = $this->findColumn($headerRow, [
+            'contact_in_case_of_emergency',
+            'emergency_contact',
+            'next_of_kin',
+            'next_of_kin_phone',
+        ]);
+        $departmentColumn = $this->findColumn($headerRow, ['department', 'dept']);
 
         $records = [];
         for ($row = 2; $row <= $highestRow; $row++) {
-            $name = trim((string) $sheet->getCellByColumnAndRow($nameColumn, $row)->getFormattedValue());
+            $name = '';
+            if ($nameColumn !== null) {
+                $name = trim((string) $sheet->getCellByColumnAndRow($nameColumn, $row)->getFormattedValue());
+            }
+            if ($name === '' && ($firstNameColumn !== null || $lastNameColumn !== null)) {
+                $firstName = $firstNameColumn !== null
+                    ? trim((string) $sheet->getCellByColumnAndRow($firstNameColumn, $row)->getFormattedValue())
+                    : '';
+                $lastName = $lastNameColumn !== null
+                    ? trim((string) $sheet->getCellByColumnAndRow($lastNameColumn, $row)->getFormattedValue())
+                    : '';
+                $name = trim($firstName.' '.$lastName);
+            }
             if ($name === '') {
                 continue;
             }
 
             $records[] = [
                 'name' => $name,
-                'job_description' => trim((string) $sheet->getCellByColumnAndRow($jobColumn, $row)->getFormattedValue()),
-                'email' => trim((string) $sheet->getCellByColumnAndRow($emailColumn, $row)->getFormattedValue()),
-                'phone' => trim((string) $sheet->getCellByColumnAndRow($phoneColumn, $row)->getFormattedValue()),
-                'address' => trim((string) $sheet->getCellByColumnAndRow($addressColumn, $row)->getFormattedValue()),
-                'dob' => trim((string) $sheet->getCellByColumnAndRow($dobColumn, $row)->getFormattedValue()),
-                'resumption_date' => trim((string) $sheet->getCellByColumnAndRow($resumptionColumn, $row)->getFormattedValue()),
-                'emergency_contact' => trim((string) $sheet->getCellByColumnAndRow($emergencyColumn, $row)->getFormattedValue()),
+                'department' => $departmentColumn !== null
+                    ? trim((string) $sheet->getCellByColumnAndRow($departmentColumn, $row)->getFormattedValue())
+                    : '',
+                'job_description' => $jobColumn !== null
+                    ? trim((string) $sheet->getCellByColumnAndRow($jobColumn, $row)->getFormattedValue())
+                    : '',
+                'email' => $emailColumn !== null
+                    ? trim((string) $sheet->getCellByColumnAndRow($emailColumn, $row)->getFormattedValue())
+                    : '',
+                'phone' => $phoneColumn !== null
+                    ? trim((string) $sheet->getCellByColumnAndRow($phoneColumn, $row)->getFormattedValue())
+                    : '',
+                'address' => $addressColumn !== null
+                    ? trim((string) $sheet->getCellByColumnAndRow($addressColumn, $row)->getFormattedValue())
+                    : '',
+                'dob' => $dobColumn !== null
+                    ? trim((string) $sheet->getCellByColumnAndRow($dobColumn, $row)->getFormattedValue())
+                    : '',
+                'resumption_date' => $resumptionColumn !== null
+                    ? trim((string) $sheet->getCellByColumnAndRow($resumptionColumn, $row)->getFormattedValue())
+                    : '',
+                'emergency_contact' => $emergencyColumn !== null
+                    ? trim((string) $sheet->getCellByColumnAndRow($emergencyColumn, $row)->getFormattedValue())
+                    : '',
             ];
         }
 
@@ -669,7 +750,8 @@ class PortHarcourtRealDataSeeder extends Seeder
             }
 
             $jobDescription = (string) Arr::get($record, 'job_description', '');
-            $department = $this->resolveDepartmentFromJob($jobDescription, $departments);
+            $departmentName = (string) Arr::get($record, 'department', '');
+            $department = $this->resolveDepartmentFromJob($jobDescription, $departments, $departmentName);
             $email = $this->sanitizeEmail((string) Arr::get($record, 'email', ''), $name, $counter);
 
             $user = User::updateOrCreate(
@@ -902,10 +984,11 @@ class PortHarcourtRealDataSeeder extends Seeder
         array $departments,
         array $uomMap,
         array $users
-    ): void {
+    ): array {
+        $createdRecipes = [];
         $creator = $users[0] ?? User::query()->where('branch_id', $branch->id)->first();
         if ($creator === null) {
-            return;
+            return [];
         }
 
         foreach ($recipes as $recipeData) {
@@ -946,6 +1029,8 @@ class PortHarcourtRealDataSeeder extends Seeder
                 ]
             );
 
+            $createdRecipes[$this->normalizeNameKey($product->name)] = $recipe;
+
             $ingredientSortOrder = 1;
             foreach ((array) Arr::get($recipeData, 'ingredients', []) as $ingredientData) {
                 $ingredientName = (string) Arr::get($ingredientData, 'name', '');
@@ -979,6 +1064,8 @@ class PortHarcourtRealDataSeeder extends Seeder
                 );
             }
         }
+
+        return $createdRecipes;
     }
 
     /**
@@ -1009,8 +1096,16 @@ class PortHarcourtRealDataSeeder extends Seeder
         }
     }
 
-    private function resolveDepartmentFromJob(string $jobDescription, array $departments): ?Department
+    private function resolveDepartmentFromJob(string $jobDescription, array $departments, ?string $departmentName = null): ?Department
     {
+        $departmentName = $departmentName !== null ? trim($departmentName) : '';
+        if ($departmentName !== '') {
+            $department = $this->resolveDepartmentFromName($departmentName, $departments);
+            if ($department !== null) {
+                return $department;
+            }
+        }
+
         $job = Str::lower($jobDescription);
 
         if (Str::contains($job, ['inventory', 'store'])) {
@@ -1044,31 +1139,732 @@ class PortHarcourtRealDataSeeder extends Seeder
         return $departments['till_concession'] ?? null;
     }
 
+    private function resolveDepartmentFromName(string $departmentName, array $departments): ?Department
+    {
+        $name = Str::lower(trim($departmentName));
+
+        if ($name === '') {
+            return null;
+        }
+
+        if (Str::contains($name, ['inventory', 'store'])) {
+            return $departments['inventory'] ?? null;
+        }
+
+        if (Str::contains($name, ['hr', 'human'])) {
+            return $departments['hr'] ?? null;
+        }
+
+        if (Str::contains($name, ['gelato', 'ice cream'])) {
+            return $departments['gelato'] ?? null;
+        }
+
+        if (Str::contains($name, ['pastry', 'baker', 'cake'])) {
+            return $departments['pastry'] ?? null;
+        }
+
+        if (Str::contains($name, ['corner', 'barista', 'coffee'])) {
+            return $departments['corner_store'] ?? null;
+        }
+
+        if (Str::contains($name, ['concession'])) {
+            return $departments['concession'] ?? $departments['till_concession'] ?? null;
+        }
+
+        if (Str::contains($name, ['till'])) {
+            return $departments['till_concession'] ?? null;
+        }
+
+        if (Str::contains($name, ['hot kitchen', 'kitchen', 'production'])) {
+            return $departments['hot_kitchen'] ?? null;
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<string, array<int, string>>
+     */
+    private function discoverWorkbooks(string $dataDir): array
+    {
+        $files = array_merge(
+            glob($dataDir.'/*.xlsx') ?: [],
+            glob($dataDir.'/new/*.xlsx') ?: []
+        );
+
+        $files = array_values(array_unique($files));
+
+        $workbooks = [
+            'hr' => [],
+            'hot_kitchen' => [],
+            'product_prices' => [],
+            'production_analysis' => [],
+        ];
+
+        foreach ($files as $path) {
+            $name = Str::lower(basename($path));
+
+            if (Str::contains($name, ['hr', 'staff'])) {
+                $workbooks['hr'][] = $path;
+                continue;
+            }
+
+            if (Str::contains($name, ['hot kitchen recipes'])) {
+                $workbooks['hot_kitchen'][] = $path;
+                continue;
+            }
+
+            if (Str::contains($name, ['product prices'])) {
+                $workbooks['product_prices'][] = $path;
+                continue;
+            }
+
+            if (Str::contains($name, ['production_analysis', 'production - sweettooth', 'production - sweettooth cofectionaries'])) {
+                $workbooks['production_analysis'][] = $path;
+                continue;
+            }
+        }
+
+        foreach ($workbooks as $key => $paths) {
+            $workbooks[$key] = array_values(array_unique($paths));
+        }
+
+        return $workbooks;
+    }
+
+    /**
+     * @param  array<int, string>  $paths
+     * @return array<int, array<string, mixed>>
+     */
+    private function parseHrWorkbooks(array $paths): array
+    {
+        $records = [];
+        $seen = [];
+
+        foreach ($paths as $path) {
+            foreach ($this->parseHrUsers($path) as $row) {
+                $email = Str::lower(trim((string) Arr::get($row, 'email', '')));
+                $name = Str::lower(trim((string) Arr::get($row, 'name', '')));
+                $key = $email !== '' ? $email : $name;
+                if ($key === '') {
+                    continue;
+                }
+                if (isset($seen[$key])) {
+                    continue;
+                }
+                $seen[$key] = true;
+                $records[] = $row;
+            }
+        }
+
+        return $records;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function discoverRecipeJson(string $dataDir): array
+    {
+        return array_values(array_unique(
+            glob($dataDir.'/receips-sweetooth-main/*.json') ?: []
+        ));
+    }
+
+    /**
+     * @param  array<int, string>  $paths
+     * @return array{products: array<int, array<string, mixed>>, recipes: array<int, array<string, mixed>>, items: array<int, array<string, mixed>>}
+     */
+    private function parseRecipeJsonFiles(array $paths): array
+    {
+        $products = [];
+        $recipes = [];
+        $itemsMap = [];
+        $productions = [];
+
+        foreach ($paths as $path) {
+            if (! file_exists($path)) {
+                continue;
+            }
+
+            $payload = json_decode((string) file_get_contents($path), true);
+            if (! is_array($payload)) {
+                continue;
+            }
+
+            foreach ($payload as $entry) {
+                if (! is_array($entry)) {
+                    continue;
+                }
+
+                $productName = $this->cleanName((string) Arr::get($entry, 'produced_product', ''));
+                if ($productName === '') {
+                    continue;
+                }
+
+                $source = $this->inferSourceFromLocation((string) Arr::get($entry, 'table_info.location', ''));
+                [$yieldQty, $yieldUom] = $this->extractQuantityAndUom((string) Arr::get($entry, 'quantity_produced', ''));
+
+                $recipe = [
+                    'name' => $productName,
+                    'source' => $source,
+                    'price' => $this->toDecimal((string) Arr::get($entry, 'total_cost', '')) ?? 0.0,
+                    'yield_quantity' => $yieldQty ?? 1.0,
+                    'yield_uom' => $yieldUom ?? 'PCS',
+                    'ingredients' => [],
+                ];
+
+                foreach ((array) Arr::get($entry, 'ingredients', []) as $ingredientEntry) {
+                    if (! is_array($ingredientEntry)) {
+                        continue;
+                    }
+
+                    $ingredientName = $this->cleanName((string) Arr::get($ingredientEntry, 'ingredient', ''));
+                    if ($ingredientName === '') {
+                        continue;
+                    }
+
+                    [$qty, $uom] = $this->extractQuantityAndUom((string) Arr::get($ingredientEntry, 'input_qty', ''));
+                    $wastage = $this->toPercentage((string) Arr::get($ingredientEntry, 'wastage_percent', '')) ?? 0.0;
+
+                    $recipe['ingredients'][] = [
+                        'name' => $ingredientName,
+                        'quantity' => $qty ?? 0.0,
+                        'uom' => $uom ?? 'G',
+                        'wastage_percent' => $wastage,
+                    ];
+
+                    $itemKey = $this->normalizeNameKey($ingredientName);
+                    if (! isset($itemsMap[$itemKey])) {
+                        $itemsMap[$itemKey] = [
+                            'name' => $ingredientName,
+                            'uom_code' => $this->toUomCode($uom),
+                        ];
+                    }
+                }
+
+                $products[] = [
+                    'name' => $productName,
+                    'source' => $source,
+                    'price' => 0.0,
+                    'unit_weight' => null,
+                    'uom_code' => $this->toUomCode($yieldUom),
+                ];
+
+                $recipes[] = $recipe;
+
+                $productions[] = [
+                    'reference_no' => (string) Arr::get($entry, 'reference_no', ''),
+                    'production_date' => (string) Arr::get($entry, 'production_date', ''),
+                    'date_time' => (string) Arr::get($entry, 'table_info.date_time', ''),
+                    'location' => (string) Arr::get($entry, 'table_info.location', ''),
+                    'product_name' => $productName,
+                    'quantity_produced' => (string) Arr::get($entry, 'quantity_produced', ''),
+                    'total_cost' => (string) Arr::get($entry, 'total_cost', ''),
+                    'ingredients' => (array) Arr::get($entry, 'ingredients', []),
+                ];
+            }
+        }
+
+        return [
+            'products' => $products,
+            'recipes' => $recipes,
+            'items' => array_values($itemsMap),
+            'productions' => $productions,
+        ];
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $productions
+     * @param  array<string, Department>  $departments
+     * @param  array<string, Recipe>  $recipes
+     * @param  array<string, Item>  $items
+     * @param  array<string, int>  $uomMap
+     * @param  array<int, User>  $users
+     */
+    private function seedProductionFromJson(
+        array $productions,
+        Branch $branch,
+        array $departments,
+        array $recipes,
+        array $items,
+        array $uomMap,
+        array $users
+    ): void {
+        if ($productions === []) {
+            return;
+        }
+
+        $creator = $users[0] ?? User::query()->where('branch_id', $branch->id)->first();
+        if ($creator === null) {
+            return;
+        }
+
+        foreach ($productions as $entry) {
+            $productName = $this->cleanName((string) Arr::get($entry, 'product_name', ''));
+            if ($productName === '') {
+                continue;
+            }
+
+            $dateTime = $this->parseProductionDateTime($entry);
+            if ($dateTime === null) {
+                continue;
+            }
+
+            $shiftType = $this->deriveShiftType($dateTime);
+            $source = $this->inferSourceFromLocation((string) Arr::get($entry, 'location', ''));
+            $departmentKey = $this->sourceToDepartmentKey($source, $productName);
+            $department = $departments[$departmentKey] ?? $departments['hot_kitchen'];
+
+            $shift = $this->getOrCreateShift($branch, $department, $creator, $dateTime, $shiftType);
+
+            $productKey = $this->normalizeNameKey($productName);
+            $recipe = $recipes[$productKey] ?? null;
+            if ($recipe === null) {
+                $recipe = Recipe::query()
+                    ->where('branch_id', $branch->id)
+                    ->whereHas('product', function ($q) use ($productName) {
+                        $q->where('name', $productName);
+                    })
+                    ->first();
+            }
+
+            if ($recipe === null) {
+                continue;
+            }
+
+            [$producedQty] = $this->extractQuantityAndUom((string) Arr::get($entry, 'quantity_produced', ''));
+            $producedQty = $producedQty ?? 0.0;
+
+            $referenceNo = trim((string) Arr::get($entry, 'reference_no', ''));
+            if ($referenceNo === '') {
+                $referenceNo = 'PROD-'.Str::upper(Str::random(6));
+            }
+
+            $requestNumber = 'PRD-'.$referenceNo;
+
+            $itemRequest = ItemRequest::updateOrCreate(
+                ['request_number' => $requestNumber],
+                [
+                    'branch_id' => $branch->id,
+                    'department_id' => $department->id,
+                    'requested_by_id' => $creator->id,
+                    'requested_by_type' => User::class,
+                    'approved_by_id' => $creator->id,
+                    'approved_by_type' => User::class,
+                    'dispatched_by_id' => $creator->id,
+                    'dispatched_by_type' => User::class,
+                    'request_date' => $dateTime->toDateString(),
+                    'shift' => $shiftType,
+                    'status' => 'completed',
+                    'approved_at' => $dateTime->toDateTimeString(),
+                    'dispatched_at' => $dateTime->toDateTimeString(),
+                    'notes' => 'Imported from JSON production data.',
+                ]
+            );
+
+            foreach ((array) Arr::get($entry, 'ingredients', []) as $ingredientEntry) {
+                $ingredientName = $this->cleanName((string) Arr::get($ingredientEntry, 'ingredient', ''));
+                if ($ingredientName === '') {
+                    continue;
+                }
+
+                $itemKey = $this->normalizeNameKey($ingredientName);
+                $item = $items[$itemKey] ?? null;
+                if ($item === null) {
+                    $item = $this->createFallbackItem($ingredientName, $branch, $uomMap);
+                    if ($item === null) {
+                        continue;
+                    }
+                }
+
+                [$qty, $uom] = $this->extractQuantityAndUom((string) Arr::get($ingredientEntry, 'input_qty', ''));
+                $qty = $qty ?? 0.0;
+                $uomCode = $this->toUomCode($uom);
+                $uomId = $uomMap[$uomCode] ?? $item->uom_id ?? null;
+
+                ItemRequestDetail::updateOrCreate(
+                    [
+                        'request_id' => $itemRequest->id,
+                        'item_id' => $item->id,
+                    ],
+                    [
+                        'requires_request' => false,
+                        'quantity_requested' => $qty,
+                        'quantity_approved' => $qty,
+                        'quantity_dispatched' => $qty,
+                        'uom_id' => $uomId,
+                        'notes' => 'Imported from JSON production data.',
+                    ]
+                );
+            }
+
+            $productionRequest = ProductionRequest::updateOrCreate(
+                [
+                    'shift_id' => $shift->id,
+                    'item_request_id' => $itemRequest->id,
+                    'recipe_id' => $recipe->id,
+                ],
+                [
+                    'planned_production_quantity' => $producedQty,
+                    'notes' => 'Imported from JSON production data.',
+                ]
+            );
+
+            $dailyProduce = DailyProduce::updateOrCreate(
+                [
+                    'shift_id' => $shift->id,
+                    'recipe_id' => $recipe->id,
+                    'production_request_id' => $productionRequest->id,
+                ],
+                [
+                    'produce_date' => $dateTime->toDateString(),
+                    'shift_type' => $shiftType,
+                    'opening_quantity' => 0,
+                    'requested_quantity' => $producedQty,
+                    'produced_quantity' => $producedQty,
+                    'batches_produced_this_shift' => 1,
+                    'batches_remaining' => 0,
+                    'fulfillment_status' => 'completed',
+                    'sent_out_quantity' => 0,
+                    'order_quantity' => 0,
+                    'callback_quantity' => 0,
+                    'closing_quantity' => $producedQty,
+                    'expected_closing' => $producedQty,
+                    'variance' => 0,
+                    'status' => 'completed',
+                    'notes' => 'Imported from JSON production data.',
+                ]
+            );
+
+            ProductionRecord::updateOrCreate(
+                [
+                    'daily_produce_id' => $dailyProduce->id,
+                    'recipe_id' => $recipe->id,
+                    'batch_number' => $referenceNo,
+                ],
+                [
+                    'produced_by_id' => $creator->id,
+                    'produced_by_type' => User::class,
+                    'quantity_produced' => $producedQty,
+                    'quantity_approved' => $producedQty,
+                    'quantity_rejected' => 0,
+                    'quantity_sent_out' => 0,
+                    'quantity_for_order' => 0,
+                    'quantity_remaining' => $producedQty,
+                    'production_time' => $dateTime->toDateTimeString(),
+                    'quality_status' => 'good',
+                    'dispatch_status' => 'available',
+                    'notes' => 'Imported from JSON production data.',
+                ]
+            );
+        }
+    }
+
+    private function parseProductionDateTime(array $entry): ?Carbon
+    {
+        $rawDateTime = trim((string) Arr::get($entry, 'date_time', ''));
+        if ($rawDateTime !== '') {
+            $parsed = Carbon::createFromFormat('m/d/Y h:i A', $rawDateTime);
+            if ($parsed !== false) {
+                return $parsed;
+            }
+
+            try {
+                return Carbon::parse($rawDateTime);
+            } catch (\Throwable) {
+                // fall through
+            }
+        }
+
+        $rawDate = trim((string) Arr::get($entry, 'production_date', ''));
+        if ($rawDate !== '') {
+            $parsed = Carbon::createFromFormat('m/d/Y', $rawDate);
+            if ($parsed !== false) {
+                return $parsed->setTime(9, 0);
+            }
+
+            try {
+                return Carbon::parse($rawDate)->setTime(9, 0);
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    private function deriveShiftType(Carbon $dateTime): string
+    {
+        $hour = (int) $dateTime->format('H');
+
+        return $hour < 14 ? 'morning' : 'afternoon';
+    }
+
+    private function getOrCreateShift(
+        Branch $branch,
+        Department $department,
+        User $creator,
+        Carbon $dateTime,
+        string $shiftType
+    ): Shift {
+        $shiftDate = $dateTime->toDateString();
+
+        $existing = Shift::query()
+            ->where('branch_id', $branch->id)
+            ->where('department_id', $department->id)
+            ->where('shift_date', $shiftDate)
+            ->where('shift_type', $shiftType)
+            ->first();
+
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        $shiftNumber = Shift::generateShiftNumber(
+            $department->slug ?? (string) $department->id,
+            $creator->id,
+            $dateTime,
+            $shiftType
+        );
+
+        return Shift::create([
+            'branch_id' => $branch->id,
+            'department_id' => $department->id,
+            'employee_id' => $creator->id,
+            'shift_number' => $shiftNumber,
+            'shift_date' => $shiftDate,
+            'shift_type' => $shiftType,
+            'clock_in' => $dateTime->toDateTimeString(),
+            'clock_out' => $dateTime->toDateTimeString(),
+            'status' => 'closed',
+            'notes' => 'Imported from JSON production data.',
+        ]);
+    }
+
+    private function createFallbackItem(string $name, Branch $branch, array $uomMap): ?Item
+    {
+        $normalizedKey = $this->normalizeNameKey($name);
+        $sku = 'PHC-ITM-'.strtoupper(substr(sha1($normalizedKey), 0, 8));
+        $uomId = $uomMap['unit'] ?? $uomMap['pcs'] ?? null;
+
+        $item = Item::updateOrCreate(
+            ['sku' => $sku],
+            [
+                'branch_id' => $branch->id,
+                'name' => $name,
+                'category' => $this->inferItemCategory($name),
+                'uom_id' => $uomId,
+                'reorder_level' => 10,
+                'max_stock_level' => 500,
+                'status' => 'active',
+            ]
+        );
+
+        Stock::updateOrCreate(
+            [
+                'branch_id' => $branch->id,
+                'item_id' => $item->id,
+            ],
+            [
+                'quantity_available' => 500,
+                'quantity_reserved' => 0,
+                'quantity_damaged' => 0,
+                'average_cost' => 0,
+                'health_status' => 'good',
+            ]
+        );
+
+        return $item;
+    }
+
+    private function inferSourceFromLocation(string $location): string
+    {
+        $value = Str::upper(trim($location));
+
+        if ($value === '') {
+            return 'hot_kitchen';
+        }
+
+        if (Str::contains($value, ['GELATO'])) {
+            return 'gelato';
+        }
+
+        if (Str::contains($value, ['PASTRY'])) {
+            return 'pastry';
+        }
+
+        if (Str::contains($value, ['CORNER'])) {
+            return 'cornerstone';
+        }
+
+        if (Str::contains($value, ['CONCESSION'])) {
+            return 'concession';
+        }
+
+        return 'hot_kitchen';
+    }
+
     private function resolveRoleFromJob(string $jobDescription): ?string
     {
         $job = Str::lower($jobDescription);
 
-        if (Str::contains($job, ['manager', 'floor manager']) && Str::contains($job, ['sales', 'floor'])) {
-            return 'Sales Manager';
+        if (Str::contains($job, ['managing director', 'md'])) {
+            return 'Managing Director';
         }
 
-        if (Str::contains($job, ['manager', 'head']) && Str::contains($job, ['production', 'kitchen', 'pastry', 'gelato'])) {
-            return 'Head of Production';
+        if (Str::contains($job, ['admin'])) {
+            return 'Admin';
         }
 
-        if (Str::contains($job, ['inventory', 'store'])) {
-            return 'Inventory Staff';
+        if (Str::contains($job, ['cost accountant'])) {
+            return 'Cost Accountant';
+        }
+
+        if (Str::contains($job, ['accountant'])) {
+            return 'Accountant';
+        }
+
+        if (Str::contains($job, ['hr manager', 'human resource manager'])) {
+            return 'HR Manager';
         }
 
         if (Str::contains($job, ['hr', 'human resource'])) {
             return 'HR Officer';
         }
 
+        if (Str::contains($job, ['floor manager'])) {
+            return 'Floor Manager';
+        }
+
+        if (Str::contains($job, ['assistant shop floor manager'])) {
+            return 'Assistant Shop Floor Manager';
+        }
+
+        if (Str::contains($job, ['production manager'])) {
+            return 'Production Manager';
+        }
+
+        if (Str::contains($job, ['sales manager'])) {
+            return 'Sales Manager';
+        }
+
+        if (Str::contains($job, ['inventory manager'])) {
+            return 'Inventory Manager';
+        }
+
+        if (Str::contains($job, ['inventory team lead'])) {
+            return 'Inventory Team Lead';
+        }
+
+        if (Str::contains($job, ['procurement'])) {
+            return 'Procurement Officer';
+        }
+
+        if (Str::contains($job, ['store keeper', 'storekeeper'])) {
+            return 'Store Keeper';
+        }
+
+        if (Str::contains($job, ['head chef'])) {
+            return 'Head Chef';
+        }
+
+        if (Str::contains($job, ['hot kitchen'])) {
+            return 'Hot Kitchen Chef';
+        }
+
+        if (Str::contains($job, ['pastry'])) {
+            return 'Pastry Chef';
+        }
+
+        if (Str::contains($job, ['gelato'])) {
+            return 'Gelato Chef';
+        }
+
+        if (Str::contains($job, ['kitchen assistant supervisor'])) {
+            return 'Kitchen Assistant Supervisor';
+        }
+
+        if (Str::contains($job, ['kitchen assistant'])) {
+            return 'Kitchen Assistant';
+        }
+
+        if (Str::contains($job, ['data processor'])) {
+            return 'Data Processor';
+        }
+
+        if (Str::contains($job, ['till supervisor'])) {
+            return 'Till Supervisor';
+        }
+
+        if (Str::contains($job, ['cornerstore supervisor', 'corner store supervisor'])) {
+            return 'Cornerstore Supervisor';
+        }
+
+        if (Str::contains($job, ['consession supervisor', 'concession supervisor'])) {
+            return 'Consession Supervisor';
+        }
+
+        if (Str::contains($job, ['barista trainer', 'trainer'])) {
+            return 'Coffee Barista Trainer';
+        }
+
+        if (Str::contains($job, ['barista'])) {
+            return 'Coffee Barista';
+        }
+
+        if (Str::contains($job, ['cashier'])) {
+            return 'Cashier';
+        }
+
+        if (Str::contains($job, ['wait staff', 'waiter', 'waitress'])) {
+            return 'Wait Staff';
+        }
+
+        if (Str::contains($job, ['lobby host supervisor'])) {
+            return 'Lobby Host Supervisor';
+        }
+
+        if (Str::contains($job, ['lobby host'])) {
+            return 'Lobby Host';
+        }
+
+        if (Str::contains($job, ['consession', 'concession'])) {
+            return 'Consession Attendant';
+        }
+
+        if (Str::contains($job, ['facility officer'])) {
+            return 'Facility Officer';
+        }
+
+        if (Str::contains($job, ['cleaner', 'cleaners supervisor'])) {
+            return 'Cleaners Supervisor';
+        }
+
+        if (Str::contains($job, ['chief security officer'])) {
+            return 'Chief Security Officer';
+        }
+
+        if (Str::contains($job, ['security'])) {
+            return 'Security Officer';
+        }
+
+        if (Str::contains($job, ['social media'])) {
+            return 'Social Media Manager';
+        }
+
+        if (Str::contains($job, ['driver'])) {
+            return 'Driver';
+        }
+
+        if (Str::contains($job, ['inventory', 'store'])) {
+            return 'Inventory Staff';
+        }
+
         if (Str::contains($job, ['chef', 'kitchen', 'pastry', 'gelato', 'production'])) {
             return 'Production Staff';
         }
 
-        if (Str::contains($job, ['sales', 'cashier', 'floor'])) {
+        if (Str::contains($job, ['sales', 'floor'])) {
             return 'Sales Staff';
         }
 

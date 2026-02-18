@@ -122,7 +122,7 @@ class Index extends BaseComponent
         if (!$shift) return;
 
         $stocks = ProductStock::where('stock_date', $this->shiftDate)
-            ->where('shift_type', $this->shiftType)
+            ->where('shift_type', $this->getProductStockShiftType())
             ->when(Schema::hasColumn('product_stocks', 'department_id'), function ($query) {
                 $query->where('department_id', $this->departmentId);
             })
@@ -149,8 +149,10 @@ class Index extends BaseComponent
             // Calculate expected closing: opening + additions - sold
             $expectedClosing = ($stock->opening_quantity + $stock->addition_quantity) - $soldQuantity;
 
-            // Actual closing (can be manually entered, defaults to expected)
-            $actualClosing = $stock->closing_quantity ?? $expectedClosing;
+            // Actual closing defaults to expected unless this stock was already closed.
+            $actualClosing = ($stock->workflow_step ?? null) === 'closing_completed'
+                ? (float) $stock->closing_quantity
+                : $expectedClosing;
 
             // Calculate variance
             $variance = $actualClosing - $expectedClosing;
@@ -410,7 +412,7 @@ class Index extends BaseComponent
             // 1. UPDATE STOCK CLOSING
             foreach ($this->closingStocks as $stockData) {
                 $productStock = ProductStock::where('stock_date', $this->shiftDate)
-                    ->where('shift_type', $this->shiftType)
+                    ->where('shift_type', $this->getProductStockShiftType())
                     ->where('product_id', $stockData['product_id'])
                     ->when(Schema::hasColumn('product_stocks', 'department_id'), function ($query) {
                         $query->where('department_id', $this->departmentId);
@@ -421,6 +423,10 @@ class Index extends BaseComponent
                     $productStock->closing_quantity = $stockData['actual_closing'];
                     $productStock->quantity_sold = $stockData['sold_quantity'];
                     $productStock->notes = $stockData['notes'];
+                    $productStock->workflow_step = 'closing_completed';
+                    $productStock->is_workflow_verified = true;
+                    $productStock->verified_at = now();
+                    $productStock->verified_by = auth()->id();
                     $productStock->save();
 
                     // Create callback for significant variance
@@ -432,7 +438,7 @@ class Index extends BaseComponent
                             'quantity' => abs($stockData['variance']),
                             'reason' => $stockData['variance'] < 0 ? 'shortage' : 'excess',
                             'callback_date' => $this->shiftDate,
-                            'shift_type' => $this->shiftType,
+                            'shift_type' => $this->getProductStockShiftType(),
                             'notes' => $stockData['notes'] . ' | Shift closing variance',
                             'status' => 'pending',
                         ]);
@@ -448,7 +454,7 @@ class Index extends BaseComponent
                             'quantity' => $stockData['actual_closing'],
                             'reason' => 'expired',
                             'callback_date' => $this->shiftDate,
-                            'shift_type' => $this->shiftType,
+                            'shift_type' => $this->getProductStockShiftType(),
                             'notes' => 'Expired on ' . $stockData['expiry_date'],
                             'status' => 'approved',
                         ]);
@@ -554,5 +560,10 @@ class Index extends BaseComponent
     public function render()
     {
         return view('livewire.branch-dashboard.sales-dashboard.shift-closing.index');
+    }
+
+    private function getProductStockShiftType(): string
+    {
+        return ProductStock::normalizeShiftType($this->shiftType);
     }
 }

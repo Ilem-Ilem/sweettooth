@@ -59,6 +59,11 @@ class InventoryDashboard extends BaseDashboard
      */
     private function getLastUnitPrice($itemId): float
     {
+        $itemUnitPrice = (float) (Item::whereKey($itemId)->value('unit_price') ?? 0);
+        if ($itemUnitPrice > 0) {
+            return $itemUnitPrice;
+        }
+
         return \App\Models\PurchaseItem::where('item_id', $itemId)
             ->orderBy('created_at', 'desc')
             ->value('cost_per_unit') ?? 0;

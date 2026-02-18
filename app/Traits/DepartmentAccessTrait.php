@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Auth;
  * - Regular staff: Only their department
  * - Accounting Manager: All departments in their branch
  * - HR Manager: All departments in their branch (if needed)
- * - Super Admin/MD: All departments
+ * - Super Admin/Managing Director: All departments
  */
 trait DepartmentAccessTrait
 {
@@ -31,7 +31,7 @@ trait DepartmentAccessTrait
             return $query->whereRaw('1=0'); // No access
         }
 
-        // Super Admin and MD get all data
+        // Super Admin and Managing Director get all data
         if (RolePermission::isSuperAdmin() || RolePermission::isManagingDirector()) {
             return $query;
         }
@@ -97,7 +97,7 @@ trait DepartmentAccessTrait
             return null;
         }
 
-        // Cross-department access users (Accounting, Super Admin, MD) get null (no filter)
+        // Cross-department access users (Accounting, Super Admin, Managing Director) get null (no filter)
         if (RolePermission::hasCrossDepartmentAccess()) {
             return null;
         }

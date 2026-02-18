@@ -19,18 +19,11 @@ class BranchAdminDashboard extends BaseDashboard
     private function verifyAccess(): void
     {
         $role = $this->getUserRoleName();
-        $allowedRoles = [
-            'Admin',
-            'Head of Production',
-            'Sales Manager',
-            'HR Manager',
-            'Inventory Manager',
-        ];
+        $user = auth()->user();
+        $isAllowed = \App\Services\SidebarVisibilityService::isAdmin($user)
+            || \App\Services\SidebarVisibilityService::isSuperAdmin($user);
 
-        // Allow access if user has allowed role OR is super admin
-        $isAllowed = in_array($role, $allowedRoles) || is_super_admin();
-        
-        if (!$isAllowed) {
+        if (! $isAllowed) {
             abort(403, 'Unauthorized access to admin dashboard');
         }
     }

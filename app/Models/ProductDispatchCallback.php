@@ -150,7 +150,7 @@ class ProductDispatchCallback extends Model
      */
     public function scopePending($query)
     {
-        return $query->where('status', 'pending');
+        return $query->where('status', CallbackStatus::PENDING->value);
     }
 
     /**
@@ -158,7 +158,7 @@ class ProductDispatchCallback extends Model
      */
     public function scopeApproved($query)
     {
-        return $query->where('status', 'approved_by_production');
+        return $query->where('status', CallbackStatus::APPROVED_BY_PRODUCTION->value);
     }
 
     /**
@@ -166,7 +166,7 @@ class ProductDispatchCallback extends Model
      */
     public function scopeReceived($query)
     {
-        return $query->where('status', 'received_by_production');
+        return $query->where('status', CallbackStatus::RECEIVED_BY_PRODUCTION->value);
     }
 
     /**
@@ -174,7 +174,7 @@ class ProductDispatchCallback extends Model
      */
     public function scopeCompleted($query)
     {
-        return $query->where('status', 'completed');
+        return $query->where('status', CallbackStatus::COMPLETED->value);
     }
 
     /**
@@ -198,7 +198,7 @@ class ProductDispatchCallback extends Model
      */
     public function canBeApproved(): bool
     {
-        return $this->status === 'pending';
+        return $this->status === CallbackStatus::PENDING;
     }
 
     /**
@@ -206,7 +206,7 @@ class ProductDispatchCallback extends Model
      */
     public function canBeReceived(): bool
     {
-        return $this->status === 'approved_by_production';
+        return $this->status === CallbackStatus::APPROVED_BY_PRODUCTION;
     }
 
     /**
@@ -233,7 +233,7 @@ class ProductDispatchCallback extends Model
             // Lock the record to prevent concurrent updates
             $locked = self::where('id', $this->id)->lockForUpdate()->first();
 
-            if (!$locked || $locked->status !== 'pending') {
+            if (!$locked || $locked->status !== CallbackStatus::PENDING) {
                 return false;
             }
 
@@ -243,7 +243,7 @@ class ProductDispatchCallback extends Model
             }
 
             $locked->update([
-                'status' => 'approved_by_production',
+                'status' => CallbackStatus::APPROVED_BY_PRODUCTION,
                 'approved_by_id' => $actor->id,
                 'approved_by_type' => get_class($actor),
                 'approved_at' => now(),
@@ -277,7 +277,7 @@ class ProductDispatchCallback extends Model
             // Lock the record to prevent concurrent updates
             $locked = self::where('id', $this->id)->lockForUpdate()->first();
 
-            if (!$locked || $locked->status !== 'approved_by_production') {
+            if (!$locked || $locked->status !== CallbackStatus::APPROVED_BY_PRODUCTION) {
                 return false;
             }
 
@@ -287,7 +287,7 @@ class ProductDispatchCallback extends Model
             }
 
             $locked->update([
-                'status' => 'received_by_production',
+                'status' => CallbackStatus::RECEIVED_BY_PRODUCTION,
                 'received_by_id' => $actor->id,
                 'received_by_type' => get_class($actor),
                 'received_at' => now(),
@@ -305,12 +305,12 @@ class ProductDispatchCallback extends Model
      */
     public function complete(): bool
     {
-        if ($this->status !== 'received_by_production') {
+        if ($this->status !== CallbackStatus::RECEIVED_BY_PRODUCTION) {
             return false;
         }
 
         $this->update([
-            'status' => 'completed',
+            'status' => CallbackStatus::COMPLETED,
         ]);
 
         return true;
@@ -372,9 +372,17 @@ class ProductDispatchCallback extends Model
     {
         $timeInCurrentState = now()->diffInHours($this->updated_at);
 
-        return match ($this->status) {
-            'pending' => $timeInCurrentState > $pendingTimeoutHours,
-            'approved_by_production' => $timeInCurrentState > $approvedTimeoutHours,
+        $status = $this->status instanceof CallbackStatus
+            ? $this->status
+            : CallbackStatus::tryFrom((string) $this->status);
+
+        if (! $status) {
+            return false;
+        }
+
+        return match ($status) {
+            CallbackStatus::PENDING => $timeInCurrentState > $pendingTimeoutHours,
+            CallbackStatus::APPROVED_BY_PRODUCTION => $timeInCurrentState > $approvedTimeoutHours,
             default => false,
         };
     }
@@ -396,10 +404,10 @@ class ProductDispatchCallback extends Model
     {
         return $query->where(function ($q) use ($pendingTimeoutHours, $approvedTimeoutHours) {
             $q->where(function ($sub) use ($pendingTimeoutHours) {
-                $sub->where('status', 'pending')
+                $sub->where('status', CallbackStatus::PENDING->value)
                     ->where('updated_at', '<', now()->subHours($pendingTimeoutHours));
             })->orWhere(function ($sub) use ($approvedTimeoutHours) {
-                $sub->where('status', 'approved_by_production')
+                $sub->where('status', CallbackStatus::APPROVED_BY_PRODUCTION->value)
                     ->where('updated_at', '<', now()->subHours($approvedTimeoutHours));
             });
         });
@@ -414,8 +422,7 @@ class ProductDispatchCallback extends Model
     public function validateQuantity(): bool
     {
         if (! $this->product_dispatch_id) {
-            // Orphaned callback - no dispatch reference
-            return true;
+            throw new RuntimeException('Product dispatch reference is required for callbacks');
         }
 
         if (! $this->productDispatch) {
@@ -424,7 +431,12 @@ class ProductDispatchCallback extends Model
 
         $totalCallbacks = self::where('product_dispatch_id', $this->product_dispatch_id)
             ->where('id', '!=', $this->id ?? 'fake-id')
-            ->whereIn('status', ['pending', 'approved_by_production', 'received_by_production', 'completed'])
+            ->whereIn('status', [
+                CallbackStatus::PENDING->value,
+                CallbackStatus::APPROVED_BY_PRODUCTION->value,
+                CallbackStatus::RECEIVED_BY_PRODUCTION->value,
+                CallbackStatus::COMPLETED->value,
+            ])
             ->sum('quantity');
 
         $available = $this->productDispatch->received_quantity - $totalCallbacks;
@@ -465,16 +477,16 @@ class ProductDispatchCallback extends Model
      */
     public function completeWithStockUpdate(): bool
     {
-        if ($this->status !== 'received_by_production') {
+        if ($this->status !== CallbackStatus::RECEIVED_BY_PRODUCTION) {
             throw new RuntimeException(
-                'Callback must be received before completion. Current status: '.$this->status
+                'Callback must be received before completion. Current status: '.$this->formatted_status
             );
         }
 
         return DB::transaction(function () {
             $this->syncProductStock();
             $this->updateDailyProduce();
-            $this->update(['status' => 'completed']);
+            $this->update(['status' => CallbackStatus::COMPLETED]);
             return true;
         });
     }
@@ -500,7 +512,12 @@ class ProductDispatchCallback extends Model
 
         $totalCallbacks = self::where('sales_shift_id', $this->sales_shift_id)
             ->where('product_id', $this->product_id)
-            ->whereIn('status', ['pending', 'approved_by_production', 'received_by_production', 'completed'])
+            ->whereIn('status', [
+                CallbackStatus::PENDING->value,
+                CallbackStatus::APPROVED_BY_PRODUCTION->value,
+                CallbackStatus::RECEIVED_BY_PRODUCTION->value,
+                CallbackStatus::COMPLETED->value,
+            ])
             ->sum('quantity');
 
         $productStock->callback_quantity = $totalCallbacks;
@@ -536,11 +553,11 @@ class ProductDispatchCallback extends Model
             $dailyProduce->increment('closing_quantity', $this->quantity);
             $dailyProduce->updateCalculations();
         } else {
-            Log::warning('DailyProduce not found for callback', [
-                'callback_id' => $this->id,
-                'shift_id' => $productDispatch->shift_id,
-                'recipe_id' => $recipe->id,
-            ]);
+            throw new RuntimeException(
+                'DailyProduce not found for callback. Cannot complete stock update. ' .
+                'Shift ID: ' . $productDispatch->shift_id .
+                ', Recipe ID: ' . $recipe->id
+            );
         }
     }
 }

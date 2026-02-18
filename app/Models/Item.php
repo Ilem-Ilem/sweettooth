@@ -21,12 +21,18 @@ class Item extends Model
         'uom_id',
         'reorder_level',
         'max_stock_level',
+        'unit_price',
+        'last_unit_price',
         'status',
+        'requires_request',
     ];
 
     protected $casts = [
         'reorder_level' => 'decimal:2',
         'max_stock_level' => 'decimal:2',
+        'unit_price' => 'decimal:4',
+        'last_unit_price' => 'decimal:4',
+        'requires_request' => 'boolean',
     ];
 
     /**
@@ -178,6 +184,33 @@ class Item extends Model
                 'branch_id' => $this->branch_id,
                 'item_id' => (int) $this->id,
             ]
+        );
+    }
+
+    /**
+     * Compatibility alias used in production costing screens.
+     */
+    protected function costPerUnit(): Attribute
+    {
+        return Attribute::make(
+            get: fn() => (float) ($this->unit_price ?? 0),
+            set: fn($value) => [
+                'unit_price' => (float) $value,
+                'last_unit_price' => (float) $value,
+            ],
+        );
+    }
+
+    /**
+     * Compatibility alias for analytics screens expecting item->price.
+     */
+    protected function price(): Attribute
+    {
+        return Attribute::make(
+            get: fn() => (float) ($this->unit_price ?? 0),
+            set: fn($value) => [
+                'unit_price' => (float) $value,
+            ],
         );
     }
 

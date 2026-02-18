@@ -78,6 +78,11 @@ class ProductDispatch extends Model
         return $this->belongsTo(SalesShift::class);
     }
 
+    public function shift(): BelongsTo
+    {
+        return $this->salesShift();
+    }
+
     public function salesDepartment(): BelongsTo
     {
         return $this->belongsTo(Department::class, 'sales_department_id');

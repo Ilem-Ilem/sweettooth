@@ -46,7 +46,7 @@ class AssignRolesToExistingUsersSeeder extends Seeder
         // Assign Admin role to users with user_type = 'admin'
         $admins = Employee::where('user_type', 'admin')->get();
         foreach ($admins as $user) {
-            if (!$user->hasAnyRole(['Super Admin', 'Admin', 'MD', 'Managing Director'])) {
+            if (!$user->hasAnyRole(['Super Admin', 'Admin', 'Managing Director'])) {
                 $user->assignRole($adminRole);
                 $this->command->info("Assigned Admin role to: {$user->email}");
             }

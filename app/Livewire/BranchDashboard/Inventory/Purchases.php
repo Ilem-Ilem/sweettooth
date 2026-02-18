@@ -41,8 +41,6 @@ class Purchases extends Component
 
     public $other_costs = 0;
 
-    public $payment_status = 'pending';
-
     public $notes;
 
     public $quantity = [];
@@ -84,7 +82,6 @@ class Purchases extends Component
         'supplier_name' => 'required|string|max:255',
         'supplier_contact' => 'nullable|string|max:255',
         'other_costs' => 'nullable|numeric|min:0',
-        'payment_status' => 'required|in:paid,partial,pending',
         'notes' => 'nullable|string',
         'purchaseItems' => 'required|array|min:1',
         'purchaseItems.*.item_id' => 'required|exists:items,id',
@@ -241,7 +238,7 @@ class Purchases extends Component
                 'other_costs' => $this->other_costs ?? 0,
                 'landing_cost' => $landingCost,
                 'total_cost' => $totalCost,
-                'payment_status' => $this->payment_status,
+                'payment_status' => 'pending',
                 'notes' => $this->notes,
                 'status' => 'approved', // Super admins bypass approval
             ]);
@@ -315,6 +312,12 @@ class Purchases extends Component
                     'movement_date' => $this->purchase_date,
                     'notes' => 'Purchase: '.$purchaseNumber,
                 ]);
+
+                if ($unitPrice > 0) {
+                    $itemModel->unit_price = $unitPrice;
+                    $itemModel->last_unit_price = $unitPrice;
+                    $itemModel->save();
+                }
             }
 
             // Log the purchase creation
@@ -324,7 +327,7 @@ class Purchases extends Component
                 $purchase,
                 "Created purchase #{$purchase->purchase_number} from {$purchase->supplier_name}. ".
                 "Total FOB FC: {$purchase->total_fob_fc}, Total FOB NGN: {$purchase->total_fob_ngn}, ".
-                "Landing Cost: {$purchase->landing_cost}, Payment Status: {$purchase->payment_status}. ".
+                "Landing Cost: {$purchase->landing_cost}, Payment Status: Pending (accounting-managed). ".
                 'Items: '.count($this->purchaseItems),
                 'completed'
             );
@@ -414,7 +417,7 @@ class Purchases extends Component
                 'total_fob_ngn' => $totalFobNgn,
                 'other_costs' => $this->other_costs ?? 0,
                 'landing_cost' => $landingCost,
-                'payment_status' => $this->payment_status,
+                'payment_status' => 'pending',
                 'notes' => $this->notes,
                 'status' => 'draft', // Save as draft
             ]);
@@ -577,7 +580,6 @@ class Purchases extends Component
         $this->supplier_name = '';
         $this->supplier_contact = '';
         $this->other_costs = 0;
-        $this->payment_status = 'pending';
         $this->notes = '';
         $this->purchaseItems = [];
         $this->itemIndex = 0;
@@ -659,13 +661,20 @@ class Purchases extends Component
     public function updateItemUom($index, $itemId)
     {
         if (empty($itemId)) {
+            $this->purchaseItems[$index]['uom'] = '';
+            $this->purchaseItems[$index]['unit_price'] = 0;
             return;
         }
 
-        $item = Item::find($itemId);
-        if ($item && $item->uomSymbol !== 'N/A') {
-            $this->purchaseItems[$index]['uom'] = $item->uomSymbol;
+        $item = Item::where('branch_id', $this->getBranchId())->find($itemId);
+        if (! $item) {
+            $this->purchaseItems[$index]['uom'] = '';
+            $this->purchaseItems[$index]['unit_price'] = 0;
+            return;
         }
+
+        $this->purchaseItems[$index]['uom'] = $item->uomSymbol !== 'N/A' ? $item->uomSymbol : '';
+        $this->purchaseItems[$index]['unit_price'] = (float) ($item->unit_price ?? 0);
     }
 
     /**
@@ -754,40 +763,6 @@ class Purchases extends Component
             $this->toast()->error('Export failed: '.$e->getMessage())->send();
 
             return;
-        }
-    }
-
-    /**
-     * Quickly update the payment status of an existing purchase from the table view.
-     */
-    public function updatePaymentStatus($purchaseId, $status)
-    {
-        try {
-            if (! in_array($status, ['paid', 'partial', 'pending'], true)) {
-                throw new \Exception('Invalid payment status.');
-            }
-
-            $purchase = Purchase::findOrFail($purchaseId);
-
-            if ($purchase->branch_id !== $this->getBranchId()) {
-                throw new \Exception('Unauthorized action.');
-            }
-
-            $purchase->update(['payment_status' => $status]);
-
-            if ($actor = current_actor()) {
-                AuditService::log(
-                    $actor,
-                    'update',
-                    $purchase,
-                    "Updated purchase #{$purchase->purchase_number} payment status to ".ucfirst($status),
-                    'completed'
-                );
-            }
-
-            $this->toast()->success('Payment status updated to '.ucfirst($status).'.')->send();
-        } catch (\Exception $e) {
-            $this->toast()->error($e->getMessage())->send();
         }
     }
 

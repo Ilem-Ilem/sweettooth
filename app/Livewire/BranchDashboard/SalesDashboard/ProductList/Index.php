@@ -22,6 +22,8 @@ class Index extends BaseComponent
 
     public ?string $branchId = null;
     public ?int $departmentId = null;
+    /** @var array<int> */
+    public array $departmentIds = [];
     public string $departmentName = 'Product List';
     public string $branchName = '';
 
@@ -40,6 +42,11 @@ class Index extends BaseComponent
     public function mount(): void
     {
         $this->mountBase();
+        if (! $this->salesDeptSlug) {
+            $this->salesDeptSlug = request()->route('salesDeptSlug')
+                ?? request()->query('sales_dept_slug')
+                ?? request()->query('salesDeptSlug');
+        }
         $this->loadBranchAndDepartment();
     }
 
@@ -65,6 +72,7 @@ class Index extends BaseComponent
             if ($department) {
                 $this->departmentId = $department->id;
                 $this->departmentName = $department->name;
+                $this->departmentIds = $this->resolveEquivalentSalesDepartmentIds($department);
             }
         }
     }
@@ -94,7 +102,16 @@ class Index extends BaseComponent
         $department = Department::find($this->departmentId);
 
         $query = $department->products()
-            ->where('branch_id', $this->branchId);
+            ->where(function ($q) {
+                $q->whereNull('branch_id')
+                    ->orWhere('branch_id', $this->branchId);
+            });
+
+        if (! empty($this->departmentIds)) {
+            $query->whereIn('products.sales_department_id', $this->departmentIds);
+        } else {
+            $query->where('products.sales_department_id', $this->departmentId);
+        }
 
         if (strlen($this->search)) {
             $query->where(function($q) {
@@ -123,12 +140,52 @@ class Index extends BaseComponent
         $department = Department::find($this->departmentId);
         $currentProductIds = $department->products()->pluck('products.id')->toArray();
 
-        $this->availableProducts = Product::where('branch_id', $this->branchId)
+        $this->availableProducts = Product::where(function ($q) {
+                $q->whereNull('branch_id')
+                    ->orWhere('branch_id', $this->branchId);
+            })
+            ->when(! empty($this->departmentIds), fn ($q) => $q->whereIn('sales_department_id', $this->departmentIds))
+            ->when(empty($this->departmentIds), fn ($q) => $q->where('sales_department_id', $this->departmentId))
             ->whereNotIn('id', $currentProductIds)
             ->where('is_active', true)
             ->orderBy('name')
             ->get()
             ->toArray();
+    }
+
+    /**
+     * Resolve equivalent sales department IDs for slug across branch/global scope.
+     *
+     * @return array<int>
+     */
+    private function resolveEquivalentSalesDepartmentIds(Department $department): array
+    {
+        $branchId = $this->branchId;
+
+        $query = Department::query()
+            ->whereHas('category', function ($categoryQuery) {
+                $categoryQuery->whereRaw('LOWER(name) = ?', ['sales']);
+            })
+            ->where('slug', $department->slug);
+
+        if ($branchId) {
+            $query->where(function ($scopeQuery) use ($branchId) {
+                $scopeQuery->where('branch_id', $branchId)
+                    ->orWhereNull('branch_id');
+            });
+        }
+
+        $ids = $query->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (! in_array((int) $department->id, $ids, true)) {
+            $ids[] = (int) $department->id;
+        }
+
+        return $ids;
     }
 
     public function addProducts(): void
