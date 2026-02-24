@@ -3,6 +3,7 @@
 namespace App\Livewire\BranchDashboard\ReportingDepartment\ReviewReports;
 
 use App\Models\DepartmentReport;
+use App\Services\SidebarVisibilityService;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
@@ -36,6 +37,10 @@ class Index extends Component
 
     public function mount()
     {
+        if (! SidebarVisibilityService::canSeeReporting(auth()->user())) {
+            abort(403, 'Only HR, Admin, or Super Admin users can access reporting');
+        }
+
         $this->b_id = $this->b_id ?? current_branch_id();
     }
 

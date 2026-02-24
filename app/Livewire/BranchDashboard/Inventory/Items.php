@@ -68,7 +68,7 @@ class Items extends BaseComponent
 
     public ?float $max_stock_level = null;
 
-    public ?float $unit_price = null;
+    public $unit_price = null;
 
     public string $status = 'active';
 
@@ -128,8 +128,8 @@ class Items extends BaseComponent
             'uom_id' => $this->uom_id,
             'reorder_level' => $this->reorder_level ?? 0,
             'max_stock_level' => $this->max_stock_level ?? 0,
-            'unit_price' => $this->unit_price ?? 0,
-            'last_unit_price' => $this->unit_price ?? 0,
+            'unit_price' => is_numeric($this->unit_price) ? (float) $this->unit_price : 0,
+            'last_unit_price' => is_numeric($this->unit_price) ? (float) $this->unit_price : 0,
             'status' => $this->status,
             'requires_request' => (bool) $this->requires_request,
         ];
@@ -337,7 +337,7 @@ class Items extends BaseComponent
         $this->uom_id = $item->uom_id;
         $this->reorder_level = $item->reorder_level;
         $this->max_stock_level = $item->max_stock_level;
-        $this->unit_price = (float) ($item->unit_price ?? 0);
+        $this->unit_price = $item->unit_price !== null ? (string) $item->unit_price : '';
         $this->status = $item->status;
         $this->requires_request = (bool) $item->requires_request;
         $this->isEditing = true;
@@ -600,7 +600,7 @@ class Items extends BaseComponent
             $this->uom_id = $this->pendingItemData['uom_id'] ?? null;
             $this->reorder_level = $this->pendingItemData['reorder_level'] ?? null;
             $this->max_stock_level = $this->pendingItemData['max_stock_level'] ?? null;
-            $this->unit_price = $this->pendingItemData['unit_price'] ?? 0;
+            $this->unit_price = $this->pendingItemData['unit_price'] ?? '';
             $this->status = $this->pendingItemData['status'] ?? 'active';
             $this->requires_request = (bool) ($this->pendingItemData['requires_request'] ?? false);
             $this->isEditing = $this->itemId ? true : false;
@@ -615,7 +615,7 @@ class Items extends BaseComponent
     private function resetForm()
     {
         $this->reset(['itemId', 'name', 'sku', 'category', 'uom_id', 'reorder_level', 'max_stock_level', 'unit_price', 'status', 'requires_request', 'isEditing']);
-        $this->unit_price = 0;
+        $this->unit_price = null;
         $this->requires_request = false;
     }
 

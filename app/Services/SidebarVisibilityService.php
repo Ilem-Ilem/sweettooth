@@ -527,9 +527,6 @@ class SidebarVisibilityService
     {
         $user = $user ?? auth()->user();
         $level = self::getRoleLevel($user);
-        $category = self::getDepartmentCategory($user);
-        $accountingRoles = ['Accounting Manager', 'Accountant', 'Cost Accountant'];
-        $blockedReportingRoles = ['Production Manager'];
 
         // Super admins can see reporting regardless of department
         if (self::isSuperAdmin($user)) {
@@ -541,23 +538,48 @@ class SidebarVisibilityService
             return true;
         }
 
-        // Accounting roles should not see reporting
-        if ($user && $user->hasAnyRole($accountingRoles)) {
+        // HR roles can see reporting
+        return self::isHrUser($user);
+    }
+
+    private static function isHrUser($user = null): bool
+    {
+        $user = $user ?? auth()->user();
+
+        if (! $user) {
             return false;
         }
 
-        // Explicitly block production managers from reporting module
-        if ($user && $user->hasAnyRole($blockedReportingRoles)) {
-            return false;
-        }
-
-        // Managers can only see reporting if they are in relevant departments
-        if ($level >= self::LEVEL_MANAGER && in_array($category, ['Support', 'HR', 'Production', 'Sales', 'Accounting'])) {
+        $category = self::getDepartmentCategory($user);
+        if ($category === 'HR') {
             return true;
         }
 
-        // Others need specific permissions
-        return self::hasAnyPermission($user, ['view-reports', 'export-reports']);
+        if (method_exists($user, 'hasAnyRole')) {
+            if ($user->hasAnyRole([
+                'HR',
+                'HR Manager',
+                'HR Officer',
+                'Human Resources',
+                'People Ops',
+                'People Operations',
+            ])) {
+                return true;
+            }
+        }
+
+        if (method_exists($user, 'getRoleNames')) {
+            $roleNames = $user->getRoleNames()
+                ->map(fn ($name) => strtolower(trim($name)))
+                ->toArray();
+            foreach ($roleNames as $name) {
+                if (str_contains($name, 'hr') || str_contains($name, 'human resource')) {
+                    return true;
+                }
+            }
+        }
+
+        return self::hasAnyPermission($user, ['view-hr-reports', 'manage-employees', 'manage-leave', 'manage-organization']);
     }
 
     public static function canSeeAccounting($user = null): bool

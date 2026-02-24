@@ -5,6 +5,7 @@ namespace App\Livewire\BranchDashboard\ReportingDepartment\SendToMD;
 use App\Models\CompiledReport;
 use App\Models\User;
 use App\Services\Reports\ReportCompilationService;
+use App\Services\SidebarVisibilityService;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
@@ -30,8 +31,8 @@ class Index extends Component
 
     public function mount()
     {
-        if (! is_super_admin()) {
-            abort(403, 'Only Super Admins can send reports to MD');
+        if (! SidebarVisibilityService::canSeeReporting(auth()->user())) {
+            abort(403, 'Only HR, Admin, or Super Admin users can send reports to MD');
         }
 
         $this->b_id = $this->b_id ?? current_branch_id();
