@@ -64,14 +64,24 @@ class BackupCompletedNotification extends Notification
      */
     public function toArray($notifiable): array
     {
+        $filename = $this->result['filename'] ?? null;
+        $size = $this->result['size'] ?? null;
+        $errorMessage = $this->result['message'] ?? 'Unknown error';
         return [
             'type' => 'database_backup',
             'success' => $this->success,
+            'title' => $this->success ? 'Database Backup Completed' : 'Database Backup Failed',
             'message' => $this->success
-                ? 'Database backup completed successfully'
-                : 'Database backup failed: '.($this->result['message'] ?? 'Unknown error'),
-            'filename' => $this->result['filename'] ?? null,
-            'size' => $this->result['size'] ?? null,
+                ? 'Database backup completed successfully.'
+                : "Database backup failed: {$errorMessage}",
+            'summary' => $this->success ? 'Backup created successfully.' : 'Action required: review backup error.',
+            'context' => [
+                'filename' => $filename,
+                'size' => $size,
+                'status' => $this->success ? 'Success' : 'Failed',
+            ],
+            'filename' => $filename,
+            'size' => $size,
             'path' => $this->result['path'] ?? null,
             'timestamp' => now()->toDateTimeString(),
         ];

@@ -26,17 +26,21 @@ class GlPostingApprovalFailedNotification extends Notification implements Should
 
     public function toMail(object $notifiable): MailMessage
     {
+        $referenceLabel = $this->referenceNumber ?? class_basename($this->referenceType) . " #{$this->referenceId}";
+        $errorMessage = $this->error ?? 'Unknown error';
         return (new MailMessage)
             ->subject('GL Posting Approval Failed')
             ->greeting("Hi {$notifiable->name},")
             ->line('A GL posting approval failed.')
-            ->line('Reference: ' . ($this->referenceNumber ?? "{$this->referenceType} #{$this->referenceId}"))
-            ->line('Error: ' . ($this->error ?? 'Unknown error'))
+            ->line("Reference: {$referenceLabel}")
+            ->line("Error: {$errorMessage}")
             ->action('Review Posting', route('branch-dashboard.accounting.posting-approvals', ['b_id' => $this->branchId]));
     }
 
     public function toArray(object $notifiable): array
     {
+        $referenceLabel = $this->referenceNumber ?? class_basename($this->referenceType) . " #{$this->referenceId}";
+        $errorMessage = $this->error ?? 'Unknown error';
         return [
             'type' => 'gl_posting_approval_failed',
             'reference_type' => $this->referenceType,
@@ -44,7 +48,14 @@ class GlPostingApprovalFailedNotification extends Notification implements Should
             'reference_number' => $this->referenceNumber,
             'branch_id' => $this->branchId,
             'error' => $this->error,
-            'message' => 'GL posting approval failed.',
+            'title' => 'GL Posting Approval Failed',
+            'message' => "GL posting approval failed for {$referenceLabel}.",
+            'summary' => 'Review the error and retry approval.',
+            'context' => [
+                'reference' => $referenceLabel,
+                'error_message' => $errorMessage,
+                'status' => 'Failed',
+            ],
             'action_url' => route('branch-dashboard.accounting.posting-approvals', ['b_id' => $this->branchId]),
             'action_text' => 'Review Posting',
         ];

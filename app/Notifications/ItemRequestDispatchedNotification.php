@@ -71,7 +71,21 @@ class ItemRequestDispatchedNotification extends Notification implements ShouldQu
                 ? 'Inventory request fully dispatched'
                 : 'Inventory request partially dispatched',
             'request_number' => $this->request->request_number,
-            'message' => "Request {$this->request->request_number} dispatched by inventory.",
+            'title' => $this->request->status === 'completed'
+                ? 'Inventory Request Dispatched'
+                : 'Inventory Request Partially Dispatched',
+            'message' => "Request {$this->request->request_number} was dispatched by inventory.",
+            'summary' => $this->request->dispatcher?->name
+                ? "Dispatched by {$this->request->dispatcher->name}."
+                : 'Dispatched by inventory.',
+            'context' => [
+                'request_number' => $this->request->request_number,
+                'requested_by' => $this->request->requestedBy?->name,
+                'dispatched_by' => $this->request->dispatcher?->name,
+                'dispatched_by_role' => $dispatchedByRole,
+                'department' => $this->request->department?->name,
+                'status' => $this->request->status === 'completed' ? 'Success' : 'Pending',
+            ],
             'requesting_department' => $this->request->department?->name,
             'requested_by' => $this->request->requestedBy?->name,
             'urgency' => $this->request->priority ?? 'normal',
@@ -80,6 +94,7 @@ class ItemRequestDispatchedNotification extends Notification implements ShouldQu
             'dispatched_by_role' => $dispatchedByRole,
             'dispatched_items' => $this->dispatchedItems,
             'remaining_items' => $remainingItems,
+            'items_preview' => $this->dispatchedItems,
         ];
     }
 }

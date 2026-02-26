@@ -47,6 +47,9 @@ class SaleObserver
     private function postToGL(Sale $sale): void
     {
         try {
+            // Refresh to get the latest status from database (handles default values)
+            $sale->refresh();
+            
             // Avoid duplicate posting
             if ($sale->gl_posting_status !== 'pending') {
                 return;

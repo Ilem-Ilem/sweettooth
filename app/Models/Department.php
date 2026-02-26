@@ -25,6 +25,8 @@ class Department extends Model
         'receivable_account_id',
         'cash_account_id',
         'bank_account_id',
+        'cogs_account_id',
+        'inventory_account_id',
     ];
 
     /**
@@ -91,6 +93,22 @@ class Department extends Model
     public function bankAccount()
     {
         return $this->belongsTo(BankAccount::class, 'bank_account_id');
+    }
+
+    /**
+     * Get the COGS GL account for this department.
+     */
+    public function cogsAccount()
+    {
+        return $this->belongsTo(GlAccount::class, 'cogs_account_id');
+    }
+
+    /**
+     * Get the inventory GL account for this department.
+     */
+    public function inventoryAccount()
+    {
+        return $this->belongsTo(GlAccount::class, 'inventory_account_id');
     }
 
     /**

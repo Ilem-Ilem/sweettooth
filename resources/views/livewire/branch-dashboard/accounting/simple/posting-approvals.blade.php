@@ -86,11 +86,11 @@
             @interact('column_action', $row)
                 <div class="flex items-center gap-2">
                     <button class="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-800" type="button"
-                            wire:click="viewGroup('{{ $row->reference_type }}', {{ $row->reference_id }})">
+                            wire:click="viewGroup('{{ $row->reference_type_short }}', {{ $row->reference_id }})">
                         View
                     </button>
                     <button class="rounded-full border border-emerald-200 px-3 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 hover:bg-emerald-50 dark:border-emerald-900/50 dark:text-emerald-200 dark:hover:bg-emerald-900/30" type="button"
-                            wire:click="approveGroup('{{ $row->reference_type }}', {{ $row->reference_id }})">
+                            wire:click="approveGroup('{{ $row->reference_type_short }}', {{ $row->reference_id }})">
                         Approve
                     </button>
                 </div>

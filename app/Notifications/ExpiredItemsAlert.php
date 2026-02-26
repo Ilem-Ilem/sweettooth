@@ -40,12 +40,20 @@ class ExpiredItemsAlert extends Notification implements ShouldQueue
 
     public function toArray(object $notifiable): array
     {
+        $count = count($this->items);
+        $branchName = $this->branchContext['branch_name'] ?? 'Branch';
         return [
             'type' => 'expired_items_alert',
             'branch_id' => $this->branchContext['branch_id'] ?? null,
-            'branch_name' => $this->branchContext['branch_name'] ?? null,
+            'branch_name' => $branchName,
             'items' => $this->items,
-            'message' => count($this->items).' item(s) are expired.',
+            'title' => 'Expired Items Alert',
+            'message' => "{$count} item(s) are expired.",
+            'summary' => 'Immediate attention required.',
+            'context' => [
+                'branch' => $branchName,
+                'status' => 'Failed',
+            ],
             'action_url' => route('branch-dashboard.dashboard.inventory', ['b_id' => $this->branchContext['branch_id'] ?? null]),
             'action_text' => 'View Inventory',
         ];

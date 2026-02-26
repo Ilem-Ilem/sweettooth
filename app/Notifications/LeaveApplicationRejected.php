@@ -41,7 +41,15 @@ class LeaveApplicationRejected extends Notification implements ShouldQueue
             'leave_application_id' => $this->leave->id,
             'branch_id' => $this->leave->employee?->branch_id,
             'branch_name' => $this->leave->employee?->branch?->name,
-            'message' => "Leave application {$this->leave->application_number} rejected.",
+            'title' => 'Leave Rejected',
+            'message' => "Your leave application {$this->leave->application_number} was rejected.",
+            'summary' => 'Review the rejection reason.',
+            'context' => [
+                'application' => $this->leave->application_number,
+                'reason' => $this->leave->rejection_reason,
+                'branch' => $this->leave->employee?->branch?->name,
+                'status' => 'Failed',
+            ],
             'action_url' => route('branch-dashboard.leave.my-leaves', ['b_id' => $this->leave->employee?->branch_id]),
             'action_text' => 'View My Leaves',
         ];

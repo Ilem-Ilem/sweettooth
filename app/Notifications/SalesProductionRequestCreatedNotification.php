@@ -71,12 +71,25 @@ class SalesProductionRequestCreatedNotification extends Notification implements 
             'branch_id' => $this->request->branch_id,
             'display_type' => 'Converted from sales to production',
             'sales_request_number' => $this->request->request_number,
-            'message' => "Sales request {$this->request->request_number} sent to production.",
+            'title' => 'Sales Request Sent to Production',
+            'message' => "Sales request {$this->request->request_number} was sent to production.",
+            'summary' => $this->request->salesDepartment?->name
+                ? "From {$this->request->salesDepartment->name}."
+                : 'Production request created.',
+            'context' => [
+                'request_number' => $this->request->request_number,
+                'requested_by' => $this->request->requestedBy?->name,
+                'requested_by_role' => $requestedByRole,
+                'sales_department' => $this->request->salesDepartment?->name,
+                'production_departments' => $departments,
+                'status' => 'Pending',
+            ],
             'requested_by' => $this->request->requestedBy?->name,
             'requested_by_role' => $requestedByRole,
             'sales_department' => $this->request->salesDepartment?->name,
             'production_departments' => $departments,
             'items' => $items,
+            'items_preview' => $items,
         ];
     }
 }

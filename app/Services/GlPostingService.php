@@ -228,8 +228,8 @@ class GlPostingService
 
             // Entry B: Record COGS
             // Debit: COGS, Credit: Inventory
-            $cogsAccount = $this->resolveDefaultAccount('cogs', $branchId);
-            $inventoryAccount = $this->resolveDefaultAccount('inventory_asset', $branchId);
+            $cogsAccount = $this->getCogsAccountForDepartment($department, $branchId);
+            $inventoryAccount = $this->getInventoryAccountForDepartment($department, $branchId);
 
             $totalCogs = $sale->saleItems->sum(function ($item) {
                 if (! empty($item->line_cost)) {
@@ -238,6 +238,11 @@ class GlPostingService
 
                 if (! empty($item->unit_cost)) {
                     return (float) $item->unit_cost * (float) ($item->quantity ?? 0);
+                }
+
+                // Fallback to product cost if available
+                if ($item->product && ! empty($item->product->cost)) {
+                    return (float) $item->product->cost * (float) ($item->quantity ?? 0);
                 }
 
                 return 0;
@@ -668,7 +673,7 @@ class GlPostingService
             ])->post(auth()->id());
 
             DB::commit();
-            $this->notifyDraftReady(PurchasePayment::class, (int) $payment->id, $payment->branch_id, $payment->reference_number ?? "PPY-{$payment->id}");
+            $this->notifyDraftReady(AccountTransfer::class, (int) $transfer->id, $transfer->branch_id, "TRF-{$transfer->id}");
             return true;
         } catch (Exception $e) {
             DB::rollBack();
@@ -1673,6 +1678,30 @@ class GlPostingService
         }
 
         return $this->resolveDefaultAccount('accounts_receivable', $branchId);
+    }
+
+    /**
+     * Department-specific COGS account with fallback to default.
+     */
+    protected function getCogsAccountForDepartment($department, ?string $branchId = null): GlAccount
+    {
+        if ($department && $department->cogsAccount) {
+            return $department->cogsAccount;
+        }
+
+        return $this->resolveDefaultAccount('cogs', $branchId);
+    }
+
+    /**
+     * Department-specific inventory account with fallback to default.
+     */
+    protected function getInventoryAccountForDepartment($department, ?string $branchId = null): GlAccount
+    {
+        if ($department && $department->inventoryAccount) {
+            return $department->inventoryAccount;
+        }
+
+        return $this->resolveDefaultAccount('inventory_asset', $branchId);
     }
 
     /**

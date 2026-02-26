@@ -40,7 +40,14 @@ class ReportRejectedNotification extends Notification implements ShouldQueue
             'department_report_id' => $this->report->id,
             'branch_id' => $this->report->branch_id,
             'branch_name' => $this->report->branch?->name,
-            'message' => "Report \"{$this->report->report_name}\" rejected.",
+            'title' => 'Report Rejected',
+            'message' => "Report \"{$this->report->report_name}\" was rejected.",
+            'summary' => 'Review and update the report.',
+            'context' => [
+                'report' => $this->report->report_name,
+                'branch' => $this->report->branch?->name,
+                'status' => 'Failed',
+            ],
             'action_url' => route('branch-dashboard.reporting.report.view', ['id' => $this->report->id, 'b_id' => $this->report->branch_id]),
             'action_text' => 'View Report',
         ];

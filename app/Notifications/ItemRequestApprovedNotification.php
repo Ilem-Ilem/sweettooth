@@ -67,7 +67,19 @@ class ItemRequestApprovedNotification extends Notification implements ShouldQueu
             'branch_name' => $this->request->branch?->name,
             'display_type' => 'Inventory request approved',
             'request_number' => $this->request->request_number,
-            'message' => "Request {$this->request->request_number} approved by inventory.",
+            'title' => 'Inventory Request Approved',
+            'message' => "Request {$this->request->request_number} was approved by inventory.",
+            'summary' => $this->request->approver?->name
+                ? "Approved by {$this->request->approver->name}."
+                : 'Approved by inventory.',
+            'context' => [
+                'request_number' => $this->request->request_number,
+                'requested_by' => $this->request->requestedBy?->name,
+                'approved_by' => $this->request->approver?->name,
+                'approved_by_role' => $approvedByRole,
+                'department' => $this->request->department?->name,
+                'status' => 'Success',
+            ],
             'requesting_department' => $this->request->department?->name,
             'requested_by' => $this->request->requestedBy?->name,
             'urgency' => $this->request->priority ?? 'normal',
@@ -75,6 +87,7 @@ class ItemRequestApprovedNotification extends Notification implements ShouldQueu
             'approved_by' => $this->request->approver?->name,
             'approved_by_role' => $approvedByRole,
             'approved_items' => $approvedItems,
+            'items_preview' => $approvedItems,
             'action_url' => route('branch-dashboard.inventory.item-requests', ['b_id' => $this->request->branch_id]),
             'action_text' => 'View Request',
         ];

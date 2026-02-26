@@ -109,6 +109,41 @@ class Index extends Component
 
         $branchId = $this->getBranchId();
 
+        $shortages = [];
+        foreach ($transfer->items as $itemRow) {
+            $stock = Stock::where('branch_id', $branchId)
+                ->where('item_id', $itemRow->item_id)
+                ->first();
+
+            $itemBaseUomId = $itemRow->item?->uom_id;
+            $dispatchUomId = $itemRow->uom_id ?: $itemBaseUomId;
+
+            $dispatchQtyBase = $dispatchUomId && $itemBaseUomId
+                ? ($uomService->tryConvert((float) $itemRow->quantity, $dispatchUomId, $itemBaseUomId, [
+                    'branch_id' => $branchId,
+                    'item_id' => $itemRow->item_id,
+                ]) ?? (float) $itemRow->quantity)
+                : (float) $itemRow->quantity;
+
+            $available = $stock?->quantity_available ?? 0;
+            if (! $stock || $available < $dispatchQtyBase) {
+                $itemName = $itemRow->item?->name ?? ('Item #' . $itemRow->item_id);
+                $shortages[] = sprintf(
+                    '%s: requested %s, available %s',
+                    $itemName,
+                    number_format($dispatchQtyBase, 2),
+                    number_format($available, 2)
+                );
+            }
+        }
+
+        if (! empty($shortages)) {
+            $this->toast()
+                ->error('Insufficient stock', implode(' | ', $shortages))
+                ->send();
+            return;
+        }
+
         DB::transaction(function () use ($transfer, $user, $branchId, $uomService) {
             foreach ($transfer->items as $itemRow) {
                 $stock = Stock::where('branch_id', $branchId)
@@ -145,7 +180,7 @@ class Index extends Component
 
                 StockMovement::create([
                     'stock_id' => $stock->id,
-                    'type' => 'department_transfer',
+                    'type' => 'transfer',
                     'quantity' => -$dispatchQtyBase,
                     'quantity_before' => $quantityBefore,
                     'quantity_after' => $quantityAfter,

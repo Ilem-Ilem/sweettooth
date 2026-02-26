@@ -66,13 +66,26 @@ class ItemRequestCreatedNotification extends Notification implements ShouldQueue
             'branch_name' => $this->request->branch?->name,
             'display_type' => 'Inventory request created',
             'request_number' => $this->request->request_number,
-            'message' => "Request {$this->request->request_number} sent to inventory.",
+            'title' => 'New Inventory Request',
+            'message' => "Request {$this->request->request_number} was sent to inventory.",
+            'summary' => $this->request->department?->name
+                ? "Requested by {$this->request->department->name}."
+                : 'Inventory request submitted.',
+            'context' => [
+                'request_number' => $this->request->request_number,
+                'requested_by' => $this->request->requestedBy?->name,
+                'requested_by_role' => $requestedByRole,
+                'department' => $this->request->department?->name,
+                'priority' => ucfirst((string) ($this->request->priority ?? 'normal')),
+                'status' => 'Pending',
+            ],
             'requesting_department' => $this->request->department?->name,
             'requested_by' => $this->request->requestedBy?->name,
             'requested_by_role' => $requestedByRole,
             'urgency' => $this->request->priority ?? 'normal',
             'status' => $this->request->status,
             'items' => $items,
+            'items_preview' => $items,
             'action_url' => route('branch-dashboard.inventory.item-requests', ['b_id' => $this->request->branch_id]),
             'action_text' => 'View Requests',
         ];

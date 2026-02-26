@@ -26,27 +26,70 @@ class ApprovalRequestCreated extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
+        $actionLabel = $this->formatActionLabel();
+        $requestNumber = $this->formatRequestNumber();
+        $requesterName = $this->request->requester?->name ?? 'Someone';
+        $branchName = $this->request->branch?->name ?? 'Unknown branch';
+        $submittedAt = optional($this->request->created_at)->format('M d, Y g:i A');
+
         return (new MailMessage)
-            ->subject('New Approval Request')
+            ->subject('Action Required: New Approval Request Submitted')
             ->greeting("Hi {$notifiable->name},")
-            ->line('A new approval request is awaiting review.')
-            ->line("Action: {$this->request->action}")
-            ->action('Review Requests', route('branch-dashboard.audit.index', ['b_id' => $this->request->branch_id]))
-            ->line('Please review and take action.');
+            ->line('A new approval request has been submitted and requires your review.')
+            ->line('Request Details:')
+            ->line("Request Number: {$requestNumber}")
+            ->line("Action Type: {$actionLabel}")
+            ->line("Requested By: {$requesterName}")
+            ->line("Branch: {$branchName}")
+            ->line("Submitted: {$submittedAt}")
+            ->action('Review Request', route('branch-dashboard.audit.index', ['b_id' => $this->request->branch_id]))
+            ->line('Please review and take action at your earliest convenience.');
     }
 
     public function toArray(object $notifiable): array
     {
+        $actionLabel = $this->formatActionLabel();
+        $requestNumber = $this->formatRequestNumber();
+        $requesterName = $this->request->requester?->name ?? 'Someone';
+        $branchName = $this->request->branch?->name ?? 'Unknown branch';
+
         return [
             'type' => 'approval_request_created',
-            'approval_request_id' => $this->request->id,
-            'action' => $this->request->action,
-            'status' => $this->request->status,
-            'branch_id' => $this->request->branch_id,
-            'branch_name' => $this->request->branch?->name,
-            'message' => 'New approval request awaiting review.',
+            'title' => 'New Approval Request Submitted',
+            'message' => 'A new approval request requires your review.',
+            'summary' => "Request to {$actionLabel}",
+            'context' => [
+                'request_number' => $requestNumber,
+                'action_type' => $actionLabel,
+                'requested_by' => $requesterName,
+                'branch' => $branchName,
+                'submitted_at' => optional($this->request->created_at)->format('M d, Y g:i A'),
+                'priority' => 'Normal',
+            ],
             'action_url' => route('branch-dashboard.audit.index', ['b_id' => $this->request->branch_id]),
-            'action_text' => 'Review Requests',
+            'action_text' => 'Review Request',
+            'approval_request_id' => $this->request->id,
+            'branch_id' => $this->request->branch_id,
+            'raw_action' => $this->request->action,
         ];
+    }
+
+    private function formatRequestNumber(): string
+    {
+        return 'APR-' . str_pad((string) $this->request->id, 6, '0', STR_PAD_LEFT);
+    }
+
+    private function formatActionLabel(): string
+    {
+        $raw = (string) $this->request->action;
+        $parts = explode(':', $raw);
+        $actionKey = $parts[1] ?? ($parts[0] ?? 'request');
+        $actionKey = trim($actionKey);
+
+        if ($actionKey === '') {
+            $actionKey = 'request';
+        }
+
+        return ucwords(str_replace('_', ' ', $actionKey));
     }
 }

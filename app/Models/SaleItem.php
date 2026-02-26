@@ -16,6 +16,8 @@ class SaleItem extends Model
         'sales_uom_id',
         'conversion_factor',
         'unit_price',
+        'unit_cost',
+        'line_cost',
         'vat_rate',
         'subtotal',
         'vat_amount',

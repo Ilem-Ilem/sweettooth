@@ -41,7 +41,15 @@ class LeaveApplicationApproved extends Notification implements ShouldQueue
             'leave_application_id' => $this->leave->id,
             'branch_id' => $this->leave->employee?->branch_id,
             'branch_name' => $this->leave->employee?->branch?->name,
-            'message' => "Leave application {$this->leave->application_number} approved.",
+            'title' => 'Leave Approved',
+            'message' => "Your leave application {$this->leave->application_number} was approved.",
+            'summary' => "Dates: {$this->leave->start_date} to {$this->leave->end_date}.",
+            'context' => [
+                'application' => $this->leave->application_number,
+                'dates' => "{$this->leave->start_date} to {$this->leave->end_date}",
+                'branch' => $this->leave->employee?->branch?->name,
+                'status' => 'Success',
+            ],
             'action_url' => route('branch-dashboard.leave.my-leaves', ['b_id' => $this->leave->employee?->branch_id]),
             'action_text' => 'View My Leaves',
         ];

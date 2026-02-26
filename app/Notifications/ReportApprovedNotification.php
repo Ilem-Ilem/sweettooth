@@ -40,7 +40,14 @@ class ReportApprovedNotification extends Notification implements ShouldQueue
             'department_report_id' => $this->report->id,
             'branch_id' => $this->report->branch_id,
             'branch_name' => $this->report->branch?->name,
-            'message' => "Report \"{$this->report->report_name}\" approved.",
+            'title' => 'Report Approved',
+            'message' => "Report \"{$this->report->report_name}\" was approved.",
+            'summary' => 'Report is approved and ready.',
+            'context' => [
+                'report' => $this->report->report_name,
+                'branch' => $this->report->branch?->name,
+                'status' => 'Success',
+            ],
             'action_url' => route('branch-dashboard.reporting.report.view', ['id' => $this->report->id, 'b_id' => $this->report->branch_id]),
             'action_text' => 'View Report',
         ];

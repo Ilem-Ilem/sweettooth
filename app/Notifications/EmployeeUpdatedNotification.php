@@ -42,7 +42,14 @@ class EmployeeUpdatedNotification extends Notification implements ShouldQueue
             'employee_id' => $this->employee->id,
             'branch_id' => $this->employee->branch_id,
             'branch_name' => $this->employee->branch?->name,
-            'message' => "Employee {$this->employee->name} updated.",
+            'title' => 'Employee Updated',
+            'message' => "Employee {$this->employee->name} was updated.",
+            'summary' => 'Review updated employee details.',
+            'context' => [
+                'employee' => $this->employee->name,
+                'branch' => $this->employee->branch?->name,
+                'status' => 'Success',
+            ],
             'action_url' => route('branch-dashboard.employee.details', ['id' => $this->employee->id, 'employee_number' => $this->employee->employee_number, 'b_id' => $this->employee->branch_id]),
             'action_text' => 'View Employee',
         ];

@@ -39,12 +39,20 @@ class HealthCheckAlert extends Notification implements ShouldQueue
 
     public function toArray(object $notifiable): array
     {
+        $count = count($this->checks);
+        $branchName = $this->branchContext['branch_name'] ?? 'Branch';
         return [
             'type' => 'health_check_alert',
             'branch_id' => $this->branchContext['branch_id'] ?? null,
-            'branch_name' => $this->branchContext['branch_name'] ?? null,
+            'branch_name' => $branchName,
             'checks' => $this->checks,
-            'message' => count($this->checks).' health check(s) require action.',
+            'title' => 'Inventory Health Alert',
+            'message' => "{$count} inventory health check(s) require action.",
+            'summary' => 'Review flagged inventory checks.',
+            'context' => [
+                'branch' => $branchName,
+                'status' => 'Pending',
+            ],
             'action_url' => route('branch-dashboard.dashboard.inventory', ['b_id' => $this->branchContext['branch_id'] ?? null]),
             'action_text' => 'View Inventory',
         ];

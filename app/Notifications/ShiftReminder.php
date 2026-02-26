@@ -58,6 +58,7 @@ class ShiftReminder extends Notification implements ShouldQueue
      */
     public function toArray(object $notifiable): array
     {
+        $shiftLabel = ucfirst(str_replace('_', ' ', $this->shiftType));
         return [
             'type' => 'shift_reminder',
             'shift_type' => $this->shiftType,
@@ -65,7 +66,15 @@ class ShiftReminder extends Notification implements ShouldQueue
             'time_window' => $this->getTimeWindowText(),
             'branch_id' => null,
             'branch_name' => null,
-            'message' => "Reminder: Your {$this->shiftType} shift is scheduled for {$this->scheduledTime->format('g:i A')}",
+            'title' => 'Upcoming Shift Reminder',
+            'message' => "Your {$shiftLabel} shift is scheduled for {$this->scheduledTime->format('l, F j, Y g:i A')}.",
+            'summary' => "Time window: {$this->getTimeWindowText()}",
+            'context' => [
+                'shift' => $shiftLabel,
+                'scheduled' => $this->scheduledTime->format('M d, Y g:i A'),
+                'time_window' => $this->getTimeWindowText(),
+                'status' => 'Pending',
+            ],
             'action_url' => route('branch-dashboard.select_shift'),
             'action_text' => 'View Dashboard',
         ];

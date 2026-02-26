@@ -43,7 +43,17 @@ class LeaveApplicationSubmitted extends Notification implements ShouldQueue
             'employee_id' => $this->leave->employee_id,
             'branch_id' => $this->leave->employee?->branch_id,
             'branch_name' => $this->leave->employee?->branch?->name,
-            'message' => 'New leave application submitted.',
+            'title' => 'New Leave Application',
+            'message' => 'A new leave application has been submitted.',
+            'summary' => $this->leave->employee?->name
+                ? "{$this->leave->employee->name} requested leave."
+                : 'Leave request submitted.',
+            'context' => [
+                'employee' => $this->leave->employee?->name,
+                'dates' => "{$this->leave->start_date} to {$this->leave->end_date}",
+                'branch' => $this->leave->employee?->branch?->name,
+                'status' => 'Pending',
+            ],
             'action_url' => route('branch-dashboard.leave.approve', ['b_id' => $this->leave->employee?->branch_id]),
             'action_text' => 'Review Leave Requests',
         ];

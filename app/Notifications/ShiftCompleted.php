@@ -76,6 +76,7 @@ class ShiftCompleted extends Notification implements ShouldQueue
         $totalMinutes = $this->shift->clock_in && $this->shift->clock_out
             ? $this->shift->clock_in->diffInMinutes($this->shift->clock_out) % 60
             : 0;
+        $shiftLabel = ucfirst(str_replace('_', ' ', $this->shift->shift_type));
 
         return [
             'type' => 'shift_completed',
@@ -88,7 +89,15 @@ class ShiftCompleted extends Notification implements ShouldQueue
             'clock_out_time' => $this->shift->clock_out?->toDateTimeString(),
             'total_hours' => $totalHours,
             'total_minutes' => $totalMinutes,
-            'message' => "Your {$this->shift->shift_type} shift has been completed ({$totalHours}h {$totalMinutes}m)",
+            'title' => 'Shift Completed',
+            'message' => "Your {$shiftLabel} shift has been completed.",
+            'summary' => "Total time: {$totalHours}h {$totalMinutes}m.",
+            'context' => [
+                'shift' => $shiftLabel,
+                'total_time' => "{$totalHours}h {$totalMinutes}m",
+                'branch' => $this->shift->branch?->name,
+                'status' => 'Success',
+            ],
             'action_url' => route('branch-dashboard.select_shift'),
             'action_text' => 'View Dashboard',
         ];

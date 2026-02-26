@@ -73,6 +73,7 @@ class PostingApprovals extends Component
                 ->where('reference_id', $row->id);
 
             $row->reference_type = $referenceType;
+            $row->reference_type_short = $this->classToShortType($referenceType);
             $row->reference_id = $row->id;
             $row->reference_number = $row->reference_number
                 ?? $row->purchase_number
@@ -158,6 +159,30 @@ class PostingApprovals extends Component
         };
     }
 
+    private function shortTypeToClass(string $shortType): ?string
+    {
+        return match ($shortType) {
+            'sale' => Sale::class,
+            'purchase' => Purchase::class,
+            'payment' => Payment::class,
+            'purchase_payment' => PurchasePayment::class,
+            'stock_movement' => StockMovement::class,
+            default => null,
+        };
+    }
+
+    private function classToShortType(string $class): ?string
+    {
+        return match ($class) {
+            Sale::class => 'sale',
+            Purchase::class => 'purchase',
+            Payment::class => 'payment',
+            PurchasePayment::class => 'purchase_payment',
+            StockMovement::class => 'stock_movement',
+            default => null,
+        };
+    }
+
     public function changeTransactionType(string $type): void
     {
         $this->transactionType = $type;
@@ -176,6 +201,14 @@ class PostingApprovals extends Component
 
     public function viewGroup(string $referenceType, int $referenceId): void
     {
+        // Convert short type to full class name
+        $referenceType = $this->shortTypeToClass($referenceType);
+        
+        if (!$referenceType) {
+            session()->flash('error', 'Invalid reference type.');
+            return;
+        }
+        
         $entries = GlEntry::query()
             ->where('status', 'draft')
             ->where('reference_type', $referenceType)
@@ -213,6 +246,14 @@ class PostingApprovals extends Component
 
     public function approveGroup(string $referenceType, int $referenceId): void
     {
+        // Convert short type to full class name
+        $referenceType = $this->shortTypeToClass($referenceType);
+        
+        if (!$referenceType) {
+            session()->flash('error', 'Invalid reference type.');
+            return;
+        }
+        
         $entries = GlEntry::query()
             ->where('status', 'draft')
             ->where('reference_type', $referenceType)

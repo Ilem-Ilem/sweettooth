@@ -57,6 +57,7 @@ class ShiftAutoClockOutImminent extends Notification implements ShouldQueue
      */
     public function toArray(object $notifiable): array
     {
+        $shiftLabel = ucfirst(str_replace('_', ' ', $this->shift->shift_type));
         return [
             'type' => 'auto_clock_out_warning',
             'shift_id' => $this->shift->id,
@@ -66,7 +67,15 @@ class ShiftAutoClockOutImminent extends Notification implements ShouldQueue
             'branch_name' => $this->shift->branch?->name,
             'clock_in_time' => $this->shift->clock_in->toDateTimeString(),
             'auto_clock_time' => now()->addMinutes($this->minutesUntilAutoClockOut)->toDateTimeString(),
-            'message' => "Your {$this->shift->shift_type} shift will auto clock out in {$this->minutesUntilAutoClockOut} minutes",
+            'title' => 'Auto Clock Out Warning',
+            'message' => "Your {$shiftLabel} shift will auto clock out in {$this->minutesUntilAutoClockOut} minutes.",
+            'summary' => 'Clock out now to avoid auto close.',
+            'context' => [
+                'shift' => $shiftLabel,
+                'auto_clock_out' => now()->addMinutes($this->minutesUntilAutoClockOut)->format('M d, Y g:i A'),
+                'branch' => $this->shift->branch?->name,
+                'status' => 'Pending',
+            ],
             'action_url' => route('branch-dashboard.select_shift', ['b_id' => $this->shift->branch_id]),
             'action_text' => 'Clock Out Now',
             'urgent' => true,

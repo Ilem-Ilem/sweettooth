@@ -40,7 +40,14 @@ class ReportSentToMDNotification extends Notification implements ShouldQueue
             'compiled_report_id' => $this->report->id,
             'branch_id' => $this->report->branch_id,
             'branch_name' => $this->report->branch?->name,
-            'message' => "Compiled report \"{$this->report->compilation_title}\" sent to MD.",
+            'title' => 'Report Sent to MD',
+            'message' => "Compiled report \"{$this->report->compilation_title}\" was sent to MD.",
+            'summary' => 'MD has received the compiled report.',
+            'context' => [
+                'report' => $this->report->compilation_title,
+                'branch' => $this->report->branch?->name,
+                'status' => 'Success',
+            ],
             'action_url' => route('branch-dashboard.reporting.compiled.view', ['id' => $this->report->id, 'b_id' => $this->report->branch_id]),
             'action_text' => 'View Compiled Report',
         ];

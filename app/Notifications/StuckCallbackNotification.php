@@ -37,12 +37,18 @@ class StuckCallbackNotification extends Notification implements ShouldQueue
 
     public function toArray(object $notifiable): array
     {
+        $branchName = $this->branchContext['branch_name'] ?? 'Branch';
         return [
             'type' => 'stuck_callback_alert',
             'branch_id' => $this->branchContext['branch_id'] ?? null,
-            'branch_name' => $this->branchContext['branch_name'] ?? null,
+            'branch_name' => $branchName,
             'summary' => $this->callbacksSummary,
-            'message' => 'Stuck callbacks detected.',
+            'title' => 'Stuck Callbacks Alert',
+            'message' => 'Some production callbacks are stuck and need attention.',
+            'context' => [
+                'branch' => $branchName,
+                'status' => 'Failed',
+            ],
             'action_url' => route('branch-dashboard.production.callbacks.approve', ['b_id' => $this->branchContext['branch_id'] ?? null]),
             'action_text' => 'View Callbacks',
         ];

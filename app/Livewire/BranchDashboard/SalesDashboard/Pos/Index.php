@@ -655,6 +655,10 @@ class Index extends BaseComponent
                     $vatRate = (float) ($line['vat_rate'] ?? $this->resolveVatRate($product));
                     $vatAmount = $vatRate > 0 ? ($salesLineSubtotal * $vatRate) / 100 : 0.0;
 
+                    // Get product cost for COGS calculation
+                    $unitCost = $product?->cost ?? 0;
+                    $lineCost = $unitCost * $baseQty;
+
                     SaleItem::create([
                         'sale_id' => $sale->id,
                         'department_id' => $this->departmentId,
@@ -664,6 +668,8 @@ class Index extends BaseComponent
                         'sales_uom_id' => $salesUomId,
                         'conversion_factor' => $conversionFactor,
                         'unit_price' => $line['price'],
+                        'unit_cost' => $unitCost, // Cost per unit for COGS
+                        'line_cost' => $lineCost, // Total cost for this line
                         'vat_rate' => $vatRate,
                         'subtotal' => $salesLineSubtotal,
                         'vat_amount' => $vatAmount,

@@ -40,7 +40,14 @@ class ReportCompiledNotification extends Notification implements ShouldQueue
             'compiled_report_id' => $this->report->id,
             'branch_id' => $this->report->branch_id,
             'branch_name' => $this->report->branch?->name,
+            'title' => 'Report Compiled',
             'message' => "Compiled report \"{$this->report->compilation_title}\" is ready.",
+            'summary' => 'Review the compiled report.',
+            'context' => [
+                'report' => $this->report->compilation_title,
+                'branch' => $this->report->branch?->name,
+                'status' => 'Success',
+            ],
             'action_url' => route('branch-dashboard.reporting.compiled.view', ['id' => $this->report->id, 'b_id' => $this->report->branch_id]),
             'action_text' => 'View Compiled Report',
         ];

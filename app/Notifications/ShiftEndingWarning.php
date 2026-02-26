@@ -56,6 +56,7 @@ class ShiftEndingWarning extends Notification implements ShouldQueue
      */
     public function toArray(object $notifiable): array
     {
+        $shiftLabel = ucfirst(str_replace('_', ' ', $this->shift->shift_type));
         return [
             'type' => 'shift_ending_warning',
             'shift_id' => $this->shift->id,
@@ -64,7 +65,15 @@ class ShiftEndingWarning extends Notification implements ShouldQueue
             'branch_id' => $this->shift->branch_id,
             'branch_name' => $this->shift->branch?->name,
             'clock_in_time' => $this->shift->clock_in->toDateTimeString(),
-            'message' => "Your {$this->shift->shift_type} shift will end in {$this->minutesRemaining} minutes",
+            'title' => 'Shift Ending Soon',
+            'message' => "Your {$shiftLabel} shift will end in {$this->minutesRemaining} minutes.",
+            'summary' => 'Please clock out on time.',
+            'context' => [
+                'shift' => $shiftLabel,
+                'minutes_remaining' => $this->minutesRemaining,
+                'branch' => $this->shift->branch?->name,
+                'status' => 'Pending',
+            ],
             'action_url' => route('branch-dashboard.select_shift', ['b_id' => $this->shift->branch_id]),
             'action_text' => 'Clock Out',
         ];

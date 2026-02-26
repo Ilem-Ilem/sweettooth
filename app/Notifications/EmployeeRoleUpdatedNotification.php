@@ -40,13 +40,22 @@ class EmployeeRoleUpdatedNotification extends Notification implements ShouldQueu
 
     public function toArray(object $notifiable): array
     {
+        $roleList = implode(', ', $this->roles);
         return [
             'type' => 'employee_roles_updated',
             'employee_id' => $this->employee->id,
             'branch_id' => $this->employee->branch_id,
             'branch_name' => $this->employee->branch?->name,
             'roles' => $this->roles,
-            'message' => "Roles updated for {$this->employee->name}.",
+            'title' => 'Employee Roles Updated',
+            'message' => "Roles for {$this->employee->name} were updated.",
+            'summary' => "Roles: {$roleList}",
+            'context' => [
+                'employee' => $this->employee->name,
+                'roles' => $this->roles,
+                'branch' => $this->employee->branch?->name,
+                'status' => 'Success',
+            ],
             'action_url' => route('branch-dashboard.employee.details', ['id' => $this->employee->id, 'employee_number' => $this->employee->employee_number, 'b_id' => $this->employee->branch_id]),
             'action_text' => 'View Employee',
         ];

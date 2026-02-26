@@ -40,12 +40,21 @@ class LowStockAlert extends Notification implements ShouldQueue
 
     public function toArray(object $notifiable): array
     {
+        $count = count($this->items);
+        $branchName = $this->branchContext['branch_name'] ?? 'Branch';
         return [
             'type' => 'low_stock_alert',
             'branch_id' => $this->branchContext['branch_id'] ?? null,
-            'branch_name' => $this->branchContext['branch_name'] ?? null,
+            'branch_name' => $branchName,
             'items' => $this->items,
-            'message' => count($this->items).' item(s) are below reorder level.',
+            'low_stock_items' => $this->items,
+            'title' => 'Low Stock Alert',
+            'message' => "{$count} item(s) are below reorder level.",
+            'summary' => "Review low stock items for {$branchName}.",
+            'context' => [
+                'branch' => $branchName,
+                'status' => 'Pending',
+            ],
             'action_url' => route('branch-dashboard.dashboard.inventory', ['b_id' => $this->branchContext['branch_id'] ?? null]),
             'action_text' => 'View Inventory',
         ];

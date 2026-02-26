@@ -39,7 +39,14 @@ class EmployeeDeletedNotification extends Notification implements ShouldQueue
             'employee_id' => $this->employee->id,
             'branch_id' => $this->employee->branch_id,
             'branch_name' => $this->employee->branch?->name,
-            'message' => "Employee {$this->employee->name} deleted.",
+            'title' => 'Employee Deleted',
+            'message' => "Employee {$this->employee->name} was deleted.",
+            'summary' => 'Employee access removed.',
+            'context' => [
+                'employee' => $this->employee->name,
+                'branch' => $this->employee->branch?->name,
+                'status' => 'Failed',
+            ],
             'action_url' => route('branch-dashboard.employee.index', ['b_id' => $this->employee->branch_id]),
             'action_text' => 'View Employees',
         ];
