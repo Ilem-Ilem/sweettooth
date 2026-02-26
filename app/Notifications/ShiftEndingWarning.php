@@ -61,6 +61,8 @@ class ShiftEndingWarning extends Notification implements ShouldQueue
             'shift_id' => $this->shift->id,
             'shift_type' => $this->shift->shift_type,
             'minutes_remaining' => $this->minutesRemaining,
+            'branch_id' => $this->shift->branch_id,
+            'branch_name' => $this->shift->branch?->name,
             'clock_in_time' => $this->shift->clock_in->toDateTimeString(),
             'message' => "Your {$this->shift->shift_type} shift will end in {$this->minutesRemaining} minutes",
             'action_url' => route('branch-dashboard.select_shift', ['b_id' => $this->shift->branch_id]),

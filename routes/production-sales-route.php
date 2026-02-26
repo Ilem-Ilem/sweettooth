@@ -120,6 +120,7 @@ use Illuminate\Support\Facades\Route;
                 Route::prefix('callbacks')->name('callbacks.')->group(function () {
                     Route::get('/{salesDeptSlug?}', \App\Livewire\BranchDashboard\SalesDashboard\Callbacks\Index::class)->name('index');
                     Route::get('/dispatch-callbacks/{salesDeptSlug?}', \App\Livewire\BranchDashboard\SalesDashboard\Callbacks\CreateDispatchCallback::class)->name('dispatch-callbacks');
+                    Route::get('/stock-callbacks/{salesDeptSlug?}', \App\Livewire\BranchDashboard\SalesDashboard\Callbacks\CreateStockCallback::class)->name('stock-callbacks');
                 });
             };
 

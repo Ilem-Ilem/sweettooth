@@ -32,5 +32,8 @@
     "keywords": [],
     "author": "",
     "license": "ISC",
-    "description": ""
+    "description": "",
+    "devDependencies": {
+        "@aerni/vite-plugin-laravel-cloudflared": "^1.0.0"
+    }
 }

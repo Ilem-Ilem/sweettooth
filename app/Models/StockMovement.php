@@ -95,7 +95,7 @@ class StockMovement extends Model
 
     public function isOutbound(): bool
     {
-        return in_array($this->type, ['out', 'damaged', 'transfer']);
+        return in_array($this->type, ['out', 'damaged', 'transfer', 'department_transfer']);
     }
 
     /**

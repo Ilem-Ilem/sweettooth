@@ -8,8 +8,11 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Services\EmployeeApprovalService;
 use App\Services\EmployeeAuditService;
+use App\Services\NotificationRecipientService;
+use App\Notifications\EmployeeDeletedNotification;
 use App\Traits\AuditableSyncTrait;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Notification;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
@@ -23,8 +26,6 @@ class Index extends BaseComponent
     public ?int $quantity = 10;
 
     public ?string $search = null;
-
-    public ?string $advancedSearch = null;
 
     public ?string $dateFrom = null;
 
@@ -68,6 +69,9 @@ class Index extends BaseComponent
 
     #[Url()]
     public ?string $filterShift = null;
+
+    #[Url()]
+    public ?string $filterRole = null;
 
     #[Url()]
     public ?string $hireDateFrom = null;
@@ -130,20 +134,6 @@ class Index extends BaseComponent
                         ->orWhere('employee_number', 'like', '%'.$this->search.'%');
                 });
             })
-            ->when($this->advancedSearch, function ($query) {
-                $query->where(function ($q) {
-                    $q->where('name', 'like', '%'.$this->advancedSearch.'%')
-                        ->orWhere('email', 'like', '%'.$this->advancedSearch.'%')
-                        ->orWhere('employee_number', 'like', '%'.$this->advancedSearch.'%')
-                        ->orWhere('phone', 'like', '%'.$this->advancedSearch.'%')
-                        ->orWhereHas('branch', function ($branchQuery) {
-                            $branchQuery->where('name', 'like', '%'.$this->advancedSearch.'%');
-                        })
-                        ->orWhereHas('department', function ($deptQuery) {
-                            $deptQuery->where('name', 'like', '%'.$this->advancedSearch.'%');
-                        });
-                });
-            })
             ->when($this->filterStatus, function ($query) {
                 $status = $this->filterStatus;
 
@@ -167,6 +157,11 @@ class Index extends BaseComponent
             })
             ->when($this->filterShift, function ($query) {
                 $query->where('shift_preference', $this->filterShift);
+            })
+            ->when($this->filterRole, function ($query) {
+                $query->whereHas('roles', function ($roleQuery) {
+                    $roleQuery->where('roles.id', $this->filterRole);
+                });
             })
             ->when($this->hireDateFrom, function ($query) {
                 $query->whereDate('hire_date', '>=', $this->hireDateFrom);
@@ -198,11 +193,6 @@ class Index extends BaseComponent
         $this->resetPage();
     }
 
-    public function updatedAdvancedSearch(): void
-    {
-        $this->resetPage();
-    }
-
     public function updatedFilterStatus(): void
     {
         $this->resetPage();
@@ -224,6 +214,11 @@ class Index extends BaseComponent
     }
 
     public function updatedFilterShift(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterRole(): void
     {
         $this->resetPage();
     }
@@ -261,7 +256,6 @@ class Index extends BaseComponent
     public function resetFilters()
     {
         $this->search = null;
-        $this->advancedSearch = null;
         $this->dateFrom = null;
         $this->dateTo = null;
         $this->filterStatus = null;
@@ -269,6 +263,7 @@ class Index extends BaseComponent
         $this->filterBranch = null;
         $this->filterGender = null;
         $this->filterShift = null;
+        $this->filterRole = null;
         $this->hireDateFrom = null;
         $this->hireDateTo = null;
         $this->terminationDateFrom = null;
@@ -280,7 +275,6 @@ class Index extends BaseComponent
     {
         return (bool) array_filter([
             $this->search,
-            $this->advancedSearch,
             $this->dateFrom,
             $this->dateTo,
             $this->filterStatus,
@@ -288,6 +282,7 @@ class Index extends BaseComponent
             $this->filterBranch,
             $this->filterGender,
             $this->filterShift,
+            $this->filterRole,
             $this->hireDateFrom,
             $this->hireDateTo,
             $this->terminationDateFrom,
@@ -386,6 +381,14 @@ class Index extends BaseComponent
                 // SUPER ADMIN: Delete immediately
                 EmployeeAuditService::logEmployeeTermination($employee, now()->toDateString(), 'Employee deleted by admin', $user);
                 $employee->delete();
+                $recipients = app(NotificationRecipientService::class)
+                    ->usersForRoles(array_merge(
+                        config('notifications.roles.hr', []),
+                        config('notifications.roles.admin', [])
+                    ), $employee->branch_id)
+                    ->merge([$employee])
+                    ->unique('id');
+                Notification::send($recipients, new EmployeeDeletedNotification($employee));
                 $this->dialog()->success('Success', 'Employee deleted successfully!')->send();
                 $this->selectedEmployeeId = null;
             }
@@ -451,6 +454,14 @@ class Index extends BaseComponent
             foreach ($employees as $employee) {
                 EmployeeAuditService::logEmployeeTermination($employee, now()->toDateString(), 'Deleted in bulk by admin', $user);
                 $employee->delete();
+                $recipients = app(NotificationRecipientService::class)
+                    ->usersForRoles(array_merge(
+                        config('notifications.roles.hr', []),
+                        config('notifications.roles.admin', [])
+                    ), $employee->branch_id)
+                    ->merge([$employee])
+                    ->unique('id');
+                Notification::send($recipients, new EmployeeDeletedNotification($employee));
             }
 
             $this->dialog()->success('Success', count($this->selectedIds).' employee(s) deleted successfully!')->send();
@@ -614,7 +625,7 @@ class Index extends BaseComponent
             });
         }
 
-        $roles = $query->get();
+        $roles = $query->orderBy('name')->get();
 
         // Group by category (Admin, Production, Sales, HR, Inventory, Accounting)
         $grouped = [
@@ -664,11 +675,14 @@ class Index extends BaseComponent
     {
         $rows = $this->getFilteredQuery()->paginate((int) ($this->quantity ?? 10));
         $branches = Branch::where('is_active', true)->get();
-        $departments = Department::all();
+        $departments = Department::orderBy('name')->get();
         $statuses = ['active', 'inactive', 'terminated', 'on_probation', 'on_leave'];
         $genders = ['male', 'female', 'other', 'prefer_not_to_say'];
         $shifts = ['morning', 'afternoon', 'night', 'rotating', 'flexible'];
-        $roles = Role::where('guard_name', 'web')->where('name', '!=', 'Managing Director')->get();
+        $roles = Role::where('guard_name', 'web')
+            ->where('name', '!=', 'Managing Director')
+            ->orderBy('name')
+            ->get();
         $rolesGroupedByDepartment = $this->getRolesGroupedByDepartment();
 
         return view('livewire.branch-dashboard.employee-module.index', [

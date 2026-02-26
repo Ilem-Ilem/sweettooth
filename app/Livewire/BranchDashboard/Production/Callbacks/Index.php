@@ -5,6 +5,7 @@ namespace App\Livewire\BranchDashboard\Production\Callbacks;
 use App\Livewire\BaseComponent;
 use App\Enums\CallbackStatus;
 use App\Models\ProductionCallback;
+use App\Models\ProductDispatchCallback;
 use App\Models\Shift;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
@@ -229,11 +230,32 @@ class Index extends BaseComponent
     public function render()
     {
         $currentShift = $this->currentShiftId ? Shift::find($this->currentShiftId) : null;
+        $salesReturnCallbacks = ProductDispatchCallback::with(['product', 'salesShift', 'productDispatch.salesShift'])
+            ->where(function ($q) {
+                $branchId = $this->getBranchId();
+                $q->whereHas('salesShift', function ($sq) use ($branchId) {
+                    $sq->where('branch_id', $branchId);
+                })
+                ->orWhereHas('productDispatch.salesShift', function ($sq) use ($branchId) {
+                    $sq->where('branch_id', $branchId);
+                })
+                ->orWhere(function ($nested) use ($branchId) {
+                    $nested->whereNull('sales_shift_id')
+                        ->whereHas('product', function ($pq) use ($branchId) {
+                            $pq->whereNull('branch_id')
+                                ->orWhere('branch_id', $branchId);
+                        });
+                });
+            })
+            ->orderByDesc('callback_time')
+            ->limit(10)
+            ->get();
 
         return view('livewire.branch-dashboard.production.callbacks.index', [
             'rows' => $this->rows,
             'currentShift' => $currentShift,
             'availableShifts' => $this->availableShifts,
+            'salesReturnCallbacks' => $salesReturnCallbacks,
         ]);
     }
 }

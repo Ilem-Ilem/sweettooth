@@ -150,6 +150,13 @@ class Index extends BaseComponent
             return true;
         }
 
+        if ($this->activeShiftId) {
+            $activeShift = Shift::find($this->activeShiftId);
+            if ($activeShift && in_array($activeShift->workflow_state, ['pos', 'clock_out', 'shift_closing', 'completed'], true)) {
+                return true;
+            }
+        }
+
         // Check if stock opening has been saved for today's shift for this department
         // This is department-level, not employee-level: once any employee from the department
         // verifies stock for the shift, all other employees can access POS
@@ -330,6 +337,7 @@ class Index extends BaseComponent
             'product_id' => $productId,
             'name' => $product->name,
             'price' => (float)($product->price ?? 0),
+            'vat_rate' => $this->resolveVatRate($product),
             'qty' => $newQty,
             'sales_uom' => $product->effectiveSalesUomSymbol,
             'base_uom' => $product->uomSymbol,
@@ -434,11 +442,17 @@ class Index extends BaseComponent
     protected function recalculateTotals(): void
     {
         $this->subtotal = 0.0;
+        $taxTotal = 0.0;
         foreach ($this->cart as $line) {
-            $this->subtotal += $line['price'] * $line['qty'];
+            $lineSubtotal = $line['price'] * $line['qty'];
+            $this->subtotal += $lineSubtotal;
+            $vatRate = (float) ($line['vat_rate'] ?? 0);
+            if ($vatRate > 0) {
+                $taxTotal += ($lineSubtotal * $vatRate) / 100;
+            }
         }
         $subAfterDiscount = max(0, $this->subtotal - $this->discount);
-        $this->tax = 0.0; // hook if needed
+        $this->tax = $taxTotal;
         $this->total = $subAfterDiscount + $this->tax;
         $this->changeDue = max(0, $this->paymentTotal - $this->total);
     }
@@ -597,6 +611,7 @@ class Index extends BaseComponent
                 'sale_time' => Carbon::now(),
                 'subtotal' => $this->subtotal,
                 'tax' => $this->tax,
+                'vat_amount' => $this->tax,
                 'discount' => $this->discount,
                 'total' => $this->total,
                 'status' => 'completed',
@@ -636,6 +651,10 @@ class Index extends BaseComponent
                         $conversionFactor = $product->sales_unit_weight ?? $product->convertSalesToBaseQuantity(1);
                     }
                     
+                    $salesLineSubtotal = $salesQty * $line['price'];
+                    $vatRate = (float) ($line['vat_rate'] ?? $this->resolveVatRate($product));
+                    $vatAmount = $vatRate > 0 ? ($salesLineSubtotal * $vatRate) / 100 : 0.0;
+
                     SaleItem::create([
                         'sale_id' => $sale->id,
                         'department_id' => $this->departmentId,
@@ -645,9 +664,11 @@ class Index extends BaseComponent
                         'sales_uom_id' => $salesUomId,
                         'conversion_factor' => $conversionFactor,
                         'unit_price' => $line['price'],
-                        'subtotal' => $salesQty * $line['price'],
+                        'vat_rate' => $vatRate,
+                        'subtotal' => $salesLineSubtotal,
+                        'vat_amount' => $vatAmount,
                         'discount' => 0,
-                        'total' => $salesQty * $line['price'],
+                        'total' => $salesLineSubtotal,
                         'notes' => $actualQty < $qty ? 'Partial fulfillment: ' . $actualQty . '/' . $qty : null,
                     ]);
 
@@ -755,6 +776,7 @@ class Index extends BaseComponent
             'sale_time' => Carbon::now(),
             'subtotal' => $this->subtotal,
             'tax' => $this->tax,
+            'vat_amount' => $this->tax,
             'discount' => $this->discount,
             'total' => $this->total,
             'status' => 'hold',
@@ -762,15 +784,20 @@ class Index extends BaseComponent
         ]);
 
         foreach ($this->cart as $line) {
+            $lineSubtotal = $line['qty'] * $line['price'];
+            $vatRate = (float) ($line['vat_rate'] ?? 0);
+            $vatAmount = $vatRate > 0 ? ($lineSubtotal * $vatRate) / 100 : 0.0;
             SaleItem::create([
                 'sale_id' => $sale->id,
                 'department_id' => $this->departmentId,
                 'product_id' => (string)$line['product_id'],
                 'quantity' => (float)$line['qty'],
                 'unit_price' => $line['price'],
-                'subtotal' => $line['qty'] * $line['price'],
+                'vat_rate' => $vatRate,
+                'subtotal' => $lineSubtotal,
+                'vat_amount' => $vatAmount,
                 'discount' => 0,
-                'total' => $line['qty'] * $line['price'],
+                'total' => $lineSubtotal,
             ]);
         }
 
@@ -792,6 +819,9 @@ class Index extends BaseComponent
                 'product_id' => $item->product_id,
                 'name' => $item->product->name ?? 'Product',
                 'price' => (float)$item->unit_price,
+                'vat_rate' => $item->vat_rate !== null
+                    ? (float) $item->vat_rate
+                    : $this->resolveVatRate($item->product),
                 'qty' => (float)$item->quantity,
                 'low_stock' => false,
                 'available' => $this->availableQuantity($this->getTodayStockForProduct($item->product_id)),
@@ -853,6 +883,15 @@ class Index extends BaseComponent
             $q->lockForUpdate();
         }
         return $q->first();
+    }
+
+    protected function resolveVatRate(?Product $product): float
+    {
+        if ($product && $product->vat_rate !== null) {
+            return (float) $product->vat_rate;
+        }
+
+        return (float) Settings::posConfiguration('vat_rate', 0);
     }
 
     protected function toBaseQty(Product $product, float $salesQty): float
@@ -1188,6 +1227,9 @@ class Index extends BaseComponent
                 'product_id' => $item->product_id,
                 'name' => $item->product->name ?? 'Product',
                 'price' => (float)$item->unit_price,
+                'vat_rate' => $item->vat_rate !== null
+                    ? (float) $item->vat_rate
+                    : $this->resolveVatRate($item->product),
                 'qty' => (float)$item->quantity,
                 'low_stock' => false,
                 'available' => $this->availableQuantity($this->getTodayStockForProduct($item->product_id)),
@@ -1232,6 +1274,7 @@ class Index extends BaseComponent
                 $existingSale->update([
                     'subtotal' => $this->subtotal,
                     'tax' => $this->tax,
+                    'vat_amount' => $this->tax,
                     'discount' => $this->discount,
                     'total' => $this->total,
                     'order_type' => $this->orderType,
@@ -1256,6 +1299,7 @@ class Index extends BaseComponent
                     'sale_time' => Carbon::now(),
                     'subtotal' => $this->subtotal,
                     'tax' => $this->tax,
+                    'vat_amount' => $this->tax,
                     'discount' => $this->discount,
                     'total' => $this->total,
                     'status' => 'hold',
@@ -1321,15 +1365,20 @@ class Index extends BaseComponent
 
             // Add items to sale
             foreach ($this->cart as $line) {
+                $lineSubtotal = $line['qty'] * $line['price'];
+                $vatRate = (float) ($line['vat_rate'] ?? 0);
+                $vatAmount = $vatRate > 0 ? ($lineSubtotal * $vatRate) / 100 : 0.0;
                 SaleItem::create([
                     'sale_id' => $sale->id,
                     'department_id' => $this->departmentId,
                     'product_id' => (string)$line['product_id'],
                     'quantity' => (float)$line['qty'],
                     'unit_price' => $line['price'],
-                    'subtotal' => $line['qty'] * $line['price'],
+                    'vat_rate' => $vatRate,
+                    'subtotal' => $lineSubtotal,
+                    'vat_amount' => $vatAmount,
                     'discount' => 0,
-                    'total' => $line['qty'] * $line['price'],
+                    'total' => $lineSubtotal,
                 ]);
             }
 

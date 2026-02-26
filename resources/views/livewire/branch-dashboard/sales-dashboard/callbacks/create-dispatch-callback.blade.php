@@ -1,24 +1,38 @@
 <div class="p-3 space-y-3">
-    <x-breadcrumb title="Dispatch Callbacks" :items="[
+    <x-breadcrumb title="{{ $pageTitle ?? 'Dispatch Callbacks' }}" :items="[
         ['label' => 'Dashboard', 'url' => branch_route('branch-dashboard.index')],
         ['label' => 'Sales Dashboard'],
-        ['label' => 'Dispatch Callbacks'],
+        ['label' => $pageTitle ?? 'Dispatch Callbacks'],
     ]" :compact="false" :with-icons="true" />
 
     <!-- Header -->
     <div class="bg-gradient-to-r from-orange-600 to-orange-700 rounded-lg p-4 text-white shadow-lg">
         <div class="flex justify-between items-center">
             <div>
-                <h2 class="text-xl font-bold">Product Dispatch Callbacks</h2>
+                <h2 class="text-xl font-bold">{{ $pageTitle ?? 'Product Dispatch Callbacks' }}</h2>
                 <p class="text-sm opacity-90 mt-1">
-                    Return products back to production from dispatches
+                    {{ $pageSubtitle ?? 'Return products back to production from dispatches' }}
                 </p>
+            </div>
+            <div class="flex items-center gap-2">
+                @if(($sourceMode ?? 'dispatch') !== 'dispatch')
+                    <a href="{{ branch_route('branch-dashboard.sales-dashboard.callbacks.dispatch-callbacks', ['salesDeptSlug' => $salesDeptSlug, 'b_id' => $b_id]) }}"
+                        class="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors">
+                        Dispatch Callbacks
+                    </a>
+                @endif
+                @if(($sourceMode ?? 'dispatch') !== 'stock')
+                    <a href="{{ branch_route('branch-dashboard.sales-dashboard.callbacks.dispatch-callbacks', ['salesDeptSlug' => $salesDeptSlug, 'b_id' => $b_id, 'source' => 'stock']) }}"
+                        class="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors">
+                        Stock Callbacks
+                    </a>
+                @endif
             </div>
         </div>
     </div>
 
     <!-- Shift Selector and Info -->
-    @if (!$isSuperAdmin && count($availableShifts) === 0)
+    @if (!$isSuperAdmin && $sourceMode === 'dispatch' && count($availableShifts) === 0)
         <div class="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-4 rounded">
             <div class="flex items-center">
                 <svg class="w-5 h-5 text-yellow-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -31,7 +45,7 @@
                 </div>
             </div>
         </div>
-    @elseif(!$isSuperAdmin)
+    @elseif(!$isSuperAdmin && $sourceMode === 'dispatch')
         <!-- Shift Selector -->
         <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -41,6 +55,7 @@
                     </label>
                     <select wire:model.live="selectedSalesShiftId"
                         class="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-orange-500">
+                        <option value="">All Shifts</option>
                         @foreach($availableShifts as $shift)
                             <option value="{{ $shift->id }}">
                                 {{ $shift->shift_date }} - {{ ucfirst($shift->shift_type) }} - {{ $shift->department->name ?? 'N/A' }}
@@ -97,6 +112,15 @@
 
         <div x-show="open" x-collapse class="p-3 space-y-3">
             <div>
+                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Source</label>
+                <select wire:model.live="sourceMode"
+                    @if($lockSource ?? false) disabled @endif
+                    class="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500">
+                    <option value="dispatch">Production Dispatches</option>
+                    <option value="stock">Product Stock</option>
+                </select>
+            </div>
+            <div>
                 <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Search</label>
                 <input type="text" wire:model.live.debounce.300ms="search"
                     placeholder="Search by product name or SKU..."
@@ -105,52 +129,160 @@
         </div>
     </div>
 
-    <!-- Dispatches Table -->
-    <x-table :$headers :$rows striped paginate persist collapsible
-        :filter="['quantity' => 'quantity', 'search' => 'search']"
-        :quantity="[10, 20, 50, 100]">
+    @if(($sourceMode ?? 'dispatch') === 'stock')
+        <!-- Stock List -->
+        <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700">
+            <div class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                @forelse($rows as $row)
+                    @php
+                        $productName = $row->product?->name ?? 'Unknown Product';
+                        $productSku = $row->product?->sku ?? 'N/A';
+                        $uom = $row->product?->uom ?? $row->product?->uomSymbol ?? '';
+                        $availableToReturn = $this->getAvailableStockQuantity($row);
+                    @endphp
+                    <div class="p-4 flex flex-col gap-2">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="font-semibold text-zinc-900 dark:text-zinc-100">{{ $productName }}</div>
+                                <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $productSku }}</div>
+                            </div>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                                Available
+                            </span>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                            <div>
+                                <span class="text-zinc-500 dark:text-zinc-400">Stock Date:</span>
+                                <span class="font-medium ml-1">{{ $row->stock_date ? $row->stock_date->format('M d, Y') : 'N/A' }}</span>
+                            </div>
+                            <div>
+                                <span class="text-zinc-500 dark:text-zinc-400">Opening:</span>
+                                <span class="font-medium ml-1">{{ number_format($row->opening_quantity ?? 0, 2) }} {{ $uom }}</span>
+                            </div>
+                            <div>
+                                <span class="text-zinc-500 dark:text-zinc-400">Callbacks:</span>
+                                <span class="font-medium ml-1 text-red-600 dark:text-red-400">{{ number_format($row->callback_quantity ?? 0, 2) }} {{ $uom }}</span>
+                            </div>
+                            <div>
+                                <span class="text-zinc-500 dark:text-zinc-400">Available to Return:</span>
+                                <span class="font-medium ml-1 text-green-600 dark:text-green-400">{{ number_format($availableToReturn, 2) }} {{ $uom }}</span>
+                            </div>
+                        </div>
+                        <div class="flex justify-end">
+                            @if($availableToReturn > 0)
+                                <button wire:click="openCallbackModal({{ $row->id }})"
+                                    class="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded text-sm font-medium transition-colors">
+                                    Create Callback
+                                </button>
+                            @else
+                                <span class="text-xs text-zinc-400 dark:text-zinc-500">Fully Returned</span>
+                            @endif
+                        </div>
+                    </div>
+                @empty
+                    <div class="p-6 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                        No stock records found.
+                    </div>
+                @endforelse
+            </div>
+            <div class="px-4 py-3 border-t border-zinc-200 dark:border-zinc-700">
+                {{ $rows->links() }}
+            </div>
+        </div>
+    @else
+        <!-- Dispatches Table -->
+        <x-table :$headers :$rows striped paginate persist collapsible
+            :filter="['quantity' => 'quantity', 'search' => 'search']"
+            :quantity="[10, 20, 50, 100]">
 
         @interact('column_product', $row)
+            @php
+                if ($sourceMode === 'stock') {
+                    $productName = $row->product?->name ?? 'Unknown Product';
+                    $productSku = $row->product?->sku ?? null;
+                } else {
+                    $fallbackProduct = $row->salesProductionRequestItem?->product
+                        ?? $row->salesProductionRequestItem?->recipe
+                        ?? $row->dailyProduce?->recipe;
+                    $productName = $row->product?->name
+                        ?? ($fallbackProduct->product_name ?? $fallbackProduct->name ?? null)
+                        ?? 'Unknown Product';
+                    $productSku = $row->product?->sku ?? null;
+                }
+            @endphp
             <div>
-                <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $row->product->name }}</div>
-                <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $row->product->sku }}</div>
+                <div class="font-medium text-zinc-900 dark:text-zinc-100">
+                    {{ $productName }}
+                </div>
+                <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                    {{ $productSku ?? 'N/A' }}
+                </div>
             </div>
         @endinteract
 
         @interact('column_dispatch_date', $row)
             <div class="text-center text-sm text-zinc-600 dark:text-zinc-400">
-                {{ $row->dispatch_date ? $row->dispatch_date->format('M d, Y H:i') : 'N/A' }}
+                @if($sourceMode === 'stock')
+                    {{ $row->stock_date ? $row->stock_date->format('M d, Y') : 'N/A' }}
+                @else
+                    {{ $row->dispatch_date ? $row->dispatch_date->format('M d, Y H:i') : 'N/A' }}
+                @endif
+            </div>
+        @endinteract
+
+        @interact('column_quantity', $row)
+            <div class="text-center text-sm text-zinc-600 dark:text-zinc-400">
+                @if($sourceMode === 'stock')
+                    {{ number_format($row->closing_quantity ?? 0, 2) }} {{ $row->product?->uom ?? $row->product?->uomSymbol ?? '' }}
+                @else
+                    {{ number_format($row->received_quantity ?? 0, 2) }} {{ $row->uom ?? '' }}
+                @endif
             </div>
         @endinteract
 
         @interact('column_received_qty', $row)
             <div class="text-center">
                 <span class="font-semibold text-zinc-900 dark:text-zinc-100">
-                    {{ number_format($row->received_quantity, 2) }} {{ $row->uom }}
+                    @if($sourceMode === 'stock')
+                        {{ number_format($row->opening_quantity, 2) }} {{ $row->product?->uom ?? $row->product?->uomSymbol ?? '' }}
+                    @else
+                        {{ number_format($row->received_quantity, 2) }} {{ $row->uom }}
+                    @endif
                 </span>
             </div>
         @endinteract
 
         @interact('column_returned_qty', $row)
-            @php
-                $totalReturned = $row->productDispatchCallbacks()
-                    ->whereIn('status', ['pending', 'approved_by_production', 'received_by_production', 'completed'])
-                    ->sum('quantity');
-            @endphp
             <div class="text-center">
                 <span class="font-medium text-red-600 dark:text-red-400">
-                    {{ number_format($totalReturned, 2) }} {{ $row->uom }}
+                    @if($sourceMode === 'stock')
+                        {{ number_format($row->callback_quantity ?? 0, 2) }} {{ $row->product?->uom ?? $row->product?->uomSymbol ?? '' }}
+                    @else
+                        @php
+                            $totalReturned = $row->productDispatchCallbacks()
+                                ->whereIn('status', ['pending', 'approved_by_production', 'received_by_production', 'completed'])
+                                ->sum('quantity');
+                        @endphp
+                        {{ number_format($totalReturned, 2) }} {{ $row->uom }}
+                    @endif
                 </span>
             </div>
         @endinteract
 
         @interact('column_available_to_return', $row)
-            @php
-                $availableToReturn = $this->getAvailableQuantity($row);
-            @endphp
             <div class="text-center">
                 <span class="font-semibold text-green-600 dark:text-green-400">
-                    {{ number_format($availableToReturn, 2) }} {{ $row->uom }}
+                    @if($sourceMode === 'stock')
+                        @php
+                            $availableToReturn = $this->getAvailableStockQuantity($row);
+                        @endphp
+                        {{ number_format($availableToReturn, 2) }} {{ $row->product?->uom ?? $row->product?->uomSymbol ?? '' }}
+                    @else
+                        @php
+                            $availableToReturn = $this->getAvailableQuantity($row);
+                        @endphp
+                        {{ number_format($availableToReturn, 2) }} {{ $row->uom }}
+                    @endif
                 </span>
             </div>
         @endinteract
@@ -158,14 +290,14 @@
         @interact('column_status', $row)
             <div class="text-center">
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                    {{ ucfirst($row->status) }}
+                    {{ $sourceMode === 'stock' ? 'Available' : ucfirst($row->status) }}
                 </span>
             </div>
         @endinteract
 
         @interact('column_action', $row)
             <div class="flex justify-center">
-                @if($this->getAvailableQuantity($row) > 0)
+                @if(($sourceMode === 'stock' ? $this->getAvailableStockQuantity($row) : $this->getAvailableQuantity($row)) > 0)
                     <button wire:click="openCallbackModal({{ $row->id }})"
                         class="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded text-sm font-medium transition-colors">
                         Create Callback
@@ -176,10 +308,11 @@
             </div>
         @endinteract
 
-    </x-table>
+        </x-table>
+    @endif
 
     <!-- Callback Modal -->
-    @if($showCallbackModal && $selectedDispatch)
+    @if($showCallbackModal && ($selectedDispatch || $selectedStock))
         <div x-data="{ open: @entangle('showCallbackModal') }" x-show="open" x-cloak
             class="fixed inset-0 z-50 overflow-y-auto" @keydown.escape.window="$wire.closeCallbackModal()">
             <div class="flex items-center justify-center min-h-screen px-4">
@@ -191,7 +324,10 @@
                         <div>
                             <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Create Dispatch Callback</h3>
                             <p class="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                                {{ $selectedDispatch->product->name }}
+                                @php
+                                    $modalProduct = $selectedDispatch?->product ?? $selectedStock?->product;
+                                @endphp
+                                {{ $modalProduct?->name ?? 'Unknown Product' }}
                             </p>
                         </div>
                         <button @click="$wire.closeCallbackModal()"
@@ -207,17 +343,27 @@
                     <div class="bg-zinc-100 dark:bg-zinc-700/50 rounded-lg p-3 mb-4">
                         <div class="grid grid-cols-2 gap-2 text-sm">
                             <div>
-                                <span class="text-zinc-600 dark:text-zinc-400">Received:</span>
+                                <span class="text-zinc-600 dark:text-zinc-400">{{ $sourceMode === 'stock' ? 'Opening:' : 'Received:' }}</span>
                                 <span class="font-semibold text-zinc-900 dark:text-zinc-100 ml-1">
-                                    {{ number_format($selectedDispatch->received_quantity, 2) }}
-                                    {{ $selectedDispatch->uom }}
+                                    @if($sourceMode === 'stock')
+                                        {{ number_format($selectedStock->opening_quantity ?? 0, 2) }}
+                                        {{ $selectedStock->product?->uom ?? $selectedStock->product?->uomSymbol ?? '' }}
+                                    @else
+                                        {{ number_format($selectedDispatch->received_quantity, 2) }}
+                                        {{ $selectedDispatch->uom }}
+                                    @endif
                                 </span>
                             </div>
                             <div>
                                 <span class="text-zinc-600 dark:text-zinc-400">Available to Return:</span>
                                 <span class="font-semibold text-green-600 dark:text-green-400 ml-1">
-                                    {{ number_format($this->getAvailableQuantity($selectedDispatch), 2) }}
-                                    {{ $selectedDispatch->uom }}
+                                    @if($sourceMode === 'stock')
+                                        {{ number_format($this->getAvailableStockQuantity($selectedStock), 2) }}
+                                        {{ $selectedStock->product?->uom ?? $selectedStock->product?->uomSymbol ?? '' }}
+                                    @else
+                                        {{ number_format($this->getAvailableQuantity($selectedDispatch), 2) }}
+                                        {{ $selectedDispatch->uom }}
+                                    @endif
                                 </span>
                             </div>
                         </div>

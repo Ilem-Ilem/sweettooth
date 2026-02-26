@@ -117,6 +117,8 @@ class AutoClockOutShifts extends Command
 
     protected function getExpiredShifts()
     {
+        $this->line('🔍 Checking for expired shifts...');
+        
         $query = Shift::with(['employee', 'branch', 'configuration'])
             ->where('status', 'active');
 
@@ -133,13 +135,19 @@ class AutoClockOutShifts extends Command
 
         $shifts = $query->orderBy('clock_in')->get();
 
+        $this->info("📋 Found {$shifts->count()} active shifts to check");
+
         if ($this->option('force')) {
             return $shifts;
         }
 
-        return $shifts->filter(function (Shift $shift) {
+        $expiredShifts = $shifts->filter(function (Shift $shift) {
             return $this->isShiftExpired($shift);
         });
+
+        $this->info("⏰ Found {$expiredShifts->count()} expired shifts needing auto clock out");
+
+        return $expiredShifts;
     }
 
     protected function showDryRunResults($expiredShifts)
@@ -175,18 +183,25 @@ class AutoClockOutShifts extends Command
 
     protected function processExpiredShifts($expiredShifts)
     {
+        $this->info('⚙️  Processing expired shifts...');
+        $this->newLine();
+        
         $bar = $this->output->createProgressBar($expiredShifts->count());
         $bar->setFormat('verbose');
         $bar->start();
 
         foreach ($expiredShifts as $shift) {
             try {
+                $employeeName = $shift->employee->name ?? 'Unknown';
+                $this->line("   → Processing shift for: {$employeeName}");
+                
                 $this->processSingleShift($shift);
                 $this->stats['successful']++;
                 $bar->setMessage("Processed shift {$shift->id}");
 
             } catch (\Exception $e) {
                 $this->stats['failed']++;
+                $this->error("   ❌ Failed: {$e->getMessage()}");
                 Log::error('Failed to auto clock out shift ' . $shift->id, [
                     'error' => $e->getMessage(),
                     'shift' => $shift->toArray()
@@ -235,6 +250,8 @@ class AutoClockOutShifts extends Command
             'system'
         );
 
+        $this->line("   ✅ Clocked out: {$shift->employee->name} ({$workedMinutes} mins worked)");
+        
         $this->stats['processed']++;
     }
 

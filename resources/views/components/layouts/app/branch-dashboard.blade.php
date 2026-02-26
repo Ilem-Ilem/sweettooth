@@ -75,11 +75,124 @@
                 $isSuperAdmin = is_super_admin();
                 $sidebarService = \App\Services\SidebarVisibilityService::class;
                 $isHrRole = $currentUser && ($currentUser->hasRole('HR Officer') || $currentUser->hasRole('HR Manager'));
-                $isAdmin = $sidebarService::isAdmin($currentUser);
+                $isAccountingRole = $currentUser && $currentUser->hasAnyRole(['Accounting Manager', 'Accountant', 'Cost Accountant']);
+                $isAdmin = $sidebarService::isAdmin($currentUser) && ! $isAccountingRole;
                 $isHrOnly = $isHrRole && !$isSuperAdmin && !$isAdmin;
+                $hasAccountingPerms = $currentUser && $currentUser->hasAnyPermission([
+                    'view-accounting',
+                    'manage-accounting',
+                    'view-financial-reports',
+                    'manage-accounting-periods',
+                    'manage-bank-accounts',
+                    'reconcile-accounts',
+                ]);
+                $departmentName = strtolower((string) ($currentUser->department?->name ?? ''));
+                $isAccountingDept = str_contains($departmentName, 'account');
+                $isAccountingOnly = ($isAccountingRole || $hasAccountingPerms || $isAccountingDept) && !$isSuperAdmin && !$isAdmin && !$isHrRole;
 
             @endphp
 
+            @if ($isAccountingOnly)
+            {{-- ==================== LEAVE MANAGEMENT (ACCOUNTING ONLY) ==================== --}}
+            <flux:navlist.group :heading="__('Leave Management')" class="grid" icon="calendar">
+                <flux:navlist.item icon="calendar-days" :href="branch_route('leave.apply')"
+                    :current="request()->routeIs('leave.apply')" wire:navigate>
+                    {{ __('Apply Leave') }}
+                </flux:navlist.item>
+                <flux:navlist.item icon="clipboard-document-list"
+                    :href="branch_route('leave.my-leaves')"
+                    :current="request()->routeIs('leave.my-leaves')" wire:navigate>
+                    {{ __('My Leaves') }}
+                </flux:navlist.item>
+                <flux:navlist.item icon="chart-pie" :href="branch_route('leave.balance')"
+                    :current="request()->routeIs('leave.balance')" wire:navigate>
+                    {{ __('Leave Balance') }}
+                </flux:navlist.item>
+            </flux:navlist.group>
+            {{-- ==================== END LEAVE MANAGEMENT ==================== --}}
+
+            {{-- ==================== ACCOUNTING DASHBOARD (ACCOUNTING ONLY) ==================== --}}
+            <flux:navlist.group :heading="__('Accounting')" icon="currency-dollar" expandable
+                :expanded="request()->routeIs('branch-dashboard.accounting.*')" class="grid">
+                <flux:navlist.item icon="chart-bar" :href="branch_route('branch-dashboard.accounting.dashboard')"
+                    :current="request()->routeIs('branch-dashboard.accounting.dashboard')" wire:navigate>
+                    {{ __('Dashboard') }}
+                </flux:navlist.item>
+
+                <flux:navlist.item icon="eye" :href="branch_route('branch-dashboard.accounting.overview')"
+                    :current="request()->routeIs('branch-dashboard.accounting.overview')" wire:navigate>
+                    {{ __('Overview') }}
+                </flux:navlist.item>
+
+                <flux:navlist.item icon="book-open" :href="branch_route('branch-dashboard.accounting.accounts')"
+                    :current="request()->routeIs('branch-dashboard.accounting.accounts')" wire:navigate>
+                    {{ __('Chart of Accounts') }}
+                </flux:navlist.item>
+
+                <flux:navlist.item icon="calendar" :href="branch_route('branch-dashboard.accounting.periods')"
+                    :current="request()->routeIs('branch-dashboard.accounting.periods')" wire:navigate>
+                    {{ __('Accounting Periods') }}
+                </flux:navlist.item>
+
+                <flux:navlist.item icon="building-library" :href="branch_route('branch-dashboard.accounting.bank-accounts')"
+                    :current="request()->routeIs('branch-dashboard.accounting.bank-accounts')" wire:navigate>
+                    {{ __('Bank Accounts') }}
+                </flux:navlist.item>
+                <flux:navlist.item icon="building-office-2" :href="branch_route('branch-dashboard.accounting.department-accounts')"
+                    :current="request()->routeIs('branch-dashboard.accounting.department-accounts')" wire:navigate>
+                    {{ __('Department Accounts') }}
+                </flux:navlist.item>
+
+                <flux:navlist.item icon="document-plus" :href="branch_route('branch-dashboard.accounting.journal-entry')"
+                    :current="request()->routeIs('branch-dashboard.accounting.journal-entry')" wire:navigate>
+                    {{ __('Journal Entries') }}
+                </flux:navlist.item>
+                <flux:navlist.item icon="banknotes" :href="branch_route('branch-dashboard.accounting.quick-expense')"
+                    :current="request()->routeIs('branch-dashboard.accounting.quick-expense', 'branch-dashboard.accounting.journal-entry')" wire:navigate>
+                    {{ __('Quick Expense') }}
+                </flux:navlist.item>
+
+                <flux:navlist.item icon="rectangle-stack" :href="branch_route('branch-dashboard.accounting.posting-status')"
+                    :current="request()->routeIs('branch-dashboard.accounting.posting-status')" wire:navigate>
+                    {{ __('Posting Status') }}
+                </flux:navlist.item>
+
+                <flux:navlist.item icon="check-badge" :href="branch_route('branch-dashboard.accounting.posting-approvals')"
+                    :current="request()->routeIs('branch-dashboard.accounting.posting-approvals')" wire:navigate>
+                    {{ __('Posting Approvals') }}
+                </flux:navlist.item>
+
+                <flux:navlist.item icon="currency-dollar" :href="branch_route('branch-dashboard.accounting.bank-reconciliation')"
+                    :current="request()->routeIs('branch-dashboard.accounting.bank-reconciliation')" wire:navigate>
+                    {{ __('Bank Reconciliation') }}
+                </flux:navlist.item>
+
+                <flux:navlist.group :heading="__('Reports')" expandable
+                    :expanded="request()->routeIs('branch-dashboard.accounting.reports.*')" class="grid">
+                    <flux:navlist.item icon="list-bullet" :href="branch_route('branch-dashboard.accounting.reports.general-ledger')"
+                        :current="request()->routeIs('branch-dashboard.accounting.reports.general-ledger')" wire:navigate>
+                        {{ __('General Ledger') }}
+                    </flux:navlist.item>
+                    <flux:navlist.item icon="squares-2x2" :href="branch_route('branch-dashboard.accounting.reports.trial-balance')"
+                        :current="request()->routeIs('branch-dashboard.accounting.reports.trial-balance')" wire:navigate>
+                        {{ __('Trial Balance') }}
+                    </flux:navlist.item>
+                    <flux:navlist.item icon="chart-pie" :href="branch_route('branch-dashboard.accounting.reports.income-statement')"
+                        :current="request()->routeIs('branch-dashboard.accounting.reports.income-statement')" wire:navigate>
+                        {{ __('Income Statement') }}
+                    </flux:navlist.item>
+                    <flux:navlist.item icon="rectangle-group" :href="branch_route('branch-dashboard.accounting.reports.balance-sheet')"
+                        :current="request()->routeIs('branch-dashboard.accounting.reports.balance-sheet')" wire:navigate>
+                        {{ __('Balance Sheet') }}
+                    </flux:navlist.item>
+                    <flux:navlist.item icon="chart-bar-square" :href="branch_route('branch-dashboard.accounting.reports.cash-flow-statement')"
+                        :current="request()->routeIs('branch-dashboard.accounting.reports.cash-flow-statement')" wire:navigate>
+                        {{ __('Cash Flow') }}
+                    </flux:navlist.item>
+                </flux:navlist.group>
+            </flux:navlist.group>
+            {{-- ==================== END ACCOUNTING DASHBOARD ==================== --}}
+            @else
             {{-- ==================== ADMINISTRATION (SUPER ADMIN ONLY) ==================== --}}
             @if (($sidebarService::canSeeAdministration($currentUser) || $sidebarService::isSuperAdmin()) && !$isHrOnly)
             <flux:navlist.group :heading="__('Administration')" icon="cog-6-tooth">
@@ -297,7 +410,7 @@
                     {{ __('Overview') }}
                 </flux:navlist.item>
                 
-                @if ($currentUser->hasAnyRole(['Super Admin', 'MD', 'Managing Director', 'Admin', 'Accounting Manager']) || $sidebarService::isSuperAdmin())
+                @if ($currentUser->hasAnyRole(['Super Admin', 'MD', 'Managing Director', 'Admin', 'Accounting Manager', 'Accountant', 'Cost Accountant']) || $sidebarService::isSuperAdmin())
                 <flux:navlist.item icon="book-open" :href="branch_route('branch-dashboard.accounting.accounts')"
                     :current="request()->routeIs('branch-dashboard.accounting.accounts')" wire:navigate>
                     {{ __('Chart of Accounts') }}
@@ -337,6 +450,11 @@
                     {{ __('Posting Status') }}
                 </flux:navlist.item>
 
+                <flux:navlist.item icon="check-badge" :href="branch_route('branch-dashboard.accounting.posting-approvals')"
+                    :current="request()->routeIs('branch-dashboard.accounting.posting-approvals')" wire:navigate>
+                    {{ __('Posting Approvals') }}
+                </flux:navlist.item>
+
                 <flux:navlist.item icon="currency-dollar" :href="branch_route('branch-dashboard.accounting.bank-reconciliation')"
                     :current="request()->routeIs('branch-dashboard.accounting.bank-reconciliation')" wire:navigate>
                     {{ __('Bank Reconciliation') }}
@@ -371,6 +489,7 @@
             </flux:navlist.group>
             @endif
             {{-- ==================== END ACCOUNTING DASHBOARD ==================== --}}
+            @endif
 
 @if (!$isHrOnly && ($sidebarService::canSeeInventoryDashboard($currentUser) || $sidebarService::isSuperAdmin()))
             <flux:navlist.group :heading="__('Inventory')" icon='cube'>
@@ -405,6 +524,11 @@
                         :current="request()->routeIs('branch-dashboard.inventory.item-dispatches')" wire:navigate>
                         {{ __('Dispatches') }}
                      </flux:navlist.item>
+                    <flux:navlist.item icon="arrows-right-left"
+                        :href="branch_route('branch-dashboard.inventory.department-transfers')"
+                        :current="request()->routeIs('branch-dashboard.inventory.department-transfers')" wire:navigate>
+                        {{ __('Inter-dept Dispatch') }}
+                    </flux:navlist.item>
 
                      <flux:navlist.item icon="question-mark-circle"
                          :href="branch_route('branch-dashboard.inventory.helper')"
@@ -676,7 +800,7 @@
                 $canSeeAllSalesDepartments = $isSuperAdmin || $isAdmin || $isSalesSupervisor;
                 $canSeeSalesReports = $sidebarService::isSalesAdminRole($currentUser) || $isSuperAdmin || $isAdmin;
 
-                if (!$isHrOnly && ($branchId || $isSuperAdmin) && $sidebarService::canSeeSalesManagement($currentUser)) {
+                if (!$isHrOnly && !$isAccountingOnly && ($branchId || $isSuperAdmin) && $sidebarService::canSeeSalesManagement($currentUser)) {
                     $excludedSalesRoutes = [
                         'branch-dashboard.sales-dashboard.stock-opening.index',
                         'branch-dashboard.sales-dashboard.dispatches.index',
@@ -745,7 +869,7 @@
                 }
             @endphp
 
-            @if ($OPEN_SALES)
+            @if (!$isAccountingOnly && $OPEN_SALES)
             <flux:navlist.group :heading="__('Sales Departments')" icon="building-storefront">
                 @forelse($salesDepartments as $dept)
                     <flux:navlist.group :heading="$dept->name" :badge="$dept->category?->name" expandable
@@ -880,7 +1004,7 @@
             @endif
             {{-- ====================RS 30793 SALES DEPARTMENTS MENU ==================== --}}
 
-            @if ($sidebarService::canSeeReporting($currentUser))
+            @if (!$isAccountingOnly && $sidebarService::canSeeReporting($currentUser))
                 <flux:navlist.group :heading="__('Reporting')" icon="document-text">
                     <flux:navlist.item icon="chart-bar" :href="branch_route('branch-dashboard.reporting.dashboard')"
                         :current="request()->routeIs('branch-dashboard.reporting.dashboard')" wire:navigate>
@@ -1097,6 +1221,11 @@
                 </div>
             </div>
         </flux:navbar>
+
+        <!-- Notifications -->
+        <div class="me-2">
+            @livewire('components.notification-center')
+        </div>
 
         <!-- Desktop User Menu -->
         <flux:dropdown position="top" align="end">

@@ -4,7 +4,7 @@
     }" class="p-3 space-y-3">
         <x-breadcrumb title="Employee Details" :items="[
             ['label' => 'Dashboard', 'url' => branch_route('branch-dashboard.index')],
-            ['label' => 'Employees', 'url' =>''],
+            ['label' => 'Employees', 'url' => branch_route('branch-dashboard.employee.index', ['b_id' => request()->query('b_id')])],
             ['label' => 'Employee Details'],
         ]" :compact="false" :with-icons="true" />
 

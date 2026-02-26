@@ -32,7 +32,7 @@ class ShiftCompleted extends Notification implements ShouldQueue
      */
     public function via(object $notifiable): array
     {
-        return ['mail'];
+        return ['database', 'mail'];
     }
 
     /**
@@ -82,6 +82,8 @@ class ShiftCompleted extends Notification implements ShouldQueue
             'shift_id' => $this->shift->id,
             'shift_type' => $this->shift->shift_type,
             'completion_reason' => $this->completionReason,
+            'branch_id' => $this->shift->branch_id,
+            'branch_name' => $this->shift->branch?->name,
             'clock_in_time' => $this->shift->clock_in?->toDateTimeString(),
             'clock_out_time' => $this->shift->clock_out?->toDateTimeString(),
             'total_hours' => $totalHours,

@@ -7,10 +7,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class BranchPosConfiguration extends Model
 {
-    protected $fillable = ['branch_id', 'pos_use', 'payment_modes', 'receipt_custom', 'is_overridden'];
+    protected $fillable = ['branch_id', 'pos_use', 'payment_modes', 'receipt_custom', 'vat_rate', 'is_overridden'];
 
     protected $casts = [
         'is_overridden' => 'boolean',
+        'vat_rate' => 'decimal:2',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
@@ -32,6 +33,7 @@ class BranchPosConfiguration extends Model
             'sales_returns' => $globalSettings?->sales_returns ?? 'enabled',
             'offline_mode' => $globalSettings?->offline_mode ?? 'enabled',
             'online_shop_sync' => $globalSettings?->online_shop_sync ?? 'enabled',
+            'vat_rate' => $branchSettings?->vat_rate ?? $globalSettings?->vat_rate ?? 0,
         ];
     }
 

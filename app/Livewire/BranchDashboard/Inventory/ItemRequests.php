@@ -8,6 +8,8 @@ use App\Models\ItemRequest;
 use App\Models\ItemRequestDetail;
 use App\Models\Stock;
 use App\Services\AuditService;
+use App\Services\NotificationRecipientService;
+use App\Notifications\ItemRequestCreatedNotification;
 use App\Traits\Exportable;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +19,7 @@ use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Illuminate\Support\Facades\Notification;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class ItemRequests extends Component
@@ -277,6 +280,10 @@ class ItemRequests extends Component
                 "Notes: {$this->notes}",
                 'completed'
             );
+
+            $recipients = app(NotificationRecipientService::class)
+                ->usersForRoles(config('notifications.roles.inventory', []), $branchId);
+            Notification::send($recipients, new ItemRequestCreatedNotification($request));
 
             DB::commit();
             session()->flash('success', 'Item request created successfully.');

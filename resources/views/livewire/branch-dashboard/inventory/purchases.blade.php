@@ -442,7 +442,7 @@
                                 <tbody>
                                     @forelse($purchaseItems as $index => $item)
                                     <tr class="border-t border-zinc-200 dark:border-zinc-700"
-                                        x-data="{ qty: parseFloat(@json($item['quantity'] ?? 1)) || 1, price: parseFloat(@json($item['unit_price'] ?? 0)) || 0, init() { this.$watch('$wire.purchaseItems.{{ $index }}.quantity', value => { this.qty = parseFloat(value) || 1; }); this.$watch('$wire.purchaseItems.{{ $index }}.unit_price', value => { this.price = parseFloat(value) || 0; }); } }">
+                                        x-data="{ qty: parseFloat(@js($item['quantity'] ?? 1)) || 1, price: parseFloat(@js($item['unit_price'] ?? 0)) || 0, init() { this.$watch('$wire.purchaseItems.{{ $index }}.quantity', value => { this.qty = parseFloat(value) || 1; }); this.$watch('$wire.purchaseItems.{{ $index }}.unit_price', value => { this.price = parseFloat(value) || 0; }); } }">
                                         <td class="px-4 py-2">
                                             <select wire:model.live="purchaseItems.{{ $index }}.item_id" 
                                                 wire:change="updateItemUom({{ $index }}, $event.target.value)"

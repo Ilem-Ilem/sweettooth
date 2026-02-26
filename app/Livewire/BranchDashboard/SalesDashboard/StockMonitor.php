@@ -3,11 +3,13 @@
 namespace App\Livewire\BranchDashboard\SalesDashboard;
 
 use App\Livewire\BaseComponent;
+use App\Livewire\Concerns\SalesDepartmentContext;
 use App\Models\ProductStock;
 use App\Models\Product;
-use App\Models\Shift;
+use App\Models\SalesShift;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Collection;
 use Livewire\Attributes\{Layout, On, Url};
 use Livewire\WithPagination;
 use TallStackUi\Traits\Interactions;
@@ -15,7 +17,7 @@ use TallStackUi\Traits\Interactions;
 #[Layout('components.layouts.app.branch-dashboard')]
 class StockMonitor extends BaseComponent
 {
-    use WithPagination, Interactions;
+    use WithPagination, Interactions, SalesDepartmentContext;
 
     #[Url(keep: true)]
     public ?string $b_id = null;
@@ -73,6 +75,7 @@ class StockMonitor extends BaseComponent
 
     public function mount()
     {
+        $this->initializeDepartmentContext();
         $this->stockDate = \Carbon\Carbon::today()->format('Y-m-d');
         $this->loadCurrentShift();
         $this->calculateStats();
@@ -81,8 +84,13 @@ class StockMonitor extends BaseComponent
     protected function loadCurrentShift()
     {
         $employee = auth()->user();
+        if (! $employee || ! $this->departmentId) {
+            return;
+        }
 
-        $activeShift = Shift::where('employee_id', $employee->id)
+        $activeShift = SalesShift::where('employee_id', $employee->id)
+            ->where('department_id', $this->departmentId)
+            ->when($this->getBranchId(), fn ($q) => $q->where('branch_id', $this->getBranchId()))
             ->where('shift_date', \Carbon\Carbon::today())
             ->where('status', 'active')
             ->first();
@@ -95,8 +103,8 @@ class StockMonitor extends BaseComponent
 
     public function calculateStats()
     {
-        if (!$this->currentShiftId) {
-            // Reset stats when no active shift
+        if (!$this->departmentId) {
+            // Reset stats when no department context
             $this->totalProducts = 0;
             $this->lowStockCount = 0;
             $this->expiredCount = 0;
@@ -104,10 +112,7 @@ class StockMonitor extends BaseComponent
             return;
         }
 
-        $stocks = ProductStock::where('sales_shift_id', $this->currentShiftId)
-            ->where('stock_date', $this->stockDate)
-            ->with('product')
-            ->get();
+        $stocks = $this->buildStockRows();
 
         $this->totalProducts = $stocks->count();
         $this->lowStockCount = $stocks->filter(function ($stock) {
@@ -121,7 +126,7 @@ class StockMonitor extends BaseComponent
 
     public function getRowsProperty()
     {
-        if (!$this->currentShiftId) {
+        if (!$this->departmentId) {
             $page = request()->get('page', 1);
             $paginated = new LengthAwarePaginator(
                 collect([]),
@@ -133,51 +138,107 @@ class StockMonitor extends BaseComponent
             return $paginated;
         }
 
-        $query = ProductStock::with(['product', 'salesShift'])
-            ->where('sales_shift_id', $this->currentShiftId)
-            ->where('stock_date', $this->stockDate);
+        $stocks = $this->buildStockRows();
 
-        // Search filter
         if ($this->search) {
-            $query->whereHas('product', function ($q) {
-                $q->where('name', 'like', '%' . $this->search . '%')
-                  ->orWhere('sku', 'like', '%' . $this->search . '%');
+            $search = strtolower(trim((string) $this->search));
+            $stocks = $stocks->filter(function (ProductStock $stock) use ($search) {
+                $name = strtolower((string) ($stock->product?->name ?? ''));
+                $sku = strtolower((string) ($stock->product?->sku ?? ''));
+
+                return str_contains($name, $search) || str_contains($sku, $search);
             });
         }
 
-        // Status filter (shelf life)
         if ($this->filterStatus) {
-            $filteredStocks = [];
-            $stocks = $query->get();
-
-            foreach ($stocks as $stock) {
-                if ($stock->getShelfLifeStatus() === $this->filterStatus) {
-                    $filteredStocks[] = $stock;
-                }
-            }
-
-            // Convert back to a collection and paginate manually
-            $collection = collect($filteredStocks);
-            $page = request()->get('page', 1);
-
-            $paginated = new LengthAwarePaginator(
-                $collection->forPage($page, $this->quantity),
-                $collection->count(),
-                $this->quantity,
-                $page,
-                ['path' => request()->url(), 'query' => request()->query()]
-            );
-            return $paginated;
+            $status = $this->filterStatus;
+            $stocks = $stocks->filter(fn (ProductStock $stock) => $stock->getShelfLifeStatus() === $status);
         }
 
-        return $query->paginate($this->quantity);
+        $stocks = $stocks->sortByDesc(function (ProductStock $stock) {
+            return (float) ($stock->closing_quantity ?? 0);
+        })->values();
+
+        $page = request()->get('page', 1);
+        return new LengthAwarePaginator(
+            $stocks->forPage($page, $this->quantity)->values(),
+            $stocks->count(),
+            $this->quantity,
+            $page,
+            ['path' => request()->url(), 'query' => request()->query()]
+        );
     }
 
     protected function getFilteredQuery()
     {
         return ProductStock::query()
-            ->where('sales_shift_id', $this->currentShiftId)
-            ->where('stock_date', $this->stockDate);
+            ->where('department_id', $this->departmentId)
+            ->where('stock_date', $this->stockDate)
+            ->where('shift_type', $this->shiftType);
+    }
+
+    protected function buildStockRows(): Collection
+    {
+        $departmentIds = [$this->departmentId];
+
+        $products = Product::query()
+            ->active()
+            ->available()
+            ->whereIn('sales_department_id', $departmentIds)
+            ->with('unitOfMeasure:id,symbol')
+            ->orderBy('name')
+            ->get();
+
+        if ($products->isEmpty()) {
+            return collect();
+        }
+
+        $productIds = $products->pluck('id')->filter()->values()->all();
+
+        $stockQuery = ProductStock::query()
+            ->with(['product', 'salesShift'])
+            ->where('stock_date', $this->stockDate)
+            ->where('shift_type', $this->shiftType)
+            ->whereIn('product_id', $productIds);
+
+        $hasDepartmentColumn = \Schema::hasColumn('product_stocks', 'department_id');
+        if ($hasDepartmentColumn) {
+            $stockQuery->whereIn('department_id', $departmentIds)
+                ->orderByRaw('department_id = ? DESC', [(int) $this->departmentId])
+                ->orderByDesc('id');
+        } else {
+            $stockQuery->orderByDesc('id');
+        }
+
+        $stocksByProduct = $stockQuery->get()
+            ->unique('product_id')
+            ->keyBy('product_id');
+
+        return $products->map(function (Product $product) use ($stocksByProduct) {
+            $stock = $stocksByProduct->get($product->id);
+            if ($stock) {
+                return $stock;
+            }
+
+            $blank = new ProductStock([
+                'product_id' => $product->id,
+                'department_id' => $this->departmentId,
+                'stock_date' => $this->stockDate,
+                'shift_type' => $this->shiftType,
+                'opening_quantity' => 0,
+                'addition_quantity' => 0,
+                'callback_quantity' => 0,
+                'redress_quantity' => 0,
+                'transfer_quantity' => 0,
+                'glovo_quantity' => 0,
+                'quantity_sold' => 0,
+                'quantity_reserved' => 0,
+                'closing_quantity' => 0,
+            ]);
+            $blank->setRelation('product', $product);
+
+            return $blank;
+        })->values();
     }
 
     public function updatedSearch()

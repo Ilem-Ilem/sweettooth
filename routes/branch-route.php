@@ -173,6 +173,8 @@ Route::middleware(['auth', 'recover-auth', 'setBranchContext', 'branch', 'redire
             Route::get('stocks', \App\Livewire\BranchDashboard\Inventory\Stocks::class)->name('stocks');
             Route::get('item-requests', \App\Livewire\BranchDashboard\Inventory\ItemRequests::class)->name('item-requests');
             Route::get('item-dispatches', \App\Livewire\BranchDashboard\Inventory\ItemDispatches::class)->name('item-dispatches');
+            Route::get('department-transfers', \App\Livewire\BranchDashboard\Inventory\DepartmentTransfers\Index::class)->name('department-transfers');
+            Route::get('department-transfers/create', \App\Livewire\BranchDashboard\Inventory\DepartmentTransfers\Create::class)->name('department-transfers.create');
             Route::get('stock-takes', \App\Livewire\BranchDashboard\Inventory\StockTakes::class)->name('stock-takes');
             Route::get('health-checks', \App\Livewire\BranchDashboard\Inventory\HealthChecks::class)->name('health-checks');
             Route::get('reports', \App\Livewire\BranchDashboard\Inventory\Reports\Index::class)->name('reports');
@@ -241,7 +243,7 @@ Route::middleware(['auth', 'recover-auth', 'setBranchContext', 'branch', 'redire
             Route::get('/overview', \App\Livewire\BranchDashboard\Accounting\Simple\Home::class)->name('overview');
 
             // Chart of Accounts Management (Super Admin, Managing Director, Admin)
-            Route::middleware('role_or_permission:manage_accounts')->group(function () {
+            Route::middleware('role_or_permission:manage_accounts|Accounting Manager')->group(function () {
                 Route::get('/accounts', \App\Livewire\BranchDashboard\Accounting\Simple\ChartOfAccounts::class)->name('accounts');
             });
 
@@ -250,8 +252,14 @@ Route::middleware(['auth', 'recover-auth', 'setBranchContext', 'branch', 'redire
                 Route::get('/bank-accounts', \App\Livewire\BranchDashboard\Accounting\Simple\CashBank::class)->name('bank-accounts');
             });
 
+            // Department Accounts Assignment
+            Route::middleware('role_or_permission:manage_accounts|Accounting Manager|Accountant|Cost Accountant')->group(function () {
+                Route::get('/department-accounts', \App\Livewire\BranchDashboard\Accounting\Simple\DepartmentAccounts::class)
+                    ->name('department-accounts');
+            });
+
             // Accounting Period Management (Super Admin, Managing Director, Admin)
-            Route::middleware('role_or_permission:manage_periods')->group(function () {
+            Route::middleware('role_or_permission:manage_periods|Accounting Manager')->group(function () {
                 Route::get('/periods', \App\Livewire\BranchDashboard\Accounting\Simple\PeriodControl::class)->name('periods');
             });
 
@@ -266,6 +274,7 @@ Route::middleware(['auth', 'recover-auth', 'setBranchContext', 'branch', 'redire
 
             // Posting Status Monitor
             Route::get('/posting-status', \App\Livewire\BranchDashboard\Accounting\Simple\Transactions::class)->name('posting-status');
+            Route::get('/posting-approvals', \App\Livewire\BranchDashboard\Accounting\Simple\PostingApprovals::class)->name('posting-approvals');
 
             // Inventory Valuation to GL
             Route::get('/inventory-valuation', \App\Livewire\BranchDashboard\Accounting\Simple\InventoryValuation::class)->name('inventory-valuation');
@@ -273,7 +282,7 @@ Route::middleware(['auth', 'recover-auth', 'setBranchContext', 'branch', 'redire
                 ->name('inventory-valuation-manage');
 
             // Bank Reconciliation
-            Route::middleware('role_or_permission:reconcile_bank_accounts')->group(function () {
+            Route::middleware('role_or_permission:reconcile_bank_accounts|Accounting Manager')->group(function () {
                 Route::get('/bank-reconciliation', \App\Livewire\BranchDashboard\Accounting\Simple\CashBank::class)->name('bank-reconciliation');
                 Route::get('/bank-reconciliation/manage', \App\Livewire\BranchDashboard\Accounting\BankReconciliation::class)
                     ->name('bank-reconciliation-manage');

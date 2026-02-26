@@ -4,6 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Notification;
+use App\Services\NotificationRecipientService;
+use App\Notifications\ApprovalRequestCreated;
+use App\Models\Branch;
 
 class ApprovalAuditRequest extends Model
 {
@@ -35,9 +38,16 @@ class ApprovalAuditRequest extends Model
         return $this->morphTo('approver');
     }
 
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class, 'branch_id');
+    }
+
     public static function createPending($requester, string $action, $model)
     {
+        $branchId = $model->branch_id ?? (function_exists('current_branch_id') ? current_branch_id() : null);
         $req = static::create([
+            'branch_id'      => $branchId,
             'requester_type' => get_class($requester),
             'requester_id'   => $requester->id,
             'action'         => $action . ':' . $model->getKey(),
@@ -46,11 +56,15 @@ class ApprovalAuditRequest extends Model
             'status'         => 'pending',
         ]);
 
-        // Notify all superadmins + users with "approve.{action}" permission
-        $superadmins = User::role('superadmin')->get();
-        $approvers   = Employee::permission("approve.{$action}")->get();
+        $recipients = app(NotificationRecipientService::class)->usersForRoles(
+            array_merge(
+                config('notifications.roles.hr', []),
+                config('notifications.roles.admin', [])
+            ),
+            $branchId
+        );
 
-        // Notification::send($superadmins->merge($approvers), new ApprovalRequiredNotification($req));
+        Notification::send($recipients, new ApprovalRequestCreated($req));
 
         return $req;
     }

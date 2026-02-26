@@ -5,10 +5,12 @@ namespace App\Livewire\BranchDashboard\SalesDashboard\Callbacks;
 use App\Livewire\BaseComponent;
 use App\Models\ProductDispatch;
 use App\Models\ProductDispatchCallback;
+use App\Models\ProductStock;
 use App\Models\SalesShift;
 use App\Models\Department;
 use App\Models\Branch;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 use Livewire\WithPagination;
@@ -32,6 +34,10 @@ class CreateDispatchCallback extends BaseComponent
     public ?int $quantity = 20;
     public ?string $search = null;
     public ?string $filterStatus = null;
+    public string $sourceMode = 'dispatch'; // dispatch|stock
+    public bool $lockSource = false;
+    public string $pageTitle = 'Dispatch Callbacks';
+    public string $pageSubtitle = 'Return products back to production from dispatches';
 
     public ?string $currentSalesShiftId = null;
     public ?string $selectedSalesShiftId = null;
@@ -42,6 +48,8 @@ class CreateDispatchCallback extends BaseComponent
     // Callback form
     public $showCallbackModal = false;
     public $selectedDispatch = null;
+    public $selectedStock = null;
+    public string $callbackSource = 'dispatch';
     public $callbackQuantity = 0;
     public $callbackReason = '';
     public $callbackNotes = '';
@@ -57,16 +65,8 @@ class CreateDispatchCallback extends BaseComponent
         'other' => 'Other',
     ];
 
-    // Table headers
-    public array $headers = [
-        ['index' => 'product', 'label' => 'Product'],
-        ['index' => 'dispatch_date', 'label' => 'Dispatch Date'],
-        ['index' => 'received_qty', 'label' => 'Received Qty'],
-        ['index' => 'returned_qty', 'label' => 'Returned Qty'],
-        ['index' => 'available_to_return', 'label' => 'Available to Return'],
-        ['index' => 'status', 'label' => 'Status'],
-        ['index' => 'action', 'label' => 'Action'],
-    ];
+    // Table headers (computed in render)
+    public array $headers = [];
 
     protected function getModelClass(): string
     {
@@ -80,12 +80,31 @@ class CreateDispatchCallback extends BaseComponent
 
     protected function getFilteredQuery()
     {
-        $shiftId = $this->selectedSalesShiftId ?? $this->currentSalesShiftId;
+        if ($this->sourceMode === 'stock') {
+            $query = ProductStock::query()
+                ->with('product')
+                ->whereDate('stock_date', '>=', now()->subDays(30))
+                ->orderByDesc('stock_date')
+                ->orderByDesc('shift_type');
+
+            if (Schema::hasColumn('product_stocks', 'department_id')) {
+                $query->when($this->departmentId, function ($q) {
+                    $q->where(function ($nested) {
+                        $nested->where('department_id', $this->departmentId)
+                            ->orWhere(function ($sub) {
+                                $sub->whereNull('department_id')
+                                    ->whereHas('product', fn ($p) => $p->where('sales_department_id', $this->departmentId));
+                            });
+                    });
+                });
+            }
+
+            return $query;
+        }
 
         return ProductDispatch::query()
             ->where('branch_id', $this->getBranchId())
             ->when($this->departmentId, fn ($q) => $q->where('sales_department_id', $this->departmentId))
-            ->when($shiftId, fn ($q) => $q->where('sales_shift_id', $shiftId))
             ->where('status', 'received');
     }
 
@@ -96,19 +115,21 @@ class CreateDispatchCallback extends BaseComponent
 
     public function mount()
     {
+        $mode = request()->query('source');
+        if (in_array($mode, ['dispatch', 'stock'], true)) {
+            $this->sourceMode = $mode;
+        }
+
         $this->stockDate = \Carbon\Carbon::today()->format('Y-m-d');
         $this->isSuperAdmin = is_super_admin();
         $this->loadBranchAndDepartment();
         $this->loadAvailableShifts();
         $this->loadCurrentSalesShift();
 
-        // Set selected shift to current shift if available
-        if ($this->currentSalesShiftId) {
-            $this->selectedSalesShiftId = $this->currentSalesShiftId;
-        } elseif (!empty($this->availableShifts)) {
-            // If no active shift, select the most recent one
-            // $this->selectedSalesShiftId = $this->availableShifts[0]->id;
-        }
+        // Default to "All Shifts"
+        $this->selectedSalesShiftId = null;
+        $this->pageTitle = $this->pageTitle ?: 'Dispatch Callbacks';
+        $this->pageSubtitle = $this->pageSubtitle ?: 'Return products back to production from dispatches';
     }
 
     protected function loadAvailableShifts()
@@ -193,9 +214,44 @@ class CreateDispatchCallback extends BaseComponent
 
     public function getRowsProperty()
     {
-        $shiftId = $this->selectedSalesShiftId ?? $this->currentSalesShiftId;
+        if ($this->sourceMode === 'stock') {
+            $query = ProductStock::with('product')
+                ->whereDate('stock_date', '>=', now()->subDays(30))
+                ->orderByDesc('stock_date')
+                ->orderByDesc('shift_type');
 
-        $query = ProductDispatch::with(['product', 'shift', 'productDispatchCallbacks'])
+            if (Schema::hasColumn('product_stocks', 'department_id')) {
+                $query->when($this->departmentId, function ($q) {
+                    $q->where(function ($nested) {
+                        $nested->where('department_id', $this->departmentId)
+                            ->orWhere(function ($sub) {
+                                $sub->whereNull('department_id')
+                                    ->whereHas('product', fn ($p) => $p->where('sales_department_id', $this->departmentId));
+                            });
+                    });
+                });
+            }
+
+            if ($this->search) {
+                $query->whereHas('product', function ($q) {
+                    $q->where('name', 'like', '%' . $this->search . '%')
+                        ->orWhere('sku', 'like', '%' . $this->search . '%');
+                });
+            }
+
+            return $query->paginate($this->quantity);
+        }
+
+        $shiftId = $this->selectedSalesShiftId;
+
+        $query = ProductDispatch::with([
+            'product',
+            'shift',
+            'productDispatchCallbacks',
+            'salesProductionRequestItem.product',
+            'salesProductionRequestItem.recipe',
+            'dailyProduce.recipe',
+        ])
             ->where('branch_id', $this->getBranchId())
             ->when($this->departmentId, fn ($q) => $q->where('sales_department_id', $this->departmentId))
             ->when($shiftId, fn ($q) => $q->where('sales_shift_id', $shiftId))
@@ -214,11 +270,20 @@ class CreateDispatchCallback extends BaseComponent
 
     public function openCallbackModal($dispatchId)
     {
-        $this->selectedDispatch = ProductDispatch::with(['product', 'productDispatchCallbacks'])->find($dispatchId);
-
-        if (!$this->selectedDispatch) {
-            $this->toast()->error('Dispatch not found.')->send();
-            return;
+        if ($this->sourceMode === 'stock') {
+            $this->selectedStock = ProductStock::with('product')->find($dispatchId);
+            if (! $this->selectedStock) {
+                $this->toast()->error('Stock record not found.')->send();
+                return;
+            }
+            $this->callbackSource = 'stock';
+        } else {
+            $this->selectedDispatch = ProductDispatch::with(['product', 'productDispatchCallbacks'])->find($dispatchId);
+            if (! $this->selectedDispatch) {
+                $this->toast()->error('Dispatch not found.')->send();
+                return;
+            }
+            $this->callbackSource = 'dispatch';
         }
 
         $this->callbackQuantity = 0;
@@ -231,6 +296,8 @@ class CreateDispatchCallback extends BaseComponent
     {
         $this->showCallbackModal = false;
         $this->selectedDispatch = null;
+        $this->selectedStock = null;
+        $this->callbackSource = 'dispatch';
         $this->callbackQuantity = 0;
         $this->callbackReason = '';
         $this->callbackNotes = '';
@@ -243,6 +310,22 @@ class CreateDispatchCallback extends BaseComponent
             ->sum('quantity');
 
         return $dispatch->received_quantity - $totalCallbacks;
+    }
+
+    public function getAvailableStockQuantity(ProductStock $stock): float
+    {
+        $base = (float) ($stock->closing_quantity ?? 0);
+        $query = ProductDispatchCallback::where('product_id', $stock->product_id)
+            ->whereIn('status', ['pending', 'approved_by_production', 'received_by_production', 'completed']);
+
+        if (! empty($stock->sales_shift_id)) {
+            $query->where('sales_shift_id', $stock->sales_shift_id);
+        } else {
+            $query->whereNull('sales_shift_id');
+        }
+
+        $totalCallbacks = (float) $query->sum('quantity');
+        return max(0, $base - $totalCallbacks);
     }
 
     public function submitCallback()
@@ -259,12 +342,18 @@ class CreateDispatchCallback extends BaseComponent
         try {
             DB::beginTransaction();
 
-            if (!$this->selectedDispatch) {
+            if ($this->callbackSource === 'stock') {
+                if (! $this->selectedStock) {
+                    throw new \Exception('Stock record not found');
+                }
+            } elseif (! $this->selectedDispatch) {
                 throw new \Exception('Dispatch not found');
             }
 
             // Validate callback quantity doesn't exceed available
-            $availableQty = $this->getAvailableQuantity($this->selectedDispatch);
+            $availableQty = $this->callbackSource === 'stock'
+                ? $this->getAvailableStockQuantity($this->selectedStock)
+                : $this->getAvailableQuantity($this->selectedDispatch);
             if ($this->callbackQuantity > $availableQty) {
                 $this->toast()->error("Callback quantity cannot exceed available quantity ({$availableQty}).")->send();
                 return;
@@ -272,24 +361,30 @@ class CreateDispatchCallback extends BaseComponent
 
             $employee = auth()->user();
 
-            $shiftId = $this->selectedDispatch->sales_shift_id
-                ?? $this->selectedSalesShiftId
-                ?? $this->currentSalesShiftId;
-
-            if (! $shiftId) {
-                $this->toast()->error('No sales shift found for this dispatch. Please ensure the dispatch is tied to an active sales shift.')->send();
-                return;
+            $shiftId = null;
+            if ($this->callbackSource === 'stock') {
+                $shiftId = $this->selectedStock->sales_shift_id
+                    ?? $this->selectedSalesShiftId
+                    ?? $this->currentSalesShiftId;
+            } else {
+                $shiftId = $this->selectedDispatch->sales_shift_id
+                    ?? $this->selectedSalesShiftId
+                    ?? $this->currentSalesShiftId;
             }
 
             // Create callback record
             $callback = ProductDispatchCallback::create([
-                'product_dispatch_id' => $this->selectedDispatch->id,
+                'product_dispatch_id' => $this->callbackSource === 'dispatch' ? $this->selectedDispatch->id : null,
                 'sales_shift_id' => $shiftId,
-                'product_id' => $this->selectedDispatch->product_id,
+                'product_id' => $this->callbackSource === 'dispatch'
+                    ? $this->selectedDispatch->product_id
+                    : $this->selectedStock->product_id,
                 'recorded_by_id' => $employee->id,
                 'recorded_by_type' => get_class($employee),
                 'quantity' => $this->callbackQuantity,
-                'uom' => $this->selectedDispatch->uom,
+                'uom' => $this->callbackSource === 'dispatch'
+                    ? $this->selectedDispatch->uom
+                    : ($this->selectedStock->product?->unitOfMeasure?->symbol ?? $this->selectedStock->product?->uomSymbol ?? 'unit'),
                 'reason' => $this->callbackReason,
                 'status' => 'pending',
                 'notes' => $this->callbackNotes,
@@ -313,12 +408,32 @@ class CreateDispatchCallback extends BaseComponent
 
     public function render()
     {
-        $shiftId = $this->selectedSalesShiftId ?? $this->currentSalesShiftId;
+        $shiftId = $this->selectedSalesShiftId;
 
         return view('livewire.branch-dashboard.sales-dashboard.callbacks.create-dispatch-callback', [
             'rows' => $this->rows,
             'currentSalesShift' => $this->currentSalesShiftId ? SalesShift::find($this->currentSalesShiftId) : null,
             'selectedSalesShift' => $shiftId ? SalesShift::find($shiftId) : null,
+            'headers' => $this->sourceMode === 'stock'
+                ? [
+                    ['index' => 'product', 'label' => 'Product'],
+                    ['index' => 'dispatch_date', 'label' => 'Stock Date'],
+                    ['index' => 'quantity', 'label' => 'Quantity'],
+                    ['index' => 'received_qty', 'label' => 'Opening Qty'],
+                    ['index' => 'returned_qty', 'label' => 'Callbacks'],
+                    ['index' => 'available_to_return', 'label' => 'Available to Return'],
+                    ['index' => 'status', 'label' => 'Status'],
+                    ['index' => 'action', 'label' => 'Action'],
+                ]
+                : [
+                    ['index' => 'product', 'label' => 'Product'],
+                    ['index' => 'dispatch_date', 'label' => 'Dispatch Date'],
+                    ['index' => 'received_qty', 'label' => 'Received Qty'],
+                    ['index' => 'returned_qty', 'label' => 'Returned Qty'],
+                    ['index' => 'available_to_return', 'label' => 'Available to Return'],
+                    ['index' => 'status', 'label' => 'Status'],
+                    ['index' => 'action', 'label' => 'Action'],
+                ],
         ]);
     }
 }

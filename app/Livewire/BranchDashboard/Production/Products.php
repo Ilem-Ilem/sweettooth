@@ -60,6 +60,7 @@ class Products extends BaseComponent
     public string $description = '';
 
     public $price = 0;
+    public $vat_rate = null;
 
     public $cost = null;
 
@@ -366,6 +367,7 @@ class Products extends BaseComponent
         $this->category_id = $product->category_id;
         $this->description = $product->description ?? '';
         $this->price = $product->price;
+        $this->vat_rate = $product->vat_rate;
         $this->cost = $product->cost;
         $this->shelf_life_days = $product->shelf_life_days;
         $this->uom_id = $product->uom_id;
@@ -389,6 +391,7 @@ class Products extends BaseComponent
             'category_id' => 'nullable|integer',
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:0',
+            'vat_rate' => 'nullable|numeric|min:0|max:100',
             'cost' => 'nullable|numeric|min:0',
             'shelf_life_days' => 'required|integer|min:0',
             'uom_id' => 'required|exists:units_of_measure,id',
@@ -421,6 +424,7 @@ class Products extends BaseComponent
             'category_id' => $this->category_id,
             'description' => $this->description,
             'price' => $this->price,
+            'vat_rate' => $this->vat_rate,
             'cost' => $this->cost,
             'shelf_life_days' => $this->shelf_life_days,
             'uom_id' => $this->uom_id,
@@ -594,6 +598,7 @@ class Products extends BaseComponent
         $this->category_id = null;
         $this->description = '';
         $this->price = 0;
+        $this->vat_rate = null;
         $this->cost = null;
         $this->shelf_life_days = 0;
         $this->uom_id = null;

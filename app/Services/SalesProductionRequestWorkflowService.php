@@ -139,7 +139,8 @@ class SalesProductionRequestWorkflowService
         if ($statuses->count() === 1) {
             $status = SalesProductionRequestStatus::from($statuses->first());
 
-            if ($this->normalizeStatus($request->status) !== $status) {
+            $current = $this->normalizeStatus($request->status);
+            if ($current !== $status && $current->canTransitionTo($status)) {
                 return $this->transitionRequest($request, $status);
             }
         }

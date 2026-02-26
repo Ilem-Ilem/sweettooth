@@ -5,6 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Notifications\JournalEntryPostedNotification;
+use App\Services\NotificationRecipientService;
+use Illuminate\Support\Facades\Notification;
 
 class GlEntry extends Model
 {
@@ -156,6 +159,12 @@ class GlEntry extends Model
 
         // Update account balances
         $this->glAccount->updateBalance(floatval($this->debit), floatval($this->credit));
+
+        $recipients = app(NotificationRecipientService::class)
+            ->usersForRoles(config('notifications.roles.accounting', []), $this->branch_id);
+        if ($recipients->isNotEmpty()) {
+            Notification::send($recipients, new JournalEntryPostedNotification($this));
+        }
 
         return true;
     }

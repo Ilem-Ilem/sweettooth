@@ -8,6 +8,9 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Services\EmployeeApprovalService;
 use App\Services\EmployeeAuditService;
+use App\Services\NotificationRecipientService;
+use App\Notifications\EmployeeCreatedNotification;
+use Illuminate\Support\Facades\Notification;
 use App\Traits\AuditableSyncTrait;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Attributes\Layout;
@@ -408,6 +411,14 @@ class Create extends BaseComponent
 
             // Log employee creation
             EmployeeAuditService::logEmployeeCreation($employee, $user);
+
+            $roles = array_merge(
+                config('notifications.roles.hr', []),
+                config('notifications.roles.admin', [])
+            );
+            $recipients = app(NotificationRecipientService::class)->usersForRoles($roles, $employee->branch_id);
+            $recipients = $recipients->merge([$employee])->unique('id');
+            Notification::send($recipients, new EmployeeCreatedNotification($employee));
 
             $this->toast()->success('Employee created successfully!')->send();
 

@@ -21,6 +21,7 @@ class Sale extends Model
         'sale_time',
         'subtotal',
         'tax',
+        'vat_amount',
         'discount',
         'total',
         'status',
@@ -36,6 +37,7 @@ class Sale extends Model
         'sale_time' => 'datetime',
         'subtotal' => 'decimal:2',
         'tax' => 'decimal:2',
+        'vat_amount' => 'decimal:2',
         'discount' => 'decimal:2',
         'total' => 'decimal:2',
     ];
@@ -100,10 +102,14 @@ class Sale extends Model
         // Apply discount
         $subtotalAfterDiscount = $this->subtotal - $this->discount;
 
-        // Calculate tax (if applicable)
-        // Assuming tax is a percentage stored elsewhere or 0 for now
-        // You can modify this based on your tax logic
-        $this->tax = 0;
+        // Calculate tax (VAT) from sale items if available
+        if ($this->saleItems->first()?->getAttribute('vat_amount') !== null) {
+            $this->vat_amount = $this->saleItems->sum('vat_amount');
+            $this->tax = $this->vat_amount;
+        } else {
+            $this->tax = $this->tax ?? 0;
+            $this->vat_amount = $this->tax;
+        }
 
         // Calculate total
         $this->total = $subtotalAfterDiscount + $this->tax;

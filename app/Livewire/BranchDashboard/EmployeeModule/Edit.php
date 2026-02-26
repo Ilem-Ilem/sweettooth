@@ -8,6 +8,10 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Services\EmployeeApprovalService;
 use App\Services\EmployeeAuditService;
+use App\Services\NotificationRecipientService;
+use App\Notifications\EmployeeUpdatedNotification;
+use App\Notifications\EmployeeRoleUpdatedNotification;
+use Illuminate\Support\Facades\Notification;
 use App\Traits\AuditableSyncTrait;
 use Carbon\Carbon;
 use Livewire\Attributes\Layout;
@@ -409,10 +413,28 @@ class Edit extends BaseComponent
                     'Roles updated during employee edit',
                     $user
                 );
+
+                $roleRecipients = app(NotificationRecipientService::class)
+                    ->usersForRoles(array_merge(
+                        config('notifications.roles.hr', []),
+                        config('notifications.roles.admin', [])
+                    ), $employee->branch_id)
+                    ->merge([$employee])
+                    ->unique('id');
+                Notification::send($roleRecipients, new EmployeeRoleUpdatedNotification($employee, $selectedRolesNames));
             }
 
             // Log employee update
             EmployeeAuditService::logEmployeeUpdate($employee, $changes, $user);
+
+            $recipients = app(NotificationRecipientService::class)
+                ->usersForRoles(array_merge(
+                    config('notifications.roles.hr', []),
+                    config('notifications.roles.admin', [])
+                ), $employee->branch_id)
+                ->merge([$employee])
+                ->unique('id');
+            Notification::send($recipients, new EmployeeUpdatedNotification($employee));
 
             $this->toast()->success('Employee updated successfully!')->send();
             $this->redirectRoute('branch-dashboard.employee.index', ['b_id' => $this->b_id]);

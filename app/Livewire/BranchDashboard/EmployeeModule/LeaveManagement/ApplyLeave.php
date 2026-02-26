@@ -7,6 +7,9 @@ use App\Models\EmployeeLeaveBalance;
 use App\Models\LeaveApplication;
 use App\Models\LeaveType;
 use App\Services\LeaveAuditService;
+use App\Services\NotificationRecipientService;
+use App\Notifications\LeaveApplicationSubmitted;
+use Illuminate\Support\Facades\Notification;
 use Carbon\Carbon;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
@@ -221,6 +224,14 @@ class ApplyLeave extends BaseComponent
                 $employee,
                 'pending'
             );
+
+            $roles = array_merge(
+                config('notifications.roles.hr', []),
+                config('notifications.roles.admin', [])
+            );
+            $recipients = app(NotificationRecipientService::class)
+                ->usersForRoles($roles, $employee->branch_id);
+            Notification::send($recipients, new LeaveApplicationSubmitted($leaveApplication));
 
             // Update leave balance (mark as pending)
             $balance = EmployeeLeaveBalance::where('employee_id', $employee->id)

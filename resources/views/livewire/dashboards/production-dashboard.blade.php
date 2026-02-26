@@ -6,7 +6,7 @@
 
     <!-- Page Title with Department Badge -->
     <div>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 z-[-999999">
             <h1 class="text-3xl font-bold text-gray-900">Production Dashboard</h1>
             @if($deptSlug)
                 <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">

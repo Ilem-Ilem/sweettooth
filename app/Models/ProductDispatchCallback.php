@@ -250,6 +250,7 @@ class ProductDispatchCallback extends Model
 
             // Refresh the current instance
             $this->refresh();
+            $this->syncProductStock();
 
             return true;
         });
@@ -503,26 +504,41 @@ class ProductDispatchCallback extends Model
      */
     public function syncProductStock(): void
     {
-        $productStock = ProductStock::where('sales_shift_id', $this->sales_shift_id)
-            ->where('product_id', $this->product_id)
-            ->lockForUpdate()
-            ->first();
+        if ($this->sales_shift_id) {
+            $productStock = ProductStock::where('sales_shift_id', $this->sales_shift_id)
+                ->where('product_id', $this->product_id)
+                ->lockForUpdate()
+                ->first();
+        } else {
+            $productStockQuery = ProductStock::where('product_id', $this->product_id);
+            if (\Schema::hasColumn('product_stocks', 'department_id')) {
+                $departmentId = $this->product?->sales_department_id;
+                if ($departmentId) {
+                    $productStockQuery->where('department_id', $departmentId);
+                }
+            }
+            $productStock = $productStockQuery
+                ->orderByDesc('stock_date')
+                ->orderByDesc('shift_type')
+                ->lockForUpdate()
+                ->first();
+        }
 
         if (! $productStock) {
-            CleanError::show(
-                'Product stock record not found for sales shift: '.$this->sales_shift_id
-            );
+            CleanError::show('Product stock record not found for callback.');
             return;
         }
 
-        $totalCallbacks = self::where('sales_shift_id', $this->sales_shift_id)
-            ->where('product_id', $this->product_id)
+        $totalCallbacks = self::where('product_id', $this->product_id)
             ->whereIn('status', [
                 CallbackStatus::PENDING->value,
                 CallbackStatus::APPROVED_BY_PRODUCTION->value,
                 CallbackStatus::RECEIVED_BY_PRODUCTION->value,
                 CallbackStatus::COMPLETED->value,
             ])
+            ->when($this->sales_shift_id, fn ($q) => $q->where('sales_shift_id', $this->sales_shift_id), function ($q) {
+                $q->whereNull('sales_shift_id');
+            })
             ->sum('quantity');
 
         $productStock->callback_quantity = $totalCallbacks;
@@ -540,7 +556,6 @@ class ProductDispatchCallback extends Model
         // Find the original production that created this product
         $productDispatch = $this->productDispatch;
         if (! $productDispatch || ! $productDispatch->shift_id) {
-            CleanError::show('Product dispatch or shift not found for callback.');
             return;
         }
 

@@ -297,6 +297,14 @@
                     </button>
                 @endif
 
+                @if($selectedShiftId !== 'no-shift' && ($produce['pending_batches'] ?? 0) > 0)
+                    <button wire:click="openCarryForwardConfirm({{ $produce['id'] }})"
+                            class="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs font-medium"
+                            title="Carry forward remaining batches to the next shift">
+                        ⏭ Carry Forward
+                    </button>
+                @endif
+
                 @if($produce['manual_status'] === 'completed')
                     <button wire:click="markInProgress({{ $produce['id'] }})"
                             class="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded text-xs font-medium"
@@ -318,6 +326,32 @@
     <tr x-show="expanded['{{ $key }}']" x-cloak x-collapse class="bg-zinc-50 dark:bg-zinc-900/50">
         <td colspan="3" class="px-6 py-4">
             <div class="space-y-4">
+                @php
+                    $dispatchRemaining = max(0, (float) $produce['net_available'] - (float) $produce['sent_out_quantity']);
+                @endphp
+                <div class="flex flex-wrap gap-2">
+                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200">
+                        Batches Req: {{ number_format($produce['requested_batches']) }}
+                    </span>
+                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">
+                        Batches Prod: {{ number_format($produce['produced_batches']) }}
+                    </span>
+                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                        Batches Rem: {{ number_format($produce['pending_batches']) }}
+                    </span>
+                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200">
+                        Produced: {{ number_format($produce['produced_quantity'], 2) }}
+                    </span>
+                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
+                        Dispatched: {{ number_format($produce['sent_out_quantity'], 2) }}
+                    </span>
+                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200">
+                        Damaged: {{ number_format($produce['callback_quantity'], 2) }}
+                    </span>
+                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-zinc-100 text-zinc-800 dark:bg-zinc-800/60 dark:text-zinc-200">
+                        Remaining: {{ number_format($dispatchRemaining, 2) }}
+                    </span>
+                </div>
                 <!-- Production Details Grid -->
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     <!-- Opening & Requested Section -->
@@ -871,8 +905,11 @@
                     <div class="mb-6">
                         <h4 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-3">📊 Overview</h4>
                         <p class="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
-                            This page helps you track daily production activities for your shift. It shows what you can produce based on available ingredients,
-                            tracks actual production, manages damaged items, and calculates closing inventory.
+                            This page tracks daily production by shift. It shows what you can produce based on dispatched ingredients, records batch production,
+                            manages dispatch allocations, and calculates closing inventory for the next shift.
+                        </p>
+                        <p class="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed mt-2">
+                            You can expand any product row to see ingredient analysis, batch-by-batch details, and dispatch allocations.
                         </p>
                     </div>
 
@@ -884,7 +921,9 @@
                             <li><strong>Inventory Approves & Dispatches</strong> → Ingredients sent to production</li>
                             <li><strong>View This Page</strong> → See what you can produce with dispatched ingredients</li>
                             <li><strong>Record Batches</strong> → Click "Record Batch" to log production</li>
+                            <li><strong>Allocate Dispatch</strong> → Split batches to sales and orders</li>
                             <li><strong>Track Distribution</strong> → Enter Sent Out, Orders, Callbacks, Closing</li>
+                            <li><strong>Carry Forward</strong> → Move remaining batches to next shift when needed</li>
                             <li><strong>Complete</strong> → Mark production as complete when done</li>
                         </ol>
                     </div>
@@ -1027,6 +1066,73 @@
                         </div>
                     </div>
 
+                    <!-- Labels & Badges -->
+                    <div class="mb-6">
+                        <h4 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-3">🏷️ Labels & Badges</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg p-3">
+                                <h5 class="font-semibold text-zinc-900 dark:text-zinc-100 text-sm mb-2">Request Source Labels</h5>
+                                <p class="text-xs text-zinc-600 dark:text-zinc-400">
+                                    <strong>Sales Demand:</strong> A request driven by sales needs.
+                                </p>
+                                <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
+                                    <strong>Store Request:</strong> A request coming from a store item request.
+                                </p>
+                                <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
+                                    <strong>Direct Request:</strong> A production request created directly in production.
+                                </p>
+                            </div>
+                            <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg p-3">
+                                <h5 class="font-semibold text-zinc-900 dark:text-zinc-100 text-sm mb-2">Status Badges</h5>
+                                <p class="text-xs text-zinc-600 dark:text-zinc-400">
+                                    Status badges summarize readiness and request progress (e.g., Ready to Produce, Partially Ready, Awaiting Ingredients).
+                                </p>
+                                <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
+                                    Variance warnings appear when closing differs significantly from expected.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Batch Status & Dispatch -->
+                    <div class="mb-6">
+                        <h4 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-3">📦 Batch Status & Dispatch</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg p-3">
+                                <h5 class="font-semibold text-zinc-900 dark:text-zinc-100 text-sm mb-2">Batch Status</h5>
+                                <p class="text-xs text-zinc-600 dark:text-zinc-400">
+                                    Each batch shows a status (available, partially dispatched, fully dispatched) based on remaining quantity.
+                                </p>
+                                <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
+                                    Remaining per batch helps you see what can still be dispatched.
+                                </p>
+                            </div>
+                            <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg p-3">
+                                <h5 class="font-semibold text-zinc-900 dark:text-zinc-100 text-sm mb-2">Dispatch Allocation</h5>
+                                <p class="text-xs text-zinc-600 dark:text-zinc-400">
+                                    Allocate each batch to sales departments or orders. Some batches may be locked to a specific sales department.
+                                </p>
+                                <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
+                                    Dispatch allocations update remaining quantities automatically.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- No Shift Mode -->
+                    <div class="mb-6">
+                        <h4 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-3">🕒 No Shift Mode</h4>
+                        <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg p-3">
+                            <p class="text-xs text-zinc-600 dark:text-zinc-400">
+                                When there is no active shift for today, you may see "No Shift (Super Admin)" requests.
+                                These are production requests created without an assigned shift.
+                            </p>
+                            <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
+                                Once a shift is created, those requests are linked to it automatically.
+                            </p>
+                        </div>
+                    </div>
+
                     <!-- Key Features -->
                     <div class="mb-6">
                         <h4 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-3">🎯 Key Features</h4>
@@ -1058,6 +1164,33 @@
                                     </p>
                                 </div>
                             </div>
+                            <div class="flex items-start gap-3">
+                                <span class="flex-shrink-0 w-6 h-6 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 rounded-full flex items-center justify-center text-xs font-bold">4</span>
+                                <div>
+                                    <p class="font-semibold text-sm text-zinc-900 dark:text-zinc-100">Batch Management & Dispatch Allocation</p>
+                                    <p class="text-xs text-zinc-600 dark:text-zinc-400">
+                                        Expand a row to allocate each batch to sales or orders and see remaining per batch.
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-3">
+                                <span class="flex-shrink-0 w-6 h-6 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 rounded-full flex items-center justify-center text-xs font-bold">5</span>
+                                <div>
+                                    <p class="font-semibold text-sm text-zinc-900 dark:text-zinc-100">Carry Forward Remaining Batches</p>
+                                    <p class="text-xs text-zinc-600 dark:text-zinc-400">
+                                        Use the "Carry Forward" button to move unproduced batches into the next shift.
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-3">
+                                <span class="flex-shrink-0 w-6 h-6 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 rounded-full flex items-center justify-center text-xs font-bold">6</span>
+                                <div>
+                                    <p class="font-semibold text-sm text-zinc-900 dark:text-zinc-100">Shift Summary Cards</p>
+                                    <p class="text-xs text-zinc-600 dark:text-zinc-400">
+                                        Bottom summary cards aggregate totals across all products for quick end-of-shift review.
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -1071,6 +1204,7 @@
                             <li>At end of shift, do physical count and enter as "Closing"</li>
                             <li>If variance is high, investigate - it could indicate theft, waste, or counting errors</li>
                             <li>Click "Save All" button after making changes to multiple rows</li>
+                            <li>Use "Carry Forward" if you still have pending batches at shift end</li>
                         </ul>
                     </div>
                 </div>
@@ -1080,6 +1214,44 @@
                     <button wire:click="toggleHelpModal"
                             class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">
                         Got it!
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Carry Forward Confirmation Modal -->
+    @if($showCarryForwardConfirm)
+    <div class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="carry-forward-modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" wire:click="closeCarryForwardConfirm"></div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div class="relative inline-block align-bottom bg-white dark:bg-zinc-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full z-50">
+                <div class="bg-purple-600 px-6 py-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-white" id="carry-forward-modal-title">Carry Forward Remaining Batches</h3>
+                        <button wire:click="closeCarryForwardConfirm" class="text-white hover:text-gray-200">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="bg-white dark:bg-zinc-800 px-6 py-6">
+                    <p class="text-sm text-zinc-700 dark:text-zinc-300">
+                        This will move any remaining batches for this product to the next shift and create the next shift's daily produce entry.
+                        You can continue production in the next shift.
+                    </p>
+                </div>
+                <div class="bg-zinc-50 dark:bg-zinc-900 px-6 py-4 flex justify-end gap-2">
+                    <button wire:click="closeCarryForwardConfirm"
+                            class="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 text-zinc-800 rounded-lg font-medium">
+                        Cancel
+                    </button>
+                    <button wire:click="confirmCarryForward"
+                            class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium">
+                        Yes, Carry Forward
                     </button>
                 </div>
             </div>

@@ -24,6 +24,7 @@ class Product extends Model
         'category_id',
         'description',
         'price',
+        'vat_rate',
         'cost',
         'shelf_life_days',
         'uom_id',
@@ -44,6 +45,7 @@ class Product extends Model
     protected $casts = [
         'sales_department_id' => 'integer',
         'price' => 'decimal:2',
+        'vat_rate' => 'decimal:2',
         'cost' => 'decimal:2',
         'shelf_life_days' => 'integer',
         'uom_id' => 'integer',

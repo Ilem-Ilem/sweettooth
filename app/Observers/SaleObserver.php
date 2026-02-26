@@ -57,8 +57,8 @@ class SaleObserver
 
             // Update posting status
             $sale->update([
-                'gl_posting_status' => 'posted',
-                'gl_posted_at' => now(),
+                'gl_posting_status' => 'draft',
+                'gl_posted_at' => null,
                 'gl_posting_error' => null,
             ]);
 

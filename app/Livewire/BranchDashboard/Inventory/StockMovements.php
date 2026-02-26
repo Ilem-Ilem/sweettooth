@@ -86,14 +86,14 @@ class StockMovements extends Component
         return [
             'today' => [
                 'stock_in' => (float) ($todayQuery->clone()->whereIn('type', ['in', 'return'])->sum('quantity') ?? 0),
-                'stock_out' => abs((float) ($todayQuery->clone()->whereIn('type', ['out', 'damaged', 'transfer'])->sum('quantity') ?? 0)),
-                'transfers' => $todayQuery->clone()->where('type', 'transfer')->count(),
+                'stock_out' => abs((float) ($todayQuery->clone()->whereIn('type', ['out', 'damaged', 'transfer', 'department_transfer'])->sum('quantity') ?? 0)),
+                'transfers' => $todayQuery->clone()->whereIn('type', ['transfer', 'department_transfer'])->count(),
                 'total_movements' => $todayQuery->count(),
             ],
             'week' => [
                 'stock_in' => (float) ($weekQuery->clone()->whereIn('type', ['in', 'return'])->sum('quantity') ?? 0),
-                'stock_out' => abs((float) ($weekQuery->clone()->whereIn('type', ['out', 'damaged', 'transfer'])->sum('quantity') ?? 0)),
-                'transfers' => $weekQuery->clone()->where('type', 'transfer')->count(),
+                'stock_out' => abs((float) ($weekQuery->clone()->whereIn('type', ['out', 'damaged', 'transfer', 'department_transfer'])->sum('quantity') ?? 0)),
+                'transfers' => $weekQuery->clone()->whereIn('type', ['transfer', 'department_transfer'])->count(),
                 'total_movements' => $weekQuery->count(),
             ],
             'last_week' => [
@@ -102,7 +102,7 @@ class StockMovements extends Component
             'filtered' => [
                 'total_movements' => $filteredQuery->count(),
                 'stock_in' => (float) ($filteredQuery->clone()->whereIn('type', ['in', 'return'])->sum('quantity') ?? 0),
-                'stock_out' => abs((float) ($filteredQuery->clone()->whereIn('type', ['out', 'damaged', 'transfer'])->sum('quantity') ?? 0)),
+                'stock_out' => abs((float) ($filteredQuery->clone()->whereIn('type', ['out', 'damaged', 'transfer', 'department_transfer'])->sum('quantity') ?? 0)),
             ],
             'latest_movement' => $filteredQuery->latest('movement_date')->first()?->movement_date,
             'most_moved_item' => $this->getMostMovedItem($branchId),

@@ -52,7 +52,7 @@ class SalesDashboard extends BaseDashboard
 
         // No active shift - redirect to clock-in
         if (!$activeShift) {
-            $this->redirect(route('branch-dashboard.clock-in-board.today', ['b_id' => $branchId]));
+            $this->redirect(route('branch-dashboard.select_shift', ['b_id' => $branchId]));
             return;
         }
 

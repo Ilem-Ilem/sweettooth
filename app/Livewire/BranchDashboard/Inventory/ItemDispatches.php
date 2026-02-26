@@ -8,10 +8,14 @@ use App\Models\ItemRequestDetail;
 use App\Models\Stock;
 use App\Models\StockMovement;
 use App\Services\AuditService;
+use App\Notifications\ItemRequestApprovedNotification;
+use App\Notifications\ItemRequestDispatchedNotification;
+use App\Services\NotificationRecipientService;
 use App\Services\UomConversionService;
 use App\Traits\Exportable;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
@@ -373,6 +377,28 @@ class ItemDispatches extends Component
                         'Items: '.implode(', ', $approvedItems),
                         'completed'
                     );
+
+                    $recipients = app(NotificationRecipientService::class)
+                        ->usersForRolesInDepartment(
+                            config('notifications.roles.production', []),
+                            $request->branch_id,
+                            $request->department_id
+                        );
+                    if ($request->requester) {
+                        $recipients = $recipients->merge([$request->requester]);
+                    }
+                    $recipients = $recipients->unique('id');
+
+                    $actor = Auth::guard('web')->user();
+                    if ($actor) {
+                        $request->update([
+                            'approved_by_id' => $actor->id,
+                            'approved_by_type' => get_class($actor),
+                            'approved_at' => now(),
+                        ]);
+                    }
+
+                    Notification::send($recipients, new ItemRequestApprovedNotification($request));
                 }
 
             });
@@ -481,8 +507,9 @@ class ItemDispatches extends Component
 
             // Track warnings and skipped items
             $lowStockWarnings = [];
+            $dispatchedSummary = [];
 
-            DB::transaction(function () use ($branchId, &$lowStockWarnings) {
+            DB::transaction(function () use ($branchId, &$lowStockWarnings, &$dispatchedSummary) {
                 // Verify request belongs to this branch
                 $request = ItemRequest::where('id', $this->requestId)
                     ->where('branch_id', $branchId)
@@ -580,6 +607,8 @@ class ItemDispatches extends Component
 
                     $dispatchedCount++;
 
+                    $dispatchedSummary[] = "{$item['item_name']}: {$dispatchQtyRequestUom} {$item['uom']}";
+
                     logger()->info('Item dispatched', [
                         'item_id' => $item['item_id'],
                         'item_name' => $item['item_name'],
@@ -597,6 +626,9 @@ class ItemDispatches extends Component
                     'status' => $request->isFullyDispatched()
                         ? 'completed'
                         : 'partially_dispatched',
+                    'dispatched_by_id' => Auth::guard('web')->id(),
+                    'dispatched_by_type' => Auth::guard('web')->user() ? get_class(Auth::guard('web')->user()) : null,
+                    'dispatched_at' => now(),
                 ]);
 
                 // Prepare audit description
@@ -631,6 +663,33 @@ class ItemDispatches extends Component
                 $this->toast()->warning($message)->send();
             } else {
                 $this->toast()->success('All approved items dispatched successfully. Stock updated')->send();
+            }
+
+            try {
+                $request = ItemRequest::with(['department', 'requestedBy', 'dispatcher', 'requestDetails.item', 'requestDetails.unitOfMeasure'])
+                    ->find($this->requestId);
+                if ($request) {
+                    $recipients = app(NotificationRecipientService::class)
+                        ->usersForRolesInDepartment(
+                            config('notifications.roles.production', []),
+                            $request->branch_id,
+                            $request->department_id
+                        );
+                    if ($request->requester) {
+                        $recipients = $recipients->merge([$request->requester]);
+                    }
+                    $recipients = $recipients->unique('id');
+
+                    Notification::send(
+                        $recipients,
+                        new ItemRequestDispatchedNotification($request, $dispatchedSummary)
+                    );
+                }
+            } catch (\Throwable $e) {
+                logger()->error('Dispatch notification failed', [
+                    'request_id' => $this->requestId,
+                    'error' => $e->getMessage(),
+                ]);
             }
 
             $this->closeModal();

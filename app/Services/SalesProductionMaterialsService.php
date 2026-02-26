@@ -12,8 +12,11 @@ use App\Models\ProductionRequest;
 use App\Models\Recipe;
 use App\Models\SalesProductionItemMaterialRequest;
 use App\Models\SalesProductionRequestItem;
+use App\Notifications\ItemRequestCreatedNotification;
+use App\Services\NotificationRecipientService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Notification;
 use App\Services\UomConversionService;
 
 class SalesProductionMaterialsService
@@ -42,6 +45,13 @@ class SalesProductionMaterialsService
             }
 
             $currentStatus = $this->normalizeStatus($item->status);
+            if ($currentStatus === SalesProductionRequestStatus::PENDING) {
+                /** @var SalesProductionRequestWorkflowService $workflow */
+                $workflow = app(SalesProductionRequestWorkflowService::class);
+                $item = $workflow->transitionItem($item, SalesProductionRequestStatus::APPROVED_BY_PRODUCTION);
+                $currentStatus = $this->normalizeStatus($item->status);
+            }
+
             if (
                 $currentStatus !== SalesProductionRequestStatus::APPROVED_BY_PRODUCTION
                 && $currentStatus !== SalesProductionRequestStatus::MATERIALS_REQUESTED
@@ -167,6 +177,15 @@ class SalesProductionMaterialsService
             $this->transitionToMaterialsRequested($item, $itemRequest->request_number);
             $this->attachItemRequestToExecutionRequests($item, $itemRequest->id);
 
+            $recipients = app(NotificationRecipientService::class)
+                ->usersForRoles(config('notifications.roles.inventory', []), $branchId);
+            if ($itemRequest->requester) {
+                $recipients = $recipients->merge([$itemRequest->requester]);
+            }
+            $recipients = $recipients->unique('id');
+
+            Notification::send($recipients, new ItemRequestCreatedNotification($itemRequest));
+
             return $link->fresh(['itemRequest', 'salesItem']);
         });
     }
@@ -205,7 +224,8 @@ class SalesProductionMaterialsService
                     $item->notes,
                     "Materials approved via inventory request {$itemRequest->request_number}."
                 ),
-            ]
+            ],
+            false
         );
     }
 
@@ -314,12 +334,16 @@ class SalesProductionMaterialsService
 
         /** @var SalesProductionRequestWorkflowService $workflow */
         $workflow = app(SalesProductionRequestWorkflowService::class);
+        if ($this->normalizeStatus($item->status) === SalesProductionRequestStatus::PENDING) {
+            $item = $workflow->transitionItem($item, SalesProductionRequestStatus::APPROVED_BY_PRODUCTION, [], true);
+        }
         $workflow->transitionItem(
             $item,
             SalesProductionRequestStatus::MATERIALS_REQUESTED,
             [
                 'notes' => $this->appendNote($item->notes, "Materials requested: {$requestNumber}."),
-            ]
+            ],
+            false
         );
     }
 

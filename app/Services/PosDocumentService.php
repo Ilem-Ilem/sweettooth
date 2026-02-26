@@ -53,7 +53,6 @@ class PosDocumentService
 
         $subtotal = $this->currencyService->formatAmount($sale->subtotal);
         $discount = $this->currencyService->formatAmount($sale->discount);
-        $tax = $this->currencyService->formatAmount($sale->tax);
         $total = $this->currencyService->formatAmount($sale->total);
         $date = $sale->created_at->format('Y-m-d H:i:s');
         $orderType = ucfirst(str_replace('-', ' ', $sale->order_type ?? 'dine-in'));
@@ -64,11 +63,6 @@ class PosDocumentService
                 <td style=\"text-align: right; padding: 4px 0;\">-{$symbol}{$discount}</td>
             </tr>" : '';
 
-        $taxRow = $sale->tax > 0 ? "
-            <tr>
-                <td colspan=\"3\" style=\"text-align: right; padding: 4px 8px;\">Tax:</td>
-                <td style=\"text-align: right; padding: 4px 0;\">{$symbol}{$tax}</td>
-            </tr>" : '';
 
         $receiptNumber = $sale->receipt_number ?? 'N/A';
 
@@ -127,7 +121,6 @@ class PosDocumentService
                     <td style="text-align: right; padding: 4px 0;">{$symbol}{$subtotal}</td>
                 </tr>
                 {$discountRow}
-                {$taxRow}
                 <tr style="border-top: 1px solid #333; border-bottom: 1px solid #333; font-weight: bold;">
                     <td colspan="3" style="text-align: right; padding: 4px 8px;">TOTAL:</td>
                     <td style="text-align: right; padding: 4px 0;">{$symbol}{$total}</td>
@@ -184,7 +177,6 @@ class PosDocumentService
 
         $subtotal = $this->currencyService->formatAmount($sale->subtotal);
         $discount = $this->currencyService->formatAmount($sale->discount);
-        $tax = $this->currencyService->formatAmount($sale->tax);
         $total = $this->currencyService->formatAmount($sale->total);
         $date = $sale->created_at->format('Y-m-d');
 
@@ -194,11 +186,6 @@ class PosDocumentService
                 <td style=\"text-align: right; padding: 8px;\">-{$symbol}{$discount}</td>
             </tr>" : '';
 
-        $taxRow = $sale->tax > 0 ? "
-            <tr>
-                <td colspan=\"2\" style=\"text-align: right; padding: 8px;\">Tax:</td>
-                <td style=\"text-align: right; padding: 8px;\">{$symbol}{$tax}</td>
-            </tr>" : '';
 
         return <<<HTML
         <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 40px; background: white;">
@@ -238,7 +225,6 @@ class PosDocumentService
                         <td style=\"text-align: right; padding: 8px; width: 120px;\">{$symbol}{$subtotal}</td>
                     </tr>
                     {$discountRow}
-                    {$taxRow}
                     <tr style=\"background-color: #f5f5f5; border-top: 2px solid #333; border-bottom: 2px solid #333; font-weight: bold; font-size: 16px;\">
                         <td style=\"text-align: right; padding: 12px;\">TOTAL:</td>
                         <td style=\"text-align: right; padding: 12px;\">{$symbol}{$total}</td>

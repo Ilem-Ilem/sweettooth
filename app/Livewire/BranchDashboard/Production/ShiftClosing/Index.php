@@ -8,6 +8,7 @@ use App\Models\ProductionRecord;
 use App\Models\DailyProduce;
 use App\Models\Branch;
 use App\Models\Department;
+use App\Services\ProductionShiftRolloverService;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
@@ -382,6 +383,17 @@ class Index extends BaseComponent
                 ->whereDate('request_date', $this->shiftDate)
                 ->where('status', 'dispatched')
                 ->update(['status' => 'completed']);
+
+            // 6. Carry forward pending batches to the next shift (reuse existing requests)
+            $rollover = app(ProductionShiftRolloverService::class)
+                ->carryForwardPendingBatches($shift);
+
+            if (!empty($rollover['carried_forward_count'])) {
+                $shiftSummary['carry_forwarded_requests'] = $rollover['carried_forward_count'];
+                $shiftSummary['next_shift_id'] = $rollover['next_shift_id'];
+                $shift->notes = json_encode($shiftSummary);
+                $shift->save();
+            }
 
             // TODO for next iteration:
             // - Update inventory stocks based on actual material usage

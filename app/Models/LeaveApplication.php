@@ -6,6 +6,8 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use App\Services\LeaveAuditService;
+use App\Notifications\LeaveApplicationApproved;
+use App\Notifications\LeaveApplicationRejected;
 
 class LeaveApplication extends Model
 {
@@ -150,6 +152,10 @@ class LeaveApplication extends Model
         if ($approver) {
             LeaveAuditService::logLeaveApproval($this, $approver, $notes);
         }
+
+        if ($this->employee) {
+            $this->employee->notify(new LeaveApplicationApproved($this));
+        }
     }
 
     public function reject($rejecterId, $rejecterType, $reason)
@@ -168,6 +174,10 @@ class LeaveApplication extends Model
         $rejector = $this->rejectedBy;
         if ($rejector) {
             LeaveAuditService::logLeaveRejection($this, $rejector, $reason);
+        }
+
+        if ($this->employee) {
+            $this->employee->notify(new LeaveApplicationRejected($this));
         }
     }
 

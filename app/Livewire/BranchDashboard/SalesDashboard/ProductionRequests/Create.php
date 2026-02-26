@@ -7,8 +7,11 @@ use App\Models\Department;
 use App\Models\Product;
 use App\Models\SalesProductionRequest;
 use App\Models\SalesProductionRequestItem;
+use App\Notifications\SalesProductionRequestCreatedNotification;
+use App\Services\NotificationRecipientService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -380,7 +383,9 @@ class Create extends Component
         $branchCode = strtoupper(substr(str_replace('-', '', $branchId), 0, 8));
 
         try {
-            DB::transaction(function () use ($branchId, $salesDeptCode, $branchCode) {
+            $request = null;
+            $productionDepartmentIds = [];
+            DB::transaction(function () use ($branchId, $salesDeptCode, $branchCode, &$request, &$productionDepartmentIds) {
                 $request = SalesProductionRequest::create([
                     'branch_id' => $branchId,
                     'sales_department_id' => $this->departmentId,
@@ -409,8 +414,20 @@ class Create extends Component
                     }
 
                     SalesProductionRequestItem::create($payload);
+                    if (! empty($item['production_department_id'])) {
+                        $productionDepartmentIds[] = (int) $item['production_department_id'];
+                    }
                 }
             });
+
+            if ($request) {
+                $recipients = app(NotificationRecipientService::class)
+                    ->usersForRoles(config('notifications.roles.production', []), $branchId);
+                Notification::send(
+                    $recipients,
+                    new SalesProductionRequestCreatedNotification($request, $productionDepartmentIds)
+                );
+            }
 
             $this->toast()->success('Sales production request submitted successfully.')->send();
             $this->submitSuccess = 'Sales production request submitted successfully.';

@@ -4,8 +4,11 @@ namespace App\Livewire\BranchDashboard\ReportingDepartment\SendToMD;
 
 use App\Models\CompiledReport;
 use App\Models\User;
+use App\Notifications\ReportSentToMDNotification;
+use App\Services\NotificationRecipientService;
 use App\Services\Reports\ReportCompilationService;
 use App\Services\SidebarVisibilityService;
+use Illuminate\Support\Facades\Notification;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
@@ -86,6 +89,21 @@ class Index extends Component
             $compilationService = new ReportCompilationService;
 
             $compilationService->sendToMD($this->reportToSend, $this->selectedMdUser);
+
+            $branchId = $this->reportToSend->branch_id ?? $this->b_id ?? current_branch_id();
+            $reportingRecipients = app(NotificationRecipientService::class)
+                ->usersForPermission('view-reports', $branchId);
+            $roleRecipients = app(NotificationRecipientService::class)
+                ->usersForRoles(array_merge(
+                    config('notifications.roles.hr', []),
+                    config('notifications.roles.admin', [])
+                ), $branchId);
+            $mdUser = User::find($this->selectedMdUser);
+            $recipients = $reportingRecipients
+                ->merge($roleRecipients)
+                ->merge($mdUser ? collect([$mdUser]) : collect())
+                ->unique('id');
+            Notification::send($recipients, new ReportSentToMDNotification($this->reportToSend));
 
             $this->toast()->success('Report sent to MD successfully!')->send();
             $this->showSendModal = false;

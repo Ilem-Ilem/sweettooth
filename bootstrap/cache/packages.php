@@ -1,4 +1,11 @@
 <?php return array (
+  'aerni/cloudflared' => 
+  array (
+    'providers' => 
+    array (
+      0 => 'Aerni\\Cloudflared\\CloudflaredServiceProvider',
+    ),
+  ),
   'barryvdh/laravel-dompdf' => 
   array (
     'aliases' => 

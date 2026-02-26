@@ -101,7 +101,7 @@
     </div>
 
     <!-- Filters Section -->
-    <div x-data="{ open: false, advanced: false }"
+    <div x-data="{ open: false }"
         class="bg-white dark:bg-zinc-800 rounded-2xl shadow-md border border-zinc-200 dark:border-zinc-700 transition-all duration-300">
         <!-- Header / Toggle Button -->
         <div class="flex justify-between items-center p-4 border-b border-zinc-200 dark:border-zinc-700">
@@ -129,53 +129,26 @@
         <!-- Filter Body -->
         <div x-show="open" x-collapse class="p-4 space-y-6" x-cloak>
             <!-- Basic Filters -->
-            <div class="">
-                <!-- Advanced Search Toggle -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Advanced
-                        Search</label>
-                    <button @click="advanced = !advanced"
-                        class="flex items-center w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-zinc-50 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-600 transition-colors duration-200">
-                        <svg class="w-5 h-5 mr-2 text-zinc-500" fill="none" stroke="currentColor"
-                            viewBox="0 0 24 24">
-                            <path x-show="!advanced" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M5 12h14M12 5l7 7-7 7" />
-                            <path x-show="advanced" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M19 12H5m7 7l-7-7 7-7" />
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Search</label>
+                    <div class="relative">
+                        <input type="text" wire:model.live="search" placeholder="Search keyword..."
+                            class="w-full pl-10 pr-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                        <svg class="absolute left-3 top-2.5 w-5 h-5 text-zinc-400" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
-                        <span x-text="advanced ? 'Hide Advanced' : 'Show Advanced'"></span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Advanced Search Dropdown -->
-            <div x-show="advanced" x-collapse
-                class="p-4 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-zinc-50 dark:bg-zinc-900/50 mt-4">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <!-- Search -->
-                    <div class="md:col-span-1">
-                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Search</label>
-                        <div class="relative">
-                            <input type="text" wire:model.live="advancedSearch" placeholder="Search keyword..."
-                                class="w-full pl-10 pr-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
-                            <svg class="absolute left-3 top-2.5 w-5 h-5 text-zinc-400" fill="none"
-                                stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
-                        </div>
                     </div>
-
-                    <!-- Date Range -->
-                    <div class="md:col-span-2">
-                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Date
-                            Range</label>
-                        <div class="flex space-x-2">
-                            <input type="date" wire:model.live="dateFrom"
-                                class="w-1/2 px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
-                            <input type="date" wire:model.live="dateTo"
-                                class="w-1/2 px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
-                        </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Date Range</label>
+                    <div class="flex space-x-2">
+                        <input type="date" wire:model.live="dateFrom"
+                            class="w-1/2 px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                        <input type="date" wire:model.live="dateTo"
+                            class="w-1/2 px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
                     </div>
                 </div>
             </div>
@@ -202,6 +175,18 @@
                         <option value="">All Departments</option>
                         @foreach ($departments as $department)
                             <option value="{{ $department->id }}">{{ $department->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <!-- Role Filter -->
+                <div>
+                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Role</label>
+                    <select wire:model.live="filterRole"
+                        class="w-full px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Roles</option>
+                        @foreach ($roles as $role)
+                            <option value="{{ $role->id }}">{{ ucfirst($role->name) }}</option>
                         @endforeach
                     </select>
                 </div>

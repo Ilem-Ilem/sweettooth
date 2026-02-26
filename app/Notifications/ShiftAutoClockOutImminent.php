@@ -62,6 +62,8 @@ class ShiftAutoClockOutImminent extends Notification implements ShouldQueue
             'shift_id' => $this->shift->id,
             'shift_type' => $this->shift->shift_type,
             'minutes_until_auto_clock' => $this->minutesUntilAutoClockOut,
+            'branch_id' => $this->shift->branch_id,
+            'branch_name' => $this->shift->branch?->name,
             'clock_in_time' => $this->shift->clock_in->toDateTimeString(),
             'auto_clock_time' => now()->addMinutes($this->minutesUntilAutoClockOut)->toDateTimeString(),
             'message' => "Your {$this->shift->shift_type} shift will auto clock out in {$this->minutesUntilAutoClockOut} minutes",

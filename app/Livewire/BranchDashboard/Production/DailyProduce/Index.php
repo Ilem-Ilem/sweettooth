@@ -12,6 +12,7 @@ use App\Models\SalesProductionItemMaterialRequest;
 use App\Models\SalesProductionRequestItem;
 use App\Models\Shift;
 use App\Services\ProductionAuditService;
+use App\Services\ProductionShiftRolloverService;
 use App\Services\SalesProductionDispatchService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -41,6 +42,8 @@ class Index extends Component
     public $showRecordModal = false;
     public $recordingProduceId = null;
     public $showHelpModal = false;
+    public bool $showCarryForwardConfirm = false;
+    public ?int $carryForwardProduceId = null;
     public int $noShiftRequestsCount = 0;
 
     // For editing quantities
@@ -184,6 +187,64 @@ class Index extends Component
                 }
             }
         }
+    }
+
+    public function carryForwardRemaining(int $dailyProduceId): void
+    {
+        $produce = DailyProduce::with(['productionRequest', 'shift'])->find($dailyProduceId);
+        if (!$produce || !$produce->shift) {
+            $this->toast()->error('Unable to carry forward. Shift not found.')->send();
+            return;
+        }
+
+        if (!$produce->productionRequest) {
+            $this->toast()->error('Unable to carry forward. Production request missing.')->send();
+            return;
+        }
+
+        $produce->productionRequest->syncBatchFulfillmentFromDailyProduces(true);
+        if ($produce->productionRequest->getPendingBatches() <= 0) {
+            $this->toast()->info('No pending batches to carry forward.')->send();
+            return;
+        }
+
+        $rollover = app(ProductionShiftRolloverService::class)
+            ->carryForwardPendingBatches($produce->shift, [$produce->productionRequest->id]);
+
+        if (!empty($rollover['carried_forward_count'])) {
+            $this->toast()->success('Carried forward remaining batches to the next shift.')->send();
+        } else {
+            $this->toast()->info('No batches were carried forward.')->send();
+        }
+
+        $this->loadAvailableShifts();
+        $this->loadDailyProduces();
+    }
+
+    public function openCarryForwardConfirm(int $dailyProduceId): void
+    {
+        $this->carryForwardProduceId = $dailyProduceId;
+        $this->showCarryForwardConfirm = true;
+    }
+
+    public function closeCarryForwardConfirm(): void
+    {
+        $this->showCarryForwardConfirm = false;
+        $this->carryForwardProduceId = null;
+    }
+
+    public function confirmCarryForward(): void
+    {
+        if (!$this->carryForwardProduceId) {
+            $this->toast()->error('No product selected to carry forward.')->send();
+            return;
+        }
+
+        $this->showCarryForwardConfirm = false;
+        $dailyProduceId = $this->carryForwardProduceId;
+        $this->carryForwardProduceId = null;
+
+        $this->carryForwardRemaining($dailyProduceId);
     }
 
     /**
@@ -1019,10 +1080,16 @@ class Index extends Component
                 return;
             }
 
-            // CRITICAL: Prevent recording batches if status is completed (unless reopened)
+            // Prevent recording batches only if completed AND no pending batches remain.
+            // If pending batches exist, allow recording without forcing a manual reopen.
             if ($produce->status === 'completed') {
-                $this->toast()->error('This production is marked as completed. Please reopen it first to record more batches.')->send();
-                return;
+                $produce->syncBatchFulfillmentFields();
+                $produce->refresh();
+                $pending = (int) ($produce->productionRequest?->batches_pending ?? 0);
+                if ($pending <= 0) {
+                    $this->toast()->error('This production is marked as completed and has no pending batches. Reopen it if you need to continue.')->send();
+                    return;
+                }
             }
 
             // VALIDATION: Check if total production would exceed requested quantity
@@ -1090,6 +1157,12 @@ class Index extends Component
 
             $produce->updateCalculations();
             $produce->syncBatchFulfillmentFields();
+            $produce->refresh();
+
+            if ((int) ($produce->productionRequest?->batches_pending ?? 0) <= 0) {
+                $produce->status = 'completed';
+                $produce->saveQuietly();
+            }
 
             $this->toast()->success("Production batch recorded successfully! Total produced: {$totalProduced}")->send();
             $this->closeRecordModal();

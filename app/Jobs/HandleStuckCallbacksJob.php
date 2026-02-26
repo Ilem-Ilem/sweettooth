@@ -4,8 +4,8 @@ namespace App\Jobs;
 
 use App\Enums\CallbackStatus;
 use App\Models\ProductDispatchCallback;
-use App\Models\User;
-use App\Services\SidebarVisibilityService;
+use App\Services\NotificationRecipientService;
+use App\Notifications\StuckCallbackNotification;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -138,15 +138,11 @@ class HandleStuckCallbacksJob implements ShouldQueue
      */
     protected function notifyBranchManagers($branchId, $callbacks): void
     {
-        // Find managers for this branch
-        $managers = User::where('branch_id', $branchId)
-            ->whereHas('roles', function ($q) {
-                $q->whereIn('name', ['Manager', 'Admin', 'Super Admin']);
-            })
-            ->get();
+        $recipients = app(NotificationRecipientService::class)
+            ->usersForRoles(config('notifications.roles.inventory', []), $branchId);
 
-        if ($managers->isEmpty()) {
-            Log::warning('No managers found for branch', ['branch_id' => $branchId]);
+        if ($recipients->isEmpty()) {
+            Log::warning('No inventory recipients found for branch', ['branch_id' => $branchId]);
             return;
         }
 
@@ -159,14 +155,19 @@ class HandleStuckCallbacksJob implements ShouldQueue
         $message .= "- {$approvedCount} callbacks approved but not received for over {$this->approvedTimeoutHours} hours\n";
         $message .= "Please review and process these callbacks.";
 
-        Log::info('Notification would be sent to managers', [
+        Log::info('Sending stuck callback notification', [
             'branch_id' => $branchId,
-            'manager_count' => $managers->count(),
+            'recipient_count' => $recipients->count(),
             'message' => $message,
         ]);
 
-        // TODO: Uncomment when notification class is created
-        // Notification::send($managers, new StuckCallbacksNotification($callbacks, $message));
+        $branchContext = app(NotificationRecipientService::class)->branchContext($branchId);
+        $summary = [
+            'pending' => $pendingCount,
+            'approved' => $approvedCount,
+            'total' => $callbacks->count(),
+        ];
+        Notification::send($recipients, new StuckCallbackNotification($summary, $branchContext));
     }
 
     /**

@@ -112,6 +112,41 @@
         </div>
     </div>
 
+    <!-- Sales Return Callbacks -->
+    @if(!empty($salesReturnCallbacks))
+    <div class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 p-4">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Sales Return Callbacks (Latest)</h3>
+            <a href="{{ branch_route('branch-dashboard.production.callbacks.approve') }}"
+                class="text-xs text-purple-700 dark:text-purple-300 underline">
+                Review & Approve
+            </a>
+        </div>
+        <div class="divide-y divide-zinc-200 dark:divide-zinc-700">
+            @foreach($salesReturnCallbacks as $callback)
+                <div class="py-2 flex items-center justify-between text-sm">
+                    <div>
+                        <div class="font-medium text-zinc-900 dark:text-zinc-100">
+                            {{ $callback->product?->name ?? 'Unknown Product' }}
+                        </div>
+                        <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                            {{ $callback->callback_time ? $callback->callback_time->format('M d, Y H:i') : 'N/A' }}
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="font-semibold text-zinc-900 dark:text-zinc-100">
+                            {{ number_format($callback->quantity, 2) }} {{ $callback->uom }}
+                        </div>
+                        <div class="text-xs text-zinc-500 dark:text-zinc-400">
+                            {{ ucfirst($callback->status?->value ?? (string) $callback->status) }}
+                        </div>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    </div>
+    @endif
+
     <!-- Filters Section -->
     <div x-data="{ open: false }"
         class="bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700">

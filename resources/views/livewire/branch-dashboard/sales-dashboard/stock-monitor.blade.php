@@ -26,7 +26,7 @@
     </div>
 
     <!-- Alert if no shift -->
-    @if (!$currentShiftId)
+    @if (!$departmentId)
         <div class="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-4 rounded">
             <div class="flex items-center">
                 <svg class="w-5 h-5 text-yellow-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -35,14 +35,14 @@
                 </svg>
                 <div>
                     <h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-200">No Active Shift</h3>
-                    <p class="text-sm text-yellow-700 dark:text-yellow-300 mt-1">Please clock in to view stock data.</p>
+                    <p class="text-sm text-yellow-700 dark:text-yellow-300 mt-1">Sales department context is missing.</p>
                 </div>
             </div>
         </div>
     @endif
 
     <!-- Stats Cards -->
-    @if ($currentShiftId)
+    @if ($departmentId)
         <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
             <!-- Total Products -->
             <div class="bg-white dark:bg-zinc-800 rounded-lg p-4 border border-zinc-200 dark:border-zinc-700 shadow-sm">
@@ -159,8 +159,8 @@
 
         @interact('column_product', $row)
             <div>
-                <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $row->product->name }}</div>
-                <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $row->product->sku }}</div>
+                <div class="font-normal text-zinc-900 dark:text-zinc-100">{{ $row->product->name }}</div>
+                <div class="text-xs font-normal text-zinc-500 dark:text-zinc-400">{{ $row->product->sku }}</div>
             </div>
         @endinteract
 
@@ -175,7 +175,7 @@
                 }
             @endphp
             <div class="text-center">
-                <span class="text-2xl font-bold {{ $stockColor }}">
+                <span class="text-2xl font-normal {{ $stockColor }}">
                     {{ number_format($currentStock, 2) }}
                 </span>
                 <span class="text-sm text-zinc-600 dark:text-zinc-400 ml-1">
@@ -191,25 +191,25 @@
         @endinteract
 
         @interact('column_additions', $row)
-            <div class="text-center text-sm text-blue-600 dark:text-blue-400 font-medium">
+            <div class="text-center text-sm text-blue-600 dark:text-blue-400 font-normal">
                 +{{ number_format($row->addition_quantity, 2) }} {{ $row->product->uom }}
             </div>
         @endinteract
 
         @interact('column_sold', $row)
-            <div class="text-center text-sm text-purple-600 dark:text-purple-400 font-medium">
+            <div class="text-center text-sm text-purple-600 dark:text-purple-400 font-normal">
                 -{{ number_format($row->quantity_sold, 2) }} {{ $row->product->uom }}
             </div>
         @endinteract
 
         @interact('column_callbacks', $row)
-            <div class="text-center text-sm text-red-600 dark:text-red-400 font-medium">
+            <div class="text-center text-sm text-red-600 dark:text-red-400 font-normal">
                 -{{ number_format($row->callback_quantity, 2) }} {{ $row->product->uom }}
             </div>
         @endinteract
 
         @interact('column_closing', $row)
-            <div class="text-center text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+            <div class="text-center text-sm font-normal text-zinc-900 dark:text-zinc-100">
                 {{ number_format($row->closing_quantity, 2) }} {{ $row->product->uom }}
             </div>
         @endinteract

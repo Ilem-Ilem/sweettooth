@@ -19,6 +19,9 @@ class GlAccount extends Model
         'account_type',
         'account_category',
         'description',
+        'opening_debit',
+        'opening_credit',
+        'opening_balance_date',
         'debit_balance',
         'credit_balance',
         'normal_balance',
@@ -29,6 +32,9 @@ class GlAccount extends Model
     ];
 
     protected $casts = [
+        'opening_debit' => 'decimal:2',
+        'opening_credit' => 'decimal:2',
+        'opening_balance_date' => 'date',
         'debit_balance' => 'decimal:2',
         'credit_balance' => 'decimal:2',
         'is_header' => 'boolean',

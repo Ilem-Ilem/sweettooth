@@ -4,6 +4,9 @@ namespace App\Livewire\BranchDashboard\ReportingDepartment\ReviewReports;
 
 use App\Models\DepartmentReport;
 use App\Services\SidebarVisibilityService;
+use App\Services\NotificationRecipientService;
+use App\Notifications\ReportApprovedNotification;
+use App\Notifications\ReportRejectedNotification;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
@@ -11,6 +14,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 use TallStackUi\Traits\Interactions;
+use Illuminate\Support\Facades\Notification;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 #[Title('Review Reports')]
@@ -141,6 +145,18 @@ class Index extends Component
                 $this->reviewNotes
             );
 
+            $report = $this->selectedReport->fresh(['department', 'branch']);
+            $branchId = $report->branch_id ?? $this->b_id ?? current_branch_id();
+            $reportingRecipients = app(NotificationRecipientService::class)
+                ->usersForPermission('view-reports', $branchId);
+            $roleRecipients = app(NotificationRecipientService::class)
+                ->usersForRoles(array_merge(
+                    config('notifications.roles.hr', []),
+                    config('notifications.roles.admin', [])
+                ), $branchId);
+            $recipients = $reportingRecipients->merge($roleRecipients)->unique('id');
+            Notification::send($recipients, new ReportApprovedNotification($report));
+
             $this->toast()->success('Report approved successfully!')->send();
             $this->closeReviewModal();
 
@@ -172,6 +188,22 @@ class Index extends Component
                 'reviewed_at' => now(),
                 'review_notes' => $this->reviewNotes,
             ]);
+
+            $report = $this->selectedReport->fresh(['department', 'branch']);
+            $branchId = $report->branch_id ?? $this->b_id ?? current_branch_id();
+            $reportingRecipients = app(NotificationRecipientService::class)
+                ->usersForPermission('view-reports', $branchId);
+            $roleRecipients = app(NotificationRecipientService::class)
+                ->usersForRoles(array_merge(
+                    config('notifications.roles.hr', []),
+                    config('notifications.roles.admin', [])
+                ), $branchId);
+            $departmentRecipients = $report->department?->employees ?? collect();
+            $recipients = $reportingRecipients
+                ->merge($roleRecipients)
+                ->merge($departmentRecipients)
+                ->unique('id');
+            Notification::send($recipients, new ReportRejectedNotification($report));
 
             $this->toast()->success('Report rejected. Notes saved.')->send();
             $this->closeReviewModal();

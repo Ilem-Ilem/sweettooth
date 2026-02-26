@@ -41,9 +41,12 @@ class Router extends Component
         }
         $deptSlug = $currentUser->department?->slug;
         $canSuperAdmin = $currentUser->hasAnyPermission(['manage-branches', 'manage-roles', 'manage-settings']) || is_super_admin();
+        $isAdminRole = $currentUser->hasAnyRole(['Admin', 'Super Admin', 'Managing Director'])
+            || (isset($currentUser->user_type) && $currentUser->user_type === 'admin');
+        $isAccountingRole = $currentUser->hasAnyRole(['Accounting Manager', 'Accountant', 'Cost Accountant']);
         // Admin dashboard should be limited to true Admin-level users
         // (HR/manage-organization should land on Support/HR dashboard instead)
-        $canAdminDashboard = $roleLevel >= SidebarVisibilityService::LEVEL_ADMIN;
+        $canAdminDashboard = $isAdminRole || $roleLevel >= SidebarVisibilityService::LEVEL_ADMIN;
 
         \Log::info('Router: Department-based routing', [
             'user_id' => $currentUser->id,
@@ -58,9 +61,17 @@ class Router extends Component
             return Redirect::route('branch-dashboard.dashboards.super-admin', ['b_id' => $branchId]);
         }
 
-        // LEVEL 4: Admin -> Admin Dashboard
-        if ($canAdminDashboard) {
-            return Redirect::route('branch-dashboard.dashboards.admin', ['b_id' => $branchId]);
+        // Accounting roles should never land on Admin dashboard
+        if ($isAccountingRole) {
+            return Redirect::route('branch-dashboard.accounting.dashboard', ['b_id' => $branchId]);
+        }
+
+        // Role-based routing should take precedence for non-admin users
+        if (! $isAdminRole) {
+            $roleRoute = $this->routeByRole($currentUser, $branchId, $deptSlug);
+            if ($roleRoute) {
+                return $roleRoute;
+            }
         }
 
         // Check shift requirement for employees
@@ -76,10 +87,9 @@ class Router extends Component
             }
         }
 
-        // Route by ROLE (explicit mapping to avoid mis-categorized departments)
-        $route = $this->routeByRole($currentUser, $branchId, $deptSlug);
-        if ($route) {
-            return $route;
+        // LEVEL 4: Admin -> Admin Dashboard
+        if ($canAdminDashboard) {
+            return Redirect::route('branch-dashboard.dashboards.admin', ['b_id' => $branchId]);
         }
 
         // Route by DEPARTMENT CATEGORY

@@ -18,6 +18,10 @@ use App\Services\EmployeeApprovalService;
 use App\Services\DepartmentApprovalService;
 use App\Services\DepartmentCategoryApprovalService;
 use App\Services\CallbackApprovalService;
+use App\Services\NotificationRecipientService;
+use App\Notifications\ApprovalRequestApproved;
+use App\Notifications\ApprovalRequestRejected;
+use Illuminate\Support\Facades\Notification;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 #[Title("Audit Mnagement")]
@@ -142,6 +146,18 @@ class Index extends Component
 
             \Log::info('✅ [AUDIT APPROVAL] Request status updated');
 
+            $roles = array_merge(
+                config('notifications.roles.hr', []),
+                config('notifications.roles.admin', [])
+            );
+            $recipients = app(NotificationRecipientService::class)->usersForRoles($roles, $request->branch_id);
+            $requester = $request->requester;
+            if ($requester) {
+                $recipients = $recipients->merge([$requester]);
+            }
+            $recipients = $recipients->unique('id');
+            Notification::send($recipients, new ApprovalRequestApproved($request));
+
             // Log the approval action
             // Extract just the action type (e.g., "update:App\Models\Employee" -> "update")
             $baseAction = explode(':', $request->action)[0];
@@ -253,6 +269,7 @@ class Index extends Component
                 'create_purchase' => InventoryApprovalService::executePurchaseCreation($request, $this->getApprover()),
                 'delete_purchase' => InventoryApprovalService::executePurchaseDeletion($request, $this->getApprover()),
                 'approve_purchase' => PurchaseAuditApprovalService::approvePurchase($request, $this->getApprover()),
+                'accounting' => $this->handleAccountingAction($request),
                 // Production module handlers
                 'product' => $this->handleProductAction($request),
                 'recipe' => $this->handleRecipeAction($request),
@@ -355,6 +372,18 @@ class Index extends Component
         }
 
         try {
+            // Special handling for GL Account updates (opening balance / override balance)
+            if ($modelClass === \App\Models\GlAccount::class) {
+                $fillable = $auditable->getFillable();
+                $updateData = array_intersect_key($payload, array_flip($fillable));
+
+                if (!empty($updateData)) {
+                    $auditable->update($updateData);
+                }
+
+                return $auditable;
+            }
+
             // Extract only fillable fields for the model update
             $fillable = $auditable->getFillable();
             $updateData = array_intersect_key($payload, array_flip($fillable));
@@ -597,6 +626,18 @@ class Index extends Component
                     'denied_at' => now(),
                 ]);
             }
+
+            $roles = array_merge(
+                config('notifications.roles.hr', []),
+                config('notifications.roles.admin', [])
+            );
+            $recipients = app(NotificationRecipientService::class)->usersForRoles($roles, $request->branch_id);
+            $requester = $request->requester;
+            if ($requester) {
+                $recipients = $recipients->merge([$requester]);
+            }
+            $recipients = $recipients->unique('id');
+            Notification::send($recipients, new ApprovalRequestRejected($request));
 
             // Log the rejection action
             AuditService::log(
@@ -917,5 +958,42 @@ class Index extends Component
             'production' => CallbackApprovalService::executeProductionCallback($request, $approver),
             default => throw new \Exception("Unknown callback action: {$subAction}"),
         };
+    }
+
+    /**
+     * Handle accounting-related approval actions
+     */
+    private function handleAccountingAction(ApprovalAuditRequest $request)
+    {
+        $parts = explode(':', $request->action);
+        $subAction = $parts[1] ?? null;
+
+        return match ($subAction) {
+            'gl_account_update' => $this->handleGlAccountUpdate($request),
+            default => throw new \Exception("Unknown accounting action: {$request->action}"),
+        };
+    }
+
+    private function handleGlAccountUpdate(ApprovalAuditRequest $request)
+    {
+        $payload = $request->payload ?? [];
+        $accountId = $payload['id'] ?? null;
+        if (! $accountId) {
+            throw new \Exception('GL account id not provided');
+        }
+
+        $account = \App\Models\GlAccount::find($accountId);
+        if (! $account) {
+            throw new \Exception('GL account not found');
+        }
+
+        $fillable = $account->getFillable();
+        $updateData = array_intersect_key($payload, array_flip($fillable));
+
+        if (! empty($updateData)) {
+            $account->update($updateData);
+        }
+
+        return $account;
     }
 }

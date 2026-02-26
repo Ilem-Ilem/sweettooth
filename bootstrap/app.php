@@ -56,7 +56,6 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('shifts:auto-clock-out')
             ->everyFiveMinutes()
             ->withoutOverlapping(10) // 10 minute timeout
-            ->runInBackground()
             ->evenInMaintenanceMode()
             ->onFailure(function () {
                 \Log::error('Auto clock out command failed');
@@ -65,26 +64,22 @@ return Application::configure(basePath: dirname(__DIR__))
         // Send shift reminders every hour during business hours
         $schedule->command('shifts:send-reminders')
             ->everyFiveMinutes()
-            ->withoutOverlapping()
-            ->runInBackground();
+            ->withoutOverlapping();
 
         // Clean up old shift data weekly
         $schedule->command('shifts:cleanup-old-data')
             ->weekly()
             ->sundays()
-            ->at('02:00')
-            ->runInBackground();
+            ->at('02:00');
 
         // Generate shift reports daily
         $schedule->command('shifts:generate-daily-reports')
             ->daily()
-            ->at('23:30')
-            ->runInBackground();
+            ->at('23:30');
 
         // Monitor shift system health
         $schedule->command('shifts:health-check')
-            ->everyTenMinutes()
-            ->runInBackground();
+            ->everyTenMinutes();
 
         // === END SHIFT SYSTEM AUTOMATION ===
     })

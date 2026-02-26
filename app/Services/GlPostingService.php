@@ -21,7 +21,10 @@ use App\Models\TaxPayment;
 use App\Models\FixedAsset;
 use App\Models\AssetDepreciation;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Exception;
+use App\Services\NotificationRecipientService;
+use App\Notifications\GlPostingDraftReadyNotification;
 
 class GlPostingService
 {
@@ -46,10 +49,63 @@ class GlPostingService
     protected function getGlAccount(string $accountNumber): GlAccount
     {
         if (!isset($this->accountCache[$accountNumber])) {
-            $this->accountCache[$accountNumber] = GlAccount::where('account_number', $accountNumber)
-                ->firstOrFail();
+            $account = GlAccount::where('account_number', $accountNumber)->first();
+            if (!$account) {
+                $defaults = $this->defaultAccountDefinition($accountNumber);
+                $account = GlAccount::create([
+                    'account_number' => $accountNumber,
+                    'account_name' => $defaults['name'],
+                    'account_type' => $defaults['type'],
+                    'normal_balance' => $defaults['normal_balance'],
+                    'is_header' => false,
+                    'is_active' => true,
+                    'allow_manual_entry' => true,
+                ]);
+            }
+            $this->accountCache[$accountNumber] = $account;
         }
         return $this->accountCache[$accountNumber];
+    }
+
+    /**
+     * Default account definitions for auto-create fallback.
+     */
+    protected function defaultAccountDefinition(string $accountNumber): array
+    {
+        return match ($accountNumber) {
+            '1100' => ['name' => 'Accounts Receivable', 'type' => 'asset', 'normal_balance' => 'debit'],
+            '1200' => ['name' => 'Inventory', 'type' => 'asset', 'normal_balance' => 'debit'],
+            '1220' => ['name' => 'Inventory Asset', 'type' => 'asset', 'normal_balance' => 'debit'],
+            '2010' => ['name' => 'Accounts Payable', 'type' => 'liability', 'normal_balance' => 'credit'],
+            '2020' => ['name' => 'Sales Tax Payable', 'type' => 'tax', 'normal_balance' => 'credit'],
+            '4010' => ['name' => 'Sales Revenue', 'type' => 'revenue', 'normal_balance' => 'credit'],
+            '5010' => ['name' => 'Cost of Goods Sold', 'type' => 'cost_of_goods_sold', 'normal_balance' => 'debit'],
+            default => ['name' => "GL {$accountNumber}", 'type' => 'asset', 'normal_balance' => 'debit'],
+        };
+    }
+
+    protected function notifyDraftReady(string $referenceType, int $referenceId, ?string $branchId, ?string $referenceNumber = null): void
+    {
+        $hasDrafts = GlEntry::where('reference_type', $referenceType)
+            ->where('reference_id', $referenceId)
+            ->where('status', 'draft')
+            ->exists();
+
+        if (! $hasDrafts) {
+            return;
+        }
+
+        $recipients = app(NotificationRecipientService::class)
+            ->usersForRoles(config('notifications.roles.accounting', []), $branchId);
+
+        if ($recipients->isEmpty()) {
+            return;
+        }
+
+        Notification::send(
+            $recipients,
+            new GlPostingDraftReadyNotification($referenceType, $referenceId, $referenceNumber, $branchId)
+        );
     }
 
     /**
@@ -104,7 +160,7 @@ class GlPostingService
                 'entry_date' => $sale->sale_time,
                 'status' => 'draft',
                 'entered_by_id' => auth()->id(),
-            ])->post(auth()->id());
+            ]);
 
             // Credit to Revenue
             GlEntry::create([
@@ -120,7 +176,7 @@ class GlPostingService
                 'entry_date' => $sale->sale_time,
                 'status' => 'draft',
                 'entered_by_id' => auth()->id(),
-            ])->post(auth()->id());
+            ]);
 
             // Entry B: Record COGS
             // Debit: COGS, Credit: Inventory
@@ -153,7 +209,7 @@ class GlPostingService
                     'entry_date' => $sale->sale_time,
                     'status' => 'draft',
                     'entered_by_id' => auth()->id(),
-                ])->post(auth()->id());
+                ]);
 
                 GlEntry::create([
                     'gl_account_id' => $inventoryAccount->id,
@@ -168,7 +224,7 @@ class GlPostingService
                     'entry_date' => $sale->sale_time,
                     'status' => 'draft',
                     'entered_by_id' => auth()->id(),
-                ])->post(auth()->id());
+                ]);
             }
 
             // Entry C: Record Sales Tax (if applicable)
@@ -188,7 +244,7 @@ class GlPostingService
                     'entry_date' => $sale->sale_time,
                     'status' => 'draft',
                     'entered_by_id' => auth()->id(),
-                ])->post(auth()->id());
+                ]);
 
                 GlEntry::create([
                     'gl_account_id' => $taxAccount->id,
@@ -203,10 +259,11 @@ class GlPostingService
                     'entry_date' => $sale->sale_time,
                     'status' => 'draft',
                     'entered_by_id' => auth()->id(),
-                ])->post(auth()->id());
+                ]);
             }
 
             DB::commit();
+            $this->notifyDraftReady(Sale::class, (int) $sale->id, $sale->branch_id, $sale->reference_number ?? "SAL-{$sale->id}");
             return true;
         } catch (Exception $e) {
             DB::rollBack();
@@ -275,6 +332,7 @@ class GlPostingService
             ])->post(auth()->id());
 
             DB::commit();
+            $this->notifyDraftReady(Purchase::class, (int) $purchase->id, $purchase->branch_id, $purchase->reference_number ?? "PUR-{$purchase->id}");
             return true;
         } catch (Exception $e) {
             DB::rollBack();
@@ -349,6 +407,7 @@ class GlPostingService
             ])->post(auth()->id());
 
             DB::commit();
+            $this->notifyDraftReady(Payment::class, (int) $payment->id, $payment->branch_id, $payment->reference_number ?? "PAY-{$payment->id}");
             return true;
         } catch (Exception $e) {
             DB::rollBack();
@@ -414,7 +473,7 @@ class GlPostingService
                     'entry_date' => $movement->movement_date ?? $movement->created_at,
                     'status' => 'draft',
                     'entered_by_id' => auth()->id(),
-                ])->post(auth()->id());
+                ]);
 
                 GlEntry::create([
                     'gl_account_id' => $adjustmentAccount->id,
@@ -429,7 +488,7 @@ class GlPostingService
                     'entry_date' => $movement->movement_date ?? $movement->created_at,
                     'status' => 'draft',
                     'entered_by_id' => auth()->id(),
-                ])->post(auth()->id());
+                ]);
             } else {
                 // Debit Loss/Adjustment, Credit Inventory
                 GlEntry::create([
@@ -445,7 +504,7 @@ class GlPostingService
                     'entry_date' => $movement->movement_date ?? $movement->created_at,
                     'status' => 'draft',
                     'entered_by_id' => auth()->id(),
-                ])->post(auth()->id());
+                ]);
 
                 GlEntry::create([
                     'gl_account_id' => $inventoryAccount->id,
@@ -460,10 +519,11 @@ class GlPostingService
                     'entry_date' => $movement->movement_date ?? $movement->created_at,
                     'status' => 'draft',
                     'entered_by_id' => auth()->id(),
-                ])->post(auth()->id());
+                ]);
             }
 
             DB::commit();
+            $this->notifyDraftReady(StockMovement::class, (int) $movement->id, $movement->branch_id, "ADJ-{$movement->id}");
             return true;
         } catch (Exception $e) {
             DB::rollBack();
@@ -562,6 +622,7 @@ class GlPostingService
             ])->post(auth()->id());
 
             DB::commit();
+            $this->notifyDraftReady(PurchasePayment::class, (int) $payment->id, $payment->branch_id, $payment->reference_number ?? "PPY-{$payment->id}");
             return true;
         } catch (Exception $e) {
             DB::rollBack();

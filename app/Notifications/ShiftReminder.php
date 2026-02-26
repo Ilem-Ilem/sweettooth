@@ -32,7 +32,7 @@ class ShiftReminder extends Notification implements ShouldQueue
      */
     public function via(object $notifiable): array
     {
-        return ['mail'];
+        return ['database', 'mail'];
     }
 
     /**
@@ -63,6 +63,8 @@ class ShiftReminder extends Notification implements ShouldQueue
             'shift_type' => $this->shiftType,
             'scheduled_time' => $this->scheduledTime->toDateTimeString(),
             'time_window' => $this->getTimeWindowText(),
+            'branch_id' => null,
+            'branch_name' => null,
             'message' => "Reminder: Your {$this->shiftType} shift is scheduled for {$this->scheduledTime->format('g:i A')}",
             'action_url' => route('branch-dashboard.select_shift'),
             'action_text' => 'View Dashboard',

@@ -262,6 +262,7 @@
                         <option value="out">Out</option>
                         <option value="adjustment">Adjustment</option>
                         <option value="transfer">Transfer</option>
+                        <option value="department_transfer">Department Transfer</option>
                         <option value="damaged">Damaged</option>
                         <option value="return">Return</option>
                     </select>

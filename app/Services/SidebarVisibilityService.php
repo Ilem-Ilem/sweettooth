@@ -119,7 +119,30 @@ class SidebarVisibilityService
      */
     public static function isAdmin(?User $user = null): bool
     {
+        $user = $user ?? auth()->user();
+        if (! $user) {
+            return false;
+        }
+
+        // Accounting roles should not be treated as Admin for navigation
+        if (self::isAccountingRole($user)) {
+            return false;
+        }
+
         return self::getRoleLevel($user) >= self::LEVEL_ADMIN;
+    }
+
+    /**
+     * Check if user is in accounting roles
+     */
+    public static function isAccountingRole(?User $user = null): bool
+    {
+        $user = $user ?? auth()->user();
+        if (! $user) {
+            return false;
+        }
+
+        return $user->hasAnyRole(['Accounting Manager', 'Accountant', 'Cost Accountant']);
     }
 
     /**
@@ -281,6 +304,9 @@ class SidebarVisibilityService
     public static function canSeeAdministration($user = null): bool
     {
         $user = $user ?? auth()->user();
+        if (self::isAccountingRole($user) && ! self::isSuperAdmin($user)) {
+            return false;
+        }
         return self::getRoleLevel($user) >= self::LEVEL_ADMIN
             || self::hasAnyPermission($user, ['manage-organization', 'manage-branches']);
     }
@@ -290,6 +316,9 @@ class SidebarVisibilityService
         $user = $user ?? auth()->user();
         $level = self::getRoleLevel($user);
         $category = self::getDepartmentCategory($user);
+        if (self::isAccountingRole($user) && ! self::isSuperAdmin($user)) {
+            return false;
+        }
 
         // Super admins can see organization regardless of department
         if (self::isSuperAdmin($user)) {
@@ -315,6 +344,9 @@ class SidebarVisibilityService
         $user = $user ?? auth()->user();
         $level = self::getRoleLevel($user);
         $category = self::getDepartmentCategory($user);
+        if (self::isAccountingRole($user) && ! self::isSuperAdmin($user)) {
+            return false;
+        }
 
         // Super admins can see employee management regardless of department
         if (self::isSuperAdmin($user)) {
@@ -346,6 +378,9 @@ class SidebarVisibilityService
     {
         $user = $user ?? auth()->user();
         $level = self::getRoleLevel($user);
+        if (self::isAccountingRole($user) && ! self::isSuperAdmin($user)) {
+            return false;
+        }
 
         return $level >= self::LEVEL_ADMIN
             || self::hasAnyPermission($user, ['manage-leave', 'view-hr-reports']);
@@ -362,6 +397,9 @@ class SidebarVisibilityService
     {
         $user = $user ?? auth()->user();
         $level = self::getRoleLevel($user);
+        if (self::isAccountingRole($user) && ! self::isSuperAdmin($user)) {
+            return false;
+        }
 
         // Super admins can see inventory regardless of department
         if (self::isSuperAdmin($user)) {
@@ -427,6 +465,9 @@ class SidebarVisibilityService
         $user = $user ?? auth()->user();
         $level = self::getRoleLevel($user);
         $category = self::getDepartmentCategory($user);
+        if (self::isAccountingRole($user) && ! self::isSuperAdmin($user)) {
+            return false;
+        }
 
         // Super admins can see analytics regardless of department
         if (self::isSuperAdmin($user)) {
@@ -452,6 +493,9 @@ class SidebarVisibilityService
         $user = $user ?? auth()->user();
         $level = self::getRoleLevel($user);
         $category = self::getDepartmentCategory($user);
+        if (self::isAccountingRole($user) && ! self::isSuperAdmin($user)) {
+            return false;
+        }
 
         // Super admins can see production regardless of department
         if (self::isSuperAdmin($user)) {

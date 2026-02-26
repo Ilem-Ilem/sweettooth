@@ -94,12 +94,20 @@ class ApproveCallbacks extends BaseComponent
             ->with(['product', 'salesShift', 'productDispatch.salesShift', 'recordedBy', 'approvedBy', 'receivedBy'])
             ->where(function ($q) use ($branchId) {
                 // Filter by salesShift branch directly
-                $q->whereHas('salesShift', function ($sq) {
+                $q->whereHas('salesShift', function ($sq) use ($branchId) {
                     $sq->where('branch_id', $branchId);
                 })
                 // Also handle case where productDispatch is NULL
-                ->orWhereHas('productDispatch.salesShift', function ($sq) {
+                ->orWhereHas('productDispatch.salesShift', function ($sq) use ($branchId) {
                     $sq->where('branch_id', $branchId);
+                })
+                // Stock callbacks without sales_shift_id: match by product branch
+                ->orWhere(function ($nested) use ($branchId) {
+                    $nested->whereNull('sales_shift_id')
+                        ->whereHas('product', function ($pq) use ($branchId) {
+                            $pq->whereNull('branch_id')
+                                ->orWhere('branch_id', $branchId);
+                        });
                 });
             });
 
@@ -127,8 +135,21 @@ class ApproveCallbacks extends BaseComponent
             'approvedBy',
             'receivedBy'
         ])
-        ->whereHas('productDispatch.salesShift', function ($q) {
-            $q->where('branch_id', $this->getBranchId());
+        ->where(function ($q) {
+            $branchId = $this->getBranchId();
+            $q->whereHas('productDispatch.salesShift', function ($sq) use ($branchId) {
+                $sq->where('branch_id', $branchId);
+            })
+            ->orWhereHas('salesShift', function ($sq) use ($branchId) {
+                $sq->where('branch_id', $branchId);
+            })
+            ->orWhere(function ($nested) use ($branchId) {
+                $nested->whereNull('sales_shift_id')
+                    ->whereHas('product', function ($pq) use ($branchId) {
+                        $pq->whereNull('branch_id')
+                            ->orWhere('branch_id', $branchId);
+                    });
+            });
         });
 
         // Search filter
