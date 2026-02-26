@@ -43,7 +43,10 @@ class QuickExpense extends Component
     {
         return view('livewire.branch-dashboard.accounting.simple.quick-expense', [
             'periods' => AccountingPeriod::where('status', 'open')->orderBy('period_end', 'desc')->get(),
-            'accounts' => GlAccount::where('is_active', true)->orderBy('account_number')->get(['id', 'account_number', 'account_name']),
+            'accounts' => GlAccount::where('is_active', true)
+                ->forBranch($this->getBranchId())
+                ->orderBy('account_number')
+                ->get(['id', 'account_number', 'account_name']),
         ]);
     }
 

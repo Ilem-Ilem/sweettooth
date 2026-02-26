@@ -14,6 +14,7 @@ class GlAccount extends Model
     protected $table = 'gl_accounts';
 
     protected $fillable = [
+        'branch_id',
         'account_number',
         'account_name',
         'account_type',
@@ -46,6 +47,11 @@ class GlAccount extends Model
     public function parent(): BelongsTo
     {
         return $this->belongsTo(GlAccount::class, 'parent_account_id');
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class, 'branch_id');
     }
 
     public function children(): HasMany
@@ -82,6 +88,15 @@ class GlAccount extends Model
     public function scopeDetailAccounts($query)
     {
         return $query->where('is_header', false);
+    }
+
+    public function scopeForBranch($query, ?string $branchId)
+    {
+        if (! $branchId) {
+            return $query;
+        }
+
+        return $query->where('branch_id', $branchId);
     }
 
     // Accessors

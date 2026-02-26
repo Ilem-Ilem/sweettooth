@@ -39,6 +39,11 @@ class CashBank extends Component
     public ?string $opening_balance = null;
     public bool $is_active = true;
 
+    public function mount(): void
+    {
+        $this->b_id = $this->b_id ?? current_branch_id();
+    }
+
     public function updatedSearch(): void
     {
         $this->resetPage();
@@ -51,13 +56,17 @@ class CashBank extends Component
 
     public function rules(): array
     {
+        $branchId = $this->b_id ?? current_branch_id();
+
         return [
             'bank_name' => ['required', 'string', 'max:255'],
             'account_number' => [
                 'required',
                 'string',
                 'max:50',
-                Rule::unique('bank_accounts', 'account_number')->ignore($this->editingId),
+                Rule::unique('bank_accounts', 'account_number')
+                    ->where('branch_id', $branchId)
+                    ->ignore($this->editingId),
             ],
             'account_type' => ['required', Rule::in(['checking', 'savings', 'money_market'])],
             'gl_account_id' => ['nullable', 'exists:gl_accounts,id'],
@@ -106,6 +115,7 @@ class CashBank extends Component
     {
         $validated = $this->validate();
         $validated['opening_balance'] = $validated['opening_balance'] ?? 0;
+        $validated['branch_id'] = $this->b_id ?? current_branch_id();
 
         if ($this->editingId) {
             BankAccount::findOrFail($this->editingId)->update($validated);
@@ -121,6 +131,9 @@ class CashBank extends Component
     {
         $accounts = BankAccount::query()
             ->with('glAccount')
+            ->when($this->b_id, function ($query) {
+                $query->where('branch_id', $this->b_id);
+            })
             ->when($this->search, function ($query) {
                 $query->where(function ($subQuery) {
                     $subQuery->where('bank_name', 'like', '%' . $this->search . '%')
@@ -132,6 +145,7 @@ class CashBank extends Component
             ->paginate($this->quantity ?? 10);
 
         $glAccounts = GlAccount::where('is_active', true)
+            ->forBranch($this->b_id ?? current_branch_id())
             ->where('account_type', 'asset')
             ->where('is_header', false)
             ->orderBy('account_number')

@@ -11,6 +11,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Validation\Rule;
 
 #[Layout('components.layouts.app.branch-dashboard')]
 class ChartOfAccounts extends Component
@@ -50,6 +51,11 @@ class ChartOfAccounts extends Component
     public ?float $edit_balance_amount = null;
     public string $edit_balance_type = '';
 
+    public function mount(): void
+    {
+        $this->b_id = $this->b_id ?? current_branch_id();
+    }
+
     public function toggleCreate(): void
     {
         $this->showCreate = ! $this->showCreate;
@@ -57,8 +63,15 @@ class ChartOfAccounts extends Component
 
     public function createAccount(): void
     {
+        $branchId = $this->b_id ?? current_branch_id();
+
         $this->validate([
-            'account_number' => 'required|string|max:50|unique:gl_accounts,account_number',
+            'account_number' => [
+                'required',
+                'string',
+                'max:50',
+                Rule::unique('gl_accounts', 'account_number')->where('branch_id', $branchId),
+            ],
             'account_name' => 'required|string|max:255',
             'account_type' => 'required|string|in:asset,liability,equity,revenue,cost_of_goods_sold,expense,tax',
             'normal_balance' => 'nullable|string|in:debit,credit',
@@ -89,6 +102,7 @@ class ChartOfAccounts extends Component
         }
 
         GlAccount::create([
+            'branch_id' => $branchId,
             'account_number' => $this->account_number,
             'account_name' => $this->account_name,
             'account_type' => $this->account_type,
@@ -129,7 +143,7 @@ class ChartOfAccounts extends Component
 
     public function openEditOpening(int $accountId): void
     {
-        $account = GlAccount::findOrFail($accountId);
+        $account = GlAccount::forBranch($this->b_id ?? current_branch_id())->findOrFail($accountId);
         $this->edit_account_id = $account->id;
         $this->edit_opening_balance_date = $account->opening_balance_date?->format('Y-m-d');
 
@@ -155,7 +169,7 @@ class ChartOfAccounts extends Component
 
     public function openEditBalance(int $accountId): void
     {
-        $account = GlAccount::findOrFail($accountId);
+        $account = GlAccount::forBranch($this->b_id ?? current_branch_id())->findOrFail($accountId);
         $this->edit_balance_account_id = $account->id;
 
         if ((float) $account->credit_balance > 0) {
@@ -185,12 +199,16 @@ class ChartOfAccounts extends Component
             'edit_balance_type' => 'required|string|in:debit,credit',
         ]);
 
-        $account = GlAccount::findOrFail($this->edit_balance_account_id);
+        $account = GlAccount::forBranch($this->b_id ?? current_branch_id())->findOrFail($this->edit_balance_account_id);
 
         $newDebit = $this->edit_balance_type === 'debit' ? (float) $this->edit_balance_amount : 0.0;
         $newCredit = $this->edit_balance_type === 'credit' ? (float) $this->edit_balance_amount : 0.0;
 
-        if (is_super_admin()) {
+        $user = auth()->user();
+        if (
+            is_super_admin()
+            || ($user && $user->hasAnyRole(['Super Admin', 'Managing Director', 'Admin', 'Accounting Manager']))
+        ) {
             $account->update([
                 'debit_balance' => $newDebit,
                 'credit_balance' => $newCredit,
@@ -241,7 +259,7 @@ class ChartOfAccounts extends Component
             'edit_opening_balance_date' => 'nullable|date',
         ]);
 
-        $account = GlAccount::findOrFail($this->edit_account_id);
+        $account = GlAccount::forBranch($this->b_id ?? current_branch_id())->findOrFail($this->edit_account_id);
 
         $newDebit = 0.0;
         $newCredit = 0.0;
@@ -258,7 +276,11 @@ class ChartOfAccounts extends Component
         $deltaDebit = $newDebit - (float) $account->opening_debit;
         $deltaCredit = $newCredit - (float) $account->opening_credit;
 
-        if (is_super_admin()) {
+        $user = auth()->user();
+        if (
+            is_super_admin()
+            || ($user && $user->hasAnyRole(['Super Admin', 'Managing Director', 'Admin', 'Accounting Manager']))
+        ) {
             $account->update([
                 'opening_debit' => $newDebit,
                 'opening_credit' => $newCredit,
@@ -309,7 +331,7 @@ class ChartOfAccounts extends Component
 
     public function render()
     {
-        $query = GlAccount::query();
+        $query = GlAccount::forBranch($this->b_id ?? current_branch_id());
 
         if ($this->type !== 'all') {
             $query->where('account_type', $this->type);
@@ -328,7 +350,10 @@ class ChartOfAccounts extends Component
             'accounts' => $accounts,
             'type' => $this->type,
             'search' => $this->search,
-            'headers' => GlAccount::where('is_header', true)->orderBy('account_number')->get(['id', 'account_number', 'account_name']),
+            'headers' => GlAccount::forBranch($this->b_id ?? current_branch_id())
+                ->where('is_header', true)
+                ->orderBy('account_number')
+                ->get(['id', 'account_number', 'account_name']),
         ]);
     }
 }

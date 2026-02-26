@@ -243,12 +243,12 @@ Route::middleware(['auth', 'recover-auth', 'setBranchContext', 'branch', 'redire
             Route::get('/overview', \App\Livewire\BranchDashboard\Accounting\Simple\Home::class)->name('overview');
 
             // Chart of Accounts Management (Super Admin, Managing Director, Admin)
-            Route::middleware('role_or_permission:manage_accounts|Accounting Manager')->group(function () {
+            Route::middleware('role_or_permission:manage_accounts|Accounting Manager|Accountant|Cost Accountant')->group(function () {
                 Route::get('/accounts', \App\Livewire\BranchDashboard\Accounting\Simple\ChartOfAccounts::class)->name('accounts');
             });
 
             // Bank Accounts Management
-            Route::middleware('role_or_permission:Super Admin,Managing Director,Admin,Accountant,Accounting Manager,view_bank_accounts,create_bank_accounts,edit_bank_accounts')->group(function () {
+            Route::middleware('role_or_permission:Super Admin,Managing Director,Admin,Accounting Manager,Accountant,Cost Accountant,view_bank_accounts,create_bank_accounts,edit_bank_accounts')->group(function () {
                 Route::get('/bank-accounts', \App\Livewire\BranchDashboard\Accounting\Simple\CashBank::class)->name('bank-accounts');
             });
 
@@ -259,7 +259,7 @@ Route::middleware(['auth', 'recover-auth', 'setBranchContext', 'branch', 'redire
             });
 
             // Accounting Period Management (Super Admin, Managing Director, Admin)
-            Route::middleware('role_or_permission:manage_periods|Accounting Manager')->group(function () {
+            Route::middleware('role_or_permission:manage_periods|Accounting Manager|Accountant|Cost Accountant')->group(function () {
                 Route::get('/periods', \App\Livewire\BranchDashboard\Accounting\Simple\PeriodControl::class)->name('periods');
             });
 

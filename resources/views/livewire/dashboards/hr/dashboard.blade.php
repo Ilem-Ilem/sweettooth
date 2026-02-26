@@ -1,6 +1,6 @@
 <div class="min-h-screen bg-zinc-50 dark:bg-zinc-900">
     <!-- Header -->
-    <div class="bg-white dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700 sticky top-0 z-40">
+    <div class="bg-white dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700 sticky top-0">
         <div class="px-6 py-4">
             <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">HR Dashboard</h1>
             <p class="text-sm text-zinc-600 dark:text-zinc-400 mt-1">Employee management and attendance overview</p>

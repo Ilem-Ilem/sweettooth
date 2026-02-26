@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\GlAccount;
 use App\Models\GlEntry;
 use App\Models\AccountingPeriod;
+use App\Models\BranchAccountingDefault;
 use App\Models\Sale;
 use App\Models\Purchase;
 use App\Models\Payment;
@@ -46,13 +47,19 @@ class GlPostingService
     /**
      * Get GL account by account number (cached)
      */
-    protected function getGlAccount(string $accountNumber): GlAccount
+    protected function getGlAccount(string $accountNumber, ?string $branchId = null): GlAccount
     {
-        if (!isset($this->accountCache[$accountNumber])) {
-            $account = GlAccount::where('account_number', $accountNumber)->first();
+        $branchId = $branchId ?? current_branch_id();
+        $cacheKey = ($branchId ?: 'global') . ':' . $accountNumber;
+
+        if (!isset($this->accountCache[$cacheKey])) {
+            $account = GlAccount::forBranch($branchId)
+                ->where('account_number', $accountNumber)
+                ->first();
             if (!$account) {
                 $defaults = $this->defaultAccountDefinition($accountNumber);
                 $account = GlAccount::create([
+                    'branch_id' => $branchId,
                     'account_number' => $accountNumber,
                     'account_name' => $defaults['name'],
                     'account_type' => $defaults['type'],
@@ -62,9 +69,50 @@ class GlPostingService
                     'allow_manual_entry' => true,
                 ]);
             }
-            $this->accountCache[$accountNumber] = $account;
+            $this->accountCache[$cacheKey] = $account;
         }
-        return $this->accountCache[$accountNumber];
+
+        return $this->accountCache[$cacheKey];
+    }
+
+    protected function resolveDefaultAccount(string $key, ?string $branchId = null): GlAccount
+    {
+        $branchId = $branchId ?? current_branch_id();
+        $cacheKey = ($branchId ?: 'global') . ':default:' . $key;
+
+        if (! isset($this->accountCache[$cacheKey])) {
+            $default = BranchAccountingDefault::forBranch($branchId)
+                ->where('key', $key)
+                ->with('glAccount')
+                ->first();
+
+            if (! $default || ! $default->glAccount) {
+                throw new Exception("Missing accounting default [{$key}] for branch {$branchId}.");
+            }
+
+            $this->accountCache[$cacheKey] = $default->glAccount;
+        }
+
+        return $this->accountCache[$cacheKey];
+    }
+
+    protected function createEntry(array $data, ?string $branchId = null): GlEntry
+    {
+        $branchId = $data['branch_id'] ?? $branchId;
+
+        if (! $branchId && ! empty($data['reference_type']) && ! empty($data['reference_id'])) {
+            $modelClass = $data['reference_type'];
+            if (class_exists($modelClass)) {
+                $model = $modelClass::find($data['reference_id']);
+                if ($model && isset($model->branch_id)) {
+                    $branchId = $model->branch_id;
+                }
+            }
+        }
+
+        $data['branch_id'] = $branchId ?? current_branch_id();
+
+        return GlEntry::create($data);
     }
 
     /**
@@ -140,14 +188,14 @@ class GlPostingService
                 throw new Exception('No open accounting period found');
             }
 
+            $branchId = $sale->branch_id;
             $department = $this->getDepartmentForSale($sale);
 
             // Entry A: Record Sale Revenue
             // Debit: Accounts Receivable, Credit: Sales Revenue
-            $revenueAccount = $this->getRevenueAccountForDepartment($department);
-            $receivableAccount = $this->getReceivableAccountForDepartment($department);
-
-            GlEntry::create([
+            $revenueAccount = $this->getRevenueAccountForDepartment($department, $branchId);
+            $receivableAccount = $this->getReceivableAccountForDepartment($department, $branchId);
+            $this->createEntry([
                 'gl_account_id' => $receivableAccount->id,
                 'accounting_period_id' => $period->id,
                 'entry_type' => 'sale',
@@ -163,7 +211,7 @@ class GlPostingService
             ]);
 
             // Credit to Revenue
-            GlEntry::create([
+            $this->createEntry([
                 'gl_account_id' => $revenueAccount->id,
                 'accounting_period_id' => $period->id,
                 'entry_type' => 'sale',
@@ -180,8 +228,8 @@ class GlPostingService
 
             // Entry B: Record COGS
             // Debit: COGS, Credit: Inventory
-            $cogsAccount = $this->getGlAccount('5010');
-            $inventoryAccount = $this->getGlAccount('1220');
+            $cogsAccount = $this->resolveDefaultAccount('cogs', $branchId);
+            $inventoryAccount = $this->resolveDefaultAccount('inventory_asset', $branchId);
 
             $totalCogs = $sale->saleItems->sum(function ($item) {
                 if (! empty($item->line_cost)) {
@@ -196,7 +244,7 @@ class GlPostingService
             });
 
             if ($totalCogs > 0) {
-                GlEntry::create([
+            $this->createEntry([
                     'gl_account_id' => $cogsAccount->id,
                     'accounting_period_id' => $period->id,
                     'entry_type' => 'sale_cogs',
@@ -210,8 +258,7 @@ class GlPostingService
                     'status' => 'draft',
                     'entered_by_id' => auth()->id(),
                 ]);
-
-                GlEntry::create([
+            $this->createEntry([
                     'gl_account_id' => $inventoryAccount->id,
                     'accounting_period_id' => $period->id,
                     'entry_type' => 'sale_cogs',
@@ -229,9 +276,8 @@ class GlPostingService
 
             // Entry C: Record Sales Tax (if applicable)
             if ($sale->tax > 0) {
-                $taxAccount = $this->getTaxAccountForDepartment($department);
-
-                GlEntry::create([
+                $taxAccount = $this->getTaxAccountForDepartment($department, $branchId);
+            $this->createEntry([
                     'gl_account_id' => $receivableAccount->id,
                     'accounting_period_id' => $period->id,
                     'entry_type' => 'sale_tax',
@@ -245,8 +291,7 @@ class GlPostingService
                     'status' => 'draft',
                     'entered_by_id' => auth()->id(),
                 ]);
-
-                GlEntry::create([
+            $this->createEntry([
                     'gl_account_id' => $taxAccount->id,
                     'accounting_period_id' => $period->id,
                     'entry_type' => 'sale_tax',
@@ -294,13 +339,14 @@ class GlPostingService
                 throw new Exception('No open accounting period found');
             }
 
-            $inventoryAccount = $this->getGlAccount('1200');
-            $apAccount = $this->getGlAccount('2010');
+            $branchId = $purchase->branch_id;
+            $inventoryAccount = $this->resolveDefaultAccount('inventory', $branchId);
+            $apAccount = $this->resolveDefaultAccount('accounts_payable', $branchId);
 
             $landingCost = $purchase->total_fob_ngn + ($purchase->other_costs ?? 0);
 
             // Debit: Inventory
-            GlEntry::create([
+            $this->createEntry([
                 'gl_account_id' => $inventoryAccount->id,
                 'accounting_period_id' => $period->id,
                 'entry_type' => 'purchase',
@@ -316,7 +362,7 @@ class GlPostingService
             ])->post(auth()->id());
 
             // Credit: Accounts Payable
-            GlEntry::create([
+            $this->createEntry([
                 'gl_account_id' => $apAccount->id,
                 'accounting_period_id' => $period->id,
                 'entry_type' => 'purchase',
@@ -367,15 +413,15 @@ class GlPostingService
             $receivableAccount = $this->getReceivableAccountForDepartment($department);
             $cashAccount = null;
             if (strtolower($payment->payment_method) === 'pos') {
-                $cashAccount = $this->getGlAccount($this->getCashAccountNumberForPaymentMethod('pos'));
+                $cashAccount = $this->getCashAccountForPaymentMethod('pos', $payment->branch_id);
             } else {
                 $cashAccount = $payment->bankAccount?->glAccount
                     ?? ($department?->cashAccount)
-                    ?? $this->getGlAccount($this->getCashAccountNumberForPaymentMethod($payment->payment_method));
+                    ?? $this->getCashAccountForPaymentMethod($payment->payment_method, $payment->branch_id);
             }
 
             // Debit: Cash/Bank
-            GlEntry::create([
+            $this->createEntry([
                 'gl_account_id' => $cashAccount->id,
                 'accounting_period_id' => $period->id,
                 'entry_type' => 'payment',
@@ -391,7 +437,7 @@ class GlPostingService
             ])->post(auth()->id());
 
             // Credit: Accounts Receivable
-            GlEntry::create([
+            $this->createEntry([
                 'gl_account_id' => $receivableAccount->id,
                 'accounting_period_id' => $period->id,
                 'entry_type' => 'payment',
@@ -450,8 +496,8 @@ class GlPostingService
                 return true; // No explicit adjustment reason to post
             }
 
-            $inventoryAccount = $this->getGlAccount('1220');
-            $adjustmentAccount = $this->getAdjustmentAccountForType($reason);
+            $inventoryAccount = $this->resolveDefaultAccount('inventory_asset', $movement->branch_id);
+            $adjustmentAccount = $this->getAdjustmentAccountForType($reason, $movement->branch_id);
 
             $amount = $movement->cost_impact ?? ($movement->quantity * ($movement->unit_cost ?? 0));
             $amount = abs((float) $amount);
@@ -460,7 +506,7 @@ class GlPostingService
 
             if ($isIncrease && $movement->type === 'adjustment') {
                 // Debit Inventory, Credit Adjustment (inventory gain)
-                GlEntry::create([
+            $this->createEntry([
                     'gl_account_id' => $inventoryAccount->id,
                     'accounting_period_id' => $period->id,
                     'entry_type' => 'adjustment',
@@ -474,8 +520,7 @@ class GlPostingService
                     'status' => 'draft',
                     'entered_by_id' => auth()->id(),
                 ]);
-
-                GlEntry::create([
+            $this->createEntry([
                     'gl_account_id' => $adjustmentAccount->id,
                     'accounting_period_id' => $period->id,
                     'entry_type' => 'adjustment',
@@ -491,7 +536,7 @@ class GlPostingService
                 ]);
             } else {
                 // Debit Loss/Adjustment, Credit Inventory
-                GlEntry::create([
+            $this->createEntry([
                     'gl_account_id' => $adjustmentAccount->id,
                     'accounting_period_id' => $period->id,
                     'entry_type' => 'adjustment',
@@ -505,8 +550,7 @@ class GlPostingService
                     'status' => 'draft',
                     'entered_by_id' => auth()->id(),
                 ]);
-
-                GlEntry::create([
+            $this->createEntry([
                     'gl_account_id' => $inventoryAccount->id,
                     'accounting_period_id' => $period->id,
                     'entry_type' => 'adjustment',
@@ -586,11 +630,13 @@ class GlPostingService
                 throw new Exception('Bank accounts not found for transfer');
             }
 
-            $fromGlAccount = $fromAccount->glAccount ?? $this->getGlAccount('1050');
-            $toGlAccount = $toAccount->glAccount ?? $this->getGlAccount('1050');
+            $fromGlAccount = $fromAccount->glAccount
+                ?? $this->resolveDefaultAccount('bank_main', $transfer->branch_id);
+            $toGlAccount = $toAccount->glAccount
+                ?? $this->resolveDefaultAccount('bank_main', $transfer->branch_id);
 
             // Debit: To Bank Account
-            GlEntry::create([
+            $this->createEntry([
                 'gl_account_id' => $toGlAccount->id,
                 'accounting_period_id' => $period->id,
                 'entry_type' => 'transfer',
@@ -606,7 +652,7 @@ class GlPostingService
             ])->post(auth()->id());
 
             // Credit: From Bank Account
-            GlEntry::create([
+            $this->createEntry([
                 'gl_account_id' => $fromGlAccount->id,
                 'accounting_period_id' => $period->id,
                 'entry_type' => 'transfer',
@@ -655,14 +701,14 @@ class GlPostingService
 
             // Determine payment account
             $cashAccount = $claim->paidViaBankAccount?->glAccount
-                ?? $this->getGlAccount('1010');
+                ?? $this->resolveDefaultAccount('cash_on_hand', $claim->branch_id);
 
             // Post each expense item to its respective expense account
             foreach ($claim->items as $item) {
-                $expenseAccount = $item->glAccount ?? $this->getExpenseAccountForCategory($item->category);
+                $expenseAccount = $item->glAccount ?? $this->getExpenseAccountForCategory($item->category, $claim->branch_id);
 
                 // Debit: Expense Account
-                GlEntry::create([
+            $this->createEntry([
                     'gl_account_id' => $expenseAccount->id,
                     'accounting_period_id' => $period->id,
                     'entry_type' => 'expense_claim',
@@ -679,7 +725,7 @@ class GlPostingService
             }
 
             // Credit: Cash/Bank for total
-            GlEntry::create([
+            $this->createEntry([
                 'gl_account_id' => $cashAccount->id,
                 'accounting_period_id' => $period->id,
                 'entry_type' => 'expense_claim',
@@ -726,13 +772,14 @@ class GlPostingService
                 throw new Exception('No open accounting period found');
             }
 
-            $revenueAccount = $this->getGlAccount('4010');
-            $receivableAccount = $this->getGlAccount('1100'); // Accounts Receivable
-            $inventoryAccount = $this->getGlAccount('1220');
-            $cogsAccount = $this->getGlAccount('5010');
+            $branchId = $creditNote->branch_id;
+            $revenueAccount = $this->resolveDefaultAccount('sales_revenue', $branchId);
+            $receivableAccount = $this->resolveDefaultAccount('accounts_receivable', $branchId);
+            $inventoryAccount = $this->resolveDefaultAccount('inventory_asset', $branchId);
+            $cogsAccount = $this->resolveDefaultAccount('cogs', $branchId);
 
             // Debit: Sales Revenue (reducing revenue)
-            GlEntry::create([
+            $this->createEntry([
                 'gl_account_id' => $revenueAccount->id,
                 'accounting_period_id' => $period->id,
                 'entry_type' => 'credit_note',
@@ -748,7 +795,7 @@ class GlPostingService
             ])->post(auth()->id());
 
             // Credit: Accounts Receivable (reducing what customer owes)
-            GlEntry::create([
+            $this->createEntry([
                 'gl_account_id' => $receivableAccount->id,
                 'accounting_period_id' => $period->id,
                 'entry_type' => 'credit_note',
@@ -770,7 +817,7 @@ class GlPostingService
 
             if ($totalCogs > 0) {
                 // Debit: Inventory (adding back)
-                GlEntry::create([
+            $this->createEntry([
                     'gl_account_id' => $inventoryAccount->id,
                     'accounting_period_id' => $period->id,
                     'entry_type' => 'credit_note_cogs',
@@ -786,7 +833,7 @@ class GlPostingService
                 ])->post(auth()->id());
 
                 // Credit: COGS (reducing cost)
-                GlEntry::create([
+            $this->createEntry([
                     'gl_account_id' => $cogsAccount->id,
                     'accounting_period_id' => $period->id,
                     'entry_type' => 'credit_note_cogs',
@@ -833,11 +880,12 @@ class GlPostingService
                 throw new Exception('No open accounting period found');
             }
 
-            $apAccount = $this->getGlAccount('2010');
-            $inventoryAccount = $this->getGlAccount('1200');
+            $branchId = $debitNote->branch_id;
+            $apAccount = $this->resolveDefaultAccount('accounts_payable', $branchId);
+            $inventoryAccount = $this->resolveDefaultAccount('inventory', $branchId);
 
             // Debit: Accounts Payable (reducing what we owe)
-            GlEntry::create([
+            $this->createEntry([
                 'gl_account_id' => $apAccount->id,
                 'accounting_period_id' => $period->id,
                 'entry_type' => 'debit_note',
@@ -853,7 +901,7 @@ class GlPostingService
             ])->post(auth()->id());
 
             // Credit: Inventory (reducing inventory)
-            GlEntry::create([
+            $this->createEntry([
                 'gl_account_id' => $inventoryAccount->id,
                 'accounting_period_id' => $period->id,
                 'entry_type' => 'debit_note',
@@ -899,14 +947,15 @@ class GlPostingService
                 throw new Exception('No open accounting period found');
             }
 
-            $finishedGoodsAccount = $this->getGlAccount('1220'); // Finished Goods
-            $rawMaterialsAccount = $this->getGlAccount('1200'); // Raw Materials
-            $wipAccount = $this->getGlAccount('1210'); // Work in Progress (if exists)
-            $laborAccount = $this->getGlAccount('6100'); // Direct Labor (if exists)
-            $overheadAccount = $this->getGlAccount('6200'); // Manufacturing Overhead (if exists)
+            $branchId = $order->branch_id;
+            $finishedGoodsAccount = $this->resolveDefaultAccount('inventory_finished_goods', $branchId);
+            $rawMaterialsAccount = $this->resolveDefaultAccount('inventory_raw_materials', $branchId);
+            $wipAccount = $this->resolveDefaultAccount('inventory_wip', $branchId);
+            $laborAccount = $this->resolveDefaultAccount('labor_direct', $branchId);
+            $overheadAccount = $this->resolveDefaultAccount('overhead_manufacturing', $branchId);
 
             // Debit: Finished Goods Inventory
-            GlEntry::create([
+            $this->createEntry([
                 'gl_account_id' => $finishedGoodsAccount->id,
                 'accounting_period_id' => $period->id,
                 'entry_type' => 'production',
@@ -923,7 +972,7 @@ class GlPostingService
 
             // Credit: Raw Materials (material cost)
             if ($order->total_material_cost > 0) {
-                GlEntry::create([
+            $this->createEntry([
                     'gl_account_id' => $rawMaterialsAccount->id,
                     'accounting_period_id' => $period->id,
                     'entry_type' => 'production',
@@ -942,7 +991,7 @@ class GlPostingService
             // Credit: Labor (if applicable)
             if ($order->total_labor_cost > 0) {
                 try {
-                    GlEntry::create([
+            $this->createEntry([
                         'gl_account_id' => $laborAccount->id,
                         'accounting_period_id' => $period->id,
                         'entry_type' => 'production',
@@ -965,7 +1014,7 @@ class GlPostingService
             // Credit: Overhead (if applicable)
             if ($order->total_overhead_cost > 0) {
                 try {
-                    GlEntry::create([
+            $this->createEntry([
                         'gl_account_id' => $overheadAccount->id,
                         'accounting_period_id' => $period->id,
                         'entry_type' => 'production',
@@ -1014,14 +1063,14 @@ class GlPostingService
                 throw new Exception('No open accounting period found');
             }
 
-            $inventoryAccount = $this->getGlAccount('1220');
-            $adjustmentAccount = $this->getAdjustmentAccountForType($adjustment->type);
+            $inventoryAccount = $this->resolveDefaultAccount('inventory_asset', $adjustment->branch_id);
+            $adjustmentAccount = $this->getAdjustmentAccountForType($adjustment->type, $adjustment->branch_id);
 
             $amount = abs($adjustment->cost_impact);
 
             if ($adjustment->isDecrease()) {
                 // Inventory decreased: Debit Adjustment Account, Credit Inventory
-                GlEntry::create([
+            $this->createEntry([
                     'gl_account_id' => $adjustmentAccount->id,
                     'accounting_period_id' => $period->id,
                     'entry_type' => 'adjustment',
@@ -1035,8 +1084,7 @@ class GlPostingService
                     'status' => 'draft',
                     'entered_by_id' => auth()->id(),
                 ])->post(auth()->id());
-
-                GlEntry::create([
+            $this->createEntry([
                     'gl_account_id' => $inventoryAccount->id,
                     'accounting_period_id' => $period->id,
                     'entry_type' => 'adjustment',
@@ -1052,7 +1100,7 @@ class GlPostingService
                 ])->post(auth()->id());
             } else {
                 // Inventory increased: Debit Inventory, Credit Adjustment Account
-                GlEntry::create([
+            $this->createEntry([
                     'gl_account_id' => $inventoryAccount->id,
                     'accounting_period_id' => $period->id,
                     'entry_type' => 'adjustment',
@@ -1066,8 +1114,7 @@ class GlPostingService
                     'status' => 'draft',
                     'entered_by_id' => auth()->id(),
                 ])->post(auth()->id());
-
-                GlEntry::create([
+            $this->createEntry([
                     'gl_account_id' => $adjustmentAccount->id,
                     'accounting_period_id' => $period->id,
                     'entry_type' => 'adjustment',
@@ -1098,68 +1145,60 @@ class GlPostingService
     /**
      * Get expense account based on category
      */
-    protected function getExpenseAccountForCategory(string $category): GlAccount
+    protected function getExpenseAccountForCategory(string $category, ?string $branchId = null): GlAccount
     {
         $mapping = [
-            'travel' => '6300',         // Travel Expenses
-            'meals' => '6310',          // Meals & Entertainment
-            'supplies' => '6320',       // Office Supplies
-            'communication' => '6330',  // Communication
-            'accommodation' => '6340',  // Accommodation
-            'professional' => '6350',   // Professional Services
-            'other' => '6900',          // Other Expenses
+            'travel' => 'expense_travel',
+            'meals' => 'expense_meals',
+            'supplies' => 'expense_supplies',
+            'communication' => 'expense_communication',
+            'accommodation' => 'expense_accommodation',
+            'professional' => 'expense_professional',
+            'other' => 'expense_other',
         ];
 
-        $accountNumber = $mapping[$category] ?? '6900';
+        $key = $mapping[$category] ?? 'expense_other';
 
-        try {
-            return $this->getGlAccount($accountNumber);
-        } catch (Exception $e) {
-            // Fallback to general expense account
-            return $this->getGlAccount('6900');
-        }
+        return $this->resolveDefaultAccount($key, $branchId);
     }
 
     /**
      * Get adjustment account based on adjustment type
      */
-    protected function getAdjustmentAccountForType(string $type): GlAccount
+    protected function getAdjustmentAccountForType(string $type, ?string $branchId = null): GlAccount
     {
         $mapping = [
-            'damage' => '5020',      // Damage Loss
-            'shrinkage' => '5030',   // Shrinkage Loss
-            'write_off' => '5040',   // Write-off Loss
-            'adjustment' => '5050',  // Inventory Adjustment
-            'count' => '5050',       // Stock Count Adjustment
-            'transfer' => '5050',    // Transfer Adjustment
-            'production' => '5010',  // Production COGS
+            'damage' => 'adjustment_damage',
+            'shrinkage' => 'adjustment_shrinkage',
+            'write_off' => 'adjustment_write_off',
+            'adjustment' => 'adjustment_inventory',
+            'count' => 'adjustment_count',
+            'transfer' => 'adjustment_transfer',
+            'production' => 'adjustment_production',
         ];
 
-        $accountNumber = $mapping[$type] ?? '5050';
+        $key = $mapping[$type] ?? 'adjustment_inventory';
 
-        try {
-            return $this->getGlAccount($accountNumber);
-        } catch (Exception $e) {
-            // Fallback to general adjustment account
-            return $this->getGlAccount('5020');
-        }
+        return $this->resolveDefaultAccount($key, $branchId);
     }
 
     /**
-     * Get appropriate cash account number based on payment method
+     * Get appropriate cash/bank account based on payment method
      */
-    protected function getCashAccountNumberForPaymentMethod(string $paymentMethod): string
+    protected function getCashAccountForPaymentMethod(string $paymentMethod, ?string $branchId = null): GlAccount
     {
         $mapping = [
-            'cash' => '1010',              // Cash - Head Office
-            'transfer' => '1050',          // Bank Account - Main
-            'bank_transfer' => '1050',     // Bank Account - Main
-            'card' => '1050',              // Bank Account - Main
-            'pos' => '1060',               // POS Clearing
-            'cheque' => '1050',            // Bank Account - Main
+            'cash' => 'cash_on_hand',
+            'transfer' => 'bank_main',
+            'bank_transfer' => 'bank_main',
+            'card' => 'bank_main',
+            'pos' => 'pos_clearing',
+            'cheque' => 'bank_main',
         ];
 
-        return $mapping[$paymentMethod] ?? '1010';
+        $key = $mapping[$paymentMethod] ?? 'cash_on_hand';
+
+        return $this->resolveDefaultAccount($key, $branchId);
     }
 
     /**
@@ -1181,17 +1220,17 @@ class GlPostingService
                 throw new Exception('No open accounting period found');
             }
 
-            $expenseAccount = $this->getGlAccount('6100'); // Salaries & Wages Expense
-            $payableAccount = $this->getGlAccount('2110'); // Payroll Payable
-            $taxPayableAccount = $this->getGlAccount('2120'); // Payroll Tax Payable
-            $deductionPayableAccount = $this->getGlAccount('2130'); // Other Deductions Payable
+            $branchId = $payroll->branch_id;
+            $expenseAccount = $this->resolveDefaultAccount('payroll_expense', $branchId);
+            $payableAccount = $this->resolveDefaultAccount('payroll_payable', $branchId);
+            $taxPayableAccount = $this->resolveDefaultAccount('payroll_tax_payable', $branchId);
+            $deductionPayableAccount = $this->resolveDefaultAccount('payroll_deduction_payable', $branchId);
 
             $gross = (float) $payroll->gross_salary;
             $net = (float) $payroll->net_salary;
             $tax = (float) $payroll->tax_deductions;
             $other = (float) $payroll->other_deductions;
-
-            GlEntry::create([
+            $this->createEntry([
                 'gl_account_id' => $expenseAccount->id,
                 'accounting_period_id' => $period->id,
                 'entry_type' => 'payroll_accrual',
@@ -1205,8 +1244,7 @@ class GlPostingService
                 'status' => 'draft',
                 'entered_by_id' => auth()->id(),
             ])->post(auth()->id());
-
-            GlEntry::create([
+            $this->createEntry([
                 'gl_account_id' => $payableAccount->id,
                 'accounting_period_id' => $period->id,
                 'entry_type' => 'payroll_accrual',
@@ -1222,7 +1260,7 @@ class GlPostingService
             ])->post(auth()->id());
 
             if ($tax > 0) {
-                GlEntry::create([
+            $this->createEntry([
                     'gl_account_id' => $taxPayableAccount->id,
                     'accounting_period_id' => $period->id,
                     'entry_type' => 'payroll_accrual',
@@ -1239,7 +1277,7 @@ class GlPostingService
             }
 
             if ($other > 0) {
-                GlEntry::create([
+            $this->createEntry([
                     'gl_account_id' => $deductionPayableAccount->id,
                     'accounting_period_id' => $period->id,
                     'entry_type' => 'payroll_accrual',
@@ -1286,12 +1324,13 @@ class GlPostingService
                 throw new Exception('No open accounting period found');
             }
 
-            $payableAccount = $this->getGlAccount('2110');
-            $cashAccount = $payroll->bankAccount?->glAccount ?? $this->getGlAccount('1050');
+            $branchId = $payroll->branch_id;
+            $payableAccount = $this->resolveDefaultAccount('payroll_payable', $branchId);
+            $cashAccount = $payroll->bankAccount?->glAccount
+                ?? $this->resolveDefaultAccount('bank_main', $branchId);
 
             $amount = (float) $payroll->net_salary;
-
-            GlEntry::create([
+            $this->createEntry([
                 'gl_account_id' => $payableAccount->id,
                 'accounting_period_id' => $period->id,
                 'entry_type' => 'payroll_payment',
@@ -1305,8 +1344,7 @@ class GlPostingService
                 'status' => 'draft',
                 'entered_by_id' => auth()->id(),
             ])->post(auth()->id());
-
-            GlEntry::create([
+            $this->createEntry([
                 'gl_account_id' => $cashAccount->id,
                 'accounting_period_id' => $period->id,
                 'entry_type' => 'payroll_payment',
@@ -1352,10 +1390,11 @@ class GlPostingService
                 throw new Exception('No open accounting period found');
             }
 
-            $apAccount = $this->getGlAccount('2010');
-            $cashAccount = $payment->bankAccount?->glAccount ?? $this->getGlAccount('1050');
-
-            GlEntry::create([
+            $branchId = $payment->branch_id;
+            $apAccount = $this->resolveDefaultAccount('accounts_payable', $branchId);
+            $cashAccount = $payment->bankAccount?->glAccount
+                ?? $this->resolveDefaultAccount('bank_main', $branchId);
+            $this->createEntry([
                 'gl_account_id' => $apAccount->id,
                 'accounting_period_id' => $period->id,
                 'entry_type' => 'purchase_payment',
@@ -1369,8 +1408,7 @@ class GlPostingService
                 'status' => 'draft',
                 'entered_by_id' => auth()->id(),
             ])->post(auth()->id());
-
-            GlEntry::create([
+            $this->createEntry([
                 'gl_account_id' => $cashAccount->id,
                 'accounting_period_id' => $period->id,
                 'entry_type' => 'purchase_payment',
@@ -1416,10 +1454,11 @@ class GlPostingService
                 throw new Exception('No open accounting period found');
             }
 
-            $taxAccount = $this->getGlAccount('2100');
-            $cashAccount = $payment->bankAccount?->glAccount ?? $this->getGlAccount('1050');
-
-            GlEntry::create([
+            $branchId = $payment->branch_id;
+            $taxAccount = $this->resolveDefaultAccount('tax_payable', $branchId);
+            $cashAccount = $payment->bankAccount?->glAccount
+                ?? $this->resolveDefaultAccount('bank_main', $branchId);
+            $this->createEntry([
                 'gl_account_id' => $taxAccount->id,
                 'accounting_period_id' => $period->id,
                 'entry_type' => 'tax_payment',
@@ -1433,8 +1472,7 @@ class GlPostingService
                 'status' => 'draft',
                 'entered_by_id' => auth()->id(),
             ])->post(auth()->id());
-
-            GlEntry::create([
+            $this->createEntry([
                 'gl_account_id' => $cashAccount->id,
                 'accounting_period_id' => $period->id,
                 'entry_type' => 'tax_payment',
@@ -1480,12 +1518,12 @@ class GlPostingService
                 throw new Exception('No open accounting period found');
             }
 
-            $assetAccount = $this->getGlAccount('1500'); // Fixed Assets
+            $branchId = $asset->branch_id;
+            $assetAccount = $this->resolveDefaultAccount('fixed_asset', $branchId);
             $creditAccount = $asset->funding_source === 'ap'
-                ? $this->getGlAccount('2010')
-                : ($asset->bankAccount?->glAccount ?? $this->getGlAccount('1050'));
-
-            GlEntry::create([
+                ? $this->resolveDefaultAccount('accounts_payable', $branchId)
+                : ($asset->bankAccount?->glAccount ?? $this->resolveDefaultAccount('bank_main', $branchId));
+            $this->createEntry([
                 'gl_account_id' => $assetAccount->id,
                 'accounting_period_id' => $period->id,
                 'entry_type' => 'asset_acquisition',
@@ -1499,8 +1537,7 @@ class GlPostingService
                 'status' => 'draft',
                 'entered_by_id' => auth()->id(),
             ])->post(auth()->id());
-
-            GlEntry::create([
+            $this->createEntry([
                 'gl_account_id' => $creditAccount->id,
                 'accounting_period_id' => $period->id,
                 'entry_type' => 'asset_acquisition',
@@ -1546,10 +1583,10 @@ class GlPostingService
                 throw new Exception('No open accounting period found');
             }
 
-            $expenseAccount = $this->getGlAccount('6200'); // Depreciation Expense
-            $accumAccount = $this->getGlAccount('1510');  // Accumulated Depreciation
-
-            GlEntry::create([
+            $branchId = $depreciation->branch_id;
+            $expenseAccount = $this->resolveDefaultAccount('depreciation_expense', $branchId);
+            $accumAccount = $this->resolveDefaultAccount('accumulated_depreciation', $branchId);
+            $this->createEntry([
                 'gl_account_id' => $expenseAccount->id,
                 'accounting_period_id' => $period->id,
                 'entry_type' => 'asset_depreciation',
@@ -1563,8 +1600,7 @@ class GlPostingService
                 'status' => 'draft',
                 'entered_by_id' => auth()->id(),
             ])->post(auth()->id());
-
-            GlEntry::create([
+            $this->createEntry([
                 'gl_account_id' => $accumAccount->id,
                 'accounting_period_id' => $period->id,
                 'entry_type' => 'asset_depreciation',
@@ -1606,37 +1642,37 @@ class GlPostingService
     /**
      * Department-specific revenue account with fallback to default.
      */
-    protected function getRevenueAccountForDepartment($department): GlAccount
+    protected function getRevenueAccountForDepartment($department, ?string $branchId = null): GlAccount
     {
         if ($department && $department->revenueAccount) {
             return $department->revenueAccount;
         }
 
-        return $this->getGlAccount('4010');
+        return $this->resolveDefaultAccount('sales_revenue', $branchId);
     }
 
     /**
      * Department-specific tax account with fallback to default.
      */
-    protected function getTaxAccountForDepartment($department): GlAccount
+    protected function getTaxAccountForDepartment($department, ?string $branchId = null): GlAccount
     {
         if ($department && $department->taxAccount) {
             return $department->taxAccount;
         }
 
-        return $this->getGlAccount('2020');
+        return $this->resolveDefaultAccount('sales_tax_payable', $branchId);
     }
 
     /**
      * Department-specific receivable account with fallback to default.
      */
-    protected function getReceivableAccountForDepartment($department): GlAccount
+    protected function getReceivableAccountForDepartment($department, ?string $branchId = null): GlAccount
     {
         if ($department && $department->receivableAccount) {
             return $department->receivableAccount;
         }
 
-        return $this->getGlAccount('1100');
+        return $this->resolveDefaultAccount('accounts_receivable', $branchId);
     }
 
     /**
@@ -1653,7 +1689,6 @@ class GlPostingService
             return $department->cashAccount;
         }
 
-        $cashAccountNumber = $this->getCashAccountNumberForPaymentMethod($paymentMethod);
-        return $this->getGlAccount((string) $cashAccountNumber);
+        return $this->getCashAccountForPaymentMethod($paymentMethod, $sale->branch_id);
     }
 }

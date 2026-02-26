@@ -23,7 +23,7 @@
     <div
         x-show="open"
         x-transition.opacity.duration.150ms
-        class="absolute right-0 mt-2 w-[360px] max-w-[90vw] rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-xl z-[80]"
+        class="absolute right-0 mt-2 w-[360px] max-w-[90vw] rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-xl z-[9999999999999]"
         x-cloak
     >
         <div class="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">

@@ -66,7 +66,10 @@ class Budgets extends Component
     public function render()
     {
         return view('livewire.branch-dashboard.accounting.simple.budgets', [
-            'accounts' => GlAccount::where('is_active', true)->orderBy('account_number')->get(['id', 'account_number', 'account_name']),
+            'accounts' => GlAccount::where('is_active', true)
+                ->forBranch(current_branch_id())
+                ->orderBy('account_number')
+                ->get(['id', 'account_number', 'account_name']),
             'periods' => AccountingPeriod::orderBy('period_end', 'desc')->get(),
             'rows' => Budget::orderByDesc('id')->paginate($this->perPage),
         ]);

@@ -10,7 +10,8 @@
                 <input class="w-52 border-none bg-transparent p-0 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none dark:text-white" type="text" placeholder="Month, year, status" wire:model.debounce.300ms="search" />
             </div>
             <button
-                wire:click="toggleCreate"
+                type="button"
+                wire:click.prevent="toggleCreate"
                 class="rounded-full border border-zinc-900 bg-zinc-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white hover:bg-zinc-800 dark:border-white dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
             >
                 {{ $showCreate ? 'Close' : 'New Period' }}
@@ -66,10 +67,11 @@
             </div>
 
             <div class="mt-6 flex flex-wrap gap-2">
-                <button wire:click="createPeriod" class="rounded-full bg-zinc-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white hover:bg-zinc-800">
-                    Create Period
+                <button type="button" wire:click.prevent="createPeriod" wire:loading.attr="disabled" class="rounded-full bg-zinc-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-70">
+                    <span wire:loading.remove wire:target="createPeriod">Create Period</span>
+                    <span wire:loading wire:target="createPeriod">Creating...</span>
                 </button>
-                <button wire:click="toggleCreate" class="rounded-full border border-zinc-200 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-700 hover:border-zinc-300">
+                <button type="button" wire:click.prevent="toggleCreate" class="rounded-full border border-zinc-200 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-700 hover:border-zinc-300">
                     Cancel
                 </button>
             </div>

@@ -99,7 +99,7 @@ class PostingApprovals extends Component
 
         return match ($type) {
             'sales' => Sale::query()
-                ->where('gl_posting_status', 'pending')
+                ->whereIn('gl_posting_status', ['pending', 'draft'])
                 ->when($this->search, function ($query) {
                     $query->where('id', 'like', '%' . $this->search . '%')
                         ->orWhere('sale_number', 'like', '%' . $this->search . '%')
@@ -108,7 +108,7 @@ class PostingApprovals extends Component
                 ->when($branchId, fn ($query) => $query->where('branch_id', $branchId))
                 ->orderBy('sale_time', 'desc'),
             'purchases' => Purchase::query()
-                ->where('gl_posting_status', 'pending')
+                ->whereIn('gl_posting_status', ['pending', 'draft'])
                 ->when($this->search, function ($query) {
                     $query->where('id', 'like', '%' . $this->search . '%')
                         ->orWhere('purchase_number', 'like', '%' . $this->search . '%')
@@ -117,7 +117,7 @@ class PostingApprovals extends Component
                 ->when($branchId, fn ($query) => $query->where('branch_id', $branchId))
                 ->orderBy('purchase_date', 'desc'),
             'payments' => Payment::query()
-                ->where('gl_posting_status', 'pending')
+                ->whereIn('gl_posting_status', ['pending', 'draft'])
                 ->when($this->search, function ($query) {
                     $query->where('id', 'like', '%' . $this->search . '%')
                         ->orWhere('reference_number', 'like', '%' . $this->search . '%');
@@ -125,7 +125,7 @@ class PostingApprovals extends Component
                 ->when($branchId, fn ($query) => $query->where('branch_id', $branchId))
                 ->orderBy('payment_time', 'desc'),
             'purchase_payments' => PurchasePayment::query()
-                ->where('gl_posting_status', 'pending')
+                ->whereIn('gl_posting_status', ['pending', 'draft'])
                 ->when($this->search, function ($query) {
                     $query->where('id', 'like', '%' . $this->search . '%')
                         ->orWhere('reference_number', 'like', '%' . $this->search . '%');
@@ -133,14 +133,14 @@ class PostingApprovals extends Component
                 ->when($branchId, fn ($query) => $query->where('branch_id', $branchId))
                 ->orderBy('payment_date', 'desc'),
             'adjustments' => StockMovement::query()
-                ->where('gl_posting_status', 'pending')
+                ->whereIn('gl_posting_status', ['pending', 'draft'])
                 ->when($this->search, function ($query) {
                     $query->where('id', 'like', '%' . $this->search . '%');
                 })
                 ->when($branchId, fn ($query) => $query->where('branch_id', $branchId))
                 ->orderBy('movement_date', 'desc'),
             default => Sale::query()
-                ->where('gl_posting_status', 'pending')
+                ->whereIn('gl_posting_status', ['pending', 'draft'])
                 ->when($branchId, fn ($query) => $query->where('branch_id', $branchId))
                 ->orderBy('sale_time', 'desc'),
         };

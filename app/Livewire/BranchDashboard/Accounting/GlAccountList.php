@@ -5,6 +5,7 @@ namespace App\Livewire\BranchDashboard\Accounting;
 use App\Models\GlAccount;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -12,6 +13,9 @@ use Livewire\WithPagination;
 class GlAccountList extends Component
 {
     use WithPagination;
+
+    #[Url(keep: true)]
+    public ?string $b_id = null;
 
     public string $search = '';
 
@@ -24,6 +28,11 @@ class GlAccountList extends Component
     public string $sortDirection = 'asc';
 
     protected $queryString = ['search', 'filterType', 'filterStatus', 'sortBy', 'sortDirection'];
+
+    public function mount(): void
+    {
+        $this->b_id = $this->b_id ?? current_branch_id();
+    }
 
     public function updatingSearch()
     {
@@ -53,7 +62,7 @@ class GlAccountList extends Component
     #[Computed]
     public function accounts()
     {
-        return GlAccount::query()
+        return GlAccount::forBranch($this->b_id ?? current_branch_id())
             ->when($this->search, function ($q) {
                 return $q->where('account_number', 'like', "%{$this->search}%")
                     ->orWhere('account_name', 'like', "%{$this->search}%");

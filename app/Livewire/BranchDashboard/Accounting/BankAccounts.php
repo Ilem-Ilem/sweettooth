@@ -7,6 +7,7 @@ use App\Models\GlAccount;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -14,6 +15,9 @@ use Livewire\WithPagination;
 class BankAccounts extends Component
 {
     use WithPagination;
+
+    #[Url(keep: true)]
+    public ?string $b_id = null;
 
     public string $search = '';
     public string $filterStatus = '';
@@ -32,6 +36,11 @@ class BankAccounts extends Component
     public bool $is_active = true;
 
     protected $queryString = ['search', 'filterStatus', 'sortBy', 'sortDirection'];
+
+    public function mount(): void
+    {
+        $this->b_id = $this->b_id ?? current_branch_id();
+    }
 
     public function updatingSearch()
     {
@@ -57,6 +66,9 @@ class BankAccounts extends Component
     public function bankAccounts()
     {
         return BankAccount::query()
+            ->when($this->b_id, function ($q) {
+                return $q->where('branch_id', $this->b_id);
+            })
             ->when($this->search, function ($q) {
                 return $q->where('bank_name', 'like', "%{$this->search}%")
                     ->orWhere('account_number', 'like', "%{$this->search}%")
@@ -73,6 +85,7 @@ class BankAccounts extends Component
     public function glAccounts()
     {
         return GlAccount::query()
+            ->forBranch($this->b_id ?? current_branch_id())
             ->where('is_active', true)
             ->where('account_type', 'asset')
             ->orderBy('account_number')
@@ -81,6 +94,8 @@ class BankAccounts extends Component
 
     public function rules(): array
     {
+        $branchId = $this->b_id ?? current_branch_id();
+
         return [
             'bank_name' => ['required', 'string', 'max:255'],
             'bank_code' => ['nullable', 'string', 'max:50'],
@@ -88,7 +103,9 @@ class BankAccounts extends Component
                 'required',
                 'string',
                 'max:50',
-                Rule::unique('bank_accounts', 'account_number')->ignore($this->editingId),
+                Rule::unique('bank_accounts', 'account_number')
+                    ->where('branch_id', $branchId)
+                    ->ignore($this->editingId),
             ],
             'account_type' => ['required', Rule::in(['checking', 'savings', 'money_market'])],
             'gl_account_id' => ['nullable', 'exists:gl_accounts,id'],
@@ -129,6 +146,7 @@ class BankAccounts extends Component
 
     public function save(): void
     {
+        $branchId = $this->b_id ?? current_branch_id();
         $user = auth()->user();
         if ($this->editingId) {
             if (! $this->canEditBankAccounts($user)) {
@@ -150,6 +168,7 @@ class BankAccounts extends Component
             $account->update($validated);
             session()->flash('success', 'Bank account updated successfully.');
         } else {
+            $validated['branch_id'] = $branchId;
             BankAccount::create($validated);
             session()->flash('success', 'Bank account created successfully.');
         }
